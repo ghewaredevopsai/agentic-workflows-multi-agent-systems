@@ -1,0 +1,1008 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Module 3 &mdash; Memory, State &amp; the LangGraph Substrate | Agentic Workflows &amp; Multi-Agent Systems</title>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;height:100%}
+body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:#e8e9f5;color:#1e1b4b;overflow:hidden}
+
+/* ---------- chrome ---------- */
+#top{position:fixed;top:0;left:0;right:0;height:44px;background:#1e1b4b;color:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 16px;z-index:40;font-size:13px}
+#top .l{display:flex;align-items:center;gap:12px;min-width:0}
+#top .mod{font-weight:600;letter-spacing:.2px;white-space:nowrap}
+#top .sec{color:#a5b4fc;font-size:12px;border-left:1px solid #3730a3;padding-left:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#top .r{display:flex;align-items:center;gap:8px}
+#top a,#top button{color:#c7d2fe;text-decoration:none;background:#312e81;border:1px solid #4338ca;padding:5px 11px;border-radius:4px;font-size:12.5px;cursor:pointer;font-family:inherit}
+#top a:hover,#top button:hover{background:#4338ca;color:#fff}
+#bot{position:fixed;bottom:0;left:0;right:0;height:38px;background:#1e1b4b;color:#c7d2fe;display:flex;align-items:center;gap:12px;padding:0 16px;z-index:40;font-size:12px}
+#prog{flex:1;height:4px;background:#312e81;border-radius:2px;overflow:hidden}
+#progf{height:100%;width:2%;background:#fbbf24;transition:width .25s ease}
+.navbtn{background:#312e81;color:#fff;border:1px solid #4338ca;border-radius:4px;padding:4px 12px;cursor:pointer;font-size:14px;line-height:1.2;font-family:inherit}
+.navbtn:hover{background:#4338ca}
+#num{min-width:66px;text-align:right;font-variant-numeric:tabular-nums}
+#hint{color:#818cf8}
+#wrap{position:fixed;top:44px;bottom:38px;left:0;right:0;display:flex;align-items:center;justify-content:center}
+#stage{width:1280px;height:720px;background:#fff;box-shadow:0 8px 34px rgba(30,27,75,.28);position:relative;transform-origin:center center;overflow:hidden}
+
+/* ---------- index overlay ---------- */
+#toc{position:fixed;inset:44px 0 38px;background:rgba(23,21,60,.975);color:#fff;z-index:35;display:none;overflow:auto;padding:22px 46px}
+#toc.on{display:block}
+#toc h3{margin:0 0 14px;font-size:15px;color:#a5b4fc;letter-spacing:.6px;text-transform:uppercase;font-weight:600}
+#toc .cols{column-count:2;column-gap:38px}
+#toc .grp{margin-bottom:16px;break-inside:avoid}
+#toc .grph{font-size:12px;color:#fbbf24;font-weight:700;letter-spacing:.8px;margin-bottom:5px;text-transform:uppercase}
+#toc a{display:block;color:#dce0f7;text-decoration:none;padding:4px 10px;border-left:2px solid #4338ca;font-size:14px}
+#toc a:hover{background:#312e81;border-left-color:#818cf8}
+#toc a.cur{background:#4338ca;border-left-color:#fbbf24;color:#fff;font-weight:600}
+#toc a .n{display:inline-block;width:28px;color:#818cf8;font-size:12px}
+
+/* ---------- notes ---------- */
+#notes{position:fixed;left:0;right:0;bottom:38px;max-height:34%;overflow:auto;background:#171540;color:#dce0f7;border-top:3px solid #fbbf24;padding:12px 22px;z-index:36;display:none;font-size:14px;line-height:1.55}
+#notes.on{display:block}
+#notes .h{font-size:11px;letter-spacing:.8px;color:#a5b4fc;font-weight:700;margin-bottom:5px;text-transform:uppercase}
+
+/* ---------- slide shell ---------- */
+.slide{position:absolute;inset:0;padding:26px 40px 20px;display:none;flex-direction:column}
+.slide.active{display:flex}
+.slide h2{margin:0 0 14px;font-size:28px;line-height:1.14;color:#1e1b4b;border-bottom:2px solid #4338ca;padding-bottom:8px;font-weight:600}
+.slide .body{flex:1;display:flex;align-items:center;justify-content:center;min-height:0}
+.slide .body.col{flex-direction:column;justify-content:center;gap:10px}
+.take{margin-top:12px;background:#fffbeb;border-left:4px solid #fbbf24;padding:9px 14px;font-size:17px;color:#4b3a10;border-radius:0 3px 3px 0;line-height:1.35}
+.take b{color:#92400e}
+
+/* title slide */
+.slide.title{justify-content:center;align-items:center;text-align:center;background:linear-gradient(135deg,#1e1b4b 0%,#4338ca 100%);color:#fff;padding:0}
+.slide.title h1{font-size:46px;margin:0 0 12px;font-weight:600;line-height:1.15}
+.slide.title .sub{font-size:21px;color:#c7d2fe;margin-bottom:26px}
+.slide.title .rule{width:120px;height:3px;background:#fbbf24;margin:0 auto 26px}
+.slide.title .meta{font-size:15px;color:#a5b4fc;line-height:1.9}
+
+/* section divider */
+.slide.div{justify-content:center;align-items:center;text-align:center;background:#f5f5fb}
+.slide.div .k{font-size:13px;letter-spacing:2px;color:#818cf8;font-weight:700;text-transform:uppercase;margin-bottom:14px}
+.slide.div h1{font-size:40px;margin:0;color:#1e1b4b;font-weight:600}
+
+/* svg text defaults */
+svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
+.lbl{font-size:12.5px;fill:#64748b;letter-spacing:.7px;font-weight:700;text-transform:uppercase}
+.bx{font-size:17px;fill:#1e1b4b;font-weight:600}
+.bxs{font-size:15px;fill:#1e1b4b;font-weight:600}
+.bd{font-size:14px;fill:#475569}
+.bds{font-size:13px;fill:#64748b}
+.big{font-size:23px;fill:#1e1b4b;font-weight:700}
+.num{font-size:26px;fill:#4338ca;font-weight:700}
+.ok{fill:#0d9488}
+.no{fill:#b91c1c}
+.am{fill:#92400e}
+
+/* quiz */
+.q .body{align-items:center}
+.qbox{width:100%}
+.qstem{font-size:23px;line-height:1.35;color:#1e1b4b;font-weight:600;margin-bottom:22px}
+.opt{display:flex;align-items:flex-start;gap:14px;padding:11px 16px;margin-bottom:10px;background:#f8f8fd;border-left:4px solid #c7d2fe;border-radius:0 4px 4px 0;font-size:19px;line-height:1.3}
+.opt .k{font-weight:700;color:#4338ca;min-width:22px}
+.opt.hit{background:#ecfdf5;border-left-color:#0d9488}
+.opt.hit .k{color:#0d9488}
+.opt.miss{opacity:.5}
+.why{margin-top:14px;background:#f5f3ff;border-left:4px solid #7c3aed;padding:10px 15px;font-size:16.5px;color:#3b2a6b;line-height:1.4;border-radius:0 3px 3px 0}
+.why b{color:#5b21b6}
+.qtag{position:absolute;top:26px;right:40px;font-size:12px;letter-spacing:1px;font-weight:700;color:#818cf8;text-transform:uppercase}
+</style>
+</head>
+<body>
+
+<div id="top">
+  <div class="l">
+    <span class="mod">Module 3 &middot; Memory, State &amp; the LangGraph Substrate</span>
+    <span class="sec" id="secname">&nbsp;</span>
+  </div>
+  <div class="r">
+    <button id="btoc" title="Slide index (T)">Index</button>
+    <button id="bnotes" title="Speaker notes (N)">Notes</button>
+    <a href="../resources/video-resources.html" title="Post-session video resources">Resources</a>
+  </div>
+</div>
+
+<div id="wrap"><div id="stage"></div></div>
+
+<div id="toc"><h3>Slide index</h3><div class="cols" id="toclist"></div></div>
+<div id="notes"><div class="h">Speaker notes</div><div id="notesbody"></div></div>
+
+<div id="bot">
+  <button class="navbtn" id="bprev">&#8592;</button>
+  <button class="navbtn" id="bnext">&#8594;</button>
+  <div id="prog"><div id="progf"></div></div>
+  <span id="hint">&#8592; &#8594; move &middot; T index &middot; N notes &middot; F fullscreen</span>
+  <span id="num">1 / 1</span>
+</div>
+
+<template id="deck">
+
+<svg width="0" height="0" style="position:absolute"><defs>
+<marker id="ai" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#4338ca"/></marker>
+<marker id="ag" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker>
+<marker id="aa" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#d97706"/></marker>
+<marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#b91c1c"/></marker>
+<marker id="at" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#0d9488"/></marker>
+</defs></svg>
+
+<div class="slide title" data-sec="Title" data-notes="Module 1 chose the shape, Module 2 chose the thinking. This module gives both somewhere to live. Frame it as the substrate module: everything on Days 2 and 3 -- orchestration, RAG, evaluation, approval gates -- assumes the state machinery built here.">
+  <h1>Memory, State &amp; the LangGraph Substrate</h1>
+  <div class="sub">Module 3 &middot; Day 1 &mdash; The Agent Loop: Reasoning, Memory &amp; State</div>
+  <div class="rule"></div>
+  <div class="meta">
+    Agentic Workflows &amp; Multi-Agent Systems &middot; 3 days &middot; Advanced<br>
+    Trainer: Rajesh Gheware
+  </div>
+</div>
+
+<div class="slide" data-sec="Orientation" data-notes="Say what closes today: after this module the agent has a shape, a way of thinking, and a place to keep what it learns. Everything on Days 2 and 3 assumes this substrate exists.">
+  <h2>The third piece of the loop</h2>
+  <div class="body">
+    <svg width="1180" height="420" viewBox="0 0 1180 420" role="img" aria-label="Modules 1 to 3 building the agent loop">
+      <rect x="50" y="70" width="330" height="120" rx="8" fill="#f8f8fd" stroke="#cbd5e1" stroke-width="2"/>
+      <text x="215" y="104" text-anchor="middle" class="lbl">Module 1</text>
+      <text x="215" y="138" text-anchor="middle" class="bx">The shape</text>
+      <text x="215" y="166" text-anchor="middle" class="bd">workflow, one agent, or many</text>
+
+      <rect x="410" y="70" width="330" height="120" rx="8" fill="#f8f8fd" stroke="#cbd5e1" stroke-width="2"/>
+      <text x="575" y="104" text-anchor="middle" class="lbl">Module 2</text>
+      <text x="575" y="138" text-anchor="middle" class="bx">The thinking</text>
+      <text x="575" y="166" text-anchor="middle" class="bd">CoT, ReAct, ToT, Reflection</text>
+
+      <rect x="770" y="70" width="360" height="120" rx="8" fill="#eef2ff" stroke="#4338ca" stroke-width="2.5"/>
+      <text x="950" y="104" text-anchor="middle" class="lbl">Module 3</text>
+      <text x="950" y="138" text-anchor="middle" class="bx">Somewhere to keep it</text>
+      <text x="950" y="166" text-anchor="middle" class="bd">memory, state, and a graph that owns both</text>
+
+      <line x1="385" y1="130" x2="405" y2="130" stroke="#94a3b8" stroke-width="2" marker-end="url(#ag)"/>
+      <line x1="745" y1="130" x2="765" y2="130" stroke="#4338ca" stroke-width="2.5" marker-end="url(#ai)"/>
+
+      <text x="590" y="248" text-anchor="middle" class="lbl">What this module adds</text>
+      <rect x="60" y="266" width="250" height="112" rx="6" fill="#f8f8fd" stroke="#c7d2fe" stroke-width="2"/>
+      <text x="185" y="298" text-anchor="middle" class="bxs">Memory that survives</text>
+      <text x="185" y="326" text-anchor="middle" class="bds">short-term, long-term,</text>
+      <text x="185" y="346" text-anchor="middle" class="bds">episodic &mdash; and compaction</text>
+
+      <rect x="330" y="266" width="250" height="112" rx="6" fill="#f8f8fd" stroke="#c7d2fe" stroke-width="2"/>
+      <text x="455" y="298" text-anchor="middle" class="bxs">Perception</text>
+      <text x="455" y="326" text-anchor="middle" class="bds">raw output becomes an</text>
+      <text x="455" y="346" text-anchor="middle" class="bds">observation it can act on</text>
+
+      <rect x="600" y="266" width="250" height="112" rx="6" fill="#f8f8fd" stroke="#c7d2fe" stroke-width="2"/>
+      <text x="725" y="298" text-anchor="middle" class="bxs">State, made explicit</text>
+      <text x="725" y="326" text-anchor="middle" class="bds">StateGraph, reducers,</text>
+      <text x="725" y="346" text-anchor="middle" class="bds">nodes, edges, cycles</text>
+
+      <rect x="870" y="266" width="250" height="112" rx="6" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
+      <text x="995" y="298" text-anchor="middle" class="bxs am">Checkpoints</text>
+      <text x="995" y="326" text-anchor="middle" class="bds">resume after a restart,</text>
+      <text x="995" y="346" text-anchor="middle" class="bds">and an audit trail</text>
+    </svg>
+  </div>
+</div>
+
+<div class="slide div" data-sec="Memory" data-notes="Module 1 named the three memory types in one slide. This section is about what each actually costs you and where each one breaks.">
+  <div class="k">Part one</div>
+  <h1>Memory that survives</h1>
+</div>
+
+<div class="slide" data-sec="Memory" data-notes="Three kinds, three different lifetimes and three different governance problems. The right-hand column is the one a bank asks about first -- long-term memory is a data store, with everything that implies.">
+  <h2>Three memories, three lifetimes, three governance problems</h2>
+  <div class="body">
+    <svg width="1180" height="420" viewBox="0 0 1180 420" role="img" aria-label="Short-term, long-term and episodic memory compared">
+      <line x1="60" y1="92" x2="1120" y2="92" stroke="#4338ca" stroke-width="2"/>
+      <text x="70" y="74" class="lbl">&nbsp;</text>
+      <text x="330" y="74" text-anchor="middle" class="lbl">Short-term</text>
+      <text x="640" y="74" text-anchor="middle" class="lbl">Long-term</text>
+      <text x="950" y="74" text-anchor="middle" class="lbl">Episodic</text>
+
+      <text x="70" y="132" class="bxs">Holds</text>
+      <text x="330" y="132" text-anchor="middle" class="bd">this conversation</text>
+      <text x="640" y="132" text-anchor="middle" class="bd">facts worth keeping</text>
+      <text x="950" y="132" text-anchor="middle" class="bd">what happened last time</text>
+      <line x1="60" y1="150" x2="1120" y2="150" stroke="#eef2ff" stroke-width="1.5"/>
+
+      <text x="70" y="186" class="bxs">Lives in</text>
+      <text x="330" y="186" text-anchor="middle" class="bd">the context window</text>
+      <text x="640" y="186" text-anchor="middle" class="bd">a store you own</text>
+      <text x="950" y="186" text-anchor="middle" class="bd">a run log</text>
+      <line x1="60" y1="204" x2="1120" y2="204" stroke="#eef2ff" stroke-width="1.5"/>
+
+      <text x="70" y="240" class="bxs">Dies when</text>
+      <text x="330" y="240" text-anchor="middle" class="bd">the session ends</text>
+      <text x="640" y="240" text-anchor="middle" class="bd">you delete it</text>
+      <text x="950" y="240" text-anchor="middle" class="bd">you prune it</text>
+      <line x1="60" y1="258" x2="1120" y2="258" stroke="#eef2ff" stroke-width="1.5"/>
+
+      <text x="70" y="294" class="bxs">Fails by</text>
+      <text x="330" y="294" text-anchor="middle" class="bd no">crowding the window</text>
+      <text x="640" y="294" text-anchor="middle" class="bd no">going stale, or leaking</text>
+      <text x="950" y="294" text-anchor="middle" class="bd no">teaching a past mistake</text>
+      <line x1="60" y1="312" x2="1120" y2="312" stroke="#4338ca" stroke-width="2"/>
+
+      <text x="70" y="352" class="bxs am">Governance</text>
+      <text x="330" y="352" text-anchor="middle" class="bds am">none &mdash; it is transient</text>
+      <text x="640" y="352" text-anchor="middle" class="bds am">retention, PII, right to erase</text>
+      <text x="950" y="352" text-anchor="middle" class="bds am">who may read past cases?</text>
+      <text x="590" y="396" text-anchor="middle" class="bd">The moment memory persists, it stops being an implementation detail.</text>
+    </svg>
+  </div>
+  <div class="take"><b>The line to remember:</b> long-term memory is a database with a friendly name. Module 8 asks what may enter it; here we make it work.</div>
+</div>
+
+<div class="slide" data-sec="Memory" data-notes="The arithmetic that decides everything. Buffer memory is linear in turns and the window is fixed, so there is always a turn N at which the earliest instruction falls out. Ask the room to guess N for their own assistant.">
+  <h2>Why buffer memory always fails, eventually</h2>
+  <div class="body">
+    <svg width="1180" height="420" viewBox="0 0 1180 420" role="img" aria-label="Buffer memory growth against a fixed context window">
+      <text x="300" y="44" text-anchor="middle" class="lbl">Buffer &mdash; keep everything</text>
+      <rect x="70" y="62" width="460" height="40" rx="4" fill="#eef2ff" stroke="#818cf8"/>
+      <rect x="70" y="62" width="90" height="40" rx="4" fill="#4338ca"/>
+      <text x="115" y="88" text-anchor="middle" font-size="12" fill="#fff">turn 5</text>
+      <text x="560" y="88" class="bds ok">fits</text>
+
+      <rect x="70" y="116" width="460" height="40" rx="4" fill="#eef2ff" stroke="#818cf8"/>
+      <rect x="70" y="116" width="270" height="40" rx="4" fill="#4338ca"/>
+      <text x="205" y="142" text-anchor="middle" font-size="12" fill="#fff">turn 20</text>
+      <text x="560" y="142" class="bds">fits</text>
+
+      <rect x="70" y="170" width="460" height="40" rx="4" fill="#eef2ff" stroke="#818cf8"/>
+      <rect x="70" y="170" width="460" height="40" rx="4" fill="#b91c1c"/>
+      <text x="300" y="196" text-anchor="middle" font-size="12" fill="#fff">turn 40 &mdash; window full</text>
+      <text x="560" y="196" class="bds no">the system prompt is now</text>
+      <text x="560" y="216" class="bds no">the oldest thing in it</text>
+
+      <rect x="70" y="240" width="460" height="40" rx="4" fill="#eef2ff" stroke="#818cf8"/>
+      <rect x="70" y="240" width="460" height="40" rx="4" fill="#b91c1c"/>
+      <path d="M70 260 L40 260" stroke="#b91c1c" stroke-width="2.5" marker-end="url(#ar)"/>
+      <text x="300" y="266" text-anchor="middle" font-size="12" fill="#fff">turn 60 &mdash; the earliest turns fall out</text>
+      <text x="300" y="316" text-anchor="middle" class="bx no">The agent stops obeying constraints</text>
+      <text x="300" y="342" text-anchor="middle" class="bx no">it was given at the start.</text>
+      <text x="300" y="376" text-anchor="middle" class="bds">And nothing errors. It just gets worse.</text>
+
+      <line x1="620" y1="50" x2="620" y2="390" stroke="#e2e8f0" stroke-width="2"/>
+
+      <text x="880" y="44" text-anchor="middle" class="lbl">Summary &mdash; keep the recent, fold the rest</text>
+      <rect x="680" y="62" width="400" height="40" rx="4" fill="#eef2ff" stroke="#818cf8"/>
+      <rect x="680" y="62" width="70" height="40" rx="4" fill="#fbbf24"/>
+      <text x="715" y="88" text-anchor="middle" font-size="11" fill="#3b2708">summary</text>
+      <rect x="756" y="62" width="120" height="40" rx="4" fill="#4338ca"/>
+      <text x="816" y="88" text-anchor="middle" font-size="12" fill="#fff">recent turns</text>
+      <text x="880" y="130" text-anchor="middle" class="bd">turn 20</text>
+
+      <rect x="680" y="152" width="400" height="40" rx="4" fill="#eef2ff" stroke="#818cf8"/>
+      <rect x="680" y="152" width="110" height="40" rx="4" fill="#fbbf24"/>
+      <text x="735" y="178" text-anchor="middle" font-size="11" fill="#3b2708">summary</text>
+      <rect x="796" y="152" width="120" height="40" rx="4" fill="#4338ca"/>
+      <text x="856" y="178" text-anchor="middle" font-size="12" fill="#fff">recent turns</text>
+      <text x="880" y="220" text-anchor="middle" class="bd">turn 60 &mdash; still bounded</text>
+
+      <rect x="700" y="252" width="360" height="106" rx="7" fill="#ecfdf5" stroke="#0d9488" stroke-width="2.5"/>
+      <text x="880" y="284" text-anchor="middle" class="bx ok">Bounded, but lossy</text>
+      <text x="880" y="314" text-anchor="middle" class="bd">You chose what to forget. The question</text>
+      <text x="880" y="338" text-anchor="middle" class="bd">is whether you chose deliberately.</text>
+    </svg>
+  </div>
+  <div class="take"><b>Compaction is a product decision, not a technical one:</b> something is being thrown away, and you are picking what.</div>
+</div>
+
+<div class="slide div" data-sec="Perception" data-notes="The most under-taught topic in this course. Agents fail on perception far more often than on reasoning, and it looks like a reasoning failure every time.">
+  <div class="k">Part two</div>
+  <h1>Perception</h1>
+</div>
+
+<div class="slide" data-sec="Perception" data-notes="Same fact, three renderings. The middle one is what most tools return. The right one is what the model can actually act on. Emphasise: this is free accuracy -- no model change, no extra call.">
+  <h2>Raw output is not an observation</h2>
+  <div class="body">
+    <svg width="1180" height="420" viewBox="0 0 1180 420" role="img" aria-label="The same tool result rendered three ways">
+      <rect x="50" y="56" width="340" height="300" rx="8" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
+      <text x="220" y="90" text-anchor="middle" class="bx no">Raw dump</text>
+      <rect x="75" y="110" width="290" height="120" rx="4" fill="#fff" stroke="#fecaca"/>
+      <text x="90" y="134" font-size="11.5" font-family="Consolas,monospace" fill="#475569">{"i":1003,"a":990000.0,</text>
+      <text x="90" y="156" font-size="11.5" font-family="Consolas,monospace" fill="#475569">"c":"USD","s":2,"rc":7,</text>
+      <text x="90" y="178" font-size="11.5" font-family="Consolas,monospace" fill="#475569">"vd":"2026-09-02","cp":19,</text>
+      <text x="90" y="200" font-size="11.5" font-family="Consolas,monospace" fill="#475569">"f":null,"x":[],"ts":17...}</text>
+      <text x="220" y="262" text-anchor="middle" class="bd">Everything the system knows.</text>
+      <text x="220" y="290" text-anchor="middle" class="bds">The model must guess that s=2</text>
+      <text x="220" y="312" text-anchor="middle" class="bds">means held and rc=7 is a limit breach.</text>
+      <text x="220" y="340" text-anchor="middle" class="bxs no">It will guess wrong.</text>
+
+      <rect x="410" y="56" width="340" height="300" rx="8" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
+      <text x="580" y="90" text-anchor="middle" class="bx am">Verbose but decoded</text>
+      <rect x="435" y="110" width="290" height="120" rx="4" fill="#fff" stroke="#fde68a"/>
+      <text x="450" y="134" font-size="11.5" font-family="Consolas,monospace" fill="#475569">{"ref":"PMT-1003",</text>
+      <text x="450" y="156" font-size="11.5" font-family="Consolas,monospace" fill="#475569"> "amount":990000.0,</text>
+      <text x="450" y="178" font-size="11.5" font-family="Consolas,monospace" fill="#475569"> "status":"held",</text>
+      <text x="450" y="200" font-size="11.5" font-family="Consolas,monospace" fill="#475569"> "reason":"LIMIT_BREACH"...}</text>
+      <text x="580" y="262" text-anchor="middle" class="bd">Readable, and complete.</text>
+      <text x="580" y="290" text-anchor="middle" class="bds">Costs tokens on every step, and</text>
+      <text x="580" y="312" text-anchor="middle" class="bds">buries the one field that matters.</text>
+      <text x="580" y="340" text-anchor="middle" class="bxs am">Workable. Not free.</text>
+
+      <rect x="770" y="56" width="360" height="300" rx="8" fill="#ecfdf5" stroke="#0d9488" stroke-width="2.5"/>
+      <text x="950" y="90" text-anchor="middle" class="bx ok">An observation</text>
+      <rect x="795" y="110" width="310" height="120" rx="4" fill="#fff" stroke="#99f6e4"/>
+      <text x="810" y="138" font-size="12" font-family="Consolas,monospace" fill="#0d9488">PMT-1003 is HELD.</text>
+      <text x="810" y="162" font-size="12" font-family="Consolas,monospace" fill="#475569">Reason: LIMIT_BREACH</text>
+      <text x="810" y="186" font-size="12" font-family="Consolas,monospace" fill="#475569">USD 990,000 &gt; 500,000 limit.</text>
+      <text x="810" y="210" font-size="12" font-family="Consolas,monospace" fill="#b91c1c">Human decision required.</text>
+      <text x="950" y="262" text-anchor="middle" class="bd">The fact, its meaning, and</text>
+      <text x="950" y="286" text-anchor="middle" class="bd">the constraint it implies.</text>
+      <text x="950" y="322" text-anchor="middle" class="bxs ok">Fewer tokens than the middle box,</text>
+      <text x="950" y="344" text-anchor="middle" class="bxs ok">and far harder to misread.</text>
+    </svg>
+  </div>
+  <div class="take"><b>Perception is where the cheapest accuracy lives.</b> No model change, no extra call &mdash; just deciding what the agent gets to see.</div>
+</div>
+
+<div class="slide" data-sec="Perception" data-notes="The blind spots. Every one of these has caused a production incident somewhere. The last is the nastiest: an empty result and a failed query look identical unless the tool says which.">
+  <h2>What the agent cannot see</h2>
+  <div class="body">
+    <svg width="1180" height="410" viewBox="0 0 1180 410" role="img" aria-label="Four things absent from a tool result that the agent will assume">
+      <g>
+        <rect x="60" y="56" width="510" height="130" rx="7" fill="#f8f8fd" stroke="#cbd5e1" stroke-width="2"/>
+        <text x="90" y="88" class="lbl">01</text>
+        <text x="315" y="112" text-anchor="middle" class="bx">Freshness</text>
+        <text x="315" y="142" text-anchor="middle" class="bd">A record from a cache two hours stale looks</text>
+        <text x="315" y="164" text-anchor="middle" class="bd">exactly like a live one. Stamp it, or it lies.</text>
+      </g>
+      <g>
+        <rect x="610" y="56" width="510" height="130" rx="7" fill="#f8f8fd" stroke="#cbd5e1" stroke-width="2"/>
+        <text x="640" y="88" class="lbl">02</text>
+        <text x="865" y="112" text-anchor="middle" class="bx">Completeness</text>
+        <text x="865" y="142" text-anchor="middle" class="bd">A page-one result reads as the whole answer.</text>
+        <text x="865" y="164" text-anchor="middle" class="bd">Say &ldquo;3 of 47 shown&rdquo; or it will conclude on 3.</text>
+      </g>
+      <g>
+        <rect x="60" y="206" width="510" height="130" rx="7" fill="#f8f8fd" stroke="#cbd5e1" stroke-width="2"/>
+        <text x="90" y="238" class="lbl">03</text>
+        <text x="315" y="262" text-anchor="middle" class="bx">Authority</text>
+        <text x="315" y="292" text-anchor="middle" class="bd">A draft policy and a ratified one are both text.</text>
+        <text x="315" y="314" text-anchor="middle" class="bd">Mark which is binding.</text>
+      </g>
+      <g>
+        <rect x="610" y="206" width="510" height="130" rx="7" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
+        <text x="640" y="238" class="lbl">04</text>
+        <text x="865" y="262" text-anchor="middle" class="bx no">Absence vs. failure</text>
+        <text x="865" y="292" text-anchor="middle" class="bd">&ldquo;No sanctions hits&rdquo; and &ldquo;the sanctions check</text>
+        <text x="865" y="314" text-anchor="middle" class="bd">did not run&rdquo; are the same empty list.</text>
+      </g>
+      <text x="590" y="384" text-anchor="middle" class="bx am">The agent will assume the reassuring reading of every one of these.</text>
+    </svg>
+  </div>
+  <div class="take"><b>Design rule:</b> a tool that returns nothing must say <em>which kind of nothing</em>. Lab 3.2 builds exactly that.</div>
+</div>
+
+<div class="slide div" data-sec="The graph" data-notes="Now the substrate. The single idea: state stops being something hidden in a conversation and becomes an object you can print, assert on, and store.">
+  <div class="k">Part three</div>
+  <h1>State, made explicit</h1>
+</div>
+
+<div class="slide" data-sec="The graph" data-notes="The core contrast of the module. On the left, state is implicit in a growing message list -- you cannot inspect it, test it or resume it. On the right it is a dict with a schema. Everything else in LangGraph follows from that one move.">
+  <h2>From a message list to an object you can inspect</h2>
+  <div class="body">
+    <svg width="1180" height="420" viewBox="0 0 1180 420" role="img" aria-label="Implicit conversational state compared with an explicit state object">
+      <rect x="50" y="52" width="500" height="310" rx="8" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
+      <text x="300" y="86" text-anchor="middle" class="bx no">State hidden in a conversation</text>
+      <rect x="80" y="108" width="440" height="28" rx="3" fill="#fff" stroke="#fecaca"/>
+      <text x="95" y="127" font-size="12" fill="#64748b">human: investigate PMT-1003</text>
+      <rect x="80" y="142" width="440" height="28" rx="3" fill="#fff" stroke="#fecaca"/>
+      <text x="95" y="161" font-size="12" fill="#64748b">ai: Action: lookup_payment("PMT-1003")</text>
+      <rect x="80" y="176" width="440" height="28" rx="3" fill="#fff" stroke="#fecaca"/>
+      <text x="95" y="195" font-size="12" fill="#64748b">tool: {"status":"held", ...}</text>
+      <rect x="80" y="210" width="440" height="28" rx="3" fill="#fff" stroke="#fecaca"/>
+      <text x="95" y="229" font-size="12" fill="#64748b">ai: Action: policy_for("LIMIT_BREACH")</text>
+      <text x="300" y="272" text-anchor="middle" class="bd">Where is &ldquo;needs a human&rdquo; stored?</text>
+      <text x="300" y="300" text-anchor="middle" class="bxs no">Nowhere. It is implied by text.</text>
+      <text x="300" y="330" text-anchor="middle" class="bds">You cannot assert on it, resume it,</text>
+      <text x="300" y="350" text-anchor="middle" class="bds">or show an auditor what was known when.</text>
+
+      <line x1="565" y1="200" x2="605" y2="200" stroke="#4338ca" stroke-width="2.5" marker-end="url(#ai)"/>
+
+      <rect x="630" y="52" width="500" height="310" rx="8" fill="#ecfdf5" stroke="#0d9488" stroke-width="2.5"/>
+      <text x="880" y="86" text-anchor="middle" class="bx ok">State as an explicit object</text>
+      <rect x="660" y="108" width="440" height="150" rx="4" fill="#fff" stroke="#99f6e4"/>
+      <text x="678" y="132" font-size="12.5" font-family="Consolas,monospace" fill="#0d9488">class CaseState(TypedDict):</text>
+      <text x="678" y="156" font-size="12.5" font-family="Consolas,monospace" fill="#475569">    ref: str</text>
+      <text x="678" y="180" font-size="12.5" font-family="Consolas,monospace" fill="#475569">    findings: Annotated[list, add]</text>
+      <text x="678" y="204" font-size="12.5" font-family="Consolas,monospace" fill="#475569">    needs_human: bool</text>
+      <text x="678" y="228" font-size="12.5" font-family="Consolas,monospace" fill="#475569">    steps: int</text>
+      <text x="678" y="250" font-size="12.5" font-family="Consolas,monospace" fill="#b91c1c">    # every node reads and writes THIS</text>
+      <text x="880" y="292" text-anchor="middle" class="bd">Printable. Assertable. Storable.</text>
+      <text x="880" y="322" text-anchor="middle" class="bxs ok">Everything else in this module</text>
+      <text x="880" y="344" text-anchor="middle" class="bxs ok">follows from that one move.</text>
+    </svg>
+  </div>
+  <div class="take"><b>This is why we drop to LangGraph.</b> Not for the graph &mdash; for the state the graph forces you to declare.</div>
+</div>
+
+<div class="slide" data-sec="The graph" data-notes="Four parts, and only four. Walk the payment-exception graph left to right, then point at the cycle: that is the loop from Module 1, now drawn rather than implied.">
+  <h2>Nodes, edges, cycles &mdash; the whole vocabulary</h2>
+  <div class="body">
+    <svg width="1180" height="420" viewBox="0 0 1180 420" role="img" aria-label="A StateGraph for the payment exception case">
+      <circle cx="90" cy="150" r="22" fill="#1e1b4b"/><text x="90" y="156" text-anchor="middle" font-size="11" fill="#fff">START</text>
+      <line x1="112" y1="150" x2="168" y2="150" stroke="#4338ca" stroke-width="2.5" marker-end="url(#ai)"/>
+
+      <rect x="175" y="120" width="170" height="60" rx="6" fill="#4338ca"/>
+      <text x="260" y="146" text-anchor="middle" font-size="14" font-weight="600" fill="#fff">read_ledger</text>
+      <text x="260" y="166" text-anchor="middle" font-size="11" fill="#c7d2fe">writes: findings, ref</text>
+      <line x1="345" y1="150" x2="400" y2="150" stroke="#4338ca" stroke-width="2.5" marker-end="url(#ai)"/>
+
+      <rect x="407" y="120" width="170" height="60" rx="6" fill="#4338ca"/>
+      <text x="492" y="146" text-anchor="middle" font-size="14" font-weight="600" fill="#fff">read_policy</text>
+      <text x="492" y="166" text-anchor="middle" font-size="11" fill="#c7d2fe">writes: findings</text>
+      <line x1="577" y1="150" x2="632" y2="150" stroke="#4338ca" stroke-width="2.5" marker-end="url(#ai)"/>
+
+      <polygon points="720,110 800,150 720,190 640,150" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
+      <text x="720" y="146" text-anchor="middle" font-size="12" font-weight="700" fill="#92400e">enough?</text>
+      <text x="720" y="164" text-anchor="middle" font-size="10" fill="#92400e">conditional edge</text>
+
+      <path d="M720 190 Q720 262 480 262 Q300 262 260 186" fill="none" stroke="#d97706" stroke-width="2.5" marker-end="url(#aa)"/>
+      <text x="490" y="284" text-anchor="middle" class="bds am">no &mdash; the cycle: go round again with what you now know</text>
+
+      <line x1="800" y1="150" x2="856" y2="150" stroke="#0d9488" stroke-width="2.5" marker-end="url(#at)"/>
+      <text x="828" y="138" text-anchor="middle" class="bds ok">yes</text>
+      <rect x="863" y="120" width="170" height="60" rx="6" fill="#0d9488"/>
+      <text x="948" y="146" text-anchor="middle" font-size="14" font-weight="600" fill="#fff">write_note</text>
+      <text x="948" y="166" text-anchor="middle" font-size="11" fill="#ccfbf1">writes: answer</text>
+      <line x1="1033" y1="150" x2="1078" y2="150" stroke="#4338ca" stroke-width="2.5" marker-end="url(#ai)"/>
+      <circle cx="1102" cy="150" r="22" fill="#1e1b4b"/><text x="1102" y="156" text-anchor="middle" font-size="12" fill="#fff">END</text>
+
+      <rect x="60" y="322" width="245" height="76" rx="6" fill="#f8f8fd" stroke="#c7d2fe" stroke-width="2"/>
+      <text x="182" y="348" text-anchor="middle" class="bxs">Node</text>
+      <text x="182" y="374" text-anchor="middle" class="bds">a function: state in, partial state out</text>
+
+      <rect x="325" y="322" width="245" height="76" rx="6" fill="#f8f8fd" stroke="#c7d2fe" stroke-width="2"/>
+      <text x="447" y="348" text-anchor="middle" class="bxs">Edge</text>
+      <text x="447" y="374" text-anchor="middle" class="bds">what runs next, always</text>
+
+      <rect x="590" y="322" width="245" height="76" rx="6" fill="#fffbeb" stroke="#fbbf24" stroke-width="2"/>
+      <text x="712" y="348" text-anchor="middle" class="bxs am">Conditional edge</text>
+      <text x="712" y="374" text-anchor="middle" class="bds">what runs next, given the state</text>
+
+      <rect x="855" y="322" width="245" height="76" rx="6" fill="#f8f8fd" stroke="#c7d2fe" stroke-width="2"/>
+      <text x="977" y="348" text-anchor="middle" class="bxs">Cycle</text>
+      <text x="977" y="374" text-anchor="middle" class="bds">an edge pointing backwards</text>
+    </svg>
+  </div>
+  <div class="take"><b>A cycle is not a special feature.</b> It is an edge that points backwards &mdash; which is exactly the loop you hand-wrote in Lab 1.1.</div>
+</div>
+
+<div class="slide" data-sec="The graph" data-notes="Reducers are the piece people skip and then debug for a day. Default is replace; for anything accumulating you must say so. The parallel case on the right is where it becomes non-negotiable.">
+  <h2>Reducers &mdash; what happens when two nodes write the same key</h2>
+  <div class="body">
+    <svg width="1180" height="420" viewBox="0 0 1180 420" role="img" aria-label="Replace versus append reducers, and why parallel branches need them">
+      <rect x="50" y="52" width="510" height="150" rx="8" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
+      <text x="305" y="84" text-anchor="middle" class="bx no">Default: replace</text>
+      <text x="80" y="118" font-size="12.5" font-family="Consolas,monospace" fill="#475569">findings: list</text>
+      <text x="305" y="150" text-anchor="middle" class="bd">node A writes ["held"], then node B</text>
+      <text x="305" y="172" text-anchor="middle" class="bd">writes ["needs treasury"] &mdash; and A is gone.</text>
+      <text x="305" y="194" text-anchor="middle" class="bds no">Silently. No error, no warning.</text>
+
+      <rect x="50" y="222" width="510" height="150" rx="8" fill="#ecfdf5" stroke="#0d9488" stroke-width="2.5"/>
+      <text x="305" y="254" text-anchor="middle" class="bx ok">Declared: append</text>
+      <text x="80" y="288" font-size="12.5" font-family="Consolas,monospace" fill="#0d9488">findings: Annotated[list, add]</text>
+      <text x="305" y="320" text-anchor="middle" class="bd">Both writes survive, in order.</text>
+      <text x="305" y="342" text-anchor="middle" class="bd">The reducer says how to merge, once,</text>
+      <text x="305" y="364" text-anchor="middle" class="bds ok">instead of every node remembering to.</text>
+
+      <line x1="600" y1="60" x2="600" y2="380" stroke="#e2e8f0" stroke-width="2"/>
+
+      <text x="880" y="80" text-anchor="middle" class="lbl">Where it stops being optional</text>
+      <rect x="800" y="98" width="160" height="46" rx="5" fill="#4338ca"/>
+      <text x="880" y="126" text-anchor="middle" font-size="13" fill="#fff">fan out</text>
+      <line x1="840" y1="144" x2="740" y2="186" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
+      <line x1="880" y1="144" x2="880" y2="186" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
+      <line x1="920" y1="144" x2="1020" y2="186" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
+      <rect x="660" y="192" width="160" height="46" rx="5" fill="#eef2ff" stroke="#818cf8" stroke-width="2"/>
+      <text x="740" y="220" text-anchor="middle" class="bds">ledger</text>
+      <rect x="800" y="192" width="160" height="46" rx="5" fill="#eef2ff" stroke="#818cf8" stroke-width="2"/>
+      <text x="880" y="220" text-anchor="middle" class="bds">policy</text>
+      <rect x="940" y="192" width="160" height="46" rx="5" fill="#eef2ff" stroke="#818cf8" stroke-width="2"/>
+      <text x="1020" y="220" text-anchor="middle" class="bds">counterparty</text>
+      <line x1="740" y1="238" x2="840" y2="278" stroke="#94a3b8" stroke-width="2" marker-end="url(#ag)"/>
+      <line x1="880" y1="238" x2="880" y2="278" stroke="#94a3b8" stroke-width="2" marker-end="url(#ag)"/>
+      <line x1="1020" y1="238" x2="920" y2="278" stroke="#94a3b8" stroke-width="2" marker-end="url(#ag)"/>
+      <rect x="800" y="284" width="160" height="46" rx="5" fill="#0d9488"/>
+      <text x="880" y="312" text-anchor="middle" font-size="13" fill="#fff">join</text>
+      <text x="880" y="356" text-anchor="middle" class="bx no">Three writes, one key.</text>
+      <text x="880" y="380" text-anchor="middle" class="bds">Without a reducer, two findings vanish.</text>
+    </svg>
+  </div>
+  <div class="take"><b>The rule:</b> any key more than one node writes needs a declared reducer. Default-replace plus parallelism is silent data loss.</div>
+</div>
+
+<div class="slide div" data-sec="Checkpoints" data-notes="The part that turns a demo into something operable -- and the part a bank cares about most, because it is also the audit trail.">
+  <div class="k">Part four</div>
+  <h1>Checkpoints</h1>
+</div>
+
+<div class="slide" data-sec="Checkpoints" data-notes="One mechanism, four capabilities. Stress the fourth: the checkpoint history IS the audit record, which is a far stronger artefact than the model's own account of what it did.">
+  <h2>One mechanism, four things you get</h2>
+  <div class="body">
+    <svg width="1180" height="420" viewBox="0 0 1180 420" role="img" aria-label="What checkpointing provides">
+      <text x="590" y="44" text-anchor="middle" class="lbl">after every node, the full state is written under a thread id</text>
+      <rect x="120" y="62" width="130" height="46" rx="5" fill="#4338ca"/><text x="185" y="90" text-anchor="middle" font-size="12" fill="#fff">read_ledger</text>
+      <line x1="250" y1="85" x2="290" y2="85" stroke="#94a3b8" stroke-width="2" marker-end="url(#ag)"/>
+      <rect x="295" y="62" width="130" height="46" rx="5" fill="#4338ca"/><text x="360" y="90" text-anchor="middle" font-size="12" fill="#fff">read_policy</text>
+      <line x1="425" y1="85" x2="465" y2="85" stroke="#94a3b8" stroke-width="2" marker-end="url(#ag)"/>
+      <rect x="470" y="62" width="130" height="46" rx="5" fill="#4338ca"/><text x="535" y="90" text-anchor="middle" font-size="12" fill="#fff">decide</text>
+      <line x1="600" y1="85" x2="640" y2="85" stroke="#94a3b8" stroke-width="2" marker-end="url(#ag)"/>
+      <rect x="645" y="62" width="130" height="46" rx="5" fill="#0d9488"/><text x="710" y="90" text-anchor="middle" font-size="12" fill="#fff">write_note</text>
+      <g stroke="#fbbf24" stroke-width="2" stroke-dasharray="3 3">
+        <line x1="185" y1="108" x2="185" y2="140"/><line x1="360" y1="108" x2="360" y2="140"/>
+        <line x1="535" y1="108" x2="535" y2="140"/><line x1="710" y1="108" x2="710" y2="140"/>
+      </g>
+      <rect x="120" y="142" width="655" height="34" rx="4" fill="#fffbeb" stroke="#fbbf24" stroke-width="2"/>
+      <text x="447" y="164" text-anchor="middle" class="bxs am">checkpoint 1 &middot; 2 &middot; 3 &middot; 4 &mdash; each a complete, replayable state</text>
+
+      <g>
+        <rect x="60" y="206" width="255" height="106" rx="7" fill="#eef2ff" stroke="#818cf8" stroke-width="2"/>
+        <text x="187" y="238" text-anchor="middle" class="bxs">Resume</text>
+        <text x="187" y="266" text-anchor="middle" class="bds">pod restarts at step 3 of 4;</text>
+        <text x="187" y="288" text-anchor="middle" class="bds">it continues, it does not restart</text>
+      </g>
+      <g>
+        <rect x="330" y="206" width="255" height="106" rx="7" fill="#eef2ff" stroke="#818cf8" stroke-width="2"/>
+        <text x="457" y="238" text-anchor="middle" class="bxs">Human in the loop</text>
+        <text x="457" y="266" text-anchor="middle" class="bds">stop before write_note,</text>
+        <text x="457" y="288" text-anchor="middle" class="bds">wait for approval, carry on</text>
+      </g>
+      <g>
+        <rect x="600" y="206" width="255" height="106" rx="7" fill="#eef2ff" stroke="#818cf8" stroke-width="2"/>
+        <text x="727" y="238" text-anchor="middle" class="bxs">Time travel</text>
+        <text x="727" y="266" text-anchor="middle" class="bds">rewind to checkpoint 2,</text>
+        <text x="727" y="288" text-anchor="middle" class="bds">change one field, re-run</text>
+      </g>
+      <g>
+        <rect x="870" y="206" width="250" height="106" rx="7" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
+        <text x="995" y="238" text-anchor="middle" class="bxs am">Audit trail</text>
+        <text x="995" y="266" text-anchor="middle" class="bds">what was known, when,</text>
+        <text x="995" y="288" text-anchor="middle" class="bds">and what it did next</text>
+      </g>
+      <text x="590" y="356" text-anchor="middle" class="bx">The audit trail is a by-product, not a feature you build.</text>
+      <text x="590" y="386" text-anchor="middle" class="bds">And it beats asking the model to explain itself &mdash; that account is generated, this one is recorded.</text>
+    </svg>
+  </div>
+</div>
+
+<div class="slide div" data-sec="Shared memory" data-notes="The bridge into Day 2. Everything so far has been one agent. The moment there are several, memory becomes a design decision with a failure mode nobody expects.">
+  <div class="k">Part five</div>
+  <h1>When several agents share a memory</h1>
+</div>
+
+<div class="slide" data-sec="Shared memory" data-notes="Two designs, and the trade is real. Shared state is efficient and propagates errors; private state isolates and duplicates work. Most production systems end up mixed -- shared facts, private drafts.">
+  <h2>Shared or private &mdash; and what each one breaks</h2>
+  <div class="body">
+    <svg width="1180" height="410" viewBox="0 0 1180 410" role="img" aria-label="Shared state versus private state across agents">
+      <text x="300" y="44" text-anchor="middle" class="lbl">Shared state</text>
+      <rect x="130" y="60" width="340" height="46" rx="5" fill="#4338ca"/>
+      <text x="300" y="88" text-anchor="middle" font-size="14" font-weight="600" fill="#fff">one state object</text>
+      <line x1="200" y1="106" x2="170" y2="146" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
+      <line x1="300" y1="106" x2="300" y2="146" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
+      <line x1="400" y1="106" x2="430" y2="146" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
+      <rect x="110" y="152" width="120" height="42" rx="5" fill="#eef2ff" stroke="#818cf8" stroke-width="2"/><text x="170" y="178" text-anchor="middle" class="bds">ledger</text>
+      <rect x="240" y="152" width="120" height="42" rx="5" fill="#eef2ff" stroke="#818cf8" stroke-width="2"/><text x="300" y="178" text-anchor="middle" class="bds">policy</text>
+      <rect x="370" y="152" width="120" height="42" rx="5" fill="#eef2ff" stroke="#818cf8" stroke-width="2"/><text x="430" y="178" text-anchor="middle" class="bds">critic</text>
+      <text x="300" y="228" text-anchor="middle" class="bd ok">Cheap: findings are written once.</text>
+      <text x="300" y="256" text-anchor="middle" class="bd ok">Consistent: everyone sees the same facts.</text>
+      <text x="300" y="292" text-anchor="middle" class="bd no">One wrong finding reaches every agent</text>
+      <text x="300" y="314" text-anchor="middle" class="bd no">before anyone can question it.</text>
+
+      <line x1="590" y1="50" x2="590" y2="370" stroke="#e2e8f0" stroke-width="2"/>
+
+      <text x="880" y="44" text-anchor="middle" class="lbl">Private state</text>
+      <rect x="700" y="60" width="120" height="42" rx="5" fill="#eef2ff" stroke="#818cf8" stroke-width="2"/><text x="760" y="86" text-anchor="middle" class="bds">ledger</text>
+      <rect x="700" y="112" width="120" height="34" rx="4" fill="#f8f8fd" stroke="#cbd5e1"/><text x="760" y="134" text-anchor="middle" font-size="11" fill="#64748b">own state</text>
+      <rect x="940" y="60" width="120" height="42" rx="5" fill="#eef2ff" stroke="#818cf8" stroke-width="2"/><text x="1000" y="86" text-anchor="middle" class="bds">policy</text>
+      <rect x="940" y="112" width="120" height="34" rx="4" fill="#f8f8fd" stroke="#cbd5e1"/><text x="1000" y="134" text-anchor="middle" font-size="11" fill="#64748b">own state</text>
+      <path d="M820 130 Q880 130 936 130" fill="none" stroke="#94a3b8" stroke-width="2" stroke-dasharray="4 3" marker-end="url(#ag)"/>
+      <text x="880" y="118" text-anchor="middle" class="bds">explicit handoff only</text>
+      <text x="880" y="228" text-anchor="middle" class="bd ok">Contained: a bad finding stays local.</text>
+      <text x="880" y="256" text-anchor="middle" class="bd ok">Auditable per agent.</text>
+      <text x="880" y="292" text-anchor="middle" class="bd no">Dearer: context is re-sent at each handoff,</text>
+      <text x="880" y="314" text-anchor="middle" class="bd no">and the same work gets done twice.</text>
+      <text x="590" y="396" text-anchor="middle" class="bx am">Most production systems are mixed: shared facts, private drafts.</text>
+    </svg>
+  </div>
+</div>
+
+<div class="slide" data-sec="Shared memory" data-notes="Context poisoning. The key property is that nothing errors -- the system is confidently, consistently wrong, and the consistency is what makes it convincing. This is the failure that most needs a citation discipline, which is Module 6.">
+  <h2>Context poisoning &mdash; one wrong fact, three confident agents</h2>
+  <div class="body">
+    <svg width="1180" height="420" viewBox="0 0 1180 420" role="img" aria-label="A wrong finding propagating through shared state">
+      <rect x="60" y="60" width="230" height="80" rx="6" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
+      <text x="175" y="90" text-anchor="middle" class="bxs no">ledger agent</text>
+      <text x="175" y="116" text-anchor="middle" class="bds">misreads status as</text>
+      <text x="175" y="134" text-anchor="middle" class="bds no">&ldquo;failed&rdquo;, not &ldquo;held&rdquo;</text>
+
+      <line x1="290" y1="100" x2="345" y2="100" stroke="#b91c1c" stroke-width="2.5" marker-end="url(#ar)"/>
+      <rect x="350" y="60" width="230" height="80" rx="6" fill="#fef2f2" stroke="#b91c1c" stroke-width="2"/>
+      <text x="465" y="90" text-anchor="middle" class="bxs no">shared state</text>
+      <text x="465" y="118" text-anchor="middle" class="bds">findings: [&ldquo;PMT-1005 failed&rdquo;]</text>
+
+      <line x1="465" y1="140" x2="465" y2="180" stroke="#b91c1c" stroke-width="2.5" marker-end="url(#ar)"/>
+      <rect x="200" y="186" width="230" height="76" rx="6" fill="#fef2f2" stroke="#b91c1c" stroke-width="2"/>
+      <text x="315" y="214" text-anchor="middle" class="bxs no">policy agent</text>
+      <text x="315" y="240" text-anchor="middle" class="bds">looks up the retry policy</text>
+      <rect x="500" y="186" width="230" height="76" rx="6" fill="#fef2f2" stroke="#b91c1c" stroke-width="2"/>
+      <text x="615" y="214" text-anchor="middle" class="bxs no">critic agent</text>
+      <text x="615" y="240" text-anchor="middle" class="bds">confirms it is consistent</text>
+      <line x1="430" y1="150" x2="340" y2="182" stroke="#b91c1c" stroke-width="2" marker-end="url(#ar)"/>
+      <line x1="500" y1="150" x2="590" y2="182" stroke="#b91c1c" stroke-width="2" marker-end="url(#ar)"/>
+
+      <rect x="200" y="286" width="530" height="76" rx="6" fill="#b91c1c"/>
+      <text x="465" y="316" text-anchor="middle" font-size="16" font-weight="700" fill="#fff">&ldquo;Retry the payment&rdquo;</text>
+      <text x="465" y="344" text-anchor="middle" font-size="13" fill="#fecaca">on a payment frozen for sanctions review</text>
+
+      <rect x="790" y="86" width="330" height="276" rx="8" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
+      <text x="955" y="122" text-anchor="middle" class="bx am">Why it is so convincing</text>
+      <text x="812" y="164" class="bd">&bull;&nbsp; Nothing errored</text>
+      <text x="812" y="200" class="bd">&bull;&nbsp; Every later agent was correct,</text>
+      <text x="836" y="222" class="bd">given what it was told</text>
+      <text x="812" y="258" class="bd">&bull;&nbsp; The critic agreed &mdash; it was</text>
+      <text x="836" y="280" class="bd">checking consistency, not truth</text>
+      <text x="812" y="316" class="bd">&bull;&nbsp; Three agents concurring reads</text>
+      <text x="836" y="338" class="bd">as corroboration. It is an echo.</text>
+    </svg>
+  </div>
+  <div class="take"><b>The defence is provenance:</b> a finding carries which agent produced it and from which source, so a critic can check the claim rather than the consensus.</div>
+</div>
+
+<div class="slide" data-sec="Recap" data-notes="Ninety seconds, then the labs. Day 1 is done after this: shape, thinking, state. Everything on Days 2 and 3 sits on what they built today.">
+  <h2>What you take from Module 3</h2>
+  <div class="body">
+    <svg width="1180" height="420" viewBox="0 0 1180 420" role="img" aria-label="Six takeaways from module three">
+      <g>
+        <rect x="60" y="46" width="345" height="112" rx="7" fill="#eef2ff" stroke="#818cf8" stroke-width="2"/>
+        <text x="86" y="78" class="lbl">01</text>
+        <text x="232" y="106" text-anchor="middle" class="bx">Buffer memory always fails</text>
+        <text x="232" y="134" text-anchor="middle" class="bd">Only the turn number is in question.</text>
+      </g>
+      <g>
+        <rect x="417" y="46" width="345" height="112" rx="7" fill="#eef2ff" stroke="#818cf8" stroke-width="2"/>
+        <text x="443" y="78" class="lbl">02</text>
+        <text x="589" y="106" text-anchor="middle" class="bx">Compaction is a choice</text>
+        <text x="589" y="134" text-anchor="middle" class="bd">You are picking what to forget.</text>
+      </g>
+      <g>
+        <rect x="774" y="46" width="345" height="112" rx="7" fill="#eef2ff" stroke="#818cf8" stroke-width="2"/>
+        <text x="800" y="78" class="lbl">03</text>
+        <text x="946" y="106" text-anchor="middle" class="bx">Perception is free accuracy</text>
+        <text x="946" y="134" text-anchor="middle" class="bd">Decide what the agent gets to see.</text>
+      </g>
+      <g>
+        <rect x="60" y="176" width="345" height="112" rx="7" fill="#eef2ff" stroke="#818cf8" stroke-width="2"/>
+        <text x="86" y="208" class="lbl">04</text>
+        <text x="232" y="236" text-anchor="middle" class="bx">Declare your state</text>
+        <text x="232" y="264" text-anchor="middle" class="bd">If you cannot print it, you cannot test it.</text>
+      </g>
+      <g>
+        <rect x="417" y="176" width="345" height="112" rx="7" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
+        <text x="443" y="208" class="lbl am">05</text>
+        <text x="589" y="236" text-anchor="middle" class="bx am">Every shared key needs a reducer</text>
+        <text x="589" y="264" text-anchor="middle" class="bd">Default-replace plus parallel is data loss.</text>
+      </g>
+      <g>
+        <rect x="774" y="176" width="345" height="112" rx="7" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
+        <text x="800" y="208" class="lbl am">06</text>
+        <text x="946" y="236" text-anchor="middle" class="bx am">Checkpoints are the audit trail</text>
+        <text x="946" y="264" text-anchor="middle" class="bd">Recorded, not generated.</text>
+      </g>
+      <rect x="200" y="316" width="780" height="70" rx="6" fill="#1e1b4b"/>
+      <text x="590" y="346" text-anchor="middle" font-size="18" font-weight="600" fill="#fff">Day 1 complete: a shape, a way of thinking, and somewhere to keep it</text>
+      <text x="590" y="372" text-anchor="middle" font-size="14" fill="#a5b4fc">Next: Day 2 &mdash; tools, MCP, orchestration and Agentic RAG, all sitting on this substrate</text>
+    </svg>
+  </div>
+</div>
+
+<div class="slide div" data-sec="Knowledge check" data-notes="Eight questions. Question 3 is the one worth pausing on -- if the room expects an error on the concurrent write, that expectation is the bug.">
+  <div class="k">Knowledge check</div>
+  <h1>Eight questions</h1>
+</div>
+
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer D. This is the slide that justifies dropping to LangGraph -- not for the graph, for the state it forces you to declare.">
+  <div class="qtag">Question 1 of 8</div>
+  <h2>Where does 'needs a human' live?</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">In a ReAct agent whose only state is the message list, where is the fact &ldquo;this payment needs a human&rdquo; actually stored?</div>
+    <div class="opt"><span class="k">A</span><span>In the checkpointer</span></div>
+    <div class="opt"><span class="k">B</span><span>In the system prompt</span></div>
+    <div class="opt"><span class="k">C</span><span>In the tool's return value</span></div>
+    <div class="opt"><span class="k">D</span><span>Nowhere explicitly -- it is implied by text in the conversation</span></div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer D. This is the slide that justifies dropping to LangGraph -- not for the graph, for the state it forces you to declare.">
+  <div class="qtag">Answer 1 of 8</div>
+  <h2>Where does 'needs a human' live?</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">In a ReAct agent whose only state is the message list, where is the fact &ldquo;this payment needs a human&rdquo; actually stored?</div>
+    <div class="opt miss"><span class="k">A</span><span>In the checkpointer</span></div>
+    <div class="opt miss"><span class="k">B</span><span>In the system prompt</span></div>
+    <div class="opt miss"><span class="k">C</span><span>In the tool's return value</span></div>
+    <div class="opt hit"><span class="k">D</span><span>Nowhere explicitly -- it is implied by text in the conversation</span></div>
+    <div class="why"><b>Why:</b> That is the whole argument for an explicit state object. Implied facts cannot be asserted on, resumed, or shown to an auditor. C is the tempting answer: the tool <em>reported</em> it once, but nothing carried it forward as state.</div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer B. Same failure as Module 1's memory trap, now with the arithmetic behind it.">
+  <div class="qtag">Question 2 of 8</div>
+  <h2>The window filled up</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">A conversational agent with buffer memory stops honouring a constraint it was given at the start. What happened?</div>
+    <div class="opt"><span class="k">A</span><span>The model's weights drifted during the long session</span></div>
+    <div class="opt"><span class="k">B</span><span>The earliest turns were pushed out of the context window</span></div>
+    <div class="opt"><span class="k">C</span><span>The checkpointer failed to persist the constraint</span></div>
+    <div class="opt"><span class="k">D</span><span>The tool descriptions grew too long</span></div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer B. Same failure as Module 1's memory trap, now with the arithmetic behind it.">
+  <div class="qtag">Answer 2 of 8</div>
+  <h2>The window filled up</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">A conversational agent with buffer memory stops honouring a constraint it was given at the start. What happened?</div>
+    <div class="opt miss"><span class="k">A</span><span>The model's weights drifted during the long session</span></div>
+    <div class="opt hit"><span class="k">B</span><span>The earliest turns were pushed out of the context window</span></div>
+    <div class="opt miss"><span class="k">C</span><span>The checkpointer failed to persist the constraint</span></div>
+    <div class="opt miss"><span class="k">D</span><span>The tool descriptions grew too long</span></div>
+    <div class="why"><b>Why:</b> Buffer memory grows linearly and the window is fixed, so there is always a turn at which the oldest content -- often the standing instruction -- falls out. Nothing errors; the agent just quietly stops obeying. C is the sharp distractor: a checkpointer restores a run after a restart and does nothing for this.</div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer C. If the room expects an error, that expectation is exactly the bug.">
+  <div class="qtag">Question 3 of 8</div>
+  <h2>Two nodes, one key</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">Two parallel nodes both write to <code>findings</code>, a list, with no reducer declared. What happens?</div>
+    <div class="opt"><span class="k">A</span><span>The graph raises a concurrent-write error</span></div>
+    <div class="opt"><span class="k">B</span><span>Both lists are merged automatically, in completion order</span></div>
+    <div class="opt"><span class="k">C</span><span>One write silently replaces the other</span></div>
+    <div class="opt"><span class="k">D</span><span>The second write is rejected and the node retries</span></div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer C. If the room expects an error, that expectation is exactly the bug.">
+  <div class="qtag">Answer 3 of 8</div>
+  <h2>Two nodes, one key</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">Two parallel nodes both write to <code>findings</code>, a list, with no reducer declared. What happens?</div>
+    <div class="opt miss"><span class="k">A</span><span>The graph raises a concurrent-write error</span></div>
+    <div class="opt miss"><span class="k">B</span><span>Both lists are merged automatically, in completion order</span></div>
+    <div class="opt hit"><span class="k">C</span><span>One write silently replaces the other</span></div>
+    <div class="opt miss"><span class="k">D</span><span>The second write is rejected and the node retries</span></div>
+    <div class="why"><b>Why:</b> The default reducer is replace. With parallel branches that means one finding vanishes with no error and no warning -- which is why any key more than one node writes needs a declared reducer. A would at least be loud; the real behaviour is silent.</div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer A. Ask the room how many of their own tools currently make that distinction.">
+  <div class="qtag">Question 4 of 8</div>
+  <h2>Which nothing is it?</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">A sanctions-screening tool returns an empty list. What must the observation distinguish?</div>
+    <div class="opt"><span class="k">A</span><span>Whether the check ran and found nothing, or did not run at all</span></div>
+    <div class="opt"><span class="k">B</span><span>Whether the list is empty or null</span></div>
+    <div class="opt"><span class="k">C</span><span>How long the check took</span></div>
+    <div class="opt"><span class="k">D</span><span>Which model called the tool</span></div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer A. Ask the room how many of their own tools currently make that distinction.">
+  <div class="qtag">Answer 4 of 8</div>
+  <h2>Which nothing is it?</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">A sanctions-screening tool returns an empty list. What must the observation distinguish?</div>
+    <div class="opt hit"><span class="k">A</span><span>Whether the check ran and found nothing, or did not run at all</span></div>
+    <div class="opt miss"><span class="k">B</span><span>Whether the list is empty or null</span></div>
+    <div class="opt miss"><span class="k">C</span><span>How long the check took</span></div>
+    <div class="opt miss"><span class="k">D</span><span>Which model called the tool</span></div>
+    <div class="why"><b>Why:</b> &ldquo;No hits&rdquo; and &ldquo;the check did not run&rdquo; are the same empty list, and the agent will take the reassuring reading of the two. A tool that returns nothing must say which kind of nothing. B is a serialisation detail, not a semantic one.</div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer B. Note that resume, human-in-the-loop, time travel and the audit trail are all the same mechanism.">
+  <div class="qtag">Question 5 of 8</div>
+  <h2>What resume actually buys</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">A pod is killed after node 3 of 4. With a checkpointer configured against a durable store, what happens on restart?</div>
+    <div class="opt"><span class="k">A</span><span>The run restarts from the beginning with the same inputs</span></div>
+    <div class="opt"><span class="k">B</span><span>The run continues from the state saved after node 3</span></div>
+    <div class="opt"><span class="k">C</span><span>The run is abandoned; agent runs are not resumable</span></div>
+    <div class="opt"><span class="k">D</span><span>The model is asked to reconstruct what it had done</span></div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer B. Note that resume, human-in-the-loop, time travel and the audit trail are all the same mechanism.">
+  <div class="qtag">Answer 5 of 8</div>
+  <h2>What resume actually buys</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">A pod is killed after node 3 of 4. With a checkpointer configured against a durable store, what happens on restart?</div>
+    <div class="opt miss"><span class="k">A</span><span>The run restarts from the beginning with the same inputs</span></div>
+    <div class="opt hit"><span class="k">B</span><span>The run continues from the state saved after node 3</span></div>
+    <div class="opt miss"><span class="k">C</span><span>The run is abandoned; agent runs are not resumable</span></div>
+    <div class="opt miss"><span class="k">D</span><span>The model is asked to reconstruct what it had done</span></div>
+    <div class="why"><b>Why:</b> The checkpoint after each node is a complete, replayable state, so the run continues rather than repeating work already paid for. D describes what people do <em>without</em> checkpointing, and it is exactly the account you cannot trust -- generated, not recorded.</div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer D. This is the bridge into Day 2 and the citation discipline in Module 6.">
+  <div class="qtag">Question 6 of 8</div>
+  <h2>Three agents agree</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">The ledger agent misreads a held payment as failed. The policy agent and the critic both proceed consistently from that. Why is this failure so dangerous?</div>
+    <div class="opt"><span class="k">A</span><span>The critic should have caught it, so the critic is broken</span></div>
+    <div class="opt"><span class="k">B</span><span>The error rate compounds across the three agents</span></div>
+    <div class="opt"><span class="k">C</span><span>It will raise an exception only in production</span></div>
+    <div class="opt"><span class="k">D</span><span>Nothing errored, and three agents concurring reads as corroboration</span></div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer D. This is the bridge into Day 2 and the citation discipline in Module 6.">
+  <div class="qtag">Answer 6 of 8</div>
+  <h2>Three agents agree</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">The ledger agent misreads a held payment as failed. The policy agent and the critic both proceed consistently from that. Why is this failure so dangerous?</div>
+    <div class="opt miss"><span class="k">A</span><span>The critic should have caught it, so the critic is broken</span></div>
+    <div class="opt miss"><span class="k">B</span><span>The error rate compounds across the three agents</span></div>
+    <div class="opt miss"><span class="k">C</span><span>It will raise an exception only in production</span></div>
+    <div class="opt hit"><span class="k">D</span><span>Nothing errored, and three agents concurring reads as corroboration</span></div>
+    <div class="why"><b>Why:</b> Every later agent was correct given what it was told, and the critic was checking consistency rather than truth. Agreement is an echo of the first error, not evidence. A is unfair -- a consistency check cannot catch a bad premise -- which is why the defence is provenance: a finding carries its source so the claim can be checked instead of the consensus.</div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer A. Make sure they can state the trade in both directions before Day 2.">
+  <div class="qtag">Question 7 of 8</div>
+  <h2>Shared or private?</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">Three specialist agents work one case. What does giving them a single shared state object buy, and cost?</div>
+    <div class="opt"><span class="k">A</span><span>Cheaper and consistent, but one wrong finding reaches everyone immediately</span></div>
+    <div class="opt"><span class="k">B</span><span>Safer and auditable, but slower because context is re-sent</span></div>
+    <div class="opt"><span class="k">C</span><span>Nothing -- shared state is always the wrong choice</span></div>
+    <div class="opt"><span class="k">D</span><span>It removes the need for reducers</span></div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer A. Make sure they can state the trade in both directions before Day 2.">
+  <div class="qtag">Answer 7 of 8</div>
+  <h2>Shared or private?</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">Three specialist agents work one case. What does giving them a single shared state object buy, and cost?</div>
+    <div class="opt hit"><span class="k">A</span><span>Cheaper and consistent, but one wrong finding reaches everyone immediately</span></div>
+    <div class="opt miss"><span class="k">B</span><span>Safer and auditable, but slower because context is re-sent</span></div>
+    <div class="opt miss"><span class="k">C</span><span>Nothing -- shared state is always the wrong choice</span></div>
+    <div class="opt miss"><span class="k">D</span><span>It removes the need for reducers</span></div>
+    <div class="why"><b>Why:</b> B describes private state, which contains an error but re-sends context and duplicates work. D is backwards: sharing is precisely when reducers become mandatory. Most production systems end up mixed -- shared facts, private drafts.</div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer C. Close on this -- the audit trail is a by-product of checkpointing, not a feature anyone had to build.">
+  <div class="qtag">Question 8 of 8</div>
+  <h2>The best audit artefact</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">An auditor asks what the agent knew when it recommended releasing a payment. What is the strongest evidence?</div>
+    <div class="opt"><span class="k">A</span><span>The agent's chain-of-thought for that run</span></div>
+    <div class="opt"><span class="k">B</span><span>The final answer plus the system prompt</span></div>
+    <div class="opt"><span class="k">C</span><span>The checkpoint history for that thread</span></div>
+    <div class="opt"><span class="k">D</span><span>A replay of the run with the same inputs</span></div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer C. Close on this -- the audit trail is a by-product of checkpointing, not a feature anyone had to build.">
+  <div class="qtag">Answer 8 of 8</div>
+  <h2>The best audit artefact</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">An auditor asks what the agent knew when it recommended releasing a payment. What is the strongest evidence?</div>
+    <div class="opt miss"><span class="k">A</span><span>The agent's chain-of-thought for that run</span></div>
+    <div class="opt miss"><span class="k">B</span><span>The final answer plus the system prompt</span></div>
+    <div class="opt hit"><span class="k">C</span><span>The checkpoint history for that thread</span></div>
+    <div class="opt miss"><span class="k">D</span><span>A replay of the run with the same inputs</span></div>
+    <div class="why"><b>Why:</b> The checkpoint history is <em>recorded</em> state after each node -- what was known, when, and what happened next. A is generated text that may not reflect the computation, as Module 2 established. D is not evidence about the original run: the agent is non-deterministic, so a replay is a new run.</div>
+  </div></div>
+</div>
+
+<div class="slide div" data-sec="End" data-notes="Into the labs: memory that compacts, perception, a StateGraph built by hand, reducers and checkpointing, then shared-state poisoning.">
+  <div class="k">End of Module 3</div>
+  <h1>To the labs</h1>
+</div>
+
+</template>
+
+<script>
+(function(){
+  var stage = document.getElementById('stage');
+  stage.appendChild(document.getElementById('deck').content.cloneNode(true));
+  var slides = Array.prototype.slice.call(stage.querySelectorAll('.slide'));
+  var i = 0, total = slides.length;
+
+  var num = document.getElementById('num'),
+      progf = document.getElementById('progf'),
+      secname = document.getElementById('secname'),
+      toc = document.getElementById('toc'),
+      toclist = document.getElementById('toclist'),
+      notes = document.getElementById('notes'),
+      notesbody = document.getElementById('notesbody');
+
+  /* ---- build the index, grouped by section ---- */
+  var groups = [], last = null;
+  slides.forEach(function(s, n){
+    var sec = s.getAttribute('data-sec') || '';
+    if (sec !== last) { groups.push({sec: sec, items: []}); last = sec; }
+    var h = s.querySelector('h2, h1'), q = s.querySelector('.qtag');
+    var t = h ? h.textContent.trim() : sec;
+    if (q) t = q.textContent.trim() + ' \u2014 ' + t;
+    groups[groups.length-1].items.push({n: n, t: t});
+  });
+  groups.forEach(function(g){
+    var d = document.createElement('div'); d.className = 'grp';
+    var hd = document.createElement('div'); hd.className = 'grph'; hd.textContent = g.sec; d.appendChild(hd);
+    g.items.forEach(function(it){
+      var a = document.createElement('a');
+      a.href = '#'; a.dataset.n = it.n;
+      a.innerHTML = '<span class="n">' + (it.n + 1) + '</span>';
+      a.appendChild(document.createTextNode(it.t));
+      a.addEventListener('click', function(e){ e.preventDefault(); go(it.n); toc.classList.remove('on'); });
+      d.appendChild(a);
+    });
+    toclist.appendChild(d);
+  });
+  var tocLinks = Array.prototype.slice.call(toclist.querySelectorAll('a'));
+
+  function go(n){
+    if (n < 0) n = 0;
+    if (n > total - 1) n = total - 1;
+    slides[i].classList.remove('active');
+    i = n;
+    slides[i].classList.add('active');
+    num.textContent = (i + 1) + ' / ' + total;
+    progf.style.width = ((i + 1) / total * 100) + '%';
+    secname.textContent = slides[i].getAttribute('data-sec') || '';
+    notesbody.textContent = slides[i].getAttribute('data-notes') || 'No notes for this slide.';
+    tocLinks.forEach(function(a){ a.classList.toggle('cur', +a.dataset.n === i); });
+    if (location.hash !== '#' + (i + 1)) history.replaceState(null, '', '#' + (i + 1));
+  }
+
+  /* ---- scale the 1280x720 stage to the available space ---- */
+  function fit(){
+    var w = document.getElementById('wrap');
+    var s = Math.min(w.clientWidth / 1280, w.clientHeight / 720);
+    stage.style.transform = 'scale(' + s + ')';
+  }
+  window.addEventListener('resize', fit);
+  window.addEventListener('hashchange', function(){
+    var n = parseInt((location.hash || '').slice(1), 10);
+    if (!isNaN(n) && n - 1 !== i) go(n - 1);
+  });
+
+  document.getElementById('bnext').addEventListener('click', function(){ go(i + 1); });
+  document.getElementById('bprev').addEventListener('click', function(){ go(i - 1); });
+  document.getElementById('btoc').addEventListener('click', function(){ toc.classList.toggle('on'); });
+  document.getElementById('bnotes').addEventListener('click', function(){ notes.classList.toggle('on'); });
+
+  document.addEventListener('keydown', function(e){
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    var k = e.key;
+    if (k === 'ArrowRight' || k === 'PageDown' || k === ' ') { e.preventDefault(); go(i + 1); }
+    else if (k === 'ArrowLeft' || k === 'PageUp') { e.preventDefault(); go(i - 1); }
+    else if (k === 'Home') { e.preventDefault(); go(0); }
+    else if (k === 'End') { e.preventDefault(); go(total - 1); }
+    else if (k === 't' || k === 'T') { toc.classList.toggle('on'); }
+    else if (k === 'n' || k === 'N') { notes.classList.toggle('on'); }
+    else if (k === 'f' || k === 'F') {
+      if (document.fullscreenElement) document.exitFullscreen();
+      else document.documentElement.requestFullscreen();
+    }
+    else if (k === 'Escape') { toc.classList.remove('on'); notes.classList.remove('on'); }
+  });
+
+  fit();
+  var start = parseInt((location.hash || '').slice(1), 10);
+  go(isNaN(start) ? 0 : start - 1);
+})();
+</script>
+</body>
+</html>

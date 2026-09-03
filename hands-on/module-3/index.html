@@ -1,0 +1,125 @@
+<meta charset="utf-8">
+<title>Module 3 Labs &mdash; Memory, State &amp; the LangGraph Substrate</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;padding:0}
+body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:#f5f5fb;color:#2d3748;font-size:14px;line-height:1.45}
+a{color:#4338ca}
+header{background:linear-gradient(135deg,#1e1b4b 0%,#4338ca 100%);color:#fff;padding:14px 18px;text-align:center;border-bottom:3px solid #818cf8}
+header h1{margin:0;font-size:1.35em}
+header .tagline{margin-top:4px;color:#c7d2fe;font-size:.9em;font-weight:600}
+header .meta{margin-top:6px;color:#c3c9de;font-size:.82em}
+header .meta span{margin:0 5px}
+.container{max-width:1060px;margin:12px auto;background:#fff;padding:14px 20px 10px;box-shadow:0 0 10px rgba(0,0,0,.1)}
+.how{background:#f0fdf9;border-left:3px solid #0d9488;padding:9px 13px;font-size:.88em;color:#134e4a;border-radius:0 3px 3px 0;margin-bottom:12px}
+.how p{margin:0 0 5px}.how p:last-child{margin:0}
+.how code{font-family:Consolas,'JetBrains Mono',monospace;background:#d7f5ee;padding:0 3px;border-radius:2px}
+.lab{background:#f8f8fd;border-left:3px solid #4338ca;border-radius:0 3px 3px 0;padding:9px 13px;margin-bottom:9px;break-inside:avoid}
+.lab h3{margin:0 0 4px;font-size:1.02em;color:#312e81}
+.lab h3 a{text-decoration:none}.lab h3 a:hover{text-decoration:underline}
+.lab .tags{float:right;font-size:.76em;color:#6b7280;font-weight:600}
+.lab .tags .lvl{color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:9px;padding:0 7px;margin-left:5px}
+.lab p{margin:0 0 5px;font-size:.92em;color:#4b5563}
+.lab ul{margin:0;padding-left:17px;font-size:.9em;color:#475569}
+.lab li{margin-bottom:1px}
+.lab .sol{font-size:.84em;color:#6b7280;margin-top:5px}
+.note{background:#fffbeb;border-left:3px solid #fbbf24;padding:9px 13px;font-size:.86em;color:#4b3a10;border-radius:0 3px 3px 0;margin-top:12px}
+footer{background:#1e1b4b;color:#fff;text-align:center;padding:10px;font-size:.8em}
+footer a{color:#c7d2fe;text-decoration:none}
+</style>
+
+<header>
+  <h1>Module 3 &mdash; Memory, State &amp; the LangGraph Substrate</h1>
+  <div class="tagline">Day 1 hands-on &middot; five labs, intermediate to advanced</div>
+  <div class="meta"><span>One case file throughout</span> &middot; <span>self-checked</span> &middot; <span>solutions provided</span></div>
+</header>
+
+<div class="container">
+
+  <div class="how">
+    <p><strong>How these labs work.</strong> Fill every <code>BLANK</code>, then run the
+      <strong>Self-check</strong> cell under each section. It prints <code>[PASS]</code>,
+      <code>[FAIL]</code> or <code>[TODO]</code>, and the last cell prints your
+      <code>Score</code>.</p>
+    <p><strong>Your score never depends on a live model.</strong> Graded cells are plain Python.
+      Cells marked <strong>Run it for real</strong> do call the sandbox model &mdash; if it is
+      unreachable they print how to fix it rather than crashing, so <em>Run All</em> is always safe
+      on an untouched notebook.</p>
+    <p><strong>The same case file as Module 1</strong> &mdash; payment exceptions on a small synthetic
+      ledger. Modules 1 and 2 chose the shape and the thinking; these labs give both somewhere to live.</p>
+  </div>
+
+  <div class="lab">
+    <div class="tags">30 min<span class="lvl">Intermediate</span></div>
+    <h3><a href="lab-3-01-memory-that-survives.ipynb">Lab 3.1 &mdash; Memory That Survives a Long Session</a></h3>
+    <p>Find the turn at which buffer memory drops its standing instruction, then fix the part that mattered.</p>
+    <ul>
+      <li>Compute the failure turn instead of guessing it</li>
+      <li>Pin the instruction so compaction cannot age it out</li>
+      <li>Measure which facts a real summariser threw away</li>
+    </ul>
+    <div class="sol">3 blanks &middot; 13 checks &middot; solution: <code>solutions/lab-3-01-memory-that-survives.ipynb</code></div>
+  </div>
+
+  <div class="lab">
+    <div class="tags">30 min<span class="lvl">Intermediate &rarr; Advanced</span></div>
+    <h3><a href="lab-3-02-perception-observations.ipynb">Lab 3.2 &mdash; Perception: Raw Output into an Observation</a></h3>
+    <p>The cheapest accuracy in the course: decide what the agent is allowed to see.</p>
+    <ul>
+      <li>Decode an opaque record so the model cannot misread it</li>
+      <li>Distinguish the four kinds of nothing a tool can return</li>
+      <li>Stamp freshness, completeness and authority</li>
+    </ul>
+    <div class="sol">3 blanks &middot; 18 checks &middot; solution: <code>solutions/lab-3-02-perception-observations.ipynb</code></div>
+  </div>
+
+  <div class="lab">
+    <div class="tags">35 min<span class="lvl">Advanced</span></div>
+    <h3><a href="lab-3-03-stategraph-from-scratch.ipynb">Lab 3.3 &mdash; Build a StateGraph From Scratch</a></h3>
+    <p>Write the forty lines LangGraph is hiding, then run the same graph on the real thing.</p>
+    <ul>
+      <li>Nodes that return partial state, and merge through declared reducers</li>
+      <li>Conditional edges, cycles, and a budget that ends them</li>
+      <li>The same graph on real LangGraph, side by side</li>
+    </ul>
+    <div class="sol">3 blanks &middot; 18 checks &middot; solution: <code>solutions/lab-3-03-stategraph-from-scratch.ipynb</code></div>
+  </div>
+
+  <div class="lab">
+    <div class="tags">35 min<span class="lvl">Advanced</span></div>
+    <h3><a href="lab-3-04-checkpointing.ipynb">Lab 3.4 &mdash; Checkpointing: Resume, Approve, Rewind, Audit</a></h3>
+    <p>One mechanism &mdash; state written after every node &mdash; and four capabilities fall out of it.</p>
+    <ul>
+      <li>Kill a run mid-flight and resume without repeating work</li>
+      <li>Pause before the irreversible step and wait for a human</li>
+      <li>Read the checkpoint history as an audit trail</li>
+    </ul>
+    <div class="sol">3 blanks &middot; 21 checks &middot; solution: <code>solutions/lab-3-04-checkpointing.ipynb</code></div>
+  </div>
+
+  <div class="lab">
+    <div class="tags">40 min<span class="lvl">Advanced &middot; challenge</span></div>
+    <h3><a href="lab-3-05-challenge-shared-state-poisoning.ipynb">Lab 3.5 &mdash; Challenge: Shared State and Context Poisoning</a></h3>
+    <p>One wrong finding, three confident agents, and nothing errors. The bridge into Day 2.</p>
+    <ul>
+      <li>Watch a bad premise propagate through shared state</li>
+      <li>Attach provenance so a claim can be checked, not the consensus</li>
+      <li>Compare shared and private state on four axes</li>
+    </ul>
+    <div class="sol">3 blanks &middot; 18 checks &middot; solution: <code>solutions/lab-3-05-challenge-shared-state-poisoning.ipynb</code></div>
+  </div>
+
+  <div class="note">
+    <strong>Regenerating.</strong> Labs and solutions are built from a single source
+    (<code>_generators/gen_labs.py</code>) so a blank can never drift from the answer that grades
+    it. Run <code>_generators/regenerate.sh</code> to rebuild and re-verify both directions.
+    Runtime prerequisites are in <code>../module-1/RUNTIME.md</code>.
+  </div>
+
+</div>
+
+<footer>
+  &copy; 2026 Gheware DevOps &amp; Agentic AI |
+  <a href="https://devops.gheware.com">devops.gheware.com</a> |
+  Trainer: Rajesh Gheware |
+  Questions: <a href="mailto:dev@gheware.com">dev@gheware.com</a>
+</footer>

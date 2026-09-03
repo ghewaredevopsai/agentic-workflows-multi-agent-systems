@@ -132,8 +132,10 @@ def score() -> None:
 # ---- the sandbox model ---------------------------------------------------
 # Your sandbox already has an LLM configured -- nothing to install, no key to register.
 # These two values are read from the environment so this notebook never hardcodes an endpoint.
-LLM_BASE_URL = os.environ.get("LAB_LLM_BASE_URL") or os.environ.get("OPENAI_BASE_URL")
-LLM_MODEL    = os.environ.get("LAB_LLM_MODEL")    or os.environ.get("OPENAI_MODEL")
+LLM_BASE_URL = (os.environ.get("LAB_LLM_BASE_URL") or os.environ.get("OPENAI_BASE_URL")
+                or os.environ.get("LITELLM_BASE_URL"))
+LLM_MODEL    = (os.environ.get("LAB_LLM_MODEL") or os.environ.get("OPENAI_MODEL")
+                or os.environ.get("LITELLM_MODEL"))
 LLM_API_KEY  = os.environ.get("OPENAI_API_KEY", "sandbox")
 
 def llm_ready() -> bool:
