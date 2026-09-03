@@ -11,7 +11,13 @@ Design rules (from Training/courses/CLAUDE.md and this course's stack):
   * Graded cells are pure Python -- they never call an LLM, so a self-check is
     deterministic and a flaky endpoint can never fail a participant.
   * Live-model cells are clearly marked, guarded, and never crash Run All.
-  * "___" marks a blank; an unfilled blank raises NameError and prints [TODO].
+  * "BLANK" marks a blank; an unfilled blank raises NameError and prints [TODO].
+    NOT three underscores: IPython PREDEFINES _, __ and ___ as its output history
+    (they start as ""), so under a real Jupyter kernel that token is a defined empty
+    string, not an undefined name. The NameError never fires, [TODO] silently becomes
+    [FAIL], and a blank used as a loop guard is falsy forever -- lab 1.1 spun in
+    `while True` until the pod was OOM-killed. Plain-exec verifiers cannot see any
+    of this, which is why verify_labs.py now runs cells through IPython.
 """
 import json, os, re, sys
 
@@ -74,7 +80,7 @@ def header(num, title, level, minutes, bullets, note):
 ### What you'll do
 {items}
 
-> **How this lab works.** Fill every `___`, then run the **Self-check** cell under each section.
+> **How this lab works.** Fill every `BLANK`, then run the **Self-check** cell under each section.
 > Graded cells are plain Python and never call a model, so your score never depends on a
 > live endpoint. Cells marked **Run it for real** do call the sandbox model; if it is not
 > reachable they print how to fix it instead of crashing.
@@ -244,7 +250,7 @@ def carry(history, user_msg):
     Returns: [(role, text), ...] ending with the new human message.
     """
     msgs = []
-    for role, text in ___:          # TODO: which sequence replays the earlier turns?
+    for role, text in BLANK:          # TODO: which sequence replays the earlier turns?
         msgs.append((role, text))
     msgs.append(("human", user_msg))
     return msgs
@@ -285,7 +291,7 @@ def should_stop(state):
     """Return (stop, reason). Two reasons matter here: the goal, and the budget."""
     if state["answer"] is not None:
         return True, "goal"
-    if ___:                          # TODO: has the step budget been spent?
+    if BLANK:                          # TODO: has the step budget been spent?
         return True, "budget"
     return False, None
 
@@ -304,7 +310,7 @@ def run_agent(goal, decide, tools, max_steps=MAX_STEPS):
             continue
         observation = tools[action["tool"]](**action["args"])
         state["trace"].append((action["tool"], action["args"], observation))
-        state["steps"] = ___         # TODO: spend one unit of budget
+        state["steps"] = BLANK         # TODO: spend one unit of budget
 ''', '''
 MAX_STEPS = 6
 
@@ -370,7 +376,7 @@ def is_looping(trace, window=3):
     calls = [(tool, json.dumps(args, sort_keys=True)) for tool, args, _ in trace]
     if len(calls) < window:
         return False
-    return ___                      # TODO: are the last `window` calls all the same call?
+    return BLANK                      # TODO: are the last `window` calls all the same call?
 ''', '''
 def is_looping(trace, window=3):
     """True when the last `window` tool calls are identical in both tool and arguments."""
@@ -484,7 +490,7 @@ def lookup_payment(ref: str) -> str:
     """
     record = LEDGER.get(ref)
     if record is None:
-        return ___                  # TODO: a tool REPORTS failure, it does not raise it
+        return BLANK                  # TODO: a tool REPORTS failure, it does not raise it
     return json.dumps({"ref": ref, **record})
 
 
@@ -561,7 +567,7 @@ class ShortTermMemory:
 
     def compact(self) -> None:
         """Fold all but the most recent turns into `summary`."""
-        keep = ___                   # TODO: how many recent turns stay verbatim? (half the window)
+        keep = BLANK                   # TODO: how many recent turns stay verbatim? (half the window)
         older, self.turns = self.turns[:-keep], self.turns[-keep:]
         folded = " ".join(text for _, text in older)
         self.summary = (self.summary + " " + folded).strip()
@@ -643,7 +649,7 @@ def order_steps(steps: dict[str, list[str]]) -> list[str]:
         for name, deps in steps.items():
             if name in done:
                 continue
-            if ___:                  # TODO: may this step run yet?
+            if BLANK:                  # TODO: may this step run yet?
                 ordered.append(name)
                 done.add(name)
                 progressed = True
@@ -710,7 +716,7 @@ class MiniAgent:
     def __init__(self, tools, memory, plan):
         self.tools = tools                # block 3: the hands
         self.memory = memory              # block 2: the state
-        self.plan = ___                   # TODO: block 4 -- store the dependency-ordered plan
+        self.plan = BLANK                   # TODO: block 4 -- store the dependency-ordered plan
         self.max_steps = 6
 
     def blocks(self) -> list[str]:
@@ -896,8 +902,8 @@ def describes_well(doc: str) -> bool:
         return False
     text = doc.lower()
     says_return = "return" in text
-    says_when = ___                  # TODO: does it name the situation it is for?
-    says_boundary = ___              # TODO: does it name a situation it is NOT for?
+    says_when = BLANK                  # TODO: does it name the situation it is for?
+    says_boundary = BLANK              # TODO: does it name a situation it is NOT for?
     return says_return and says_when and says_boundary
 ''', '''
 def describes_well(doc: str) -> bool:
@@ -939,7 +945,7 @@ passes your own checker &mdash; and note that you are not changing a single line
 """),
     code('''
 def get_data(ref: str) -> str:
-    """___"""                        # TODO: rewrite so describes_well() passes. Logic stays as-is.
+    """BLANK"""                        # TODO: rewrite so describes_well() passes. Logic stays as-is.
     record = LEDGER.get(ref)
     if record is None:
         return f"no payment found with reference {ref!r}"
@@ -976,12 +982,12 @@ Assemble the configuration as plain data first, so the shape is checkable before
     code('''
 def build_config() -> dict:
     """Assemble the create_agent configuration as plain data."""
-    system_prompt = ___              # TODO: a standing instruction. It must (a) give the agent its
+    system_prompt = BLANK              # TODO: a standing instruction. It must (a) give the agent its
                                      # role, and (b) tell it never to act on a payment that policy
                                      # reserves for a human. Mention "human" explicitly.
     return {
         "model": LLM_MODEL,          # block 1: the brain
-        "tools": ___,                # TODO: a list of the two tool FUNCTIONS carried forward above
+        "tools": BLANK,                # TODO: a list of the two tool FUNCTIONS carried forward above
         "prompt": system_prompt,     # the standing instruction
         "max_steps": 6,              # the budget from Lab 1.1
     }
@@ -1112,12 +1118,12 @@ def route(brief: dict) -> str:
     """
     need = brief.get("needs")
     if need == "status":
-        return ___                   # TODO: which worker reads the ledger?
+        return BLANK                   # TODO: which worker reads the ledger?
     if need == "policy":
         return "policy"
     if need == "review":
         return "critic"
-    return ___                       # TODO: an unknown need must still route somewhere sensible
+    return BLANK                       # TODO: an unknown need must still route somewhere sensible
 ''', '''
 WORKERS = ("ledger", "policy", "critic")
 
@@ -1166,7 +1172,7 @@ class Meter:
     def record(self, prompt: str, response: str) -> None:
         """One model turn. Estimate ~4 characters per token -- crude, but applied equally."""
         self.steps += 1
-        self.tokens += ___           # TODO: estimated tokens for this turn (prompt AND response)
+        self.tokens += BLANK           # TODO: estimated tokens for this turn (prompt AND response)
 
     @property
     def seconds(self) -> float:
@@ -1260,7 +1266,7 @@ def pass_rate(runner):
     hits = 0
     for case in EVAL_SET:
         answer = runner(case, meter)
-        if ___:                      # TODO: did this case pass?
+        if BLANK:                      # TODO: did this case pass?
             hits += 1
     return {"pass_rate": round(hits / len(EVAL_SET), 3), **meter.report()}
 ''', '''
@@ -1341,7 +1347,7 @@ does not &mdash; and that is what you debug at 02:00.
     code('''
 def handoff_paths(n_agents: int) -> int:
     """Ordered handoff paths between n agents: every agent may hand to every other."""
-    return ___                       # TODO: the formula (each edge runs in both directions)
+    return BLANK                       # TODO: the formula (each edge runs in both directions)
 ''', '''
 def handoff_paths(n_agents: int) -> int:
     """Ordered handoff paths between n agents: every agent may hand to every other."""
@@ -1430,13 +1436,13 @@ def rubric(brief: dict) -> str:
       parallel         -- can the sub-tasks genuinely run at the same time?
       route_varies     -- does the path through the work change per case?
     """
-    if ___:                          # TODO: question 1 -- are the steps the same every time?
+    if BLANK:                          # TODO: question 1 -- are the steps the same every time?
         return "workflow"
     if brief["fits_one_agent"]:
         return "single_agent"
-    if ___:                          # TODO: question 3 -- neither specialisation nor parallelism?
+    if BLANK:                          # TODO: question 3 -- neither specialisation nor parallelism?
         return "single_agent"        #        then splitting buys nothing measurable
-    return ___                       # TODO: question 4 -- varying route or fixed?
+    return BLANK                       # TODO: question 4 -- varying route or fixed?
 ''', '''
 VERDICTS = ("workflow", "single_agent", "supervisor_worker", "peer_to_peer")
 
@@ -1518,7 +1524,7 @@ def clears_budget(single: dict, multi: dict, budget: dict = BUDGET) -> tuple[boo
 
     if gain < budget["min_gain"]:
         return False, f"gain {gain:+.2f} is below the {budget['min_gain']:.2f} threshold"
-    if ___:                          # TODO: is it over the token ceiling?
+    if BLANK:                          # TODO: is it over the token ceiling?
         return False, f"tokens {token_ratio:.1f}x exceed {budget['max_token_ratio']}x"
     if latency_ratio > budget["max_latency_ratio"]:
         return False, f"latency {latency_ratio:.1f}x exceeds {budget['max_latency_ratio']}x"
@@ -1580,7 +1586,7 @@ def recommend(brief: dict, single: dict | None = None, multi: dict | None = None
                 "why": "the rubric terminates before multi-agent is on the table"}
 
     if single is None or multi is None:
-        return {"candidate": candidate, "decision": ___,     # TODO: no evidence yet -- what ships?
+        return {"candidate": candidate, "decision": BLANK,     # TODO: no evidence yet -- what ships?
                 "why": "no scorecard yet; the cheaper design holds until the numbers exist"}
 
     cleared, reason = clears_budget(single, multi)

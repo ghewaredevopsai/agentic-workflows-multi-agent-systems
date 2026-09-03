@@ -43,8 +43,8 @@ print("\n--- blanks ---")
 for fn in sorted(f for f in os.listdir(LABDIR) if f.endswith(".ipynb")):
     lab = json.load(open(os.path.join(LABDIR, fn)))
     sol = json.load(open(os.path.join(SOLDIR, fn)))
-    lb = sum("".join(c["source"]).count("___") for c in lab["cells"] if c["cell_type"] == "code")
-    sb = sum("".join(c["source"]).count("___") for c in sol["cells"] if c["cell_type"] == "code")
+    lb = sum("".join(c["source"]).count("BLANK") for c in lab["cells"] if c["cell_type"] == "code")
+    sb = sum("".join(c["source"]).count("BLANK") for c in sol["cells"] if c["cell_type"] == "code")
     good = lb > 0 and sb == 0
     print(f"[{'OK    ' if good else 'BROKEN'}] {fn:44} {lb} blanks in lab, {sb} in solution")
     if not good:
