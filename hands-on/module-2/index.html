@@ -1,0 +1,125 @@
+<meta charset="utf-8">
+<title>Module 2 Labs &mdash; Agentic Planning &amp; Reasoning</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;padding:0}
+body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:#f5f5fb;color:#2d3748;font-size:14px;line-height:1.45}
+a{color:#4338ca}
+header{background:linear-gradient(135deg,#1e1b4b 0%,#4338ca 100%);color:#fff;padding:14px 18px;text-align:center;border-bottom:3px solid #818cf8}
+header h1{margin:0;font-size:1.35em}
+header .tagline{margin-top:4px;color:#c7d2fe;font-size:.9em;font-weight:600}
+header .meta{margin-top:6px;color:#c3c9de;font-size:.82em}
+header .meta span{margin:0 5px}
+.container{max-width:1060px;margin:12px auto;background:#fff;padding:14px 20px 10px;box-shadow:0 0 10px rgba(0,0,0,.1)}
+.how{background:#f0fdf9;border-left:3px solid #0d9488;padding:9px 13px;font-size:.88em;color:#134e4a;border-radius:0 3px 3px 0;margin-bottom:12px}
+.how p{margin:0 0 5px}.how p:last-child{margin:0}
+.how code{font-family:Consolas,'JetBrains Mono',monospace;background:#d7f5ee;padding:0 3px;border-radius:2px}
+.lab{background:#f8f8fd;border-left:3px solid #4338ca;border-radius:0 3px 3px 0;padding:9px 13px;margin-bottom:9px;break-inside:avoid}
+.lab h3{margin:0 0 4px;font-size:1.02em;color:#312e81}
+.lab h3 a{text-decoration:none}.lab h3 a:hover{text-decoration:underline}
+.lab .tags{float:right;font-size:.76em;color:#6b7280;font-weight:600}
+.lab .tags .lvl{color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:9px;padding:0 7px;margin-left:5px}
+.lab p{margin:0 0 5px;font-size:.92em;color:#4b5563}
+.lab ul{margin:0;padding-left:17px;font-size:.9em;color:#475569}
+.lab li{margin-bottom:1px}
+.lab .sol{font-size:.84em;color:#6b7280;margin-top:5px}
+.note{background:#fffbeb;border-left:3px solid #fbbf24;padding:9px 13px;font-size:.86em;color:#4b3a10;border-radius:0 3px 3px 0;margin-top:12px}
+footer{background:#1e1b4b;color:#fff;text-align:center;padding:10px;font-size:.8em}
+footer a{color:#c7d2fe;text-decoration:none}
+</style>
+
+<header>
+  <h1>Module 2 &mdash; Agentic Planning &amp; Reasoning</h1>
+  <div class="tagline">Day 1 hands-on &middot; five labs, intermediate to advanced</div>
+  <div class="meta"><span>One case file throughout</span> &middot; <span>self-checked</span> &middot; <span>solutions provided</span></div>
+</header>
+
+<div class="container">
+
+  <div class="how">
+    <p><strong>How these labs work.</strong> Fill every <code>BLANK</code>, then run the
+      <strong>Self-check</strong> cell under each section. It prints <code>[PASS]</code>,
+      <code>[FAIL]</code> or <code>[TODO]</code>, and the last cell prints your
+      <code>Score</code>.</p>
+    <p><strong>Your score never depends on a live model.</strong> Graded cells are plain Python.
+      Cells marked <strong>Run it for real</strong> do call the sandbox model &mdash; if it is
+      unreachable they print how to fix it rather than crashing, so <em>Run All</em> is always safe
+      on an untouched notebook.</p>
+    <p><strong>The same case file as Module 1</strong> &mdash; payment exceptions on a small synthetic
+      ledger. Module 1 asked whether to build an agent; these labs ask how it should think.</p>
+  </div>
+
+  <div class="lab">
+    <div class="tags">25 min<span class="lvl">Intermediate</span></div>
+    <h3><a href="lab-2-01-chain-of-thought-measured.ipynb">Lab 2.1 &mdash; Chain-of-Thought, Measured</a></h3>
+    <p>Does reasoning out loud actually earn its tokens? Run both arms and put a number on it.</p>
+    <ul>
+      <li>Split the answer from the reasoning, so the answer can be scored</li>
+      <li>Two prompts, one task, one variable changed</li>
+      <li>Read a trace whose reasoning does not support its own correct answer</li>
+    </ul>
+    <div class="sol">3 blanks &middot; 13 checks &middot; solution: <code>solutions/lab-2-01-chain-of-thought-measured.ipynb</code></div>
+  </div>
+
+  <div class="lab">
+    <div class="tags">30 min<span class="lvl">Intermediate &rarr; Advanced</span></div>
+    <h3><a href="lab-2-02-react-parser-contract.ipynb">Lab 2.2 &mdash; ReAct and the Parser Contract</a></h3>
+    <p>The model emits prose; your code must produce a tool call. Every time, or fail safely.</p>
+    <ul>
+      <li>Parse Thought / Action / Observation out of free-form text</li>
+      <li>Break your own parser on eight real drift cases</li>
+      <li>Choose strict or lenient per tool, and defend it</li>
+    </ul>
+    <div class="sol">4 blanks &middot; 22 checks &middot; solution: <code>solutions/lab-2-02-react-parser-contract.ipynb</code></div>
+  </div>
+
+  <div class="lab">
+    <div class="tags">35 min<span class="lvl">Advanced</span></div>
+    <h3><a href="lab-2-03-subgoals-and-replanning.ipynb">Lab 2.3 &mdash; Sub-goals That Finish, and When to Re-plan</a></h3>
+    <p>The failure that looks like a reasoning bug, and the one that looks like bad luck.</p>
+    <ul>
+      <li>Test whether a sub-goal has a detectable definition of done</li>
+      <li>Diagnose transient vs. wrong plan from the error itself</li>
+      <li>Watch a retry-only agent burn three calls where one was enough</li>
+    </ul>
+    <div class="sol">4 blanks &middot; 23 checks &middot; solution: <code>solutions/lab-2-03-subgoals-and-replanning.ipynb</code></div>
+  </div>
+
+  <div class="lab">
+    <div class="tags">35 min<span class="lvl">Advanced</span></div>
+    <h3><a href="lab-2-04-tree-of-thought-reflection.ipynb">Lab 2.4 &mdash; Branch, Score, Prune &mdash; and the Reflection Knee</a></h3>
+    <p>The two expensive architectures, and how to know in advance whether they are worth it.</p>
+    <ul>
+      <li>Count what a tree costs before building one</li>
+      <li>Write the scorer, which decides whether the tree helps at all</li>
+      <li>Find the round where reflection stops paying</li>
+    </ul>
+    <div class="sol">4 blanks &middot; 18 checks &middot; solution: <code>solutions/lab-2-04-tree-of-thought-reflection.ipynb</code></div>
+  </div>
+
+  <div class="lab">
+    <div class="tags">40 min<span class="lvl">Advanced &middot; challenge</span></div>
+    <h3><a href="lab-2-05-challenge-architecture-bakeoff.ipynb">Lab 2.5 &mdash; Challenge: The Architecture Bake-Off</a></h3>
+    <p>Four architectures, one eval set, one threshold named before you look at any number.</p>
+    <ul>
+      <li>One meter across all four arms, or the comparison is decoration</li>
+      <li>A scorecard that is allowed to reject the interesting answer</li>
+      <li>The design-review paragraph you would actually sign</li>
+    </ul>
+    <div class="sol">2 blanks &middot; 17 checks &middot; solution: <code>solutions/lab-2-05-challenge-architecture-bakeoff.ipynb</code></div>
+  </div>
+
+  <div class="note">
+    <strong>Regenerating.</strong> Labs and solutions are built from a single source
+    (<code>_generators/gen_labs.py</code>) so a blank can never drift from the answer that grades
+    it. Run <code>_generators/regenerate.sh</code> to rebuild and re-verify both directions.
+    Runtime prerequisites are in <code>../module-1/RUNTIME.md</code>.
+  </div>
+
+</div>
+
+<footer>
+  &copy; 2026 Gheware DevOps &amp; Agentic AI |
+  <a href="https://devops.gheware.com">devops.gheware.com</a> |
+  Trainer: Rajesh Gheware |
+  Questions: <a href="mailto:dev@gheware.com">dev@gheware.com</a>
+</footer>

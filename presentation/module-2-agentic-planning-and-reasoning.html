@@ -1,0 +1,983 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Module 2 &mdash; Agentic Planning &amp; Reasoning | Agentic Workflows &amp; Multi-Agent Systems</title>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;height:100%}
+body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:#e8e9f5;color:#1e1b4b;overflow:hidden}
+
+/* ---------- chrome ---------- */
+#top{position:fixed;top:0;left:0;right:0;height:44px;background:#1e1b4b;color:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 16px;z-index:40;font-size:13px}
+#top .l{display:flex;align-items:center;gap:12px;min-width:0}
+#top .mod{font-weight:600;letter-spacing:.2px;white-space:nowrap}
+#top .sec{color:#a5b4fc;font-size:12px;border-left:1px solid #3730a3;padding-left:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#top .r{display:flex;align-items:center;gap:8px}
+#top a,#top button{color:#c7d2fe;text-decoration:none;background:#312e81;border:1px solid #4338ca;padding:5px 11px;border-radius:4px;font-size:12.5px;cursor:pointer;font-family:inherit}
+#top a:hover,#top button:hover{background:#4338ca;color:#fff}
+#bot{position:fixed;bottom:0;left:0;right:0;height:38px;background:#1e1b4b;color:#c7d2fe;display:flex;align-items:center;gap:12px;padding:0 16px;z-index:40;font-size:12px}
+#prog{flex:1;height:4px;background:#312e81;border-radius:2px;overflow:hidden}
+#progf{height:100%;width:2%;background:#fbbf24;transition:width .25s ease}
+.navbtn{background:#312e81;color:#fff;border:1px solid #4338ca;border-radius:4px;padding:4px 12px;cursor:pointer;font-size:14px;line-height:1.2;font-family:inherit}
+.navbtn:hover{background:#4338ca}
+#num{min-width:66px;text-align:right;font-variant-numeric:tabular-nums}
+#hint{color:#818cf8}
+#wrap{position:fixed;top:44px;bottom:38px;left:0;right:0;display:flex;align-items:center;justify-content:center}
+#stage{width:1280px;height:720px;background:#fff;box-shadow:0 8px 34px rgba(30,27,75,.28);position:relative;transform-origin:center center;overflow:hidden}
+
+/* ---------- index overlay ---------- */
+#toc{position:fixed;inset:44px 0 38px;background:rgba(23,21,60,.975);color:#fff;z-index:35;display:none;overflow:auto;padding:22px 46px}
+#toc.on{display:block}
+#toc h3{margin:0 0 14px;font-size:15px;color:#a5b4fc;letter-spacing:.6px;text-transform:uppercase;font-weight:600}
+#toc .cols{column-count:2;column-gap:38px}
+#toc .grp{margin-bottom:16px;break-inside:avoid}
+#toc .grph{font-size:12px;color:#fbbf24;font-weight:700;letter-spacing:.8px;margin-bottom:5px;text-transform:uppercase}
+#toc a{display:block;color:#dce0f7;text-decoration:none;padding:4px 10px;border-left:2px solid #4338ca;font-size:14px}
+#toc a:hover{background:#312e81;border-left-color:#818cf8}
+#toc a.cur{background:#4338ca;border-left-color:#fbbf24;color:#fff;font-weight:600}
+#toc a .n{display:inline-block;width:28px;color:#818cf8;font-size:12px}
+
+/* ---------- notes ---------- */
+#notes{position:fixed;left:0;right:0;bottom:38px;max-height:34%;overflow:auto;background:#171540;color:#dce0f7;border-top:3px solid #fbbf24;padding:12px 22px;z-index:36;display:none;font-size:14px;line-height:1.55}
+#notes.on{display:block}
+#notes .h{font-size:11px;letter-spacing:.8px;color:#a5b4fc;font-weight:700;margin-bottom:5px;text-transform:uppercase}
+
+/* ---------- slide shell ---------- */
+.slide{position:absolute;inset:0;padding:26px 40px 20px;display:none;flex-direction:column}
+.slide.active{display:flex}
+.slide h2{margin:0 0 14px;font-size:28px;line-height:1.14;color:#1e1b4b;border-bottom:2px solid #4338ca;padding-bottom:8px;font-weight:600}
+.slide .body{flex:1;display:flex;align-items:center;justify-content:center;min-height:0}
+.slide .body.col{flex-direction:column;justify-content:center;gap:10px}
+.take{margin-top:12px;background:#fffbeb;border-left:4px solid #fbbf24;padding:9px 14px;font-size:17px;color:#4b3a10;border-radius:0 3px 3px 0;line-height:1.35}
+.take b{color:#92400e}
+
+/* title slide */
+.slide.title{justify-content:center;align-items:center;text-align:center;background:linear-gradient(135deg,#1e1b4b 0%,#4338ca 100%);color:#fff;padding:0}
+.slide.title h1{font-size:46px;margin:0 0 12px;font-weight:600;line-height:1.15}
+.slide.title .sub{font-size:21px;color:#c7d2fe;margin-bottom:26px}
+.slide.title .rule{width:120px;height:3px;background:#fbbf24;margin:0 auto 26px}
+.slide.title .meta{font-size:15px;color:#a5b4fc;line-height:1.9}
+
+/* section divider */
+.slide.div{justify-content:center;align-items:center;text-align:center;background:#f5f5fb}
+.slide.div .k{font-size:13px;letter-spacing:2px;color:#818cf8;font-weight:700;text-transform:uppercase;margin-bottom:14px}
+.slide.div h1{font-size:40px;margin:0;color:#1e1b4b;font-weight:600}
+
+/* svg text defaults */
+svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
+.lbl{font-size:12.5px;fill:#64748b;letter-spacing:.7px;font-weight:700;text-transform:uppercase}
+.bx{font-size:17px;fill:#1e1b4b;font-weight:600}
+.bxs{font-size:15px;fill:#1e1b4b;font-weight:600}
+.bd{font-size:14px;fill:#475569}
+.bds{font-size:13px;fill:#64748b}
+.big{font-size:23px;fill:#1e1b4b;font-weight:700}
+.num{font-size:26px;fill:#4338ca;font-weight:700}
+.ok{fill:#0d9488}
+.no{fill:#b91c1c}
+.am{fill:#92400e}
+
+/* quiz */
+.q .body{align-items:center}
+.qbox{width:100%}
+.qstem{font-size:23px;line-height:1.35;color:#1e1b4b;font-weight:600;margin-bottom:22px}
+.opt{display:flex;align-items:flex-start;gap:14px;padding:11px 16px;margin-bottom:10px;background:#f8f8fd;border-left:4px solid #c7d2fe;border-radius:0 4px 4px 0;font-size:19px;line-height:1.3}
+.opt .k{font-weight:700;color:#4338ca;min-width:22px}
+.opt.hit{background:#ecfdf5;border-left-color:#0d9488}
+.opt.hit .k{color:#0d9488}
+.opt.miss{opacity:.5}
+.why{margin-top:14px;background:#f5f3ff;border-left:4px solid #7c3aed;padding:10px 15px;font-size:16.5px;color:#3b2a6b;line-height:1.4;border-radius:0 3px 3px 0}
+.why b{color:#5b21b6}
+.qtag{position:absolute;top:26px;right:40px;font-size:12px;letter-spacing:1px;font-weight:700;color:#818cf8;text-transform:uppercase}
+</style>
+</head>
+<body>
+
+<div id="top">
+  <div class="l">
+    <span class="mod">Module 2 &middot; Agentic Planning &amp; Reasoning</span>
+    <span class="sec" id="secname">&nbsp;</span>
+  </div>
+  <div class="r">
+    <button id="btoc" title="Slide index (T)">Index</button>
+    <button id="bnotes" title="Speaker notes (N)">Notes</button>
+    <a href="../resources/video-resources.html" title="Post-session video resources">Resources</a>
+  </div>
+</div>
+
+<div id="wrap"><div id="stage"></div></div>
+
+<div id="toc"><h3>Slide index</h3><div class="cols" id="toclist"></div></div>
+<div id="notes"><div class="h">Speaker notes</div><div id="notesbody"></div></div>
+
+<div id="bot">
+  <button class="navbtn" id="bprev">&#8592;</button>
+  <button class="navbtn" id="bnext">&#8594;</button>
+  <div id="prog"><div id="progf"></div></div>
+  <span id="hint">&#8592; &#8594; move &middot; T index &middot; N notes &middot; F fullscreen</span>
+  <span id="num">1 / 1</span>
+</div>
+
+<template id="deck">
+
+<svg width="0" height="0" style="position:absolute"><defs>
+<marker id="ai" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#4338ca"/></marker>
+<marker id="ag" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker>
+<marker id="aa" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#d97706"/></marker>
+<marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#b91c1c"/></marker>
+<marker id="at" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#0d9488"/></marker>
+</defs></svg>
+
+<div class="slide title" data-sec="Title" data-notes="Module 1 asked whether to build an agent. Module 2 asks how it should think. Frame it as an engineering choice with a price list, not a taxonomy tour: four architectures, and by the end they can say which one earns its cost on which task.">
+  <h1>Agentic Planning &amp; Reasoning</h1>
+  <div class="sub">Module 2 &middot; Day 1 &mdash; The Agent Loop: Reasoning, Memory &amp; State</div>
+  <div class="rule"></div>
+  <div class="meta">
+    Agentic Workflows &amp; Multi-Agent Systems &middot; 3 days &middot; Advanced<br>
+    Trainer: Rajesh Gheware
+  </div>
+</div>
+
+<div class="slide" data-sec="Orientation" data-notes="Say plainly what changed: Module 1 settled WHETHER to build an agent. This module is about how it thinks inside the loop you already built. The last question is the one that matters at review time.">
+  <h2>Module 1 chose the shape. This one chooses the thinking.</h2>
+  <div class="body">
+    <svg width="1180" height="420" viewBox="0 0 1180 420" role="img" aria-label="Module 1 versus Module 2 scope">
+      <rect x="60" y="60" width="480" height="170" rx="8" fill="#f8f8fd" stroke="#cbd5e1" stroke-width="2"/>
+      <text x="300" y="98" text-anchor="middle" class="lbl">Module 1 settled</text>
+      <text x="300" y="136" text-anchor="middle" class="bx">Workflow, one agent, or many?</text>
+      <text x="300" y="168" text-anchor="middle" class="bd">The loop exists. It has a budget.</text>
+      <text x="300" y="196" text-anchor="middle" class="bd">It stops. It is measured.</text>
+
+      <line x1="565" y1="145" x2="620" y2="145" stroke="#4338ca" stroke-width="2.5" marker-end="url(#ai)"/>
+
+      <rect x="640" y="60" width="480" height="170" rx="8" fill="#eef2ff" stroke="#4338ca" stroke-width="2.5"/>
+      <text x="880" y="98" text-anchor="middle" class="lbl">Module 2 settles</text>
+      <text x="880" y="136" text-anchor="middle" class="bx">How does it decide the next step?</text>
+      <text x="880" y="168" text-anchor="middle" class="bd">Four architectures, same task,</text>
+      <text x="880" y="196" text-anchor="middle" class="bd">different price and different payoff.</text>
+
+      <text x="590" y="286" text-anchor="middle" class="lbl">The four questions</text>
+      <rect x="60" y="304" width="255" height="86" rx="6" fill="#f8f8fd" stroke="#c7d2fe" stroke-width="2"/>
+      <text x="187" y="336" text-anchor="middle" class="bxs">Which architecture?</text>
+      <text x="187" y="366" text-anchor="middle" class="bds">CoT &middot; ReAct &middot; ToT &middot; Reflection</text>
+      <rect x="333" y="304" width="255" height="86" rx="6" fill="#f8f8fd" stroke="#c7d2fe" stroke-width="2"/>
+      <text x="460" y="336" text-anchor="middle" class="bxs">How is work split?</text>
+      <text x="460" y="366" text-anchor="middle" class="bds">sub-goals an agent can finish</text>
+      <rect x="606" y="304" width="255" height="86" rx="6" fill="#f8f8fd" stroke="#c7d2fe" stroke-width="2"/>
+      <text x="733" y="336" text-anchor="middle" class="bxs">Retry, or re-plan?</text>
+      <text x="733" y="366" text-anchor="middle" class="bds">the diagnosis decides</text>
+      <rect x="879" y="304" width="241" height="86" rx="6" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
+      <text x="999" y="336" text-anchor="middle" class="bxs am">What does it cost?</text>
+      <text x="999" y="366" text-anchor="middle" class="bds">measured, not asserted</text>
+    </svg>
+  </div>
+</div>
+
+<div class="slide div" data-sec="Four architectures" data-notes="The core of the module. Resist ranking them in the abstract -- the whole point is that the ranking changes with the task.">
+  <div class="k">Part one</div>
+  <h1>Four ways to think</h1>
+</div>
+
+<div class="slide" data-sec="Four architectures" data-notes="One slide, all four, so the room has a map before the detail. Stress the last column: every one of these buys quality with tokens or latency. None is free, and none is best.">
+  <h2>Four architectures, one map</h2>
+  <div class="body">
+    <svg width="1180" height="430" viewBox="0 0 1180 430" role="img" aria-label="Chain-of-Thought, ReAct, Tree-of-Thought and Reflection compared">
+      <g>
+        <rect x="50" y="50" width="255" height="240" rx="8" fill="#eef2ff" stroke="#4338ca" stroke-width="2"/>
+        <text x="177" y="82" text-anchor="middle" class="lbl">01</text>
+        <text x="177" y="112" text-anchor="middle" class="big">Chain-of-Thought</text>
+        <line x1="120" y1="132" x2="234" y2="132" stroke="#4338ca" stroke-width="2"/>
+        <circle cx="90" cy="168" r="9" fill="#4338ca"/><circle cx="150" cy="168" r="9" fill="#4338ca"/>
+        <circle cx="210" cy="168" r="9" fill="#4338ca"/><circle cx="264" cy="168" r="9" fill="#0d9488"/>
+        <line x1="99" y1="168" x2="141" y2="168" stroke="#94a3b8" stroke-width="2"/>
+        <line x1="159" y1="168" x2="201" y2="168" stroke="#94a3b8" stroke-width="2"/>
+        <line x1="219" y1="168" x2="255" y2="168" stroke="#94a3b8" stroke-width="2"/>
+        <text x="177" y="212" text-anchor="middle" class="bd">Think in steps, then answer.</text>
+        <text x="177" y="240" text-anchor="middle" class="bds">No tools. One pass.</text>
+        <text x="177" y="272" text-anchor="middle" class="bxs am">Cost: a few hundred tokens</text>
+      </g>
+      <g>
+        <rect x="320" y="50" width="255" height="240" rx="8" fill="#eef2ff" stroke="#4338ca" stroke-width="2"/>
+        <text x="447" y="82" text-anchor="middle" class="lbl">02</text>
+        <text x="447" y="112" text-anchor="middle" class="big">ReAct</text>
+        <line x1="390" y1="132" x2="504" y2="132" stroke="#4338ca" stroke-width="2"/>
+        <circle cx="447" cy="178" r="42" fill="none" stroke="#4338ca" stroke-width="2" stroke-dasharray="4 4"/>
+        <text x="447" y="166" text-anchor="middle" class="bds">think</text>
+        <text x="447" y="184" text-anchor="middle" class="bds">act</text>
+        <text x="447" y="202" text-anchor="middle" class="bds">observe</text>
+        <text x="447" y="240" text-anchor="middle" class="bd">Reason, then use a tool,</text>
+        <text x="447" y="260" text-anchor="middle" class="bds">then reason on what came back.</text>
+        <text x="447" y="284" text-anchor="middle" class="bxs am">Cost: n round trips</text>
+      </g>
+      <g>
+        <rect x="590" y="50" width="255" height="240" rx="8" fill="#eef2ff" stroke="#4338ca" stroke-width="2"/>
+        <text x="717" y="82" text-anchor="middle" class="lbl">03</text>
+        <text x="717" y="112" text-anchor="middle" class="big">Tree-of-Thought</text>
+        <line x1="660" y1="132" x2="774" y2="132" stroke="#4338ca" stroke-width="2"/>
+        <circle cx="717" cy="156" r="8" fill="#4338ca"/>
+        <line x1="717" y1="164" x2="665" y2="192" stroke="#94a3b8" stroke-width="2"/>
+        <line x1="717" y1="164" x2="717" y2="192" stroke="#94a3b8" stroke-width="2"/>
+        <line x1="717" y1="164" x2="769" y2="192" stroke="#94a3b8" stroke-width="2"/>
+        <circle cx="665" cy="200" r="8" fill="#b91c1c"/><circle cx="717" cy="200" r="8" fill="#4338ca"/><circle cx="769" cy="200" r="8" fill="#0d9488"/>
+        <text x="665" y="224" text-anchor="middle" class="bds no">pruned</text>
+        <text x="769" y="224" text-anchor="middle" class="bds ok">kept</text>
+        <text x="717" y="256" text-anchor="middle" class="bd">Branch, score, prune.</text>
+        <text x="717" y="284" text-anchor="middle" class="bxs am">Cost: branches &times; depth</text>
+      </g>
+      <g>
+        <rect x="860" y="50" width="255" height="240" rx="8" fill="#eef2ff" stroke="#4338ca" stroke-width="2"/>
+        <text x="987" y="82" text-anchor="middle" class="lbl">04</text>
+        <text x="987" y="112" text-anchor="middle" class="big">Reflection</text>
+        <line x1="930" y1="132" x2="1044" y2="132" stroke="#4338ca" stroke-width="2"/>
+        <rect x="900" y="150" width="80" height="34" rx="4" fill="#4338ca"/><text x="940" y="172" text-anchor="middle" font-size="12" fill="#fff">draft</text>
+        <rect x="995" y="150" width="80" height="34" rx="4" fill="#fbbf24"/><text x="1035" y="172" text-anchor="middle" font-size="12" fill="#3b2708">critic</text>
+        <path d="M980 167 L991 167" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
+        <path d="M1035 186 Q1035 212 940 212 Q940 196 940 188" fill="none" stroke="#d97706" stroke-width="2" marker-end="url(#aa)"/>
+        <text x="987" y="242" text-anchor="middle" class="bd">Draft, criticise, revise.</text>
+        <text x="987" y="262" text-anchor="middle" class="bds">Usually 1&ndash;2 rounds, then flat.</text>
+        <text x="987" y="284" text-anchor="middle" class="bxs am">Cost: 2&ndash;3&times; per round</text>
+      </g>
+      <rect x="180" y="326" width="820" height="62" rx="6" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
+      <text x="590" y="352" text-anchor="middle" class="bx am">None of these is best. Each buys quality with tokens or latency,</text>
+      <text x="590" y="376" text-anchor="middle" class="bx am">and the exchange rate depends on the task.</text>
+    </svg>
+  </div>
+</div>
+
+<div class="slide" data-sec="Four architectures" data-notes="The decisive question is not which is cleverest but what the task actually needs. Two axes: does the answer need outside facts, and is there more than one plausible route? That is the whole selection rule.">
+  <h2>Two questions pick the architecture</h2>
+  <div class="body">
+    <svg width="1180" height="420" viewBox="0 0 1180 420" role="img" aria-label="Selection grid on facts needed and route ambiguity">
+      <text x="70" y="46" class="lbl">Needs facts the model does not have &#8594;</text>
+      <text x="30" y="250" class="lbl" transform="rotate(-90 30 250)">More than one plausible route &#8594;</text>
+
+      <rect x="180" y="62" width="420" height="150" rx="8" fill="#ecfdf5" stroke="#0d9488" stroke-width="2.5"/>
+      <text x="390" y="98" text-anchor="middle" class="bx ok">Chain-of-Thought</text>
+      <text x="390" y="130" text-anchor="middle" class="bd">One route, no outside facts.</text>
+      <text x="390" y="158" text-anchor="middle" class="bds">Classify this exception by reason code.</text>
+      <text x="390" y="188" text-anchor="middle" class="bds ok">Cheapest thing that still shows its work.</text>
+
+      <rect x="620" y="62" width="420" height="150" rx="8" fill="#eef2ff" stroke="#4338ca" stroke-width="2.5"/>
+      <text x="830" y="98" text-anchor="middle" class="bx">ReAct</text>
+      <text x="830" y="130" text-anchor="middle" class="bd">One route, but it needs the ledger.</text>
+      <text x="830" y="158" text-anchor="middle" class="bds">Why did PMT-1002 fail, and what is the policy?</text>
+      <text x="830" y="188" text-anchor="middle" class="bds">The default for tool-using agents.</text>
+
+      <rect x="180" y="228" width="420" height="150" rx="8" fill="#eef2ff" stroke="#4338ca" stroke-width="2.5"/>
+      <text x="390" y="264" text-anchor="middle" class="bx">Reflection</text>
+      <text x="390" y="296" text-anchor="middle" class="bd">Several routes, all checkable in-head.</text>
+      <text x="390" y="324" text-anchor="middle" class="bds">Draft the client-facing explanation.</text>
+      <text x="390" y="354" text-anchor="middle" class="bds">Quality is a judgement, so add a judge.</text>
+
+      <rect x="620" y="228" width="420" height="150" rx="8" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
+      <text x="830" y="264" text-anchor="middle" class="bx am">Tree-of-Thought</text>
+      <text x="830" y="296" text-anchor="middle" class="bd">Several routes AND outside facts.</text>
+      <text x="830" y="324" text-anchor="middle" class="bds">Which of four causes explains this break?</text>
+      <text x="830" y="354" text-anchor="middle" class="bds no">The most expensive box. Justify it.</text>
+    </svg>
+  </div>
+  <div class="take"><b>Read the grid, not the hype:</b> most production work sits in the top two boxes. Tree-of-Thought is a deliberate purchase.</div>
+</div>
+
+<div class="slide" data-sec="Four architectures" data-notes="Chain-of-Thought detail. The important nuance for an advanced room: the visible reasoning is a rationalisation, not a transcript of the computation. Do not treat it as an audit trail -- Module 7 gives you the real one.">
+  <h2>Chain-of-Thought &mdash; and what its reasoning is not</h2>
+  <div class="body">
+    <svg width="1180" height="410" viewBox="0 0 1180 410" role="img" aria-label="What chain-of-thought gives you and what it does not">
+      <rect x="60" y="50" width="490" height="300" rx="8" fill="#ecfdf5" stroke="#0d9488" stroke-width="2.5"/>
+      <text x="305" y="86" text-anchor="middle" class="bx ok">What it buys</text>
+      <text x="100" y="132" class="bd">&bull;&nbsp; Better accuracy on multi-step questions</text>
+      <text x="100" y="172" class="bd">&bull;&nbsp; A draft you can read and challenge</text>
+      <text x="100" y="212" class="bd">&bull;&nbsp; Failures that are legible &mdash; you see</text>
+      <text x="126" y="238" class="bd">which step went wrong</text>
+      <text x="100" y="278" class="bd">&bull;&nbsp; Almost no engineering: it is a prompt</text>
+      <text x="305" y="322" text-anchor="middle" class="bds">Cheapest quality win available.</text>
+
+      <rect x="620" y="50" width="490" height="300" rx="8" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
+      <text x="865" y="86" text-anchor="middle" class="bx no">What it is not</text>
+      <text x="660" y="132" class="bd">&bull;&nbsp; Not a transcript of the computation</text>
+      <text x="660" y="172" class="bd">&bull;&nbsp; Not an audit trail &mdash; a model can reach</text>
+      <text x="686" y="198" class="bd">the right answer and narrate a wrong route</text>
+      <text x="660" y="238" class="bd">&bull;&nbsp; Not a guarantee &mdash; confident prose is</text>
+      <text x="686" y="264" class="bd">exactly what a wrong answer also looks like</text>
+      <text x="660" y="304" class="bd">&bull;&nbsp; Not free: it is tokens on every call</text>
+      <text x="865" y="336" text-anchor="middle" class="bds no">Plausible reasoning is not verified reasoning.</text>
+    </svg>
+  </div>
+  <div class="take"><b>For a regulated setting:</b> the reasoning text is evidence for a human reviewer, never the control. The control is the trace and the check &mdash; Modules 7 and 8.</div>
+</div>
+
+<div class="slide" data-sec="Four architectures" data-notes="ReAct in detail. The engineering point everyone underestimates: the format contract. The model must emit something parseable, and it will drift. Lab 2.2 breaks the parser on purpose.">
+  <h2>ReAct &mdash; the loop, and the contract it depends on</h2>
+  <div class="body">
+    <svg width="1180" height="420" viewBox="0 0 1180 420" role="img" aria-label="The ReAct cycle and its parsing contract">
+      <text x="300" y="44" text-anchor="middle" class="lbl">The cycle</text>
+      <rect x="120" y="62" width="360" height="46" rx="5" fill="#eef2ff" stroke="#818cf8" stroke-width="2"/>
+      <text x="300" y="91" text-anchor="middle" class="bxs">Thought: I need the reason code first</text>
+      <line x1="300" y1="112" x2="300" y2="128" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
+      <rect x="120" y="132" width="360" height="46" rx="5" fill="#4338ca"/>
+      <text x="300" y="161" text-anchor="middle" font-size="15" font-weight="600" fill="#fff">Action: lookup_payment("PMT-1002")</text>
+      <line x1="300" y1="182" x2="300" y2="198" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
+      <rect x="120" y="202" width="360" height="46" rx="5" fill="#eef2ff" stroke="#818cf8" stroke-width="2"/>
+      <text x="300" y="231" text-anchor="middle" class="bxs">Observation: INSUFFICIENT_FUNDS</text>
+      <path d="M120 225 Q70 225 70 85 Q70 62 114 78" fill="none" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
+      <text x="300" y="288" text-anchor="middle" class="bd">Each observation changes the next thought.</text>
+      <text x="300" y="314" text-anchor="middle" class="bds">That is the whole difference from Chain-of-Thought.</text>
+
+      <line x1="560" y1="50" x2="560" y2="360" stroke="#e2e8f0" stroke-width="2"/>
+
+      <text x="860" y="44" text-anchor="middle" class="lbl">The contract it rests on</text>
+      <rect x="620" y="62" width="480" height="106" rx="6" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
+      <text x="860" y="94" text-anchor="middle" class="bx am">Your parser is a protocol boundary</text>
+      <text x="860" y="124" text-anchor="middle" class="bd">The model emits text. Your code must turn</text>
+      <text x="860" y="148" text-anchor="middle" class="bd">it into a tool call &mdash; every single time.</text>
+
+      <text x="640" y="204" class="bxs no">It will drift:</text>
+      <text x="640" y="238" class="bd">&bull;&nbsp; `Action:` becomes `**Action:**`</text>
+      <text x="640" y="272" class="bd">&bull;&nbsp; arguments arrive unquoted, or as prose</text>
+      <text x="640" y="306" class="bd">&bull;&nbsp; two actions in one turn</text>
+      <text x="640" y="340" class="bd">&bull;&nbsp; a thought with no action at all</text>
+    </svg>
+  </div>
+  <div class="take"><b>Lab 2.2 breaks it on purpose:</b> a strict parser fails a good answer; a lenient one runs the wrong tool. You will pick a side and defend it.</div>
+</div>
+
+<div class="slide" data-sec="Four architectures" data-notes="Tree-of-Thought. Be blunt about cost: branches times depth times tokens per node. The scoring function is the part teams forget, and a bad scorer makes the whole tree worse than a single line of reasoning.">
+  <h2>Tree-of-Thought &mdash; branch, score, prune</h2>
+  <div class="body">
+    <svg width="1180" height="420" viewBox="0 0 1180 420" role="img" aria-label="Tree of thought expansion with scoring and pruning">
+      <circle cx="180" cy="200" r="20" fill="#1e1b4b"/><text x="180" y="206" text-anchor="middle" font-size="12" fill="#fff">goal</text>
+      <line x1="200" y1="188" x2="270" y2="118" stroke="#94a3b8" stroke-width="2"/>
+      <line x1="200" y1="200" x2="270" y2="200" stroke="#94a3b8" stroke-width="2"/>
+      <line x1="200" y1="212" x2="270" y2="282" stroke="#94a3b8" stroke-width="2"/>
+      <circle cx="290" cy="112" r="18" fill="#4338ca"/><text x="290" y="117" text-anchor="middle" font-size="11" fill="#fff">A</text>
+      <circle cx="290" cy="200" r="18" fill="#4338ca"/><text x="290" y="205" text-anchor="middle" font-size="11" fill="#fff">B</text>
+      <circle cx="290" cy="288" r="18" fill="#4338ca"/><text x="290" y="293" text-anchor="middle" font-size="11" fill="#fff">C</text>
+      <text x="330" y="117" class="bds ok">0.8</text><text x="330" y="205" class="bds">0.5</text><text x="330" y="293" class="bds no">0.1</text>
+
+      <text x="290" y="342" text-anchor="middle" class="lbl">score every branch</text>
+      <line x1="308" y1="104" x2="400" y2="76" stroke="#94a3b8" stroke-width="2"/>
+      <line x1="308" y1="120" x2="400" y2="148" stroke="#94a3b8" stroke-width="2"/>
+      <circle cx="420" cy="70" r="18" fill="#4338ca"/><circle cx="420" cy="154" r="18" fill="#4338ca"/>
+      <line x1="308" y1="196" x2="400" y2="212" stroke="#94a3b8" stroke-width="2"/>
+      <circle cx="420" cy="218" r="18" fill="#4338ca"/>
+      <g opacity=".35">
+        <line x1="308" y1="292" x2="400" y2="300" stroke="#b91c1c" stroke-width="2" stroke-dasharray="4 3"/>
+        <circle cx="420" cy="304" r="18" fill="#b91c1c"/>
+      </g>
+      <text x="420" y="352" text-anchor="middle" class="bds no">C pruned &mdash; never expanded</text>
+      <line x1="438" y1="66" x2="520" y2="60" stroke="#0d9488" stroke-width="2.5" marker-end="url(#at)"/>
+      <rect x="530" y="38" width="150" height="44" rx="5" fill="#ecfdf5" stroke="#0d9488" stroke-width="2"/>
+      <text x="605" y="66" text-anchor="middle" class="bxs ok">best path</text>
+
+      <line x1="720" y1="40" x2="720" y2="370" stroke="#e2e8f0" stroke-width="2"/>
+      <text x="950" y="60" text-anchor="middle" class="lbl">What it actually costs</text>
+      <rect x="770" y="80" width="360" height="52" rx="5" fill="#fef2f2" stroke="#b91c1c" stroke-width="2"/>
+      <text x="950" y="112" text-anchor="middle" class="bx no">branches &times; depth &times; tokens per node</text>
+      <text x="950" y="164" text-anchor="middle" class="bd">3 branches, 3 deep, no pruning</text>
+      <text x="950" y="192" text-anchor="middle" class="big no">= 39 model calls</text>
+      <text x="950" y="222" text-anchor="middle" class="bds">for one answer</text>
+      <rect x="770" y="248" width="360" height="112" rx="6" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
+      <text x="950" y="278" text-anchor="middle" class="bxs am">The scorer is the whole design</text>
+      <text x="950" y="306" text-anchor="middle" class="bd">A weak scorer prunes the right branch</text>
+      <text x="950" y="330" text-anchor="middle" class="bd">and keeps the wrong one &mdash; worse than</text>
+      <text x="950" y="352" text-anchor="middle" class="bd">not branching at all, and far dearer.</text>
+    </svg>
+  </div>
+  <div class="take"><b>Before you build a tree:</b> can you write the scoring function? If not, you are buying breadth you cannot use.</div>
+</div>
+
+<div class="slide" data-sec="Four architectures" data-notes="Reflection, and the finding that matters commercially: gains flatten fast. Round one is usually worth it, round two sometimes, round three almost never. Lab 2.4 measures where the knee is.">
+  <h2>Reflection &mdash; and where it stops paying</h2>
+  <div class="body">
+    <svg width="1180" height="420" viewBox="0 0 1180 420" role="img" aria-label="Reflection rounds against quality showing diminishing returns">
+      <line x1="140" y1="330" x2="640" y2="330" stroke="#94a3b8" stroke-width="2"/>
+      <line x1="140" y1="330" x2="140" y2="70" stroke="#94a3b8" stroke-width="2"/>
+      <text x="390" y="368" text-anchor="middle" class="lbl">reflection rounds</text>
+      <text x="96" y="200" class="lbl" transform="rotate(-90 96 200)">quality</text>
+      <text x="160" y="352" class="bds">0</text><text x="280" y="352" class="bds">1</text>
+      <text x="400" y="352" class="bds">2</text><text x="520" y="352" class="bds">3</text>
+      <path d="M160 300 L280 160 L400 122 L520 112" fill="none" stroke="#4338ca" stroke-width="3"/>
+      <circle cx="160" cy="300" r="7" fill="#4338ca"/><circle cx="280" cy="160" r="7" fill="#0d9488"/>
+      <circle cx="400" cy="122" r="7" fill="#4338ca"/><circle cx="520" cy="112" r="7" fill="#b91c1c"/>
+      <text x="286" y="142" class="bds ok">big win</text>
+      <text x="406" y="104" class="bds">small</text>
+      <text x="500" y="94" class="bds no">noise</text>
+      <path d="M160 300 L280 240 L400 300 L520 380" fill="none" stroke="#b91c1c" stroke-width="2.5" stroke-dasharray="6 4"/>
+      <text x="548" y="330" class="bds no">cost</text>
+
+      <line x1="700" y1="50" x2="700" y2="370" stroke="#e2e8f0" stroke-width="2"/>
+      <rect x="750" y="70" width="380" height="118" rx="7" fill="#ecfdf5" stroke="#0d9488" stroke-width="2.5"/>
+      <text x="940" y="102" text-anchor="middle" class="bx ok">Reflection works when</text>
+      <text x="775" y="134" class="bd">the critic knows something the drafter</text>
+      <text x="775" y="158" class="bd">did not use &mdash; a rule, a schema, a policy</text>
+      <text x="940" y="180" text-anchor="middle" class="bds">Give the critic a checklist, not "improve this"</text>
+
+      <rect x="750" y="212" width="380" height="118" rx="7" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
+      <text x="940" y="244" text-anchor="middle" class="bx no">Reflection fails when</text>
+      <text x="775" y="276" class="bd">the same model grades its own work with</text>
+      <text x="775" y="300" class="bd">the same knowledge and no new input</text>
+      <text x="940" y="322" text-anchor="middle" class="bds">You pay 3&times; for a rephrase</text>
+    </svg>
+  </div>
+  <div class="take"><b>Cap it at one or two rounds by default,</b> and make the third conditional on a measured gain &mdash; never on a hope.</div>
+</div>
+
+<div class="slide div" data-sec="Decomposition" data-notes="Short section. The failure it prevents is subtle: a sub-goal that no single step can finish, which turns into a loop that looks like a reasoning problem.">
+  <div class="k">Part two</div>
+  <h1>Decomposition that an agent can finish</h1>
+</div>
+
+<div class="slide" data-sec="Decomposition" data-notes="The test for a good sub-goal is the one on the right: could you tell, from the output alone, whether it succeeded? If not, the agent cannot either, and it will not know when to stop.">
+  <h2>A sub-goal an agent cannot finish is a loop waiting to happen</h2>
+  <div class="body">
+    <svg width="1180" height="410" viewBox="0 0 1180 410" role="img" aria-label="Bad and good sub-goals compared by whether completion is detectable">
+      <rect x="60" y="50" width="490" height="300" rx="8" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
+      <text x="305" y="86" text-anchor="middle" class="bx no">Cannot be finished</text>
+      <rect x="95" y="106" width="420" height="40" rx="4" fill="#fff" stroke="#fecaca"/>
+      <text x="305" y="132" text-anchor="middle" class="bds">&ldquo;Understand the payment problem&rdquo;</text>
+      <rect x="95" y="156" width="420" height="40" rx="4" fill="#fff" stroke="#fecaca"/>
+      <text x="305" y="182" text-anchor="middle" class="bds">&ldquo;Investigate thoroughly&rdquo;</text>
+      <rect x="95" y="206" width="420" height="40" rx="4" fill="#fff" stroke="#fecaca"/>
+      <text x="305" y="232" text-anchor="middle" class="bds">&ldquo;Make sure nothing is missed&rdquo;</text>
+      <text x="305" y="286" text-anchor="middle" class="bd">No output tells you it is done.</text>
+      <text x="305" y="316" text-anchor="middle" class="bxs no">So the agent keeps going &mdash; and you</text>
+      <text x="305" y="338" text-anchor="middle" class="bxs no">debug it as a &ldquo;reasoning bug&rdquo;.</text>
+
+      <rect x="620" y="50" width="490" height="300" rx="8" fill="#ecfdf5" stroke="#0d9488" stroke-width="2.5"/>
+      <text x="865" y="86" text-anchor="middle" class="bx ok">Can be finished</text>
+      <rect x="655" y="106" width="420" height="40" rx="4" fill="#fff" stroke="#99f6e4"/>
+      <text x="865" y="132" text-anchor="middle" class="bds">Return the reason code for PMT-1002</text>
+      <rect x="655" y="156" width="420" height="40" rx="4" fill="#fff" stroke="#99f6e4"/>
+      <text x="865" y="182" text-anchor="middle" class="bds">Return the policy text for that code</text>
+      <rect x="655" y="206" width="420" height="40" rx="4" fill="#fff" stroke="#99f6e4"/>
+      <text x="865" y="232" text-anchor="middle" class="bds">State whether policy reserves this for a human</text>
+      <text x="865" y="286" text-anchor="middle" class="bd">Each has a checkable output.</text>
+      <text x="865" y="316" text-anchor="middle" class="bxs ok">The definition of done is a property</text>
+      <text x="865" y="338" text-anchor="middle" class="bxs ok">of the sub-goal, not of the model.</text>
+    </svg>
+  </div>
+  <div class="take"><b>The test:</b> could you tell from the output alone whether the step succeeded? If you cannot, neither can the agent.</div>
+</div>
+
+<div class="slide div" data-sec="Retry or re-plan" data-notes="This is the highest-value fifteen minutes of the module for anyone who runs production systems.">
+  <div class="k">Part three</div>
+  <h1>Retry, or re-plan?</h1>
+</div>
+
+<div class="slide" data-sec="Retry or re-plan" data-notes="One decision, two failure modes. Retrying a wrong plan burns the budget and produces the same failure more expensively; re-planning a transient blip throws away correct work. The diagnosis is the whole job.">
+  <h2>The same error, two right answers</h2>
+  <div class="body">
+    <svg width="1180" height="420" viewBox="0 0 1180 420" role="img" aria-label="Diagnosing whether a failure is transient or a wrong plan">
+      <rect x="430" y="40" width="320" height="52" rx="6" fill="#1e1b4b"/>
+      <text x="590" y="72" text-anchor="middle" font-size="17" font-weight="600" fill="#fff">A step failed. Why?</text>
+      <line x1="500" y1="96" x2="300" y2="140" stroke="#0d9488" stroke-width="2.5" marker-end="url(#at)"/>
+      <line x1="680" y1="96" x2="880" y2="140" stroke="#d97706" stroke-width="2.5" marker-end="url(#aa)"/>
+
+      <rect x="60" y="148" width="480" height="216" rx="8" fill="#ecfdf5" stroke="#0d9488" stroke-width="2.5"/>
+      <text x="300" y="182" text-anchor="middle" class="bx ok">Transient &mdash; the plan was fine</text>
+      <text x="95" y="220" class="bd">timeout &middot; 429 &middot; 503 &middot; connection reset</text>
+      <text x="95" y="252" class="bd">a lock &middot; a slow dependency</text>
+      <line x1="95" y1="272" x2="505" y2="272" stroke="#99f6e4" stroke-width="2"/>
+      <text x="300" y="302" text-anchor="middle" class="bx ok">Retry &mdash; same step, backoff</text>
+      <text x="300" y="330" text-anchor="middle" class="bds">Bounded attempts. Keep the plan and the work.</text>
+      <text x="300" y="352" text-anchor="middle" class="bds no">Re-planning here throws away correct work.</text>
+
+      <rect x="640" y="148" width="480" height="216" rx="8" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
+      <text x="880" y="182" text-anchor="middle" class="bx am">Wrong plan &mdash; the step cannot work</text>
+      <text x="675" y="220" class="bd">404 &middot; not found &middot; no such reference</text>
+      <text x="675" y="252" class="bd">403 &middot; validation error &middot; wrong tool entirely</text>
+      <line x1="675" y1="272" x2="1085" y2="272" stroke="#fde68a" stroke-width="2"/>
+      <text x="880" y="302" text-anchor="middle" class="bx am">Re-plan &mdash; different route</text>
+      <text x="880" y="330" text-anchor="middle" class="bds">Feed the error back as an observation.</text>
+      <text x="880" y="352" text-anchor="middle" class="bds no">Retrying here just buys the same failure again.</text>
+
+      <text x="590" y="400" text-anchor="middle" class="bx">Most agents do only one of these. That is the bug.</text>
+    </svg>
+  </div>
+  <div class="take"><b>Classify before you react.</b> The error type is data your tools already return &mdash; if they return it properly, which is why Module 1 made them report failure rather than raise it.</div>
+</div>
+
+<div class="slide" data-sec="Retry or re-plan" data-notes="The escalation ladder. Point out that every rung has a bound, and the last rung is a human. An agent with no last rung is an agent that improvises when it should stop.">
+  <h2>Four rungs, each with a bound</h2>
+  <div class="body">
+    <svg width="1180" height="410" viewBox="0 0 1180 410" role="img" aria-label="Escalation ladder from retry to human">
+      <rect x="120" y="60" width="940" height="58" rx="6" fill="#ecfdf5" stroke="#0d9488" stroke-width="2"/>
+      <text x="150" y="96" class="num" fill="#0d9488">1</text>
+      <text x="215" y="88" class="bx ok">Retry the same step</text>
+      <text x="215" y="110" class="bds">transient only &middot; exponential backoff &middot; hard cap on attempts</text>
+      <text x="1030" y="96" text-anchor="end" class="bds">cheapest</text>
+
+      <rect x="120" y="130" width="940" height="58" rx="6" fill="#eef2ff" stroke="#818cf8" stroke-width="2"/>
+      <text x="150" y="166" class="num">2</text>
+      <text x="215" y="158" class="bx">Try a different tool for the same sub-goal</text>
+      <text x="215" y="180" class="bds">the sub-goal still stands; the route to it does not</text>
+
+      <rect x="120" y="200" width="940" height="58" rx="6" fill="#fffbeb" stroke="#fbbf24" stroke-width="2"/>
+      <text x="150" y="236" class="num" fill="#d97706">3</text>
+      <text x="215" y="228" class="bx am">Re-plan from the current state</text>
+      <text x="215" y="250" class="bds">keep what you learned &middot; new sub-goals &middot; count it against the step budget</text>
+
+      <rect x="120" y="270" width="940" height="58" rx="6" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
+      <text x="150" y="306" class="num" fill="#b91c1c">4</text>
+      <text x="215" y="298" class="bx no">Stop and escalate to a human</text>
+      <text x="215" y="320" class="bds">with the trace, the plan, and what was tried &mdash; not just &ldquo;I failed&rdquo;</text>
+      <text x="1030" y="306" text-anchor="end" class="bds">correct, not a defeat</text>
+
+      <text x="590" y="374" text-anchor="middle" class="bx">Every rung is bounded. An agent with no rung 4 improvises when it should stop.</text>
+    </svg>
+  </div>
+</div>
+
+<div class="slide div" data-sec="What it costs" data-notes="Close the module where Module 1 closed: on measurement. The bake-off is the take-home artefact.">
+  <div class="k">Part four</div>
+  <h1>What each pattern costs</h1>
+</div>
+
+<div class="slide" data-sec="What it costs" data-notes="The honest price list. These are shapes, not promises -- the point is the ORDER of magnitude between rows, and that quality does not track cost. Lab 2.5 makes them measure their own numbers on their own eval set.">
+  <h2>The price list &mdash; shapes, not promises</h2>
+  <div class="body">
+    <svg width="1180" height="420" viewBox="0 0 1180 420" role="img" aria-label="Relative cost and latency of the four architectures">
+      <line x1="60" y1="80" x2="1120" y2="80" stroke="#4338ca" stroke-width="2"/>
+      <text x="70" y="66" class="lbl">Architecture</text>
+      <text x="470" y="66" text-anchor="middle" class="lbl">Model calls</text>
+      <text x="660" y="66" text-anchor="middle" class="lbl">Tokens</text>
+      <text x="850" y="66" text-anchor="middle" class="lbl">Latency</text>
+      <text x="1030" y="66" text-anchor="middle" class="lbl">Buys you</text>
+
+      <text x="70" y="126" class="bx">Direct answer</text>
+      <text x="470" y="126" text-anchor="middle" class="bd ok">1</text>
+      <text x="660" y="126" text-anchor="middle" class="bd ok">&times;1</text>
+      <text x="850" y="126" text-anchor="middle" class="bd ok">&times;1</text>
+      <text x="1030" y="126" text-anchor="middle" class="bds">the baseline</text>
+      <line x1="60" y1="142" x2="1120" y2="142" stroke="#eef2ff" stroke-width="1.5"/>
+
+      <text x="70" y="180" class="bx">Chain-of-Thought</text>
+      <text x="470" y="180" text-anchor="middle" class="bd">1</text>
+      <text x="660" y="180" text-anchor="middle" class="bd">&times;2 to &times;4</text>
+      <text x="850" y="180" text-anchor="middle" class="bd">&times;1.5</text>
+      <text x="1030" y="180" text-anchor="middle" class="bds">legible failures</text>
+      <line x1="60" y1="196" x2="1120" y2="196" stroke="#eef2ff" stroke-width="1.5"/>
+
+      <text x="70" y="234" class="bx">ReAct</text>
+      <text x="470" y="234" text-anchor="middle" class="bd">n steps</text>
+      <text x="660" y="234" text-anchor="middle" class="bd">&times;n, context re-sent</text>
+      <text x="850" y="234" text-anchor="middle" class="bd">&times;n round trips</text>
+      <text x="1030" y="234" text-anchor="middle" class="bds ok">outside facts</text>
+      <line x1="60" y1="250" x2="1120" y2="250" stroke="#eef2ff" stroke-width="1.5"/>
+
+      <text x="70" y="288" class="bx">Reflection</text>
+      <text x="470" y="288" text-anchor="middle" class="bd">2&ndash;3 per round</text>
+      <text x="660" y="288" text-anchor="middle" class="bd">&times;2 to &times;3</text>
+      <text x="850" y="288" text-anchor="middle" class="bd">&times;2 to &times;3</text>
+      <text x="1030" y="288" text-anchor="middle" class="bds">a second opinion</text>
+      <line x1="60" y1="304" x2="1120" y2="304" stroke="#eef2ff" stroke-width="1.5"/>
+
+      <text x="70" y="342" class="bx no">Tree-of-Thought</text>
+      <text x="470" y="342" text-anchor="middle" class="bd no">branches &times; depth</text>
+      <text x="660" y="342" text-anchor="middle" class="bd no">&times;10 and up</text>
+      <text x="850" y="342" text-anchor="middle" class="bd no">&times;10 and up</text>
+      <text x="1030" y="342" text-anchor="middle" class="bds">breadth of search</text>
+      <line x1="60" y1="358" x2="1120" y2="358" stroke="#4338ca" stroke-width="2"/>
+
+      <text x="590" y="398" text-anchor="middle" class="bx am">Quality does not track cost. The most expensive row is not the best row.</text>
+    </svg>
+  </div>
+  <div class="take"><b>These are shapes to reason with, not numbers to quote.</b> In Lab 2.5 you measure your own, on your own eval set.</div>
+</div>
+
+<div class="slide" data-sec="What it costs" data-notes="Tie it back to Day 1's baseline. The bake-off is the same discipline as Module 1's scorecard, applied to reasoning instead of architecture. Emphasise the last line -- a cheaper architecture that ties is a win.">
+  <h2>The bake-off, and how to read it</h2>
+  <div class="body">
+    <svg width="1180" height="410" viewBox="0 0 1180 410" role="img" aria-label="How to read an architecture bake-off scorecard">
+      <rect x="60" y="46" width="1060" height="188" rx="8" fill="#f8f8fd" stroke="#4338ca" stroke-width="2"/>
+      <line x1="60" y1="98" x2="1120" y2="98" stroke="#4338ca" stroke-width="2"/>
+      <text x="100" y="80" class="lbl">Architecture</text>
+      <text x="520" y="80" text-anchor="middle" class="lbl">Pass rate</text>
+      <text x="720" y="80" text-anchor="middle" class="lbl">Tokens / case</text>
+      <text x="930" y="80" text-anchor="middle" class="lbl">Verdict</text>
+
+      <text x="100" y="132" class="bx">Direct</text>
+      <text x="520" y="132" text-anchor="middle" class="bd">0.55</text>
+      <text x="720" y="132" text-anchor="middle" class="bd">180</text>
+      <text x="930" y="132" text-anchor="middle" class="bds">baseline</text>
+
+      <text x="100" y="172" class="bx ok">Chain-of-Thought</text>
+      <text x="520" y="172" text-anchor="middle" class="bd ok">0.80</text>
+      <text x="720" y="172" text-anchor="middle" class="bd">520</text>
+      <text x="930" y="172" text-anchor="middle" class="bds ok">+25 points for 3&times; &mdash; take it</text>
+
+      <text x="100" y="212" class="bx">Tree-of-Thought</text>
+      <text x="520" y="212" text-anchor="middle" class="bd">0.82</text>
+      <text x="720" y="212" text-anchor="middle" class="bd no">4900</text>
+      <text x="930" y="212" text-anchor="middle" class="bds no">+2 points for 27&times; &mdash; no</text>
+
+      <rect x="60" y="256" width="515" height="130" rx="7" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
+      <text x="317" y="288" text-anchor="middle" class="bx am">Name the threshold first</text>
+      <text x="317" y="318" text-anchor="middle" class="bd">&ldquo;+10 points, inside 5&times; tokens&rdquo; &mdash; written</text>
+      <text x="317" y="342" text-anchor="middle" class="bd">down before you run anything.</text>
+      <text x="317" y="370" text-anchor="middle" class="bds">Same discipline as the Module 1 scorecard.</text>
+
+      <rect x="605" y="256" width="515" height="130" rx="7" fill="#ecfdf5" stroke="#0d9488" stroke-width="2.5"/>
+      <text x="862" y="288" text-anchor="middle" class="bx ok">A tie goes to the cheaper one</text>
+      <text x="862" y="318" text-anchor="middle" class="bd">If two architectures score the same,</text>
+      <text x="862" y="342" text-anchor="middle" class="bd">the cheaper one wins &mdash; every time.</text>
+      <text x="862" y="370" text-anchor="middle" class="bds">This is the result people argue with most.</text>
+    </svg>
+  </div>
+</div>
+
+<div class="slide" data-sec="Recap" data-notes="Ninety seconds. The rule of thumb line is the one to leave ringing: start at the cheapest architecture that can possibly work, and let the eval set force you upward.">
+  <h2>What you take from Module 2</h2>
+  <div class="body">
+    <svg width="1180" height="420" viewBox="0 0 1180 420" role="img" aria-label="Five takeaways from module two">
+      <g>
+        <rect x="60" y="46" width="345" height="112" rx="7" fill="#eef2ff" stroke="#818cf8" stroke-width="2"/>
+        <text x="86" y="78" class="lbl">01</text>
+        <text x="232" y="106" text-anchor="middle" class="bx">Two questions pick it</text>
+        <text x="232" y="134" text-anchor="middle" class="bd">Outside facts? More than one route?</text>
+      </g>
+      <g>
+        <rect x="417" y="46" width="345" height="112" rx="7" fill="#eef2ff" stroke="#818cf8" stroke-width="2"/>
+        <text x="443" y="78" class="lbl">02</text>
+        <text x="589" y="106" text-anchor="middle" class="bx">Reasoning text is evidence</text>
+        <text x="589" y="134" text-anchor="middle" class="bd">It is not an audit trail, and not a control.</text>
+      </g>
+      <g>
+        <rect x="774" y="46" width="345" height="112" rx="7" fill="#eef2ff" stroke="#818cf8" stroke-width="2"/>
+        <text x="800" y="78" class="lbl">03</text>
+        <text x="946" y="106" text-anchor="middle" class="bx">Your parser is a protocol</text>
+        <text x="946" y="134" text-anchor="middle" class="bd">The model's format will drift. Plan for it.</text>
+      </g>
+      <g>
+        <rect x="60" y="176" width="345" height="112" rx="7" fill="#eef2ff" stroke="#818cf8" stroke-width="2"/>
+        <text x="86" y="208" class="lbl">04</text>
+        <text x="232" y="236" text-anchor="middle" class="bx">Sub-goals must finish</text>
+        <text x="232" y="264" text-anchor="middle" class="bd">If done is not detectable, it is a loop.</text>
+      </g>
+      <g>
+        <rect x="417" y="176" width="345" height="112" rx="7" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
+        <text x="443" y="208" class="lbl am">05</text>
+        <text x="589" y="236" text-anchor="middle" class="bx am">Diagnose, then react</text>
+        <text x="589" y="264" text-anchor="middle" class="bd">Transient &#8594; retry. Wrong plan &#8594; re-plan.</text>
+      </g>
+      <g>
+        <rect x="774" y="176" width="345" height="112" rx="7" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
+        <text x="800" y="208" class="lbl am">06</text>
+        <text x="946" y="236" text-anchor="middle" class="bx am">Start cheap, let evidence push</text>
+        <text x="946" y="264" text-anchor="middle" class="bd">A tie always goes to the cheaper design.</text>
+      </g>
+      <rect x="230" y="316" width="720" height="70" rx="6" fill="#1e1b4b"/>
+      <text x="590" y="346" text-anchor="middle" font-size="18" font-weight="600" fill="#fff">Next: Module 3 &mdash; Memory, State &amp; the LangGraph Substrate</text>
+      <text x="590" y="372" text-anchor="middle" font-size="14" fill="#a5b4fc">where the reasoning you just chose gets somewhere to keep its state</text>
+    </svg>
+  </div>
+</div>
+
+<div class="slide div" data-sec="Knowledge check" data-notes="Eight questions. Run it as a room poll -- hands up per option before you advance. Questions 3 and 4 are a deliberate pair; do not let anyone answer the second without noticing it is the same mechanism.">
+  <div class="k">Knowledge check</div>
+  <h1>Eight questions</h1>
+</div>
+
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer B. Watch for people reaching for ReAct reflexively because it is the one they will use most often.">
+  <div class="qtag">Question 1 of 8</div>
+  <h2>Pick the architecture</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">A task classifies an exception by its reason code. No outside facts are needed, and there is only one plausible route. Which architecture?</div>
+    <div class="opt"><span class="k">A</span><span>ReAct with a ledger lookup tool</span></div>
+    <div class="opt"><span class="k">B</span><span>Chain-of-Thought</span></div>
+    <div class="opt"><span class="k">C</span><span>Tree-of-Thought over three candidate causes</span></div>
+    <div class="opt"><span class="k">D</span><span>Reflection with a critic pass</span></div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer B. Watch for people reaching for ReAct reflexively because it is the one they will use most often.">
+  <div class="qtag">Answer 1 of 8</div>
+  <h2>Pick the architecture</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">A task classifies an exception by its reason code. No outside facts are needed, and there is only one plausible route. Which architecture?</div>
+    <div class="opt miss"><span class="k">A</span><span>ReAct with a ledger lookup tool</span></div>
+    <div class="opt hit"><span class="k">B</span><span>Chain-of-Thought</span></div>
+    <div class="opt miss"><span class="k">C</span><span>Tree-of-Thought over three candidate causes</span></div>
+    <div class="opt miss"><span class="k">D</span><span>Reflection with a critic pass</span></div>
+    <div class="why"><b>Why:</b> Top-left of the grid: one route, no outside facts. A adds round trips for facts already in the prompt; C and D buy breadth and a second opinion that this task has no use for. Start at the cheapest thing that can work.</div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer D. This is the single most common ReAct failure in production, and Lab 2.2 reproduces it deliberately.">
+  <div class="qtag">Question 2 of 8</div>
+  <h2>It parsed fine in testing</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">Your ReAct agent worked in testing and now fails in production with &ldquo;could not parse action&rdquo;. Most likely cause?</div>
+    <div class="opt"><span class="k">A</span><span>The step budget is too low</span></div>
+    <div class="opt"><span class="k">B</span><span>The tools raise exceptions instead of returning error strings</span></div>
+    <div class="opt"><span class="k">C</span><span>The model has become less capable</span></div>
+    <div class="opt"><span class="k">D</span><span>The model's output format drifted from what the parser expects</span></div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer D. This is the single most common ReAct failure in production, and Lab 2.2 reproduces it deliberately.">
+  <div class="qtag">Answer 2 of 8</div>
+  <h2>It parsed fine in testing</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">Your ReAct agent worked in testing and now fails in production with &ldquo;could not parse action&rdquo;. Most likely cause?</div>
+    <div class="opt miss"><span class="k">A</span><span>The step budget is too low</span></div>
+    <div class="opt miss"><span class="k">B</span><span>The tools raise exceptions instead of returning error strings</span></div>
+    <div class="opt miss"><span class="k">C</span><span>The model has become less capable</span></div>
+    <div class="opt hit"><span class="k">D</span><span>The model's output format drifted from what the parser expects</span></div>
+    <div class="why"><b>Why:</b> The parser is a protocol boundary and the model is not bound by it. Bold markers, unquoted arguments, two actions in one turn, a thought with no action -- all of it appears eventually. B is a real bug but produces a different symptom, and C is almost never the answer.</div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer A. Rung 1 of the ladder.">
+  <div class="qtag">Question 3 of 8</div>
+  <h2>A step returns 503</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">A tool call comes back with HTTP 503. What should the agent do?</div>
+    <div class="opt"><span class="k">A</span><span>Retry the same step with backoff, within a capped number of attempts</span></div>
+    <div class="opt"><span class="k">B</span><span>Re-plan from the current state with new sub-goals</span></div>
+    <div class="opt"><span class="k">C</span><span>Stop and escalate to a human straight away</span></div>
+    <div class="opt"><span class="k">D</span><span>Try a different tool for the same sub-goal</span></div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer A. Rung 1 of the ladder.">
+  <div class="qtag">Answer 3 of 8</div>
+  <h2>A step returns 503</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">A tool call comes back with HTTP 503. What should the agent do?</div>
+    <div class="opt hit"><span class="k">A</span><span>Retry the same step with backoff, within a capped number of attempts</span></div>
+    <div class="opt miss"><span class="k">B</span><span>Re-plan from the current state with new sub-goals</span></div>
+    <div class="opt miss"><span class="k">C</span><span>Stop and escalate to a human straight away</span></div>
+    <div class="opt miss"><span class="k">D</span><span>Try a different tool for the same sub-goal</span></div>
+    <div class="why"><b>Why:</b> 503 is transient: the plan was fine, the world was briefly busy. Re-planning here throws away correct work and pays to rebuild it. The cap matters as much as the retry -- unbounded retries are how a transient blip becomes an outage on your side.</div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer C. Contrast it directly with the previous question: identical mechanism, opposite correct action, and the error type is the only thing that tells them apart.">
+  <div class="qtag">Question 4 of 8</div>
+  <h2>A step returns 404</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">A tool call comes back with &ldquo;404 &mdash; no such payment reference&rdquo;. What now?</div>
+    <div class="opt"><span class="k">A</span><span>Retry with exponential backoff</span></div>
+    <div class="opt"><span class="k">B</span><span>Retry with a longer timeout</span></div>
+    <div class="opt"><span class="k">C</span><span>Re-plan -- this step cannot succeed as written</span></div>
+    <div class="opt"><span class="k">D</span><span>Raise the step budget so it has more attempts</span></div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer C. Contrast it directly with the previous question: identical mechanism, opposite correct action, and the error type is the only thing that tells them apart.">
+  <div class="qtag">Answer 4 of 8</div>
+  <h2>A step returns 404</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">A tool call comes back with &ldquo;404 &mdash; no such payment reference&rdquo;. What now?</div>
+    <div class="opt miss"><span class="k">A</span><span>Retry with exponential backoff</span></div>
+    <div class="opt miss"><span class="k">B</span><span>Retry with a longer timeout</span></div>
+    <div class="opt hit"><span class="k">C</span><span>Re-plan -- this step cannot succeed as written</span></div>
+    <div class="opt miss"><span class="k">D</span><span>Raise the step budget so it has more attempts</span></div>
+    <div class="why"><b>Why:</b> A 404 is a statement about the plan, not about the weather. Retrying buys the same failure again, more expensively. Feed the error back as an observation and let the agent choose a different route -- rung 3.</div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer D. Ask the room how many of their own backlog tickets read like A, B or C.">
+  <div class="qtag">Question 5 of 8</div>
+  <h2>Which sub-goal can be finished?</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">Which of these sub-goals can an agent actually complete?</div>
+    <div class="opt"><span class="k">A</span><span>&ldquo;Understand the payment problem fully&rdquo;</span></div>
+    <div class="opt"><span class="k">B</span><span>&ldquo;Investigate until you are confident&rdquo;</span></div>
+    <div class="opt"><span class="k">C</span><span>&ldquo;Make sure nothing has been missed&rdquo;</span></div>
+    <div class="opt"><span class="k">D</span><span>&ldquo;Return the policy text for reason code LIMIT_BREACH&rdquo;</span></div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer D. Ask the room how many of their own backlog tickets read like A, B or C.">
+  <div class="qtag">Answer 5 of 8</div>
+  <h2>Which sub-goal can be finished?</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">Which of these sub-goals can an agent actually complete?</div>
+    <div class="opt miss"><span class="k">A</span><span>&ldquo;Understand the payment problem fully&rdquo;</span></div>
+    <div class="opt miss"><span class="k">B</span><span>&ldquo;Investigate until you are confident&rdquo;</span></div>
+    <div class="opt miss"><span class="k">C</span><span>&ldquo;Make sure nothing has been missed&rdquo;</span></div>
+    <div class="opt hit"><span class="k">D</span><span>&ldquo;Return the policy text for reason code LIMIT_BREACH&rdquo;</span></div>
+    <div class="why"><b>Why:</b> Only D has an output you could check without asking the model how it feels. The other three have no detectable definition of done, so the agent cannot know when to stop -- and the loop that follows gets misdiagnosed as a reasoning bug.</div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer B. If anyone says 27, they have counted leaves only; that is the useful mistake to surface.">
+  <div class="qtag">Question 6 of 8</div>
+  <h2>What does the tree cost?</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">Tree-of-Thought with 3 branches at each level, explored 3 levels deep, with no pruning. Roughly how many model calls for one answer?</div>
+    <div class="opt"><span class="k">A</span><span>9</span></div>
+    <div class="opt"><span class="k">B</span><span>About 39</span></div>
+    <div class="opt"><span class="k">C</span><span>3</span></div>
+    <div class="opt"><span class="k">D</span><span>27</span></div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer B. If anyone says 27, they have counted leaves only; that is the useful mistake to surface.">
+  <div class="qtag">Answer 6 of 8</div>
+  <h2>What does the tree cost?</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">Tree-of-Thought with 3 branches at each level, explored 3 levels deep, with no pruning. Roughly how many model calls for one answer?</div>
+    <div class="opt miss"><span class="k">A</span><span>9</span></div>
+    <div class="opt hit"><span class="k">B</span><span>About 39</span></div>
+    <div class="opt miss"><span class="k">C</span><span>3</span></div>
+    <div class="opt miss"><span class="k">D</span><span>27</span></div>
+    <div class="why"><b>Why:</b> 3 + 9 + 27 = 39 nodes, each needing a call to generate and to score. D is the tempting answer because 3^3 = 27 counts only the leaves and forgets that every interior node was generated too. This is why pruning is not an optimisation -- it is the design.</div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer C. The shape -- big win, small win, nothing -- is typical; the exact knee is what Lab 2.4 measures.">
+  <div class="qtag">Question 7 of 8</div>
+  <h2>When to stop reflecting</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">Reflection adds 12 pass-rate points in round 1, 2 points in round 2 and 0 in round 3, at roughly 3&times; cost per round. What ships?</div>
+    <div class="opt"><span class="k">A</span><span>Three rounds -- quality is what matters</span></div>
+    <div class="opt"><span class="k">B</span><span>No reflection at all -- the cost multiple is too high</span></div>
+    <div class="opt"><span class="k">C</span><span>One round, with a second made conditional on a measured gain</span></div>
+    <div class="opt"><span class="k">D</span><span>Two rounds, always</span></div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer C. The shape -- big win, small win, nothing -- is typical; the exact knee is what Lab 2.4 measures.">
+  <div class="qtag">Answer 7 of 8</div>
+  <h2>When to stop reflecting</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">Reflection adds 12 pass-rate points in round 1, 2 points in round 2 and 0 in round 3, at roughly 3&times; cost per round. What ships?</div>
+    <div class="opt miss"><span class="k">A</span><span>Three rounds -- quality is what matters</span></div>
+    <div class="opt miss"><span class="k">B</span><span>No reflection at all -- the cost multiple is too high</span></div>
+    <div class="opt hit"><span class="k">C</span><span>One round, with a second made conditional on a measured gain</span></div>
+    <div class="opt miss"><span class="k">D</span><span>Two rounds, always</span></div>
+    <div class="why"><b>Why:</b> Round 1 clearly pays for itself. Round 2 is marginal and belongs behind a condition, not a default. Round 3 is paying 3&times; for noise. B throws away the 12 points that were free money.</div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer A. Close the module here: cost is a first-class result, and this is the finding people argue with most.">
+  <div class="qtag">Question 8 of 8</div>
+  <h2>A tie on the eval set</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">Two architectures score identically on your eval set. Which one ships?</div>
+    <div class="opt"><span class="k">A</span><span>The cheaper one</span></div>
+    <div class="opt"><span class="k">B</span><span>The more sophisticated one, because it will generalise better</span></div>
+    <div class="opt"><span class="k">C</span><span>Whichever the model vendor recommends</span></div>
+    <div class="opt"><span class="k">D</span><span>Both -- route per request and pick the better answer</span></div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer A. Close the module here: cost is a first-class result, and this is the finding people argue with most.">
+  <div class="qtag">Answer 8 of 8</div>
+  <h2>A tie on the eval set</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">Two architectures score identically on your eval set. Which one ships?</div>
+    <div class="opt hit"><span class="k">A</span><span>The cheaper one</span></div>
+    <div class="opt miss"><span class="k">B</span><span>The more sophisticated one, because it will generalise better</span></div>
+    <div class="opt miss"><span class="k">C</span><span>Whichever the model vendor recommends</span></div>
+    <div class="opt miss"><span class="k">D</span><span>Both -- route per request and pick the better answer</span></div>
+    <div class="why"><b>Why:</b> A tie is not a reason to pay more. B is an untested belief dressed as engineering -- if it generalises better, that belongs in the eval set as a case it wins. D doubles the cost and the failure surface to avoid making a decision.</div>
+  </div></div>
+</div>
+
+<div class="slide div" data-sec="End" data-notes="Into the labs: Chain-of-Thought measured against a direct answer, the ReAct parser, decomposition and re-planning, the reflection knee, and the bake-off that ties it together.">
+  <div class="k">End of Module 2</div>
+  <h1>To the labs</h1>
+</div>
+
+</template>
+
+<script>
+(function(){
+  var stage = document.getElementById('stage');
+  stage.appendChild(document.getElementById('deck').content.cloneNode(true));
+  var slides = Array.prototype.slice.call(stage.querySelectorAll('.slide'));
+  var i = 0, total = slides.length;
+
+  var num = document.getElementById('num'),
+      progf = document.getElementById('progf'),
+      secname = document.getElementById('secname'),
+      toc = document.getElementById('toc'),
+      toclist = document.getElementById('toclist'),
+      notes = document.getElementById('notes'),
+      notesbody = document.getElementById('notesbody');
+
+  /* ---- build the index, grouped by section ---- */
+  var groups = [], last = null;
+  slides.forEach(function(s, n){
+    var sec = s.getAttribute('data-sec') || '';
+    if (sec !== last) { groups.push({sec: sec, items: []}); last = sec; }
+    var h = s.querySelector('h2, h1'), q = s.querySelector('.qtag');
+    var t = h ? h.textContent.trim() : sec;
+    if (q) t = q.textContent.trim() + ' \u2014 ' + t;
+    groups[groups.length-1].items.push({n: n, t: t});
+  });
+  groups.forEach(function(g){
+    var d = document.createElement('div'); d.className = 'grp';
+    var hd = document.createElement('div'); hd.className = 'grph'; hd.textContent = g.sec; d.appendChild(hd);
+    g.items.forEach(function(it){
+      var a = document.createElement('a');
+      a.href = '#'; a.dataset.n = it.n;
+      a.innerHTML = '<span class="n">' + (it.n + 1) + '</span>';
+      a.appendChild(document.createTextNode(it.t));
+      a.addEventListener('click', function(e){ e.preventDefault(); go(it.n); toc.classList.remove('on'); });
+      d.appendChild(a);
+    });
+    toclist.appendChild(d);
+  });
+  var tocLinks = Array.prototype.slice.call(toclist.querySelectorAll('a'));
+
+  function go(n){
+    if (n < 0) n = 0;
+    if (n > total - 1) n = total - 1;
+    slides[i].classList.remove('active');
+    i = n;
+    slides[i].classList.add('active');
+    num.textContent = (i + 1) + ' / ' + total;
+    progf.style.width = ((i + 1) / total * 100) + '%';
+    secname.textContent = slides[i].getAttribute('data-sec') || '';
+    notesbody.textContent = slides[i].getAttribute('data-notes') || 'No notes for this slide.';
+    tocLinks.forEach(function(a){ a.classList.toggle('cur', +a.dataset.n === i); });
+    if (location.hash !== '#' + (i + 1)) history.replaceState(null, '', '#' + (i + 1));
+  }
+
+  /* ---- scale the 1280x720 stage to the available space ---- */
+  function fit(){
+    var w = document.getElementById('wrap');
+    var s = Math.min(w.clientWidth / 1280, w.clientHeight / 720);
+    stage.style.transform = 'scale(' + s + ')';
+  }
+  window.addEventListener('resize', fit);
+  window.addEventListener('hashchange', function(){
+    var n = parseInt((location.hash || '').slice(1), 10);
+    if (!isNaN(n) && n - 1 !== i) go(n - 1);
+  });
+
+  document.getElementById('bnext').addEventListener('click', function(){ go(i + 1); });
+  document.getElementById('bprev').addEventListener('click', function(){ go(i - 1); });
+  document.getElementById('btoc').addEventListener('click', function(){ toc.classList.toggle('on'); });
+  document.getElementById('bnotes').addEventListener('click', function(){ notes.classList.toggle('on'); });
+
+  document.addEventListener('keydown', function(e){
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    var k = e.key;
+    if (k === 'ArrowRight' || k === 'PageDown' || k === ' ') { e.preventDefault(); go(i + 1); }
+    else if (k === 'ArrowLeft' || k === 'PageUp') { e.preventDefault(); go(i - 1); }
+    else if (k === 'Home') { e.preventDefault(); go(0); }
+    else if (k === 'End') { e.preventDefault(); go(total - 1); }
+    else if (k === 't' || k === 'T') { toc.classList.toggle('on'); }
+    else if (k === 'n' || k === 'N') { notes.classList.toggle('on'); }
+    else if (k === 'f' || k === 'F') {
+      if (document.fullscreenElement) document.exitFullscreen();
+      else document.documentElement.requestFullscreen();
+    }
+    else if (k === 'Escape') { toc.classList.remove('on'); notes.classList.remove('on'); }
+  });
+
+  fit();
+  var start = parseInt((location.hash || '').slice(1), 10);
+  go(isNaN(start) ? 0 : start - 1);
+})();
+</script>
+</body>
+</html>
