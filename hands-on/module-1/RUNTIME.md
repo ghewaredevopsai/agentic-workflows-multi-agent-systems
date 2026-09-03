@@ -72,4 +72,12 @@ _generators/regenerate.sh
 
 Rebuilds all ten notebooks from the single source and checks both directions: every solution must
 score full marks, and every untouched lab must survive *Run All* without an uncaught exception.
-Runs offline — no cluster, no model, no network.
+Runs offline — no cluster, no model, no network (it does start a local Jupyter kernel).
+
+`verify_labs.py` executes each lab **twice — plain `exec()` and a real Jupyter kernel — and requires
+the two to agree** on (todo, pass, fail). Agreement is the actual check. A notebook must not depend
+on IPython-specific semantics, and the reason is concrete: IPython predefines `_`, `__` and `___` as
+its output history, initialised to `""`. A blank spelled with underscores is therefore a *defined
+empty string* in a notebook and raises no `NameError`, so `[TODO]` silently becomes `[FAIL]` and a
+blank used as a loop guard never stops its loop. That is why the blank marker is **`BLANK`**, which
+is undefined under both. Do not change it back.
