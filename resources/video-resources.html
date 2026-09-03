@@ -1,0 +1,378 @@
+<meta charset="utf-8">
+<title>Agentic Workflows &amp; Multi-Agent Systems &mdash; Post-Session Video Resources</title>
+<style>
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: #f5f5fb;
+  color: #2d3748;
+  font-size: 14px;
+  line-height: 1.4;
+}
+a { color: #4338ca; }
+header {
+  background: linear-gradient(135deg, #1e1b4b 0%, #4338ca 100%);
+  color: #fff;
+  padding: 14px 18px;
+  text-align: center;
+  border-bottom: 3px solid #818cf8;
+}
+header h1 { margin: 0; font-size: 1.35em; }
+header .tagline { margin-top: 4px; color: #c7d2fe; font-size: 0.9em; font-weight: 600; }
+header .meta { margin-top: 6px; color: #c3c9de; font-size: 0.82em; }
+header .meta span { margin: 0 5px; }
+.container {
+  max-width: 1100px;
+  margin: 12px auto;
+  background: #fff;
+  padding: 14px 20px 8px;
+  box-shadow: 0 0 10px rgba(0,0,0,0.1);
+}
+.intro {
+  background: #f0fdf9; border-left: 3px solid #0d9488;
+  padding: 8px 12px; font-size: 0.86em; color: #134e4a;
+  border-radius: 0 3px 3px 0; margin-bottom: 10px;
+}
+.intro p { margin: 0 0 5px 0; }
+.intro p:last-child { margin-bottom: 0; }
+.starthere {
+  background: #fffbeb; border-left: 3px solid #fbbf24;
+  padding: 8px 12px; font-size: 0.86em; color: #4b3a10;
+  border-radius: 0 3px 3px 0; margin-bottom: 12px;
+}
+.starthere strong.lead { color: #92400e; }
+.starthere ol { margin: 5px 0 0 0; padding-left: 20px; }
+.starthere li { margin-bottom: 2px; }
+.day-header {
+  background: linear-gradient(135deg, #1e1b4b 0%, #4f46e5 140%);
+  color: #fff;
+  padding: 5px 12px;
+  margin: 14px 0 8px 0;
+  border-radius: 3px;
+  font-size: 0.95em;
+  font-weight: 600;
+  border-left: 4px solid #fbbf24;
+}
+.module {
+  background: #f8f8fd;
+  padding: 8px 12px;
+  border-left: 3px solid #4338ca;
+  border-radius: 0 3px 3px 0;
+  margin-bottom: 8px;
+  break-inside: avoid; page-break-inside: avoid;
+}
+.module h4 { margin: 0 0 5px 0; font-size: 1.0em; color: #312e81; }
+.module ul { margin: 0; padding-left: 16px; }
+.module li { margin-bottom: 5px; font-size: 0.87em; }
+.module li a { font-weight: 600; text-decoration: none; }
+.module li a:hover { text-decoration: underline; }
+.src { color: #6b7280; font-size: 0.88em; white-space: nowrap; }
+.why { display: block; color: #4b5563; font-size: 0.92em; }
+.badge {
+  display: inline-block; padding: 0 5px; border-radius: 9px;
+  font-size: 0.72em; margin-left: 3px; vertical-align: 1px;
+  background: #4338ca; color: #fff; font-weight: 700;
+}
+.note {
+  background: #f5f3ff; border-left: 3px solid #7c3aed;
+  padding: 7px 12px; margin-top: 10px; font-size: 0.84em; color: #3b2a6b;
+  border-radius: 0 3px 3px 0;
+}
+footer {
+  background: #1e1b4b; color: #fff; text-align: center;
+  padding: 10px; font-size: 0.8em;
+}
+footer a { color: #c7d2fe; text-decoration: none; }
+@media print {
+  @page { size: A4; margin: 10mm; }
+  body { font-size: 10.5px; background: #fff; }
+  header, .day-header, .intro, .starthere, .note, footer {
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  .container { box-shadow: none; padding: 6px 8px 2px; margin: 4px auto; max-width: 100%; }
+  .module { padding: 6px 10px; }
+  .src { white-space: normal; }
+}
+</style>
+
+<header>
+  <h1>Agentic Workflows &amp; Multi-Agent Systems</h1>
+  <div class="tagline">Post-Session Video Resources &mdash; curated further reading, by module</div>
+  <div class="meta">
+    <span>57 videos</span> &middot;
+    <span>mapped to the 9 modules and the capstone</span> &middot;
+    <span>Trainer: Rajesh Gheware</span>
+  </div>
+</header>
+
+<div class="container">
+
+  <div class="intro">
+    <p><strong>What this is.</strong> Everything below is a free, publicly available talk or tutorial that continues a
+      specific part of the course. Each entry says which module it extends and why it is worth your time &mdash; nothing
+      here is filler, and nothing repeats a lab you have already done.</p>
+    <p><strong>How to use it.</strong> Work down the modules you want to go deeper on, not the list top to bottom.
+      Conference talks (AI Engineer, Latent Space, Sequoia) carry the design judgement; vendor channels (LangChain,
+      Anthropic, IBM, Google Cloud, Langfuse, Arize, Microsoft) carry the mechanics. Where a video predates the
+      library version we used, the <em>ideas</em> still hold &mdash; check the current docs before copying code.</p>
+  </div>
+
+  <div class="starthere">
+    <strong class="lead">If you watch only six &mdash;</strong> in this order, about two hours total:
+    <ol>
+      <li><a href="https://www.youtube.com/watch?v=D7_ipDqhtwk">How We Build Effective Agents</a> &mdash; Barry Zhang, Anthropic (15:09): when <em>not</em> to build an agent.</li>
+      <li><a href="https://www.youtube.com/watch?v=8kMaTybvDUw">12-Factor Agents</a> &mdash; Dex Horthy (17:06): the reliability principles behind most of Day 1.</li>
+      <li><a href="https://www.youtube.com/watch?v=4nZl32FwU-o">Conceptual Guide: Multi Agent Architectures</a> &mdash; LangChain (8:58): the pattern map for Module 5.</li>
+      <li><a href="https://www.youtube.com/watch?v=ow1we5PzK-o">The Multi-Agent Architecture That Actually Ships</a> &mdash; Luke Alvoeiro, Factory (18:31): the coordination tax, from production.</li>
+      <li><a href="https://www.youtube.com/watch?v=a3SMraZWNNs">How to Systematically Setup LLM Evals</a> &mdash; Dave Ebbelaar (55:02): the discipline your capstone was graded on.</li>
+      <li><a href="https://www.youtube.com/watch?v=5ZA1lTxTH3c">Securing AI Agents: Hidden Prompt Injection</a> &mdash; IBM (10:08): the attack that arrives through a tool result.</li>
+    </ol>
+  </div>
+
+  <div class="day-header">Day 1 &mdash; The Agent Loop: Reasoning, Memory &amp; State</div>
+
+  <div class="module">
+    <h4>Module 1 &middot; Agents vs. Multi-Agent Systems</h4>
+    <ul>
+      <li><a href="https://www.youtube.com/watch?v=D7_ipDqhtwk">How We Build Effective Agents: Barry Zhang, Anthropic</a>
+        <span class="src">&mdash; AI Engineer &middot; 15:09</span>
+        <span class="why">The clearest statement of the decision rubric we used: workflow, single agent, or multi-agent &mdash; and the cost of guessing wrong.</span></li>
+      <li><a href="https://www.youtube.com/watch?v=LP5OCa20Zpg">Tips for building AI agents</a>
+        <span class="src">&mdash; Anthropic &middot; 18:20</span>
+        <span class="why">Anthropic engineers on the four building blocks in practice &mdash; where autonomy pays and where it just adds variance.</span></li>
+      <li><a href="https://www.youtube.com/watch?v=8kMaTybvDUw">12-Factor Agents: Patterns of reliable LLM applications</a>
+        <span class="src">&mdash; Dex Horthy, HumanLayer (AI Engineer) &middot; 17:06</span>
+        <span class="why">Own your prompts, own your control flow, keep agents small and stateless. Reads as the engineering spec behind Modules 1&ndash;3.</span></li>
+      <li><a href="https://www.youtube.com/watch?v=aHCDrAbH_go">Building Effective Agents with LangGraph</a>
+        <span class="src">&mdash; LangChain &middot; 31:50</span>
+        <span class="why">The Anthropic patterns implemented as graphs &mdash; the bridge from the theory above to the code you wrote.</span></li>
+      <li><a href="https://www.youtube.com/watch?v=4nZl32FwU-o">Conceptual Guide: Multi Agent Architectures</a>
+        <span class="src">&mdash; LangChain &middot; 8:58</span>
+        <span class="why">Network, supervisor, hierarchical, custom &mdash; the taxonomy Module 5 builds on, in nine minutes.</span></li>
+      <li><a href="https://www.youtube.com/watch?v=qAF1NjEVHhY">LangChain vs LangGraph: A Tale of Two Frameworks</a>
+        <span class="src">&mdash; IBM Technology &middot; 9:55</span>
+        <span class="why">Useful for explaining to colleagues why we dropped to LangGraph the moment state and cycles mattered.</span></li>
+      <li><a href="https://www.youtube.com/watch?v=sal78ACtGTc">What's next for AI agentic workflows &mdash; Andrew Ng</a>
+        <span class="src">&mdash; Sequoia Capital &middot; 13:40</span>
+        <span class="why">The talk that named the four agentic design patterns. Short, and still the best framing for a non-specialist audience.</span></li>
+    </ul>
+  </div>
+
+  <div class="module">
+    <h4>Module 2 &middot; Agentic Planning &amp; Reasoning</h4>
+    <ul>
+      <li><a href="https://www.youtube.com/watch?v=vFdIrZyKEwQ">ReAct AI Agents, clearly explained</a>
+        <span class="src">&mdash; Akshay Pachaar &middot; 5:45</span>
+        <span class="why">Thought&ndash;action&ndash;observation in five minutes. The cleanest refresher on the loop behind the Day 1 ReAct lab.</span></li>
+      <li><a href="https://www.youtube.com/watch?v=pEMhPBQMNjg">Building a LangGraph ReAct Mini Agent</a>
+        <span class="src">&mdash; Sam Witteveen &middot; 14:47</span>
+        <span class="why">ReAct written out as an explicit graph rather than a prefab agent &mdash; exactly the exercise of seeing where the loop can be cut.</span></li>
+      <li><a href="https://www.youtube.com/watch?v=v5ymBTXNqtk">Reflection Agents</a>
+        <span class="src">&mdash; LangChain &middot; 21:11</span>
+        <span class="why">Reflection, Reflexion and Language Agent Tree Search compared &mdash; the cost/quality trade we measured, with the papers behind it.</span></li>
+      <li><a href="https://www.youtube.com/watch?v=D37Ijn2o5U0">Why Agentic AI Fails: Infinite Loops, Planning Errors, and More</a>
+        <span class="src">&mdash; IBM Technology &middot; 12:45</span>
+        <span class="why">Directly on the module's hardest point: step budgets, loop detection and re-planning vs. blind retry.</span></li>
+      <li><a href="https://www.youtube.com/watch?v=2ihEirLXeas">AI Agents + LLM Reasoning: Transforming Autonomous Workflows</a>
+        <span class="src">&mdash; IBM Technology &middot; 13:58</span>
+        <span class="why">Chain-of-Thought through to tool-augmented reasoning, with the failure modes of each named rather than glossed.</span></li>
+    </ul>
+  </div>
+
+  <div class="module">
+    <h4>Module 3 &middot; Memory, State &amp; the LangGraph Substrate</h4>
+    <ul>
+      <li><a href="https://www.youtube.com/watch?v=JTL0yp85FsE">Memory for agents (conceptual video)</a>
+        <span class="src">&mdash; LangChain &middot; 6:48</span>
+        <span class="why">Semantic, episodic and procedural memory, and which one a given feature actually needs.</span></li>
+      <li><a href="https://www.youtube.com/watch?v=BacJ6sEhqMo">The Four Types of Memory Every AI Agent Needs</a>
+        <span class="src">&mdash; IBM Technology &middot; 10:41</span>
+        <span class="why">A crisper vocabulary for short-term vs. long-term vs. episodic than most write-ups manage.</span></li>
+      <li><a href="https://www.youtube.com/watch?v=YE6A5d8kNp4">LangGraph: Persistence</a>
+        <span class="src">&mdash; LangChain &middot; 4:13</span>
+        <span class="why">Checkpointers, threads and resume-after-restart &mdash; the mechanism behind the checkpointing lab and your audit trail.</span></li>
+      <li><a href="https://www.youtube.com/watch?v=cUfLrn3TM3M">LangGraph Explained for Beginners</a>
+        <span class="src">&mdash; KodeKloud &middot; 13:21</span>
+        <span class="why">Send to a colleague who needs StateGraph, nodes, edges and reducers from a standing start.</span></li>
+      <li><a href="https://www.youtube.com/watch?v=4GiqzUHD5AA">Context Engineering for Agents</a>
+        <span class="src">&mdash; LangChain &middot; 22:06</span>
+        <span class="why">Write, select, compress, isolate &mdash; the four levers for the long-session degradation and context poisoning we saw in the labs.</span></li>
+      <li><a href="https://www.youtube.com/watch?v=_IlTcWciEC4">Context Engineering for Agents &mdash; Lance Martin, LangChain</a>
+        <span class="src">&mdash; Latent Space &middot; 1:03:18</span>
+        <span class="why">The hour-long version, with real traces. Worth it if compaction and shared-vs-private memory are on your roadmap. <span class="badge">deep</span></span></li>
+    </ul>
+  </div>
+
+  <div class="day-header">Day 2 &mdash; Tools, MCP, Orchestration &amp; Agentic RAG</div>
+
+  <div class="module">
+    <h4>Module 4 &middot; Tool Calling &amp; MCP</h4>
+    <ul>
+      <li><a href="https://www.youtube.com/watch?v=h8gMhXYAv1k">What is Tool Calling? Connecting LLMs to Your Data</a>
+        <span class="src">&mdash; IBM Technology &middot; 4:57</span>
+        <span class="why">The five-minute grounding on why a tool description <em>is</em> the instruction the model follows.</span></li>
+      <li><a href="https://www.youtube.com/watch?v=cGuyrANVi4A">How Model Context Protocol (MCP) actually works</a>
+        <span class="src">&mdash; Google Cloud Tech &middot; 7:58</span>
+        <span class="why">Hosts, clients, servers and transports drawn out properly &mdash; the architecture slide, animated.</span></li>
+      <li><a href="https://www.youtube.com/watch?v=N3vHJcHBS-w">Model Context Protocol (MCP) Explained in 20 Minutes</a>
+        <span class="src">&mdash; Shaw Talebi &middot; 19:49</span>
+        <span class="why">Tools, resources and prompts with working code &mdash; the best single-sitting recap of the MCP labs.</span></li>
+      <li><a href="https://www.youtube.com/watch?v=kQmXtrmQ5Zg">Building Agents with Model Context Protocol &mdash; full workshop, Mahesh Murag (Anthropic)</a>
+        <span class="src">&mdash; AI Engineer &middot; 1:44:12</span>
+        <span class="why">From the people who wrote the protocol: design intent, sampling, composability and where the ecosystem is going. <span class="badge">deep</span></span></li>
+      <li><a href="https://www.youtube.com/watch?v=DosHnyq78xY">Intro to MCP Servers &mdash; Python course</a>
+        <span class="src">&mdash; freeCodeCamp.org &middot; 1:12:43</span>
+        <span class="why">A second full build of your own server, at your own pace, if you want the reps before wiring MCP into a real system.</span></li>
+    </ul>
+  </div>
+
+  <div class="module">
+    <h4>Module 5 &middot; Multi-Agent Collaboration &amp; Orchestration</h4>
+    <ul>
+      <li><a href="https://www.youtube.com/watch?v=B_0TNuYi56w">Hierarchical multi-agent systems with LangGraph</a>
+        <span class="src">&mdash; LangChain &middot; 11:55</span>
+        <span class="why">Supervisor of supervisors &mdash; what to do when one router is managing too many workers.</span></li>
+      <li><a href="https://www.youtube.com/watch?v=WTr6mHTw5cM">Understanding multi-agent handoffs</a>
+        <span class="src">&mdash; LangChain &middot; 11:29</span>
+        <span class="why">What state travels with a handoff and what must not. The detail most handoff bugs come down to.</span></li>
+      <li><a href="https://www.youtube.com/watch?v=JeyDrn1dSUQ">Multi-agent swarms with LangGraph</a>
+        <span class="src">&mdash; LangChain &middot; 10:05</span>
+        <span class="why">The peer-to-peer alternative to a supervisor, and the conditions under which it beats one.</span></li>
+      <li><a href="https://www.youtube.com/watch?v=6t7YJcEFUIY">LangGraph interrupt: building human-in-the-loop agents</a>
+        <span class="src">&mdash; LangChain &middot; 7:49</span>
+        <span class="why">The exact primitive behind your approval gate &mdash; interrupt, inspect, edit state, resume.</span></li>
+      <li><a href="https://www.youtube.com/watch?v=ow1we5PzK-o">The Multi-Agent Architecture That Actually Ships &mdash; Luke Alvoeiro, Factory</a>
+        <span class="src">&mdash; AI Engineer &middot; 18:31</span>
+        <span class="why">A production team on the coordination tax: what they kept, what they collapsed back into one agent, and why.</span></li>
+      <li><a href="https://www.youtube.com/watch?v=2czYyrTzILg">From Chaos to Choreography: Multi-Agent Orchestration Patterns That Actually Work</a>
+        <span class="src">&mdash; Sandipan Bhaumik (AI Engineer) &middot; 26:29</span>
+        <span class="why">Sequential, parallel, routed and hierarchical compared on the same problem &mdash; the scorecard exercise, at a larger scale.</span></li>
+      <li><a href="https://www.youtube.com/watch?v=kLpYU13cnbo">Paper Club: Why Do Multi-Agent LLM Systems Fail?</a>
+        <span class="src">&mdash; Human Feedback Foundation / UC Berkeley &middot; 53:35</span>
+        <span class="why">A taxonomy of 14 real failure modes from 150+ traced runs. The evidence for "sometimes the honest answer is don't". <span class="badge">deep</span></span></li>
+    </ul>
+  </div>
+
+  <div class="module">
+    <h4>Module 6 &middot; Agentic RAG</h4>
+    <ul>
+      <li><a href="https://www.youtube.com/watch?v=0z9_MhcYvcY">What is Agentic RAG?</a>
+        <span class="src">&mdash; IBM Technology &middot; 5:42</span>
+        <span class="why">The one-slide distinction: a pipeline that always retrieves vs. an agent that decides to, repeatedly.</span></li>
+      <li><a href="https://www.youtube.com/watch?v=RxwjoegpI98">Building Agentic RAG From Scratch in Pure Python</a>
+        <span class="src">&mdash; Dave Ebbelaar &middot; 27:28</span>
+        <span class="why">No framework at all &mdash; the best way to see what LangChain is doing for you, and what it is hiding.</span></li>
+      <li><a href="https://www.youtube.com/watch?v=tLMViADvSNE">Every RAG Strategy Explained in 13 Minutes</a>
+        <span class="src">&mdash; Cole Medin &middot; 12:51</span>
+        <span class="why">Naive, hybrid, re-ranked, contextual, graph &mdash; a map for choosing a retrieval strategy on evidence rather than habit.</span></li>
+      <li><a href="https://www.youtube.com/watch?v=7_LTU0LA374">RAG Evaluation: Precision, Recall, Faithfulness, RAGAS</a>
+        <span class="src">&mdash; Logical Lenses &middot; 12:19</span>
+        <span class="why">Retrieval scored separately from generation &mdash; the distinction that tells you whether to fix the retriever or the prompt.</span></li>
+      <li><a href="https://www.youtube.com/watch?v=swvzKSOEluc">RAG Crash Course for Beginners</a>
+        <span class="src">&mdash; KodeKloud &middot; 58:50</span>
+        <span class="why">Chunking, embeddings, vector stores and similarity search from the ground up &mdash; the on-ramp for teammates who missed Day 2.</span></li>
+    </ul>
+  </div>
+
+  <div class="day-header">Day 3 &mdash; Evaluation, Safety &amp; AgentOps</div>
+
+  <div class="module">
+    <h4>Module 7 &middot; Multi-Agent System Evaluation</h4>
+    <ul>
+      <li><a href="https://www.youtube.com/watch?v=a3SMraZWNNs">How to Systematically Setup LLM Evals (Metrics, Unit Tests, LLM-as-a-Judge)</a>
+        <span class="src">&mdash; Dave Ebbelaar &middot; 55:02</span>
+        <span class="why">The single most useful video here. Builds the eval discipline your capstone was accepted on, end to end.</span></li>
+      <li><a href="https://www.youtube.com/watch?v=vuBvf7ZRKTA">How to evaluate agents in practice</a>
+        <span class="src">&mdash; Google Cloud Tech &middot; 10:54</span>
+        <span class="why">Outcome assertions vs. trajectory assertions &mdash; the two-axis view we used to score multi-step runs.</span></li>
+      <li><a href="https://www.youtube.com/watch?v=_Er8Hao_gmQ">AI Evals Explained: How to evaluate AI Agents</a>
+        <span class="src">&mdash; Aishwarya Srinivasan &middot; 23:08</span>
+        <span class="why">Building a representative set with edge and adversarial cases, and why demo-driven development keeps failing.</span></li>
+      <li><a href="https://www.youtube.com/watch?v=trfUBIDeI1Y">LLM as a Judge: Scaling AI Evaluation Strategies</a>
+        <span class="src">&mdash; IBM Technology &middot; 6:09</span>
+        <span class="why">Where a judge model is legitimate, where it quietly agrees with itself, and how to calibrate it against humans.</span></li>
+      <li><a href="https://www.youtube.com/watch?v=2E8iTvGo9Hs">10 min Walkthrough of Langfuse</a>
+        <span class="src">&mdash; Langfuse &middot; 10:10</span>
+        <span class="why">Traces, scores, prompt management and datasets in one pass &mdash; the fastest re-orientation in the tool you used.</span></li>
+      <li><a href="https://www.youtube.com/watch?v=pTneXS_m1rk">Langfuse Intro &mdash; Observability &amp; Tracing Deep Dive</a>
+        <span class="src">&mdash; Langfuse &middot; 11:13</span>
+        <span class="why">Traces, spans and generations properly distinguished &mdash; what you need to locate which agent or tool caused a failure.</span></li>
+    </ul>
+  </div>
+
+  <div class="module">
+    <h4>Module 8 &middot; Safety &amp; Guardrails</h4>
+    <ul>
+      <li><a href="https://www.youtube.com/watch?v=jrHRe9lSqqA">What Is a Prompt Injection Attack?</a>
+        <span class="src">&mdash; IBM Technology &middot; 10:57</span>
+        <span class="why">Direct and indirect injection, cleanly separated. Start here before the two below.</span></li>
+      <li><a href="https://www.youtube.com/watch?v=5ZA1lTxTH3c">Securing AI Agents: How to Prevent Hidden Prompt Injection Attacks</a>
+        <span class="src">&mdash; IBM Technology &middot; 10:08</span>
+        <span class="why">Injection arriving through a tool result or a retrieved document &mdash; the agentic variant, and the one that matters for MCP.</span></li>
+      <li><a href="https://www.youtube.com/watch?v=Sv5OLj2nVAQ">Attacking LLM &mdash; Prompt Injection</a>
+        <span class="src">&mdash; LiveOverflow &middot; 13:23</span>
+        <span class="why">From a security researcher rather than a vendor. The attacker's mental model, which is what red-teaming needs.</span></li>
+      <li><a href="https://www.youtube.com/watch?v=gUNXZMcd2jU">OWASP's Top 10 Ways to Attack LLMs</a>
+        <span class="src">&mdash; IBM Technology &middot; 25:12</span>
+        <span class="why">The checklist a security review will actually hold your system against. Map each item to a control in your graph.</span></li>
+      <li><a href="https://www.youtube.com/watch?v=eIy2aBPIg2g">Taming LLMs with Pydantic: Parsing, Validating and Guarding output</a>
+        <span class="src">&mdash; Manish Sinha, PyBay (SF Python) &middot; 11:50</span>
+        <span class="why">Structured-output contracts enforced between hops &mdash; the cheapest guardrail you can add, and where it still leaks.</span></li>
+      <li><a href="https://www.youtube.com/watch?v=88No8pw706o">MCP security best practices</a>
+        <span class="src">&mdash; Microsoft Developer &middot; 5:37</span>
+        <span class="why">Scopes, least privilege and what an agent may call unattended &mdash; the tool-governance conversation, condensed.</span></li>
+      <li><a href="https://www.youtube.com/watch?v=86e49wcXst4">MCP Security is Still Broken</a>
+        <span class="src">&mdash; Prompt Engineering &middot; 18:02</span>
+        <span class="why">Tool poisoning, rug pulls and shadowing demonstrated live. Watch before you trust a third-party MCP server.</span></li>
+      <li><a href="https://www.youtube.com/watch?v=DwFVhFdD2fs">AI Red Teaming 101 &mdash; full course</a>
+        <span class="src">&mdash; Microsoft Developer &middot; 1:17:26</span>
+        <span class="why">Ten episodes on running an adversarial campaign against your own system, with tooling. <span class="badge">deep</span></span></li>
+    </ul>
+  </div>
+
+  <div class="module">
+    <h4>Module 9 &middot; Deployment &amp; AgentOps</h4>
+    <ul>
+      <li><a href="https://www.youtube.com/watch?v=t209A887UpY">Integrating a LangGraph RAG Agent with FastAPI</a>
+        <span class="src">&mdash; Pradip Nichite &middot; 25:51</span>
+        <span class="why">Sessions, history and a vector store behind a real endpoint &mdash; the closest match to the service you deployed.</span></li>
+      <li><a href="https://www.youtube.com/watch?v=HKGJQknq4JE">LangGraph with FastAPI &mdash; ReAct agents with MCP tools inside a FastAPI app</a>
+        <span class="src">&mdash; GrabDuck! &middot; 15:14</span>
+        <span class="why">Async handling and streaming with MCP tools attached &mdash; Modules 4 and 9 joined up.</span></li>
+      <li><a href="https://www.youtube.com/watch?v=7XgNHzHXeaM">OpenTelemetry Concepts for AI: Span, Trace, Session</a>
+        <span class="src">&mdash; Arize AI &middot; 8:44</span>
+        <span class="why">The vocabulary, correctly. Read this before instrumenting anything of your own.</span></li>
+      <li><a href="https://www.youtube.com/watch?v=28z8UyjpjAk">Distributed tracing for multi-agent AI systems with OpenTelemetry</a>
+        <span class="src">&mdash; Will Velida &middot; 18:30</span>
+        <span class="why">One trace spanning several agents and services &mdash; the piece that makes "which agent caused it" answerable.</span></li>
+      <li><a href="https://www.youtube.com/watch?v=fHGSxOhWO-g">Ultimate OpenTelemetry Guide for Tracing AI Applications</a>
+        <span class="src">&mdash; Arize AI &middot; 1:19:06</span>
+        <span class="why">Custom spans, OTLP and the collector in depth, when you are wiring this into an existing observability stack. <span class="badge">deep</span></span></li>
+      <li><a href="https://www.youtube.com/watch?v=cm2tZm8lGSg">DevOps + LLM + AI project with Docker, Kubernetes and vLLM</a>
+        <span class="src">&mdash; Vishakha Sadhwani &middot; 13:30</span>
+        <span class="why">Containerise, deploy, expose, scale &mdash; a second worked example of the capstone's deployment path.</span></li>
+      <li><a href="https://www.youtube.com/watch?v=nKSk_TiR8YA">Most devs don't understand how LLM tokens work</a>
+        <span class="src">&mdash; Matt Pocock &middot; 10:58</span>
+        <span class="why">Token accounting done properly &mdash; the basis of any honest cost-per-run number or release gate.</span></li>
+      <li><a href="https://www.youtube.com/watch?v=u57EnkQaUTY">What is Prompt Caching? Optimize LLM Latency</a>
+        <span class="src">&mdash; IBM Technology &middot; 9:06</span>
+        <span class="why">The one lever that most reliably cuts a multi-agent system's bill without changing its behaviour.</span></li>
+    </ul>
+  </div>
+
+  <div class="note">
+    <strong>A note on shelf life.</strong> Agent tooling moves faster than video. Treat the conference talks as durable
+    (the reasoning about architecture, cost and failure has not aged) and the code walkthroughs as illustrative &mdash;
+    APIs such as <code>create_agent</code>, LangGraph checkpointers and the Langfuse SDK have all changed at least once
+    since some of these were recorded. Verify against the current documentation before you copy a line into a repository.
+  </div>
+
+</div>
+
+<footer>
+  &copy; 2026 Gheware DevOps &amp; Agentic AI |
+  <a href="https://devops.gheware.com">devops.gheware.com</a> |
+  Trainer: Rajesh Gheware |
+  Questions: <a href="mailto:dev@gheware.com">dev@gheware.com</a>
+</footer>

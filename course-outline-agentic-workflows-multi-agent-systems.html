@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Agentic Workflows &amp; Multi-Agent Systems — Course Outline</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f5f5fb;
+      color: #2d3748;
+      font-size: 13px;
+      line-height: 1.3;
+    }
+    a { color: #4338ca; }
+    header {
+      background: linear-gradient(135deg, #1e1b4b 0%, #4338ca 100%);
+      color: #fff;
+      padding: 11px 18px;
+      text-align: center;
+      border-bottom: 3px solid #818cf8;
+    }
+    header h1 { margin: 0; font-size: 1.3em; }
+    header .tagline { margin-top: 3px; color: #c7d2fe; font-size: 0.88em; font-weight: 600; }
+    header .meta { margin-top: 5px; color: #c3c9de; font-size: 0.8em; }
+    header .meta span { margin: 0 5px; }
+    header .meta .duration { color: #a5b4fc; font-weight: 600; }
+    header .meta .level { color: #fbbf24; font-weight: 600; }
+    .container {
+      max-width: 1180px;
+      margin: 10px auto;
+      background: #fff;
+      padding: 9px 16px 4px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    .day-header {
+      background: linear-gradient(135deg, #1e1b4b 0%, #4f46e5 140%);
+      color: #fff;
+      padding: 4px 10px;
+      margin: 7px 0 5px 0;
+      border-radius: 3px;
+      font-size: 0.88em;
+      font-weight: 600;
+      border-left: 4px solid #fbbf24;
+    }
+    .modules-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+    .module {
+      background: #f8f8fd;
+      padding: 5px 8px;
+      border-left: 3px solid #4338ca;
+      border-radius: 0 3px 3px 0;
+      font-size: 0.75em;
+    }
+    .module h4 { margin: 0 0 3px 0; font-size: 1.03em; color: #312e81; }
+    .module ul { margin: 0; padding-left: 13px; }
+    .module li { margin-bottom: 1px; }
+    .labs {
+      background: #fffbeb; border-left: 3px solid #fbbf24;
+      padding: 4px 9px; margin-top: 5px; font-size: 0.73em; color: #4b3a10;
+      border-radius: 0 3px 3px 0;
+    }
+    .labs strong.lead { color: #92400e; }
+    .capstone {
+      background: #f5f3ff; border-left: 3px solid #7c3aed;
+      padding: 4px 9px; margin-top: 5px; font-size: 0.73em; color: #3b2a6b;
+      border-radius: 0 3px 3px 0;
+    }
+    .takehome {
+      background: #f0fdf9; border-left: 3px solid #0d9488;
+      padding: 4px 9px; margin-top: 4px; font-size: 0.73em; color: #134e4a;
+      border-radius: 0 3px 3px 0;
+    }
+    .badge {
+      display: inline-block; padding: 0 5px; border-radius: 9px;
+      font-size: 0.72em; margin-left: 3px; vertical-align: 1px;
+      background: #4338ca; color: #fff; font-weight: 700;
+    }
+    .setup-head {
+      background: linear-gradient(135deg, #1e1b4b 0%, #4f46e5 140%); color: #fff;
+      padding: 3px 10px; margin: 6px 0 4px 0; border-radius: 3px; font-size: 0.84em; font-weight: 600;
+      border-left: 4px solid #fbbf24;
+    }
+    .setup-head span { font-weight: 400; color: #c7d2fe; margin-left: 6px; }
+    .setup { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    .setup .module { background: #fdf9f3; border-left-color: #b45309; }
+    .setup .module h4 { color: #78350f; }
+    .setup .module li strong { color: #78350f; }
+    .setup code { font-family: Consolas, 'JetBrains Mono', monospace; font-size: 0.92em; background: #fdf0dc; padding: 0 2px; border-radius: 2px; }
+    footer {
+      background: #1e1b4b; color: #fff; text-align: center;
+      padding: 8px; font-size: 0.78em;
+    }
+    footer a { color: #c7d2fe; text-decoration: none; }
+
+    @media print {
+      @page { size: A4; margin: 7mm; }
+      body { font-size: 11.2px; background: #fff; }
+      header { padding: 6px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      header h1 { font-size: 1.24em; }
+      .container { box-shadow: none; padding: 5px 8px 2px; margin: 4px auto; max-width: 100%; }
+      .day-header { padding: 3px 8px; margin: 5px 0 4px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .modules-grid { gap: 4px; }
+      .module { padding: 4px 7px; break-inside: avoid; page-break-inside: avoid; }
+      .labs, .capstone, .takehome { -webkit-print-color-adjust: exact; print-color-adjust: exact; padding: 3px 8px; margin-top: 4px; }
+      .setup-head { padding: 2px 8px; margin: 4px 0 3px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .setup { gap: 4px; }
+      footer { padding: 5px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Agentic Workflows &amp; Multi-Agent Systems</h1>
+    <div class="tagline">Build, Evaluate and Operate Multi-Agent Systems in Production</div>
+    <div class="meta">
+      <span class="duration">3 Days &middot; Hands-on</span> |
+      <span class="level">Advanced</span> |
+      <span>9 modules &middot; 43 labs &middot; capstone</span> |
+      <span>45% theory &middot; 55% labs</span> |
+      <span>Trainer: Rajesh Gheware</span>
+    </div>
+  </header>
+
+  <div class="container">
+
+    <div class="day-header">Day 1 &mdash; The Agent Loop: Reasoning, Memory &amp; State</div>
+    <div class="modules-grid">
+
+      <div class="module">
+        <h4>Module 1 &middot; Agents vs. Multi-Agent Systems</h4>
+        <ul>
+          <li>LLM vs. agent &mdash; reasoning loops, action loops, autonomy; agents vs. chatbots vs. RAG</li>
+          <li>The four building blocks: <strong>LLM (brain) · Memory (state) · Tools (actions) · Planning</strong></li>
+          <li>Patterns: single agent, multi-agent, supervisor/worker &mdash; and the coordination tax of each extra agent</li>
+          <li><strong>The decision rubric you take away:</strong> when one agent is enough, when to split, when to build neither</li>
+          <li>LLM limitations that create the need for agents in the first place</li>
+          <li>Fast on-ramp: LangChain 1.x essentials and <code>create_agent</code> &mdash; enough to build, not a tour</li>
+        </ul>
+      </div>
+
+      <div class="module">
+        <h4>Module 2 &middot; Agentic Planning &amp; Reasoning</h4>
+        <ul>
+          <li>Architectures compared on identical tasks: <strong>Chain-of-Thought, ReAct, Tree-of-Thought, Reflection</strong></li>
+          <li>Task decomposition into sub-goals an agent can finish; dependency-aware ordering</li>
+          <li>Re-planning vs. blind retry &mdash; transient failure or wrong plan?</li>
+          <li>Stop conditions, step budgets and loop detection &mdash; the most common production failure</li>
+          <li>Where each pattern earns its cost: quality vs. tokens vs. latency, <strong>measured not asserted</strong></li>
+        </ul>
+      </div>
+
+      <div class="module">
+        <h4>Module 3 &middot; Memory, State &amp; the LangGraph Substrate</h4>
+        <ul>
+          <li>Memory types &mdash; <strong>short-term</strong> (conversation), <strong>long-term</strong> (persistent), <strong>episodic</strong> (experience)</li>
+          <li>Buffer vs. summary memory; compaction, and when a long session degrades the agent</li>
+          <li><strong>Perception:</strong> turning raw tool and environment output into observations the model can act on &mdash; structured vs. raw, and what the agent cannot see</li>
+          <li><strong>LangGraph:</strong> StateGraph, nodes, edges, cycles &mdash; state as an explicit, inspectable object</li>
+          <li>State reducers and <strong>checkpointing</strong> &mdash; persistence, resume after restart, and the audit trail</li>
+          <li>Shared vs. private memory across agents, and <strong>context poisoning</strong> when one agent's error propagates</li>
+        </ul>
+      </div>
+
+    </div>
+    <div class="labs">
+      <strong class="lead">Day 1 Labs</strong> &mdash; LLM vs. agent &middot; agent building blocks &middot; Chain-of-Thought &middot; <strong>ReAct pattern</strong> &middot; Tree-of-Thought &middot; Reflection &middot; conversation memory &middot; memory strategies &middot; session management &middot; first StateGraph &middot; state reducers &middot; checkpointing &middot; <strong>build your baseline eval set &amp; pass rate</strong> &mdash; the number every later milestone is measured against
+    </div>
+
+    <div class="day-header">Day 2 &mdash; Tools, MCP, Orchestration &amp; Agentic RAG</div>
+    <div class="modules-grid">
+
+      <div class="module">
+        <h4>Module 4 &middot; Tool Calling &amp; MCP <span class="badge">MCP</span></h4>
+        <ul>
+          <li>Why tools matter; custom tool development, multi-tool orchestration, function-calling agents</li>
+          <li><strong>Tool descriptions are instructions</strong> &mdash; a measured lab moves accuracy on description quality alone</li>
+          <li><strong>MCP architecture:</strong> servers, tools, resources, prompts, transports; why a protocol beats bespoke integrations</li>
+          <li>MCP client configuration and workflows; <strong>bridging MCP servers into LangChain agents</strong></li>
+          <li>Enterprise MCP use cases and ecosystem discovery</li>
+          <li>Injection arriving through tool results; what a tool must return when it fails</li>
+        </ul>
+      </div>
+
+      <div class="module">
+        <h4>Module 5 &middot; Multi-Agent Collaboration &amp; Orchestration</h4>
+        <ul>
+          <li><strong>Supervisor/worker</strong> &mdash; rule-based and LLM-routed &mdash; plus peer-to-peer and agent handoffs</li>
+          <li>Task decomposition and distribution; aggregation and <strong>conflict resolution between agents</strong></li>
+          <li>Parallel execution, multi-branch graphs, conditional routing, error handling, retry and backoff</li>
+          <li><strong>Cost of collaboration:</strong> a 5-agent system runs 3&ndash;10&times; the tokens of one agent &mdash; per-agent <strong>model routing</strong>, cheap model routes, strong model reasons</li>
+          <li>Human-in-the-loop as an orchestration <em>mechanism</em>: interrupt points, approval gates, timeout, escalation</li>
+          <li><strong>Measure the graph against your own Day 1 single agent</strong> &mdash; quality, cost, latency; and when the honest answer is "don't"</li>
+          <li>Production patterns: specialisation, fallback, termination and runaway-loop control</li>
+        </ul>
+      </div>
+
+      <div class="module">
+        <h4>Module 6 &middot; Agentic RAG</h4>
+        <ul>
+          <li>From RAG pipeline to <strong>retrieval as a tool</strong> the agent chooses to call, repeatedly, with intent</li>
+          <li>Embeddings, ChromaDB collections and metadata, document loading, chunking, similarity-search strategy</li>
+          <li>Query processing, multi-hop retrieval, and re-querying when the first result is inadequate</li>
+          <li><strong>Response generation with citations</strong>; grounding discipline and refusing when unsupported</li>
+          <li>RAG-powered agents with memory &mdash; the retriever inside a conversational, tool-using agent</li>
+          <li>Evaluating retrieval separately from generation &mdash; faithfulness vs. relevance</li>
+        </ul>
+      </div>
+
+    </div>
+    <div class="labs">
+      <strong class="lead">Day 2 Labs</strong> &mdash; tool basics &middot; <strong>tool-calling accuracy measurement</strong> &middot; multi-tool agent &middot; MCP client config &middot; MCP workflows &middot; <strong>LangChain&ndash;MCP bridge</strong> &middot; supervisor/worker &middot; <strong>LLM-routed supervisor</strong> &middot; peer-to-peer &middot; agent handoffs &middot; task decomposition &middot; aggregation &amp; conflict resolution &middot; parallel execution &middot; human-in-the-loop &middot; <strong>multi-agent vs. single-agent scorecard</strong> (quality · cost · latency) &middot; RAG chain &middot; <strong>RAG with citations</strong>
+    </div>
+
+    <div class="day-header">Day 3 &mdash; Evaluation, Safety &amp; AgentOps</div>
+    <div class="modules-grid">
+
+      <div class="module">
+        <h4>Module 7 &middot; Multi-Agent System Evaluation</h4>
+        <ul>
+          <li>Why demo-driven development fails here: same input, twice, two different runs</li>
+          <li><strong>Extending the Day 1 eval set</strong> &mdash; representative, edge and adversarial cases; <strong>outcome vs. trajectory</strong> assertions</li>
+          <li><strong>Tracing agent reasoning</strong> &mdash; traces, spans, generations; tool-call visibility; latency breakdown</li>
+          <li>Scoring in LangFuse: feedback collection, scores, <strong>A/B testing prompts</strong> on real traffic</li>
+          <li>Prompt management and versioning as an evaluated, rolled-out artifact, not an edit in place</li>
+          <li><strong>Cost analysis:</strong> tokens and cost per step, per agent, per run &mdash; and cost/latency as <strong>release gates</strong>, not reports</li>
+          <li>Locating the failure: which agent, tool or retrieval step actually caused it</li>
+        </ul>
+      </div>
+
+      <div class="module">
+        <h4>Module 8 &middot; Safety &amp; Guardrails</h4>
+        <ul>
+          <li><strong>Prompt-injection detection</strong> and input sanitisation; jailbreak resistance; red-teaming your own system</li>
+          <li>Output validation and structured-output contracts enforced between every hop</li>
+          <li>Guardrails integration into the agent graph &mdash; where a check belongs and what it costs</li>
+          <li><strong>MCP tool governance</strong> &mdash; scopes, least privilege, blast radius; what an agent may call unattended</li>
+          <li>Human-in-the-loop as a safety <em>control</em>: approval gates before any write or irreversible action</li>
+          <li>Safety monitoring: what to alarm on for a system that can be wrong without erroring</li>
+          <li>Data boundaries &mdash; PII, secrets, and what must never enter a prompt, a trace or a vector store</li>
+        </ul>
+      </div>
+
+      <div class="module">
+        <h4>Module 9 &middot; Deployment &amp; AgentOps</h4>
+        <ul>
+          <li><strong>FastAPI + LangGraph</strong> as a service: async handling, streaming responses, error handling, validation</li>
+          <li>Health checks and readiness probes; secrets management; the production readiness checklist</li>
+          <li><strong>Containerise and deploy to Kubernetes:</strong> Deployments, Services, Ingress, Secrets, HPA, resource limits</li>
+          <li><strong>OpenTelemetry</strong> &mdash; the three pillars, custom spans, OTLP and the collector</li>
+          <li>Production observability end to end: traces, metrics, structured logging, cost dashboards, alerting</li>
+          <li>Scaling, debugging and the on-call runbook for an agentic service</li>
+        </ul>
+      </div>
+
+    </div>
+    <div class="labs">
+      <strong class="lead">Day 3 Labs</strong> &mdash; tracing agents &middot; <strong>feedback &amp; evaluation</strong> &middot; prompt management &middot; <strong>cost analysis</strong> &middot; prompt-injection detection &middot; output validation &middot; guardrails integration &middot; <strong>red-team testing</strong> &middot; MCP security &amp; governance &middot; FastAPI + LangGraph &middot; health probes &middot; OTel setup &amp; instrumentation &middot; production observability
+    </div>
+
+    <div class="capstone">
+      <strong>Capstone</strong> &mdash; a <strong>payment-exception investigation</strong> service, built and defended: supervisor + specialist agents &middot; Agentic RAG over policy and runbooks &middot; a ledger queried over <strong>MCP</strong> &middot; a critic agent &middot; <strong>human approval gate before any write</strong> &middot; FastAPI endpoint, containerised and <strong>deployed to Kubernetes</strong> &middot; LangFuse instrumentation. <strong>Accepted only if it clears the Day 1 eval set inside a fixed cost and latency budget</strong> &mdash; not on a successful demo run. All systems and data synthetic.
+    </div>
+
+    <div class="takehome">
+      <strong>What participants take away</strong> &mdash; the <strong>one-agent-or-many decision rubric</strong> &middot; a reference supervisor/worker implementation &middot; their own MCP server and tool-governance scopes &middot; an Agentic RAG retriever that cites and refuses &middot; a <strong>reusable eval harness and scorecard</strong> &middot; guardrail and approval-gate patterns &middot; the Kubernetes deployment and observability manifests.
+    </div>
+
+    <div class="setup-head">Participant Machine Setup &amp; Lab Access <span>&mdash; Wed 9 &ndash; Fri 11 September 2026 &middot; 10:00&ndash;18:00 IST &middot; online (Zoom per calendar invitation) &middot; nothing to install</span></div>
+    <div class="setup">
+      <div class="module">
+        <h4>Network &mdash; the only item for IT</h4>
+        <ul>
+          <li>Reach <code>*.brainupgrade.in</code> (sandbox, deployed-app URLs, LLM gateway, Langfuse) and <code>zoom.us</code> over <strong>HTTPS 443 with WebSocket allowed</strong></li>
+          <li>Proxies that terminate TLS or block WebSocket break the sandbox terminal &mdash; if IT cannot confirm by <strong>Tue 8 Sep</strong>, use <strong>guest wifi or a personal hotspot</strong></li>
+        </ul>
+      </div>
+      <div class="module">
+        <h4>Lab access &mdash; what each participant does</h4>
+        <ul>
+          <li><strong>On Day 1:</strong> personal sandbox URL, username and password (one set, valid all three days), issued via the coordinator</li>
+          <li><strong>Pre-configured inside:</strong> Python agent stack, terminal with <code>git</code>/<code>docker</code>/<code>kubectl</code>, OpenCode, LLM access (Nemotron / Big Pickle + our hosted Qwen), Langfuse, own Kubernetes namespace with a public app URL &mdash; <strong>no keys to register</strong></li>
+          <li>Sandboxes open <strong>09:00&ndash;19:00 IST</strong> daily &middot; support: <code>dev@gheware.com</code> &middot; +91-9880195215</li>
+        </ul>
+      </div>
+    </div>
+
+  </div>
+
+  <footer>
+    &copy; 2026 Gheware DevOps &amp; Agentic AI |
+    <a href="https://devops.gheware.com">devops.gheware.com</a> |
+    Trainer: Rajesh Gheware |
+    Agentic Workflows &amp; Multi-Agent Systems v3.1
+  </footer>
+</body>
+</html>

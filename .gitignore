@@ -1,0 +1,71 @@
+# ---------------------------------------------------------------------------
+# Agentic Workflows & Multi-Agent Systems (Course Two)
+#
+# What IS tracked, deliberately:
+#   course-outline-*.html   the single client-facing deliverable, and the sole
+#                           source of truth (must stay exactly 1 A4 page)
+#   presentation/           delivery decks — self-contained slide runners
+#   hands-on/               lab notebooks, solutions and their generator
+#   resources/              post-session video resources for participants
+#   README.md               rationale, provenance and settled decisions
+#
+# Everything tracked here is ANONYMOUS by design: no tracked file, and no tracked
+# FILENAME, names the client or the broker. Verified and scrubbed 2026-09-03 (the
+# outline was renamed, the README rewritten, correspondence moved to _local/).
+# Participants receive material from this folder — keep it that way, and re-run
+# the check in CLAUDE.md before any push.
+# ---------------------------------------------------------------------------
+
+# Working notes for this engagement. Local only — the only file in the folder
+# that names the client and the broker, and it records commercial and delivery
+# context that the tracked files must never carry.
+CLAUDE.md
+
+# Local Claude Code settings — machine-specific, not part of the deliverable.
+.claude/
+.claude/settings.local.json
+
+# Correspondence, commercials and delivery notes. Local only, never tracked.
+_local/
+
+# ---------------------------------------------------------------------------
+# Generated / exported artifacts
+# ---------------------------------------------------------------------------
+# PDFs are rendered on demand when one needs to be sent, and are not committed
+# (decision 2026-09-03). The page-count check writes to /tmp, but catch strays.
+*.pdf
+/tmp/
+onepager.pdf
+
+# Python bytecode from the lab generator and verifiers
+__pycache__/
+*.py[cod]
+
+# Jupyter working state. Notebooks are committed WITHOUT outputs — if a diff
+# shows execution counts or output blobs, re-run _generators/regenerate.sh.
+.ipynb_checkpoints/
+*/.ipynb_checkpoints/
+
+# ---------------------------------------------------------------------------
+# Secrets — never commit
+# ---------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.pfx
+*.p12
+credentials.*
+secrets.*
+*token*.json
+
+# ---------------------------------------------------------------------------
+# OS / editor noise
+# ---------------------------------------------------------------------------
+.DS_Store
+Thumbs.db
+*.swp
+*~
+.idea/
+.vscode/

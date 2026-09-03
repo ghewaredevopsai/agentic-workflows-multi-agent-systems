@@ -1,0 +1,125 @@
+<meta charset="utf-8">
+<title>Module 1 Labs &mdash; Agents vs. Multi-Agent Systems</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;padding:0}
+body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:#f5f5fb;color:#2d3748;font-size:14px;line-height:1.45}
+a{color:#4338ca}
+header{background:linear-gradient(135deg,#1e1b4b 0%,#4338ca 100%);color:#fff;padding:14px 18px;text-align:center;border-bottom:3px solid #818cf8}
+header h1{margin:0;font-size:1.35em}
+header .tagline{margin-top:4px;color:#c7d2fe;font-size:.9em;font-weight:600}
+header .meta{margin-top:6px;color:#c3c9de;font-size:.82em}
+header .meta span{margin:0 5px}
+.container{max-width:1060px;margin:12px auto;background:#fff;padding:14px 20px 10px;box-shadow:0 0 10px rgba(0,0,0,.1)}
+.how{background:#f0fdf9;border-left:3px solid #0d9488;padding:9px 13px;font-size:.88em;color:#134e4a;border-radius:0 3px 3px 0;margin-bottom:12px}
+.how p{margin:0 0 5px}.how p:last-child{margin:0}
+.how code{font-family:Consolas,'JetBrains Mono',monospace;background:#d7f5ee;padding:0 3px;border-radius:2px}
+.lab{background:#f8f8fd;border-left:3px solid #4338ca;border-radius:0 3px 3px 0;padding:9px 13px;margin-bottom:9px;break-inside:avoid}
+.lab h3{margin:0 0 4px;font-size:1.02em;color:#312e81}
+.lab h3 a{text-decoration:none}.lab h3 a:hover{text-decoration:underline}
+.lab .tags{float:right;font-size:.76em;color:#6b7280;font-weight:600}
+.lab .tags .lvl{color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:9px;padding:0 7px;margin-left:5px}
+.lab p{margin:0 0 5px;font-size:.92em;color:#4b5563}
+.lab ul{margin:0;padding-left:17px;font-size:.9em;color:#475569}
+.lab li{margin-bottom:1px}
+.lab .sol{font-size:.84em;color:#6b7280;margin-top:5px}
+.note{background:#fffbeb;border-left:3px solid #fbbf24;padding:9px 13px;font-size:.86em;color:#4b3a10;border-radius:0 3px 3px 0;margin-top:12px}
+footer{background:#1e1b4b;color:#fff;text-align:center;padding:10px;font-size:.8em}
+footer a{color:#c7d2fe;text-decoration:none}
+</style>
+
+<header>
+  <h1>Module 1 &mdash; Agents vs. Multi-Agent Systems</h1>
+  <div class="tagline">Day 1 hands-on &middot; five labs, intermediate to advanced</div>
+  <div class="meta"><span>One case file throughout</span> &middot; <span>self-checked</span> &middot; <span>solutions provided</span></div>
+</header>
+
+<div class="container">
+
+  <div class="how">
+    <p><strong>How these labs work.</strong> Fill every <code>___</code>, then run the
+      <strong>Self-check</strong> cell under each section. It prints <code>[PASS]</code>,
+      <code>[FAIL]</code> or <code>[TODO]</code>, and the last cell prints your
+      <code>Score</code>.</p>
+    <p><strong>Your score never depends on a live model.</strong> Graded cells are plain Python.
+      Cells marked <strong>Run it for real</strong> do call the sandbox model &mdash; if it is
+      unreachable they print how to fix it rather than crashing, so <em>Run All</em> is always safe
+      on an untouched notebook.</p>
+    <p><strong>One case runs through all five:</strong> payment exceptions on a small synthetic
+      ledger. Each lab carries forward what the previous one built, so work them in order.</p>
+  </div>
+
+  <div class="lab">
+    <div class="tags">25 min<span class="lvl">Intermediate</span></div>
+    <h3><a href="lab-1-01-llm-vs-agent-loop.ipynb">Lab 1.1 &mdash; From a Stateless Call to an Agent Loop</a></h3>
+    <p>What actually turns a model call into an agent &mdash; and what keeps the loop from running away.</p>
+    <ul>
+      <li>Carry state by resending it, and watch a bare call forget</li>
+      <li>Write the loop and the stop condition that bounds its budget</li>
+      <li>Detect a loop that is spending money without learning anything</li>
+    </ul>
+    <div class="sol">4 blanks &middot; 11 checks &middot; solution: <code>solutions/lab-1-01-llm-vs-agent-loop.ipynb</code></div>
+  </div>
+
+  <div class="lab">
+    <div class="tags">30 min<span class="lvl">Intermediate</span></div>
+    <h3><a href="lab-1-02-four-building-blocks.ipynb">Lab 1.2 &mdash; The Four Building Blocks</a></h3>
+    <p>Build memory, tools and planning by hand, then assemble all four blocks over the case file.</p>
+    <ul>
+      <li>Tools that report failure instead of raising it and aborting the run</li>
+      <li>Short-term memory that compacts, so the window stops growing</li>
+      <li>Dependency-ordered planning, and a cycle that is rejected rather than looped</li>
+    </ul>
+    <div class="sol">4 blanks &middot; 17 checks &middot; solution: <code>solutions/lab-1-02-four-building-blocks.ipynb</code></div>
+  </div>
+
+  <div class="lab">
+    <div class="tags">25 min<span class="lvl">Intermediate &rarr; Advanced</span></div>
+    <h3><a href="lab-1-03-create-agent-on-ramp.ipynb">Lab 1.3 &mdash; The create_agent On-Ramp</a></h3>
+    <p>The same agent, with LangChain owning the loop. Enough framework to build, not a tour.</p>
+    <ul>
+      <li>Write the checker for what makes a tool description choosable, then pass it</li>
+      <li>Assemble a <code>create_agent</code> configuration and run it for real</li>
+      <li>Read the trace and find the loop you wrote by hand in Lab 1.1</li>
+    </ul>
+    <div class="sol">5 blanks &middot; 12 checks &middot; solution: <code>solutions/lab-1-03-create-agent-on-ramp.ipynb</code></div>
+  </div>
+
+  <div class="lab">
+    <div class="tags">35 min<span class="lvl">Advanced</span></div>
+    <h3><a href="lab-1-04-coordination-tax.ipynb">Lab 1.4 &mdash; One Agent or Three: Measuring the Coordination Tax</a></h3>
+    <p>&ldquo;We need multiple agents&rdquo; is a hypothesis. This is how you test it.</p>
+    <ul>
+      <li>Route work to specialist workers from a supervisor</li>
+      <li>Meter both designs identically &mdash; steps, estimated tokens, wall time</li>
+      <li>Score them on one eval set, and count the failure surface that grows fastest</li>
+    </ul>
+    <div class="sol">5 blanks &middot; 16 checks &middot; solution: <code>solutions/lab-1-04-coordination-tax.ipynb</code></div>
+  </div>
+
+  <div class="lab">
+    <div class="tags">40 min<span class="lvl">Advanced &middot; challenge</span></div>
+    <h3><a href="lab-1-05-challenge-decision-rubric.ipynb">Lab 1.5 &mdash; Challenge: The Decision Rubric, Made Executable</a></h3>
+    <p>The comprehensive lab. Turn the module&rsquo;s rubric into code that returns a verdict you could defend in a design review.</p>
+    <ul>
+      <li>Encode the four questions, including two briefs written to mislead you</li>
+      <li>Gate the verdict on a budget named <em>before</em> the measurement</li>
+      <li>Produce the review table &mdash; candidate, decision, and why</li>
+    </ul>
+    <div class="sol">5 blanks &middot; 18 checks &middot; solution: <code>solutions/lab-1-05-challenge-decision-rubric.ipynb</code></div>
+  </div>
+
+  <div class="note">
+    <strong>Regenerating.</strong> Labs and solutions are built from a single source
+    (<code>_generators/gen_labs.py</code>) so a blank can never drift from the answer that grades
+    it. Run <code>_generators/regenerate.sh</code> to rebuild and re-verify both directions.
+    Runtime prerequisites are in <code>RUNTIME.md</code>.
+  </div>
+
+</div>
+
+<footer>
+  &copy; 2026 Gheware DevOps &amp; Agentic AI |
+  <a href="https://devops.gheware.com">devops.gheware.com</a> |
+  Trainer: Rajesh Gheware |
+  Questions: <a href="mailto:dev@gheware.com">dev@gheware.com</a>
+</footer>

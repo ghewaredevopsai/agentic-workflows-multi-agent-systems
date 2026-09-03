@@ -1,0 +1,1399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Module 1 &mdash; Agents vs. Multi-Agent Systems | Agentic Workflows &amp; Multi-Agent Systems</title>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;height:100%}
+body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:#e8e9f5;color:#1e1b4b;overflow:hidden}
+
+/* ---------- chrome ---------- */
+#top{position:fixed;top:0;left:0;right:0;height:44px;background:#1e1b4b;color:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 16px;z-index:40;font-size:13px}
+#top .l{display:flex;align-items:center;gap:12px;min-width:0}
+#top .mod{font-weight:600;letter-spacing:.2px;white-space:nowrap}
+#top .sec{color:#a5b4fc;font-size:12px;border-left:1px solid #3730a3;padding-left:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#top .r{display:flex;align-items:center;gap:8px}
+#top a,#top button{color:#c7d2fe;text-decoration:none;background:#312e81;border:1px solid #4338ca;padding:5px 11px;border-radius:4px;font-size:12.5px;cursor:pointer;font-family:inherit}
+#top a:hover,#top button:hover{background:#4338ca;color:#fff}
+#bot{position:fixed;bottom:0;left:0;right:0;height:38px;background:#1e1b4b;color:#c7d2fe;display:flex;align-items:center;gap:12px;padding:0 16px;z-index:40;font-size:12px}
+#prog{flex:1;height:4px;background:#312e81;border-radius:2px;overflow:hidden}
+#progf{height:100%;width:2%;background:#fbbf24;transition:width .25s ease}
+.navbtn{background:#312e81;color:#fff;border:1px solid #4338ca;border-radius:4px;padding:4px 12px;cursor:pointer;font-size:14px;line-height:1.2;font-family:inherit}
+.navbtn:hover{background:#4338ca}
+#num{min-width:66px;text-align:right;font-variant-numeric:tabular-nums}
+#hint{color:#818cf8}
+#wrap{position:fixed;top:44px;bottom:38px;left:0;right:0;display:flex;align-items:center;justify-content:center}
+#stage{width:1280px;height:720px;background:#fff;box-shadow:0 8px 34px rgba(30,27,75,.28);position:relative;transform-origin:center center;overflow:hidden}
+
+/* ---------- index overlay ---------- */
+#toc{position:fixed;inset:44px 0 38px;background:rgba(23,21,60,.975);color:#fff;z-index:35;display:none;overflow:auto;padding:22px 46px}
+#toc.on{display:block}
+#toc h3{margin:0 0 14px;font-size:15px;color:#a5b4fc;letter-spacing:.6px;text-transform:uppercase;font-weight:600}
+#toc .cols{column-count:2;column-gap:38px}
+#toc .grp{margin-bottom:16px;break-inside:avoid}
+#toc .grph{font-size:12px;color:#fbbf24;font-weight:700;letter-spacing:.8px;margin-bottom:5px;text-transform:uppercase}
+#toc a{display:block;color:#dce0f7;text-decoration:none;padding:4px 10px;border-left:2px solid #4338ca;font-size:14px}
+#toc a:hover{background:#312e81;border-left-color:#818cf8}
+#toc a.cur{background:#4338ca;border-left-color:#fbbf24;color:#fff;font-weight:600}
+#toc a .n{display:inline-block;width:28px;color:#818cf8;font-size:12px}
+
+/* ---------- notes ---------- */
+#notes{position:fixed;left:0;right:0;bottom:38px;max-height:34%;overflow:auto;background:#171540;color:#dce0f7;border-top:3px solid #fbbf24;padding:12px 22px;z-index:36;display:none;font-size:14px;line-height:1.55}
+#notes.on{display:block}
+#notes .h{font-size:11px;letter-spacing:.8px;color:#a5b4fc;font-weight:700;margin-bottom:5px;text-transform:uppercase}
+
+/* ---------- slide shell ---------- */
+.slide{position:absolute;inset:0;padding:26px 40px 20px;display:none;flex-direction:column}
+.slide.active{display:flex}
+.slide h2{margin:0 0 14px;font-size:28px;line-height:1.14;color:#1e1b4b;border-bottom:2px solid #4338ca;padding-bottom:8px;font-weight:600}
+.slide .body{flex:1;display:flex;align-items:center;justify-content:center;min-height:0}
+.slide .body.col{flex-direction:column;justify-content:center;gap:10px}
+.take{margin-top:12px;background:#fffbeb;border-left:4px solid #fbbf24;padding:9px 14px;font-size:17px;color:#4b3a10;border-radius:0 3px 3px 0;line-height:1.35}
+.take b{color:#92400e}
+
+/* title slide */
+.slide.title{justify-content:center;align-items:center;text-align:center;background:linear-gradient(135deg,#1e1b4b 0%,#4338ca 100%);color:#fff;padding:0}
+.slide.title h1{font-size:46px;margin:0 0 12px;font-weight:600;line-height:1.15}
+.slide.title .sub{font-size:21px;color:#c7d2fe;margin-bottom:26px}
+.slide.title .rule{width:120px;height:3px;background:#fbbf24;margin:0 auto 26px}
+.slide.title .meta{font-size:15px;color:#a5b4fc;line-height:1.9}
+
+/* section divider */
+.slide.div{justify-content:center;align-items:center;text-align:center;background:#f5f5fb}
+.slide.div .k{font-size:13px;letter-spacing:2px;color:#818cf8;font-weight:700;text-transform:uppercase;margin-bottom:14px}
+.slide.div h1{font-size:40px;margin:0;color:#1e1b4b;font-weight:600}
+
+/* svg text defaults */
+svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
+.lbl{font-size:12.5px;fill:#64748b;letter-spacing:.7px;font-weight:700;text-transform:uppercase}
+.bx{font-size:17px;fill:#1e1b4b;font-weight:600}
+.bxs{font-size:15px;fill:#1e1b4b;font-weight:600}
+.bd{font-size:14px;fill:#475569}
+.bds{font-size:13px;fill:#64748b}
+.big{font-size:23px;fill:#1e1b4b;font-weight:700}
+.num{font-size:26px;fill:#4338ca;font-weight:700}
+.ok{fill:#0d9488}
+.no{fill:#b91c1c}
+.am{fill:#92400e}
+
+/* quiz */
+.q .body{align-items:center}
+.qbox{width:100%}
+.qstem{font-size:23px;line-height:1.35;color:#1e1b4b;font-weight:600;margin-bottom:22px}
+.opt{display:flex;align-items:flex-start;gap:14px;padding:11px 16px;margin-bottom:10px;background:#f8f8fd;border-left:4px solid #c7d2fe;border-radius:0 4px 4px 0;font-size:19px;line-height:1.3}
+.opt .k{font-weight:700;color:#4338ca;min-width:22px}
+.opt.hit{background:#ecfdf5;border-left-color:#0d9488}
+.opt.hit .k{color:#0d9488}
+.opt.miss{opacity:.5}
+.why{margin-top:14px;background:#f5f3ff;border-left:4px solid #7c3aed;padding:10px 15px;font-size:16.5px;color:#3b2a6b;line-height:1.4;border-radius:0 3px 3px 0}
+.why b{color:#5b21b6}
+.qtag{position:absolute;top:26px;right:40px;font-size:12px;letter-spacing:1px;font-weight:700;color:#818cf8;text-transform:uppercase}
+</style>
+</head>
+<body>
+
+<div id="top">
+  <div class="l">
+    <span class="mod">Module 1 &middot; Agents vs. Multi-Agent Systems</span>
+    <span class="sec" id="secname">&nbsp;</span>
+  </div>
+  <div class="r">
+    <button id="btoc" title="Slide index (T)">Index</button>
+    <button id="bnotes" title="Speaker notes (N)">Notes</button>
+    <a href="../resources/video-resources.html" title="Post-session video resources">Resources</a>
+  </div>
+</div>
+
+<div id="wrap"><div id="stage"></div></div>
+
+<div id="toc"><h3>Slide index</h3><div class="cols" id="toclist"></div></div>
+<div id="notes"><div class="h">Speaker notes</div><div id="notesbody"></div></div>
+
+<div id="bot">
+  <button class="navbtn" id="bprev">&#8592;</button>
+  <button class="navbtn" id="bnext">&#8594;</button>
+  <div id="prog"><div id="progf"></div></div>
+  <span id="hint">&#8592; &#8594; move &middot; T index &middot; N notes &middot; F fullscreen</span>
+  <span id="num">1 / 1</span>
+</div>
+
+<template id="deck">
+
+<svg width="0" height="0" style="position:absolute"><defs>
+<marker id="ai" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#4338ca"/></marker>
+<marker id="ag" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker>
+<marker id="aa" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#d97706"/></marker>
+<marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#b91c1c"/></marker>
+<marker id="at" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#0d9488"/></marker>
+</defs></svg>
+
+<div class="slide title" data-sec="Title" data-notes="Set the frame in one line: by the end of this module they can decide, on evidence, whether a problem needs no agent, one agent, or many. Everything else in the three days depends on that judgement. Do not sell multi-agent here.">
+  <h1>Agents vs. Multi-Agent Systems</h1>
+  <div class="sub">Module 1 &middot; Day 1 &mdash; The Agent Loop: Reasoning, Memory &amp; State</div>
+  <div class="rule"></div>
+  <div class="meta">
+    Agentic Workflows &amp; Multi-Agent Systems &middot; 3 days &middot; Advanced<br>
+    Trainer: Rajesh Gheware
+  </div>
+</div>
+
+<div class="slide" data-sec="Orientation" data-notes="Six questions, in order. Say plainly that question 6 &mdash; when to build neither &mdash; is the one that saves them the most money, and that we will answer it with numbers on Day 2, not with opinion.">
+  <h2>Six questions this module answers</h2>
+  <div class="body">
+    <svg width="1180" height="430" viewBox="0 0 1180 430" role="img" aria-label="Six questions in sequence">
+      <line x1="90" y1="120" x2="1090" y2="120" stroke="#c7d2fe" stroke-width="3"/>
+      <g>
+        <circle cx="90" cy="120" r="26" fill="#4338ca"/><text x="90" y="128" text-anchor="middle" font-size="19" font-weight="700" fill="#fff">1</text>
+        <text x="90" y="180" text-anchor="middle" class="bxs">Why do agents</text><text x="90" y="200" text-anchor="middle" class="bxs">exist at all?</text>
+        <text x="90" y="226" text-anchor="middle" class="bds">What an LLM cannot do</text>
+      </g>
+      <g>
+        <circle cx="290" cy="120" r="26" fill="#4338ca"/><text x="290" y="128" text-anchor="middle" font-size="19" font-weight="700" fill="#fff">2</text>
+        <text x="290" y="180" text-anchor="middle" class="bxs">What turns a call</text><text x="290" y="200" text-anchor="middle" class="bxs">into an agent?</text>
+        <text x="290" y="226" text-anchor="middle" class="bds">The loop</text>
+      </g>
+      <g>
+        <circle cx="490" cy="120" r="26" fill="#4338ca"/><text x="490" y="128" text-anchor="middle" font-size="19" font-weight="700" fill="#fff">3</text>
+        <text x="490" y="180" text-anchor="middle" class="bxs">Chatbot, RAG</text><text x="490" y="200" text-anchor="middle" class="bxs">or agent?</text>
+        <text x="490" y="226" text-anchor="middle" class="bds">Who holds control</text>
+      </g>
+      <g>
+        <circle cx="690" cy="120" r="26" fill="#4338ca"/><text x="690" y="128" text-anchor="middle" font-size="19" font-weight="700" fill="#fff">4</text>
+        <text x="690" y="180" text-anchor="middle" class="bxs">What is an agent</text><text x="690" y="200" text-anchor="middle" class="bxs">made of?</text>
+        <text x="690" y="226" text-anchor="middle" class="bds">Four building blocks</text>
+      </g>
+      <g>
+        <circle cx="890" cy="120" r="26" fill="#4338ca"/><text x="890" y="128" text-anchor="middle" font-size="19" font-weight="700" fill="#fff">5</text>
+        <text x="890" y="180" text-anchor="middle" class="bxs">One agent</text><text x="890" y="200" text-anchor="middle" class="bxs">or many?</text>
+        <text x="890" y="226" text-anchor="middle" class="bds">Patterns &amp; their cost</text>
+      </g>
+      <g>
+        <circle cx="1090" cy="120" r="26" fill="#fbbf24"/><text x="1090" y="128" text-anchor="middle" font-size="19" font-weight="700" fill="#3b2708">6</text>
+        <text x="1090" y="180" text-anchor="middle" class="bxs am">When to build</text><text x="1090" y="200" text-anchor="middle" class="bxs am">neither?</text>
+        <text x="1090" y="226" text-anchor="middle" class="bds">The decision rubric</text>
+      </g>
+      <rect x="820" y="278" width="340" height="66" rx="5" fill="#fffbeb" stroke="#fbbf24" stroke-width="2"/>
+      <text x="990" y="304" text-anchor="middle" class="bxs am">Question 6 is the one that</text>
+      <text x="990" y="326" text-anchor="middle" class="bxs am">saves the most money.</text>
+      <text x="60" y="300" class="lbl">You leave with</text>
+      <text x="60" y="330" class="bx">A rubric you can defend in a design review &mdash;</text>
+      <text x="60" y="356" class="bx">not a preference for the newest pattern.</text>
+    </svg>
+  </div>
+</div>
+
+<div class="slide div" data-sec="Why agents exist" data-notes="Two minutes. The point of this section is that every part of an agent is a patch over a specific limitation of the model. If you know the limitation, you know which part you actually need.">
+  <div class="k">Part one</div>
+  <h1>Why agents exist at all</h1>
+</div>
+
+<div class="slide" data-sec="Why agents exist" data-notes="Emphasise: the weights are frozen, the call is stateless, and nothing happens in the world. Every framework we touch this week is scaffolding around this one box. Ask the room what a bank cannot do with this box alone.">
+  <h2>An LLM is a function, not a system</h2>
+  <div class="body">
+    <svg width="1180" height="420" viewBox="0 0 1180 420" role="img" aria-label="An LLM as a stateless function with four things it cannot do">
+      <text x="120" y="66" text-anchor="middle" class="lbl">Text in</text>
+      <rect x="40" y="82" width="160" height="70" rx="5" fill="#f8f8fd" stroke="#c7d2fe" stroke-width="2"/>
+      <text x="120" y="124" text-anchor="middle" class="bd">prompt</text>
+      <line x1="205" y1="117" x2="425" y2="117" stroke="#4338ca" stroke-width="2.5" marker-end="url(#ai)"/>
+      <rect x="430" y="62" width="320" height="110" rx="7" fill="#4338ca"/>
+      <text x="590" y="106" text-anchor="middle" font-size="24" font-weight="700" fill="#fff">LLM</text>
+      <text x="590" y="136" text-anchor="middle" font-size="15" fill="#c7d2fe">frozen weights &middot; one shot</text>
+      <line x1="755" y1="117" x2="975" y2="117" stroke="#4338ca" stroke-width="2.5" marker-end="url(#ai)"/>
+      <text x="1060" y="66" text-anchor="middle" class="lbl">Text out</text>
+      <rect x="980" y="82" width="160" height="70" rx="5" fill="#f8f8fd" stroke="#c7d2fe" stroke-width="2"/>
+      <text x="1060" y="124" text-anchor="middle" class="bd">completion</text>
+
+      <text x="590" y="228" text-anchor="middle" class="lbl">Between two calls it has</text>
+      <g>
+        <rect x="60" y="252" width="250" height="92" rx="5" fill="#fef2f2" stroke="#fecaca" stroke-width="2"/>
+        <text x="185" y="288" text-anchor="middle" class="bxs no">No memory</text>
+        <text x="185" y="316" text-anchor="middle" class="bds">call two knows nothing</text>
+        <text x="185" y="334" text-anchor="middle" class="bds">of call one</text>
+      </g>
+      <g>
+        <rect x="335" y="252" width="250" height="92" rx="5" fill="#fef2f2" stroke="#fecaca" stroke-width="2"/>
+        <text x="460" y="288" text-anchor="middle" class="bxs no">No actions</text>
+        <text x="460" y="316" text-anchor="middle" class="bds">it can describe a payment,</text>
+        <text x="460" y="334" text-anchor="middle" class="bds">not make one</text>
+      </g>
+      <g>
+        <rect x="610" y="252" width="250" height="92" rx="5" fill="#fef2f2" stroke="#fecaca" stroke-width="2"/>
+        <text x="735" y="288" text-anchor="middle" class="bxs no">No fresh knowledge</text>
+        <text x="735" y="316" text-anchor="middle" class="bds">the world moved on</text>
+        <text x="735" y="334" text-anchor="middle" class="bds">after training</text>
+      </g>
+      <g>
+        <rect x="885" y="252" width="250" height="92" rx="5" fill="#fef2f2" stroke="#fecaca" stroke-width="2"/>
+        <text x="1010" y="288" text-anchor="middle" class="bxs no">No way to check</text>
+        <text x="1010" y="316" text-anchor="middle" class="bds">confident and wrong</text>
+        <text x="1010" y="334" text-anchor="middle" class="bds">look identical</text>
+      </g>
+      <text x="590" y="382" text-anchor="middle" class="bd">Everything we build this week is scaffolding around these four gaps.</text>
+    </svg>
+  </div>
+  <div class="take"><b>The frame:</b> an agent is not a smarter model. It is a model plus the machinery that closes these four gaps.</div>
+</div>
+
+<div class="slide" data-sec="Why agents exist" data-notes="This is the slide to return to whenever someone proposes a component. Ask: which gap does it close? If the answer is none, it is decoration. Memory closes state, tools close action and freshness, planning plus the loop close verification.">
+  <h2>Each gap has exactly one answer</h2>
+  <div class="body">
+    <svg width="1180" height="420" viewBox="0 0 1180 420" role="img" aria-label="Each LLM limitation mapped to the component that answers it">
+      <text x="250" y="44" text-anchor="middle" class="lbl">The limitation</text>
+      <text x="930" y="44" text-anchor="middle" class="lbl">The component that answers it</text>
+      <line x1="590" y1="60" x2="590" y2="400" stroke="#e2e8f0" stroke-width="2" stroke-dasharray="5 5"/>
+
+      <rect x="60" y="72" width="380" height="62" rx="5" fill="#fef2f2" stroke="#fecaca" stroke-width="2"/>
+      <text x="250" y="110" text-anchor="middle" class="bx no">Stateless between calls</text>
+      <line x1="450" y1="103" x2="725" y2="103" stroke="#94a3b8" stroke-width="2" marker-end="url(#ag)"/>
+      <rect x="740" y="72" width="380" height="62" rx="5" fill="#eef2ff" stroke="#818cf8" stroke-width="2"/>
+      <text x="930" y="110" text-anchor="middle" class="bx">Memory &mdash; the state</text>
+
+      <rect x="60" y="152" width="380" height="62" rx="5" fill="#fef2f2" stroke="#fecaca" stroke-width="2"/>
+      <text x="250" y="190" text-anchor="middle" class="bx no">Cannot act or read the world</text>
+      <line x1="450" y1="183" x2="725" y2="183" stroke="#94a3b8" stroke-width="2" marker-end="url(#ag)"/>
+      <rect x="740" y="152" width="380" height="62" rx="5" fill="#eef2ff" stroke="#818cf8" stroke-width="2"/>
+      <text x="930" y="190" text-anchor="middle" class="bx">Tools &mdash; the actions</text>
+
+      <rect x="60" y="232" width="380" height="62" rx="5" fill="#fef2f2" stroke="#fecaca" stroke-width="2"/>
+      <text x="250" y="270" text-anchor="middle" class="bx no">No route from goal to steps</text>
+      <line x1="450" y1="263" x2="725" y2="263" stroke="#94a3b8" stroke-width="2" marker-end="url(#ag)"/>
+      <rect x="740" y="232" width="380" height="62" rx="5" fill="#eef2ff" stroke="#818cf8" stroke-width="2"/>
+      <text x="930" y="270" text-anchor="middle" class="bx">Planning &mdash; the strategy</text>
+
+      <rect x="60" y="312" width="380" height="62" rx="5" fill="#fef2f2" stroke="#fecaca" stroke-width="2"/>
+      <text x="250" y="350" text-anchor="middle" class="bx no">Cannot tell right from wrong</text>
+      <line x1="450" y1="343" x2="725" y2="343" stroke="#d97706" stroke-width="2.5" marker-end="url(#aa)"/>
+      <rect x="740" y="312" width="380" height="62" rx="5" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
+      <text x="930" y="350" text-anchor="middle" class="bx am">The loop &mdash; act, observe, correct</text>
+    </svg>
+  </div>
+  <div class="take"><b>Use this as a filter:</b> when someone proposes a component, ask which gap it closes. If the answer is none, it is decoration.</div>
+</div>
+
+<div class="slide div" data-sec="The agent loop" data-notes="The heart of Day 1. Everything in Modules 2 and 3 is a refinement of what happens inside this loop.">
+  <div class="k">Part two</div>
+  <h1>What turns a call into an agent</h1>
+</div>
+
+<div class="slide" data-sec="The agent loop" data-notes="Say it plainly: the difference is not the model, the prompt or the framework. It is that the output of one call chooses the next call. Control flow moves from your code into the model &mdash; that is the whole trade, and the whole risk.">
+  <h2>One call, or a loop</h2>
+  <div class="body">
+    <svg width="1180" height="430" viewBox="0 0 1180 430" role="img" aria-label="A single LLM call compared with an agent loop">
+      <text x="290" y="40" text-anchor="middle" class="lbl">Single call &mdash; you own the control flow</text>
+      <rect x="70" y="64" width="120" height="56" rx="5" fill="#f8f8fd" stroke="#c7d2fe" stroke-width="2"/><text x="130" y="98" text-anchor="middle" class="bds">input</text>
+      <line x1="195" y1="92" x2="245" y2="92" stroke="#94a3b8" stroke-width="2" marker-end="url(#ag)"/>
+      <rect x="250" y="64" width="120" height="56" rx="5" fill="#4338ca"/><text x="310" y="98" text-anchor="middle" font-size="16" font-weight="600" fill="#fff">LLM</text>
+      <line x1="375" y1="92" x2="425" y2="92" stroke="#94a3b8" stroke-width="2" marker-end="url(#ag)"/>
+      <rect x="430" y="64" width="120" height="56" rx="5" fill="#f8f8fd" stroke="#c7d2fe" stroke-width="2"/><text x="490" y="98" text-anchor="middle" class="bds">output</text>
+      <text x="310" y="152" text-anchor="middle" class="bd">Steps fixed at design time. Cost and latency known.</text>
+      <text x="310" y="174" text-anchor="middle" class="bd">Fails the same way every time &mdash; which is a virtue.</text>
+
+      <line x1="620" y1="40" x2="620" y2="400" stroke="#e2e8f0" stroke-width="2"/>
+
+      <text x="900" y="40" text-anchor="middle" class="lbl">Agent loop &mdash; the model owns the control flow</text>
+      <circle cx="900" cy="200" r="128" fill="none" stroke="#c7d2fe" stroke-width="2" stroke-dasharray="4 6"/>
+      <rect x="815" y="60" width="170" height="52" rx="5" fill="#4338ca"/><text x="900" y="92" text-anchor="middle" font-size="16" font-weight="600" fill="#fff">Decide next step</text>
+      <rect x="1010" y="174" width="150" height="52" rx="5" fill="#eef2ff" stroke="#818cf8" stroke-width="2"/><text x="1085" y="206" text-anchor="middle" class="bxs">Act (tool)</text>
+      <rect x="815" y="288" width="170" height="52" rx="5" fill="#eef2ff" stroke="#818cf8" stroke-width="2"/><text x="900" y="320" text-anchor="middle" class="bxs">Observe result</text>
+      <rect x="640" y="174" width="150" height="52" rx="5" fill="#eef2ff" stroke="#818cf8" stroke-width="2"/><text x="715" y="206" text-anchor="middle" class="bxs">Update state</text>
+      <path d="M985 92 Q1085 110 1085 168" fill="none" stroke="#4338ca" stroke-width="2.5" marker-end="url(#ai)"/>
+      <path d="M1085 232 Q1085 320 991 316" fill="none" stroke="#4338ca" stroke-width="2.5" marker-end="url(#ai)"/>
+      <path d="M815 316 Q715 320 715 232" fill="none" stroke="#4338ca" stroke-width="2.5" marker-end="url(#ai)"/>
+      <path d="M715 168 Q715 108 809 90" fill="none" stroke="#4338ca" stroke-width="2.5" marker-end="url(#ai)"/>
+      <text x="900" y="196" text-anchor="middle" class="bds">repeat until</text>
+      <text x="900" y="216" text-anchor="middle" class="bxs am">goal met or budget spent</text>
+      <text x="900" y="382" text-anchor="middle" class="bd">Steps chosen at run time. Cost and latency are distributions, not numbers.</text>
+    </svg>
+  </div>
+  <div class="take"><b>The one-sentence definition:</b> an agent is an LLM whose output decides what happens next. Everything else is detail.</div>
+</div>
+
+<div class="slide" data-sec="The agent loop" data-notes="Two loops, often confused. The inner one costs tokens and is invisible to your systems; the outer one costs tokens AND touches the world, so it is the one that needs approval gates. Point forward to Module 8.">
+  <h2>Two loops, and only one of them touches the world</h2>
+  <div class="body">
+    <svg width="1180" height="420" viewBox="0 0 1180 420" role="img" aria-label="Reasoning loop nested inside the action loop">
+      <rect x="70" y="46" width="1040" height="330" rx="10" fill="#f8f8fd" stroke="#4338ca" stroke-width="2.5"/>
+      <text x="100" y="78" class="lbl">Outer: action loop</text>
+      <rect x="110" y="98" width="470" height="240" rx="8" fill="#fff" stroke="#818cf8" stroke-width="2" stroke-dasharray="6 5"/>
+      <text x="140" y="128" class="lbl">Inner: reasoning loop</text>
+      <text x="345" y="176" text-anchor="middle" class="bx">Think &#8594; critique &#8594; re-think</text>
+      <text x="345" y="212" text-anchor="middle" class="bd">Chain-of-Thought, Reflection, Tree-of-Thought</text>
+      <text x="345" y="252" text-anchor="middle" class="bds">Costs: tokens and latency</text>
+      <text x="345" y="278" text-anchor="middle" class="bds">Visible to: nobody outside the trace</text>
+      <text x="345" y="312" text-anchor="middle" class="bxs ok">Safe to let run. Cap it anyway.</text>
+
+      <line x1="590" y1="130" x2="590" y2="330" stroke="#e2e8f0" stroke-width="2"/>
+
+      <text x="850" y="176" text-anchor="middle" class="bx">Call a tool &#8594; read the result</text>
+      <text x="850" y="212" text-anchor="middle" class="bd">Queries, writes, payments, tickets, emails</text>
+      <text x="850" y="252" text-anchor="middle" class="bds">Costs: tokens, latency and consequences</text>
+      <text x="850" y="278" text-anchor="middle" class="bds">Visible to: your auditors</text>
+      <text x="850" y="312" text-anchor="middle" class="bxs no">This is where approval gates belong.</text>
+      <text x="590" y="404" text-anchor="middle" class="bd">Module 2 tunes the inner loop. Module 8 governs the outer one.</text>
+    </svg>
+  </div>
+  <div class="take"><b>Cheap distinction, expensive to miss:</b> thinking longer is a budget question. Acting more is a blast-radius question.</div>
+</div>
+
+<div class="slide" data-sec="The agent loop" data-notes="Autonomy is the dial people set carelessly. Most production banking systems live at levels 2 and 3, not 4. Note that you can move the dial per tool, not just per system &mdash; read tools at level 4, write tools at level 2.">
+  <h2>Autonomy is a dial, not a switch</h2>
+  <div class="body">
+    <svg width="1180" height="420" viewBox="0 0 1180 420" role="img" aria-label="Four levels of agent autonomy from suggestion to full autonomy">
+      <line x1="90" y1="120" x2="1100" y2="120" stroke="#cbd5e1" stroke-width="4"/>
+      <g>
+        <circle cx="150" cy="120" r="17" fill="#0d9488"/><text x="150" y="127" text-anchor="middle" font-size="15" font-weight="700" fill="#fff">1</text>
+        <text x="150" y="172" text-anchor="middle" class="bx">Suggests</text>
+        <text x="150" y="200" text-anchor="middle" class="bds">Human does the work</text>
+        <text x="150" y="222" text-anchor="middle" class="bds">Blast radius: none</text>
+      </g>
+      <g>
+        <circle cx="450" cy="120" r="17" fill="#0d9488"/><text x="450" y="127" text-anchor="middle" font-size="15" font-weight="700" fill="#fff">2</text>
+        <text x="450" y="172" text-anchor="middle" class="bx">Acts on approval</text>
+        <text x="450" y="200" text-anchor="middle" class="bds">Human clears each write</text>
+        <text x="450" y="222" text-anchor="middle" class="bds">Blast radius: bounded</text>
+      </g>
+      <g>
+        <circle cx="750" cy="120" r="17" fill="#d97706"/><text x="750" y="127" text-anchor="middle" font-size="15" font-weight="700" fill="#fff">3</text>
+        <text x="750" y="172" text-anchor="middle" class="bx">Acts, reports after</text>
+        <text x="750" y="200" text-anchor="middle" class="bds">Reversible actions only</text>
+        <text x="750" y="222" text-anchor="middle" class="bds">Blast radius: recoverable</text>
+      </g>
+      <g>
+        <circle cx="1050" cy="120" r="17" fill="#b91c1c"/><text x="1050" y="127" text-anchor="middle" font-size="15" font-weight="700" fill="#fff">4</text>
+        <text x="1050" y="172" text-anchor="middle" class="bx">Fully autonomous</text>
+        <text x="1050" y="200" text-anchor="middle" class="bds">No human in the path</text>
+        <text x="1050" y="222" text-anchor="middle" class="bds">Blast radius: unbounded</text>
+      </g>
+      <rect x="90" y="70" width="660" height="0" fill="none"/>
+      <path d="M150 92 L1050 92" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="4 4"/>
+      <text x="600" y="78" text-anchor="middle" class="lbl">More autonomy &#8594; less predictable, harder to audit</text>
+      <rect x="230" y="278" width="720" height="86" rx="6" fill="#fffbeb" stroke="#fbbf24" stroke-width="2"/>
+      <text x="590" y="310" text-anchor="middle" class="bx am">Set the dial per tool, not per system.</text>
+      <text x="590" y="342" text-anchor="middle" class="bd">Reading a ledger can sit at 4. Writing to it should not.</text>
+    </svg>
+  </div>
+  <div class="take"><b>The capstone enforces this:</b> retrieval and analysis run free; every write passes a human approval gate.</div>
+</div>
+
+<div class="slide div" data-sec="Chatbot, RAG or agent" data-notes="Short section, but it is the one that stops teams building an agent where a retrieval pipeline would have done.">
+  <div class="k">Part three</div>
+  <h1>Chatbot, RAG, or agent</h1>
+</div>
+
+<div class="slide" data-sec="Chatbot, RAG or agent" data-notes="Walk left to right. The boxes are almost the same; what changes is who chooses the next step. In the first two, your code does. In the third, the model does. That single move is what you are approving when you approve an agent.">
+  <h2>Three architectures, one real difference</h2>
+  <div class="body">
+    <svg width="1180" height="420" viewBox="0 0 1180 420" role="img" aria-label="Chatbot, RAG pipeline and agent compared by who chooses the next step">
+      <g>
+        <text x="185" y="40" text-anchor="middle" class="lbl">Chatbot</text>
+        <rect x="60" y="58" width="250" height="180" rx="7" fill="#f8f8fd" stroke="#c7d2fe" stroke-width="2"/>
+        <rect x="90" y="82" width="190" height="40" rx="4" fill="#fff" stroke="#cbd5e1"/><text x="185" y="107" text-anchor="middle" class="bds">question</text>
+        <line x1="185" y1="126" x2="185" y2="146" stroke="#94a3b8" stroke-width="2" marker-end="url(#ag)"/>
+        <rect x="90" y="150" width="190" height="40" rx="4" fill="#4338ca"/><text x="185" y="176" text-anchor="middle" font-size="14" font-weight="600" fill="#fff">LLM</text>
+        <line x1="185" y1="194" x2="185" y2="210" stroke="#94a3b8" stroke-width="2" marker-end="url(#ag)"/>
+        <text x="185" y="228" text-anchor="middle" class="bds">answer</text>
+        <text x="185" y="272" text-anchor="middle" class="bd">One hop. No outside data.</text>
+        <text x="185" y="296" text-anchor="middle" class="bd">Answers from training only.</text>
+      </g>
+      <g>
+        <text x="530" y="40" text-anchor="middle" class="lbl">RAG pipeline</text>
+        <rect x="380" y="58" width="300" height="180" rx="7" fill="#f8f8fd" stroke="#c7d2fe" stroke-width="2"/>
+        <rect x="410" y="82" width="240" height="34" rx="4" fill="#fff" stroke="#cbd5e1"/><text x="530" y="104" text-anchor="middle" class="bds">question</text>
+        <line x1="530" y1="120" x2="530" y2="132" stroke="#94a3b8" stroke-width="2" marker-end="url(#ag)"/>
+        <rect x="410" y="136" width="240" height="34" rx="4" fill="#eef2ff" stroke="#818cf8"/><text x="530" y="158" text-anchor="middle" class="bds">retrieve &mdash; always</text>
+        <line x1="530" y1="174" x2="530" y2="186" stroke="#94a3b8" stroke-width="2" marker-end="url(#ag)"/>
+        <rect x="410" y="190" width="240" height="34" rx="4" fill="#4338ca"/><text x="530" y="213" text-anchor="middle" font-size="14" font-weight="600" fill="#fff">LLM &#8594; answer</text>
+        <text x="530" y="272" text-anchor="middle" class="bd">Two hops, fixed order.</text>
+        <text x="530" y="296" text-anchor="middle" class="bd">Retrieves whether it helps or not.</text>
+      </g>
+      <g>
+        <text x="920" y="40" text-anchor="middle" class="lbl">Agent</text>
+        <rect x="750" y="58" width="340" height="180" rx="7" fill="#eef2ff" stroke="#4338ca" stroke-width="2.5"/>
+        <rect x="780" y="82" width="280" height="34" rx="4" fill="#fff" stroke="#cbd5e1"/><text x="920" y="104" text-anchor="middle" class="bds">goal</text>
+        <line x1="920" y1="120" x2="920" y2="134" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
+        <rect x="800" y="138" width="240" height="40" rx="4" fill="#4338ca"/><text x="920" y="164" text-anchor="middle" font-size="14" font-weight="600" fill="#fff">LLM chooses a tool</text>
+        <path d="M1040 158 Q1075 158 1075 196 Q1075 218 920 218" fill="none" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
+        <rect x="790" y="196" width="200" height="34" rx="4" fill="#fff" stroke="#818cf8"/><text x="890" y="219" text-anchor="middle" class="bds">retrieve &middot; query &middot; write</text>
+        <path d="M790 213 Q760 213 760 158 Q760 138 794 152" fill="none" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
+        <text x="920" y="272" text-anchor="middle" class="bd">n hops, chosen at run time.</text>
+        <text x="920" y="296" text-anchor="middle" class="bd">Retrieves when it decides it needs to.</text>
+      </g>
+      <rect x="60" y="330" width="1030" height="66" rx="6" fill="#fffbeb" stroke="#fbbf24" stroke-width="2"/>
+      <text x="575" y="358" text-anchor="middle" class="bx am">The boxes barely differ. What differs is who chooses the next step &mdash;</text>
+      <text x="575" y="382" text-anchor="middle" class="bx am">your code, or the model.</text>
+    </svg>
+  </div>
+</div>
+
+<div class="slide" data-sec="Chatbot, RAG or agent" data-notes="Give them the test in words: if you can draw the flowchart and it does not change per input, you do not need an agent. Most internal tooling requests fail this test in the agent's favour far less often than teams assume.">
+  <h2>The test: can you draw the flowchart?</h2>
+  <div class="body">
+    <svg width="1180" height="420" viewBox="0 0 1180 420" role="img" aria-label="Decision test comparing fixed and input-dependent step sequences">
+      <rect x="70" y="50" width="480" height="300" rx="8" fill="#ecfdf5" stroke="#0d9488" stroke-width="2.5"/>
+      <text x="310" y="86" text-anchor="middle" class="bx ok">The steps are the same every time</text>
+      <rect x="130" y="112" width="360" height="34" rx="4" fill="#fff" stroke="#99f6e4"/><text x="310" y="135" text-anchor="middle" class="bds">read the file</text>
+      <line x1="310" y1="150" x2="310" y2="164" stroke="#0d9488" stroke-width="2" marker-end="url(#at)"/>
+      <rect x="130" y="168" width="360" height="34" rx="4" fill="#fff" stroke="#99f6e4"/><text x="310" y="191" text-anchor="middle" class="bds">summarise it</text>
+      <line x1="310" y1="206" x2="310" y2="220" stroke="#0d9488" stroke-width="2" marker-end="url(#at)"/>
+      <rect x="130" y="224" width="360" height="34" rx="4" fill="#fff" stroke="#99f6e4"/><text x="310" y="247" text-anchor="middle" class="bds">send the summary</text>
+      <text x="310" y="296" text-anchor="middle" class="bx ok">Build a workflow.</text>
+      <text x="310" y="324" text-anchor="middle" class="bd">Cheap, testable, fails identically every time.</text>
+
+      <rect x="630" y="50" width="480" height="300" rx="8" fill="#eef2ff" stroke="#4338ca" stroke-width="2.5"/>
+      <text x="870" y="86" text-anchor="middle" class="bx">The steps depend on what you find</text>
+      <rect x="690" y="112" width="360" height="34" rx="4" fill="#fff" stroke="#c7d2fe"/><text x="870" y="135" text-anchor="middle" class="bds">why did this payment fail?</text>
+      <line x1="870" y1="150" x2="870" y2="164" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
+      <rect x="690" y="168" width="360" height="34" rx="4" fill="#fff" stroke="#c7d2fe"/><text x="870" y="191" text-anchor="middle" class="bds">check ledger &#8594; unclear &#8594; check policy</text>
+      <line x1="870" y1="206" x2="870" y2="220" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
+      <rect x="690" y="224" width="360" height="34" rx="4" fill="#fff" stroke="#c7d2fe"/><text x="870" y="247" text-anchor="middle" class="bds">still unclear &#8594; check the counterparty</text>
+      <text x="870" y="296" text-anchor="middle" class="bx">Build an agent.</text>
+      <text x="870" y="324" text-anchor="middle" class="bd">The path cannot be known before you start.</text>
+      <text x="590" y="392" text-anchor="middle" class="bd">Most requests that arrive labelled &ldquo;we need an agent&rdquo; belong on the left.</text>
+    </svg>
+  </div>
+  <div class="take"><b>Test:</b> if you can draw the flowchart and it does not change with the input, an agent is an expensive way to run it.</div>
+</div>
+
+<div class="slide div" data-sec="Building blocks" data-notes="Five slides. Keep each one short &mdash; they get the depth in Modules 2 and 3. The purpose here is a shared vocabulary for the rest of the three days.">
+  <div class="k">Part four</div>
+  <h1>What an agent is made of</h1>
+</div>
+
+<div class="slide" data-sec="Building blocks" data-notes="Four blocks, and the loop that binds them. Stress that a system missing any one of these is not an agent &mdash; it is a pipeline with an LLM in it, and that is fine, but call it what it is.">
+  <h2>Four building blocks</h2>
+  <div class="body">
+    <svg width="1180" height="430" viewBox="0 0 1180 430" role="img" aria-label="The four building blocks of an agent arranged around the loop">
+      <circle cx="590" cy="212" r="86" fill="#1e1b4b"/>
+      <text x="590" y="204" text-anchor="middle" font-size="19" font-weight="700" fill="#fff">THE LOOP</text>
+      <text x="590" y="232" text-anchor="middle" font-size="13" fill="#a5b4fc">binds all four</text>
+
+      <rect x="150" y="52" width="290" height="104" rx="7" fill="#eef2ff" stroke="#4338ca" stroke-width="2"/>
+      <text x="176" y="82" class="lbl">01</text>
+      <text x="295" y="98" text-anchor="middle" class="big">LLM</text>
+      <text x="295" y="124" text-anchor="middle" class="bd">the brain &mdash; decides</text>
+      <text x="295" y="144" text-anchor="middle" class="bds">which step, which tool, when to stop</text>
+      <line x1="440" y1="130" x2="510" y2="168" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
+
+      <rect x="740" y="52" width="290" height="104" rx="7" fill="#eef2ff" stroke="#4338ca" stroke-width="2"/>
+      <text x="766" y="82" class="lbl">02</text>
+      <text x="885" y="98" text-anchor="middle" class="big">Memory</text>
+      <text x="885" y="124" text-anchor="middle" class="bd">the state &mdash; remembers</text>
+      <text x="885" y="144" text-anchor="middle" class="bds">this turn, this session, past sessions</text>
+      <line x1="740" y1="130" x2="670" y2="168" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
+
+      <rect x="150" y="268" width="290" height="104" rx="7" fill="#eef2ff" stroke="#4338ca" stroke-width="2"/>
+      <text x="176" y="298" class="lbl">03</text>
+      <text x="295" y="314" text-anchor="middle" class="big">Tools</text>
+      <text x="295" y="340" text-anchor="middle" class="bd">the hands &mdash; acts</text>
+      <text x="295" y="360" text-anchor="middle" class="bds">read, write, call, retrieve</text>
+      <line x1="440" y1="296" x2="510" y2="258" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
+
+      <rect x="740" y="268" width="290" height="104" rx="7" fill="#eef2ff" stroke="#4338ca" stroke-width="2"/>
+      <text x="766" y="298" class="lbl">04</text>
+      <text x="885" y="314" text-anchor="middle" class="big">Planning</text>
+      <text x="885" y="340" text-anchor="middle" class="bd">the strategy &mdash; sequences</text>
+      <text x="885" y="360" text-anchor="middle" class="bds">decompose, order, re-plan, stop</text>
+      <line x1="740" y1="296" x2="670" y2="258" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
+    </svg>
+  </div>
+  <div class="take"><b>Missing one?</b> Then it is a pipeline with an LLM in it. That is often the right build &mdash; just do not call it an agent.</div>
+</div>
+
+<div class="slide" data-sec="Building blocks" data-notes="The brain slide. The key production point is the last line: the model is the worst place to put a rule you can enforce in code. Teams routinely prompt for things a schema or an if-statement should guarantee.">
+  <h2>Block 1 &mdash; the LLM decides, and only decides</h2>
+  <div class="body">
+    <svg width="1180" height="410" viewBox="0 0 1180 410" role="img" aria-label="What the model should and should not be responsible for">
+      <rect x="70" y="46" width="490" height="290" rx="8" fill="#ecfdf5" stroke="#0d9488" stroke-width="2.5"/>
+      <text x="315" y="82" text-anchor="middle" class="bx ok">Let the model decide</text>
+      <text x="110" y="130" class="bd">&bull;&nbsp; Which tool fits this situation</text>
+      <text x="110" y="168" class="bd">&bull;&nbsp; What to ask it for</text>
+      <text x="110" y="206" class="bd">&bull;&nbsp; Whether the answer is good enough yet</text>
+      <text x="110" y="244" class="bd">&bull;&nbsp; How to phrase the result for a human</text>
+      <text x="315" y="300" text-anchor="middle" class="bds">Judgement under ambiguity &mdash; what it is for</text>
+
+      <rect x="620" y="46" width="490" height="290" rx="8" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
+      <text x="865" y="82" text-anchor="middle" class="bx no">Never leave to the model</text>
+      <text x="660" y="130" class="bd">&bull;&nbsp; Whether this user is allowed to do that</text>
+      <text x="660" y="168" class="bd">&bull;&nbsp; Whether the amount exceeds a limit</text>
+      <text x="660" y="206" class="bd">&bull;&nbsp; Whether the output matches the schema</text>
+      <text x="660" y="244" class="bd">&bull;&nbsp; Whether to stop after 40 steps</text>
+      <text x="865" y="300" text-anchor="middle" class="bds">Rules with a right answer &mdash; enforce in code</text>
+      <text x="590" y="382" text-anchor="middle" class="bx am">A prompt is a request. Code is a guarantee.</text>
+    </svg>
+  </div>
+  <div class="take"><b>Rule of thumb:</b> if a rule has a correct answer that never varies, the model is the worst place to keep it.</div>
+</div>
+
+<div class="slide" data-sec="Building blocks" data-notes="Memory in one picture. Flag the trap explicitly: unbounded buffer memory is the single most common cause of an agent that works in the demo and degrades in week two. Module 3 does compaction.">
+  <h2>Block 2 &mdash; memory, and the trap inside it</h2>
+  <div class="body">
+    <svg width="1180" height="410" viewBox="0 0 1180 410" role="img" aria-label="Three kinds of memory and the context window trap">
+      <rect x="60" y="46" width="330" height="150" rx="7" fill="#eef2ff" stroke="#818cf8" stroke-width="2"/>
+      <text x="225" y="80" text-anchor="middle" class="bx">Short-term</text>
+      <text x="225" y="110" text-anchor="middle" class="bd">this conversation</text>
+      <text x="225" y="142" text-anchor="middle" class="bds">Lives in the context window.</text>
+      <text x="225" y="166" text-anchor="middle" class="bds">Gone when the session ends.</text>
+
+      <rect x="425" y="46" width="330" height="150" rx="7" fill="#eef2ff" stroke="#818cf8" stroke-width="2"/>
+      <text x="590" y="80" text-anchor="middle" class="bx">Long-term</text>
+      <text x="590" y="110" text-anchor="middle" class="bd">facts worth keeping</text>
+      <text x="590" y="142" text-anchor="middle" class="bds">Lives in a store you own.</text>
+      <text x="590" y="166" text-anchor="middle" class="bds">Survives restarts. Must be governed.</text>
+
+      <rect x="790" y="46" width="330" height="150" rx="7" fill="#eef2ff" stroke="#818cf8" stroke-width="2"/>
+      <text x="955" y="80" text-anchor="middle" class="bx">Episodic</text>
+      <text x="955" y="110" text-anchor="middle" class="bd">what happened last time</text>
+      <text x="955" y="142" text-anchor="middle" class="bds">Past runs and their outcomes.</text>
+      <text x="955" y="166" text-anchor="middle" class="bds">How an agent stops repeating a mistake.</text>
+
+      <rect x="150" y="232" width="880" height="146" rx="8" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
+      <text x="590" y="268" text-anchor="middle" class="bx no">The trap: memory that only grows</text>
+      <rect x="200" y="288" width="120" height="26" rx="3" fill="#fecaca"/><text x="340" y="307" class="bds">turn 5 &mdash; fits easily</text>
+      <rect x="200" y="320" width="330" height="26" rx="3" fill="#fca5a5"/><text x="550" y="339" class="bds">turn 40 &mdash; early constraints pushed out, agent starts repeating itself</text>
+      <text x="590" y="368" text-anchor="middle" class="bds">Fix is compaction and summary memory, not a bigger window &mdash; Module 3.</text>
+    </svg>
+  </div>
+  <div class="take"><b>Watch for it:</b> an agent that demos well and degrades in week two is almost always an unbounded buffer.</div>
+</div>
+
+<div class="slide" data-sec="Building blocks" data-notes="The tool slide, and the single most actionable fact in Day 1: the description IS the instruction. Tell them the Day 2 lab measures accuracy against description quality alone, with the model held constant.">
+  <h2>Block 3 &mdash; the tool description is the instruction</h2>
+  <div class="body">
+    <svg width="1180" height="410" viewBox="0 0 1180 410" role="img" aria-label="How a model reads a tool definition and chooses">
+      <text x="290" y="42" text-anchor="middle" class="lbl">What you write</text>
+      <rect x="60" y="60" width="460" height="128" rx="6" fill="#f8f8fd" stroke="#cbd5e1" stroke-width="2"/>
+      <text x="86" y="92" font-size="15" font-family="Consolas,monospace" fill="#b91c1c">get_data(id)</text>
+      <text x="86" y="120" font-size="14" font-family="Consolas,monospace" fill="#64748b">"""Gets data."""</text>
+      <text x="86" y="158" class="bds no">The model has no idea when to call this.</text>
+
+      <rect x="60" y="212" width="460" height="150" rx="6" fill="#ecfdf5" stroke="#0d9488" stroke-width="2"/>
+      <text x="86" y="244" font-size="15" font-family="Consolas,monospace" fill="#0d9488">get_settlement_status(payment_ref)</text>
+      <text x="86" y="272" font-size="13.5" font-family="Consolas,monospace" fill="#475569">"""Current settlement state for one</text>
+      <text x="86" y="294" font-size="13.5" font-family="Consolas,monospace" fill="#475569">payment. Use when a payment is late</text>
+      <text x="86" y="316" font-size="13.5" font-family="Consolas,monospace" fill="#475569">or disputed. Not for batch totals."""</text>
+      <text x="86" y="348" class="bds ok">Names the case, and the case it is not for.</text>
+
+      <line x1="530" y1="212" x2="640" y2="212" stroke="#4338ca" stroke-width="2.5" marker-end="url(#ai)"/>
+      <text x="585" y="200" text-anchor="middle" class="bds">read by</text>
+      <rect x="650" y="130" width="200" height="66" rx="6" fill="#4338ca"/>
+      <text x="750" y="170" text-anchor="middle" font-size="17" font-weight="600" fill="#fff">The model</text>
+      <path d="M750 200 L750 232" stroke="#4338ca" stroke-width="2.5" marker-end="url(#ai)"/>
+      <text x="750" y="256" text-anchor="middle" class="bd">picks a tool using nothing</text>
+      <text x="750" y="278" text-anchor="middle" class="bd">but these words</text>
+
+      <rect x="890" y="120" width="230" height="200" rx="7" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
+      <text x="1005" y="158" text-anchor="middle" class="bx am">Day 2 lab</text>
+      <text x="1005" y="196" text-anchor="middle" class="bd">Same model.</text>
+      <text x="1005" y="222" text-anchor="middle" class="bd">Same tools.</text>
+      <text x="1005" y="248" text-anchor="middle" class="bd">Only the descriptions</text>
+      <text x="1005" y="272" text-anchor="middle" class="bd">change.</text>
+      <text x="1005" y="304" text-anchor="middle" class="bxs am">Accuracy moves.</text>
+    </svg>
+  </div>
+  <div class="take"><b>Cheapest accuracy win there is:</b> before you change the model, rewrite the tool descriptions.</div>
+</div>
+
+<div class="slide" data-sec="Building blocks" data-notes="Planning is where cost runs away. The stop condition is not a detail &mdash; it is the difference between a bounded bill and an incident. Point at Module 2 for architectures, Module 7 for budgets as release gates.">
+  <h2>Block 4 &mdash; planning is mostly knowing when to stop</h2>
+  <div class="body">
+    <svg width="1180" height="410" viewBox="0 0 1180 410" role="img" aria-label="Planning as decomposition plus explicit stop conditions">
+      <text x="300" y="44" text-anchor="middle" class="lbl">Decompose &mdash; goal into finishable steps</text>
+      <rect x="80" y="62" width="440" height="44" rx="5" fill="#4338ca"/><text x="300" y="90" text-anchor="middle" font-size="16" font-weight="600" fill="#fff">Investigate this payment exception</text>
+      <line x1="200" y1="110" x2="150" y2="140" stroke="#94a3b8" stroke-width="2" marker-end="url(#ag)"/>
+      <line x1="300" y1="110" x2="300" y2="140" stroke="#94a3b8" stroke-width="2" marker-end="url(#ag)"/>
+      <line x1="400" y1="110" x2="450" y2="140" stroke="#94a3b8" stroke-width="2" marker-end="url(#ag)"/>
+      <rect x="80" y="146" width="140" height="40" rx="4" fill="#eef2ff" stroke="#818cf8"/><text x="150" y="171" text-anchor="middle" class="bds">pull the record</text>
+      <rect x="230" y="146" width="140" height="40" rx="4" fill="#eef2ff" stroke="#818cf8"/><text x="300" y="171" text-anchor="middle" class="bds">find the rule</text>
+      <rect x="380" y="146" width="140" height="40" rx="4" fill="#eef2ff" stroke="#818cf8"/><text x="450" y="171" text-anchor="middle" class="bds">compare</text>
+      <text x="300" y="216" text-anchor="middle" class="bds">Each step has a definition of done. Order respects dependencies.</text>
+
+      <line x1="570" y1="50" x2="570" y2="360" stroke="#e2e8f0" stroke-width="2"/>
+
+      <text x="870" y="44" text-anchor="middle" class="lbl">Stop &mdash; four conditions, all mandatory</text>
+      <rect x="620" y="62" width="500" height="44" rx="5" fill="#ecfdf5" stroke="#0d9488" stroke-width="2"/>
+      <text x="646" y="90" class="bd">Goal met &mdash; the answer satisfies the definition of done</text>
+      <rect x="620" y="114" width="500" height="44" rx="5" fill="#fffbeb" stroke="#fbbf24" stroke-width="2"/>
+      <text x="646" y="142" class="bd">Step budget spent &mdash; a hard number, not a hope</text>
+      <rect x="620" y="166" width="500" height="44" rx="5" fill="#fffbeb" stroke="#fbbf24" stroke-width="2"/>
+      <text x="646" y="194" class="bd">Loop detected &mdash; same tool, same args, no new information</text>
+      <rect x="620" y="218" width="500" height="44" rx="5" fill="#fef2f2" stroke="#b91c1c" stroke-width="2"/>
+      <text x="646" y="246" class="bd">No path forward &mdash; escalate to a human, do not improvise</text>
+      <text x="870" y="300" text-anchor="middle" class="bx no">An agent with no stop condition is an open invoice.</text>
+      <text x="870" y="332" text-anchor="middle" class="bds">The most common production failure in this whole course.</text>
+    </svg>
+  </div>
+  <div class="take"><b>Re-planning is not retrying:</b> a transient error deserves a retry; a wrong plan deserves a new plan.</div>
+</div>
+
+<div class="slide div" data-sec="Patterns" data-notes="The section the room came for. Deliver the patterns quickly and spend the time on what they cost &mdash; that is the part nobody else teaches.">
+  <div class="k">Part five</div>
+  <h1>One agent, or many</h1>
+</div>
+
+<div class="slide" data-sec="Patterns" data-notes="Start here and mean it: this is the default. Say that a single agent with six good tools beats three agents with two each, more often than the literature suggests.">
+  <h2>Pattern 1 &mdash; single agent</h2>
+  <div class="body">
+    <svg width="1180" height="410" viewBox="0 0 1180 410" role="img" aria-label="A single agent with several tools">
+      <rect x="440" y="56" width="300" height="86" rx="8" fill="#4338ca"/>
+      <text x="590" y="94" text-anchor="middle" font-size="21" font-weight="700" fill="#fff">One agent</text>
+      <text x="590" y="122" text-anchor="middle" font-size="14" fill="#c7d2fe">one loop &middot; one context &middot; one trace</text>
+      <line x1="510" y1="146" x2="290" y2="212" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
+      <line x1="560" y1="146" x2="470" y2="212" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
+      <line x1="620" y1="146" x2="710" y2="212" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
+      <line x1="670" y1="146" x2="890" y2="212" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
+      <rect x="200" y="218" width="180" height="48" rx="5" fill="#eef2ff" stroke="#818cf8" stroke-width="2"/><text x="290" y="248" text-anchor="middle" class="bds">ledger lookup</text>
+      <rect x="390" y="218" width="180" height="48" rx="5" fill="#eef2ff" stroke="#818cf8" stroke-width="2"/><text x="480" y="248" text-anchor="middle" class="bds">policy search</text>
+      <rect x="620" y="218" width="180" height="48" rx="5" fill="#eef2ff" stroke="#818cf8" stroke-width="2"/><text x="710" y="248" text-anchor="middle" class="bds">counterparty API</text>
+      <rect x="810" y="218" width="180" height="48" rx="5" fill="#eef2ff" stroke="#818cf8" stroke-width="2"/><text x="900" y="248" text-anchor="middle" class="bds">write case note</text>
+
+      <text x="300" y="316" text-anchor="middle" class="bx ok">Strengths</text>
+      <text x="300" y="344" text-anchor="middle" class="bd">Cheapest. One trace to debug.</text>
+      <text x="300" y="368" text-anchor="middle" class="bd">Nothing to hand off, so nothing lost in a handoff.</text>
+      <text x="880" y="316" text-anchor="middle" class="bx no">Limits</text>
+      <text x="880" y="344" text-anchor="middle" class="bd">One context window holds everything.</text>
+      <text x="880" y="368" text-anchor="middle" class="bd">Tool choice degrades past roughly a dozen tools.</text>
+    </svg>
+  </div>
+  <div class="take"><b>Start here every time.</b> One agent with six good tools beats three agents with two each more often than you would think.</div>
+</div>
+
+<div class="slide" data-sec="Patterns" data-notes="Peer-to-peer: routing is distributed, each agent decides who to hand to next. Powerful, and the hardest to debug because there is no single place where the decision was made.">
+  <h2>Pattern 2 &mdash; multi-agent, peer to peer</h2>
+  <div class="body">
+    <svg width="1180" height="410" viewBox="0 0 1180 410" role="img" aria-label="Peer to peer agents handing off to each other">
+      <rect x="120" y="90" width="220" height="76" rx="7" fill="#4338ca"/><text x="230" y="124" text-anchor="middle" font-size="17" font-weight="600" fill="#fff">Triage</text><text x="230" y="148" text-anchor="middle" font-size="13" fill="#c7d2fe">classifies the exception</text>
+      <rect x="480" y="90" width="220" height="76" rx="7" fill="#4338ca"/><text x="590" y="124" text-anchor="middle" font-size="17" font-weight="600" fill="#fff">Investigator</text><text x="590" y="148" text-anchor="middle" font-size="13" fill="#c7d2fe">gathers evidence</text>
+      <rect x="840" y="90" width="220" height="76" rx="7" fill="#4338ca"/><text x="950" y="124" text-anchor="middle" font-size="17" font-weight="600" fill="#fff">Drafter</text><text x="950" y="148" text-anchor="middle" font-size="13" fill="#c7d2fe">writes the case note</text>
+      <line x1="345" y1="128" x2="470" y2="128" stroke="#4338ca" stroke-width="2.5" marker-end="url(#ai)"/>
+      <line x1="705" y1="128" x2="830" y2="128" stroke="#4338ca" stroke-width="2.5" marker-end="url(#ai)"/>
+      <path d="M560 172 Q400 240 265 172" fill="none" stroke="#94a3b8" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#ag)"/>
+      <text x="410" y="228" text-anchor="middle" class="bds">hands back when the class was wrong</text>
+      <path d="M920 172 Q760 258 620 172" fill="none" stroke="#94a3b8" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#ag)"/>
+      <text x="770" y="246" text-anchor="middle" class="bds">hands back when evidence is thin</text>
+      <text x="590" y="316" text-anchor="middle" class="bx">Each agent decides who goes next. No central router.</text>
+      <text x="300" y="360" text-anchor="middle" class="bd ok">Flexible &mdash; paths nobody designed in advance</text>
+      <text x="880" y="360" text-anchor="middle" class="bd no">Hard to debug &mdash; no single place the decision was made</text>
+    </svg>
+  </div>
+  <div class="take"><b>Best fit:</b> work whose route genuinely varies and where any agent may legitimately need to send it back.</div>
+</div>
+
+<div class="slide" data-sec="Patterns" data-notes="Supervisor/worker: the routing decision is centralised. This is the pattern the capstone uses, because in a bank you want one auditable place where delegation happened.">
+  <h2>Pattern 3 &mdash; supervisor and workers</h2>
+  <div class="body">
+    <svg width="1180" height="410" viewBox="0 0 1180 410" role="img" aria-label="A supervisor delegating to specialist workers">
+      <rect x="440" y="44" width="300" height="82" rx="8" fill="#1e1b4b"/>
+      <text x="590" y="78" text-anchor="middle" font-size="19" font-weight="700" fill="#fff">Supervisor</text>
+      <text x="590" y="104" text-anchor="middle" font-size="13" fill="#a5b4fc">decomposes &middot; routes &middot; aggregates</text>
+      <line x1="500" y1="130" x2="255" y2="196" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
+      <line x1="590" y1="130" x2="590" y2="196" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
+      <line x1="680" y1="130" x2="925" y2="196" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
+      <rect x="130" y="202" width="250" height="80" rx="7" fill="#eef2ff" stroke="#4338ca" stroke-width="2"/>
+      <text x="255" y="234" text-anchor="middle" class="bx">Ledger worker</text><text x="255" y="260" text-anchor="middle" class="bds">2 tools &middot; read only</text>
+      <rect x="465" y="202" width="250" height="80" rx="7" fill="#eef2ff" stroke="#4338ca" stroke-width="2"/>
+      <text x="590" y="234" text-anchor="middle" class="bx">Policy worker</text><text x="590" y="260" text-anchor="middle" class="bds">retrieval &middot; cites sources</text>
+      <rect x="800" y="202" width="250" height="80" rx="7" fill="#eef2ff" stroke="#4338ca" stroke-width="2"/>
+      <text x="925" y="234" text-anchor="middle" class="bx">Critic worker</text><text x="925" y="260" text-anchor="middle" class="bds">challenges the finding</text>
+      <path d="M255 288 Q255 330 570 330" fill="none" stroke="#94a3b8" stroke-width="2" marker-end="url(#ag)"/>
+      <path d="M590 288 L590 322" fill="none" stroke="#94a3b8" stroke-width="2" marker-end="url(#ag)"/>
+      <path d="M925 288 Q925 330 610 330" fill="none" stroke="#94a3b8" stroke-width="2" marker-end="url(#ag)"/>
+      <text x="590" y="360" text-anchor="middle" class="bx">results return to one place, and one place decides what they mean</text>
+      <text x="590" y="392" text-anchor="middle" class="bds">Routing can be a rule you wrote, or a decision the supervisor's model makes. Both are in the Day 2 labs.</text>
+    </svg>
+  </div>
+  <div class="take"><b>Why the capstone uses this:</b> one auditable place where delegation happened, and one place to attach the approval gate.</div>
+</div>
+
+<div class="slide" data-sec="Patterns" data-notes="The comparison slide. Do not let anyone leave thinking more agents means better. The right-hand column is the honest one.">
+  <h2>The three, side by side</h2>
+  <div class="body">
+    <svg width="1180" height="420" viewBox="0 0 1180 420" role="img" aria-label="Comparison of single agent, peer to peer and supervisor worker">
+      <line x1="60" y1="76" x2="1120" y2="76" stroke="#4338ca" stroke-width="2"/>
+      <text x="70" y="62" class="lbl">Dimension</text>
+      <text x="400" y="62" text-anchor="middle" class="lbl">Single agent</text>
+      <text x="680" y="62" text-anchor="middle" class="lbl">Peer to peer</text>
+      <text x="960" y="62" text-anchor="middle" class="lbl">Supervisor / worker</text>
+
+      <text x="70" y="118" class="bxs">Routing decided</text>
+      <text x="400" y="118" text-anchor="middle" class="bd">n/a</text>
+      <text x="680" y="118" text-anchor="middle" class="bd">by each agent</text>
+      <text x="960" y="118" text-anchor="middle" class="bd">in one place</text>
+      <line x1="60" y1="134" x2="1120" y2="134" stroke="#eef2ff" stroke-width="1.5"/>
+
+      <text x="70" y="168" class="bxs">Token cost</text>
+      <text x="400" y="168" text-anchor="middle" class="bd ok">baseline &times;1</text>
+      <text x="680" y="168" text-anchor="middle" class="bd no">&times;3 to &times;10</text>
+      <text x="960" y="168" text-anchor="middle" class="bd no">&times;3 to &times;10</text>
+      <line x1="60" y1="184" x2="1120" y2="184" stroke="#eef2ff" stroke-width="1.5"/>
+
+      <text x="70" y="218" class="bxs">Debugging</text>
+      <text x="400" y="218" text-anchor="middle" class="bd ok">one trace</text>
+      <text x="680" y="218" text-anchor="middle" class="bd no">hardest</text>
+      <text x="960" y="218" text-anchor="middle" class="bd">traceable via supervisor</text>
+      <line x1="60" y1="234" x2="1120" y2="234" stroke="#eef2ff" stroke-width="1.5"/>
+
+      <text x="70" y="268" class="bxs">Parallel work</text>
+      <text x="400" y="268" text-anchor="middle" class="bd no">no</text>
+      <text x="680" y="268" text-anchor="middle" class="bd">possible</text>
+      <text x="960" y="268" text-anchor="middle" class="bd ok">natural</text>
+      <line x1="60" y1="284" x2="1120" y2="284" stroke="#eef2ff" stroke-width="1.5"/>
+
+      <text x="70" y="318" class="bxs">Where a gate fits</text>
+      <text x="400" y="318" text-anchor="middle" class="bd">before each write</text>
+      <text x="680" y="318" text-anchor="middle" class="bd no">everywhere, awkwardly</text>
+      <text x="960" y="318" text-anchor="middle" class="bd ok">at the supervisor</text>
+      <line x1="60" y1="334" x2="1120" y2="334" stroke="#4338ca" stroke-width="2"/>
+
+      <text x="70" y="374" class="bxs am">Reach for it when</text>
+      <text x="400" y="374" text-anchor="middle" class="bd am">always, first</text>
+      <text x="680" y="374" text-anchor="middle" class="bd am">the route truly varies</text>
+      <text x="960" y="374" text-anchor="middle" class="bd am">tools and skills genuinely differ</text>
+    </svg>
+  </div>
+</div>
+
+<div class="slide" data-sec="The coordination tax" data-notes="The most important slide in the module. Every extra agent is a bill: tokens, latency, and a new class of failure. Say the numbers out loud &mdash; they will be measured in the Day 2 scorecard lab.">
+  <h2>The coordination tax</h2>
+  <div class="body">
+    <svg width="1180" height="420" viewBox="0 0 1180 420" role="img" aria-label="What each additional agent costs in tokens latency and failure surface">
+      <text x="590" y="40" text-anchor="middle" class="lbl">What you pay for each agent you add</text>
+      <g>
+        <rect x="70" y="66" width="330" height="150" rx="8" fill="#fef2f2" stroke="#b91c1c" stroke-width="2"/>
+        <text x="235" y="106" text-anchor="middle" class="num" fill="#b91c1c">3&ndash;10&times;</text>
+        <text x="235" y="140" text-anchor="middle" class="bx">the tokens</text>
+        <text x="235" y="170" text-anchor="middle" class="bds">Each agent re-reads the context</text>
+        <text x="235" y="192" text-anchor="middle" class="bds">it was handed. Nothing is free.</text>
+      </g>
+      <g>
+        <rect x="425" y="66" width="330" height="150" rx="8" fill="#fef2f2" stroke="#b91c1c" stroke-width="2"/>
+        <text x="590" y="106" text-anchor="middle" class="num" fill="#b91c1c">+ latency</text>
+        <text x="590" y="140" text-anchor="middle" class="bx">serial by default</text>
+        <text x="590" y="170" text-anchor="middle" class="bds">Handoffs are sequential unless</text>
+        <text x="590" y="192" text-anchor="middle" class="bds">you deliberately branch.</text>
+      </g>
+      <g>
+        <rect x="780" y="66" width="330" height="150" rx="8" fill="#fef2f2" stroke="#b91c1c" stroke-width="2"/>
+        <text x="945" y="106" text-anchor="middle" class="num" fill="#b91c1c">new failures</text>
+        <text x="945" y="140" text-anchor="middle" class="bx">a whole new class</text>
+        <text x="945" y="170" text-anchor="middle" class="bds">Lost context, contradictory</text>
+        <text x="945" y="192" text-anchor="middle" class="bds">findings, work done twice.</text>
+      </g>
+      <rect x="70" y="248" width="1040" height="140" rx="8" fill="#f8f8fd" stroke="#4338ca" stroke-width="2"/>
+      <text x="590" y="284" text-anchor="middle" class="bx">The tax is worth paying for exactly two things</text>
+      <text x="300" y="326" text-anchor="middle" class="bx ok">Specialisation</text>
+      <text x="300" y="354" text-anchor="middle" class="bd">Sub-tasks need different tools,</text>
+      <text x="300" y="376" text-anchor="middle" class="bd">permissions, or models.</text>
+      <text x="880" y="326" text-anchor="middle" class="bx ok">Parallelism</text>
+      <text x="880" y="354" text-anchor="middle" class="bd">Independent sub-tasks that can</text>
+      <text x="880" y="376" text-anchor="middle" class="bd">genuinely run at the same time.</text>
+      <line x1="590" y1="306" x2="590" y2="382" stroke="#e2e8f0" stroke-width="2"/>
+    </svg>
+  </div>
+  <div class="take"><b>If neither applies,</b> you are paying the tax and receiving nothing. That is the most common multi-agent mistake in production.</div>
+</div>
+
+<div class="slide" data-sec="The coordination tax" data-notes="Cost and latency grow roughly linearly. The failure surface does not. This is why the fifth agent hurts so much more than the second &mdash; and why 'just add another agent' is not a small change.">
+  <h2>Cost grows in a line. Failure grows in a mesh.</h2>
+  <div class="body">
+    <svg width="1180" height="420" viewBox="0 0 1180 420" role="img" aria-label="Handoff paths growing combinatorially as agents are added">
+      <g>
+        <text x="180" y="52" text-anchor="middle" class="lbl">2 agents</text>
+        <circle cx="130" cy="140" r="26" fill="#4338ca"/><circle cx="230" cy="140" r="26" fill="#4338ca"/>
+        <line x1="156" y1="140" x2="204" y2="140" stroke="#94a3b8" stroke-width="2"/>
+        <text x="180" y="228" text-anchor="middle" class="big">2</text>
+        <text x="180" y="254" text-anchor="middle" class="bds">handoff paths</text>
+      </g>
+      <g>
+        <text x="470" y="52" text-anchor="middle" class="lbl">3 agents</text>
+        <circle cx="470" cy="100" r="26" fill="#4338ca"/><circle cx="410" cy="180" r="26" fill="#4338ca"/><circle cx="530" cy="180" r="26" fill="#4338ca"/>
+        <line x1="452" y1="122" x2="428" y2="158" stroke="#94a3b8" stroke-width="2"/>
+        <line x1="488" y1="122" x2="512" y2="158" stroke="#94a3b8" stroke-width="2"/>
+        <line x1="436" y1="180" x2="504" y2="180" stroke="#94a3b8" stroke-width="2"/>
+        <text x="470" y="228" text-anchor="middle" class="big">6</text>
+        <text x="470" y="254" text-anchor="middle" class="bds">handoff paths</text>
+      </g>
+      <g>
+        <text x="810" y="52" text-anchor="middle" class="lbl">5 agents</text>
+        <circle cx="810" cy="88" r="22" fill="#4338ca"/><circle cx="890" cy="145" r="22" fill="#4338ca"/>
+        <circle cx="860" cy="215" r="22" fill="#4338ca"/><circle cx="760" cy="215" r="22" fill="#4338ca"/><circle cx="730" cy="145" r="22" fill="#4338ca"/>
+        <g stroke="#b91c1c" stroke-width="1.6" opacity=".65">
+          <line x1="810" y1="88" x2="890" y2="145"/><line x1="810" y1="88" x2="860" y2="215"/><line x1="810" y1="88" x2="760" y2="215"/><line x1="810" y1="88" x2="730" y2="145"/>
+          <line x1="890" y1="145" x2="860" y2="215"/><line x1="890" y1="145" x2="760" y2="215"/><line x1="890" y1="145" x2="730" y2="145"/>
+          <line x1="860" y1="215" x2="760" y2="215"/><line x1="860" y1="215" x2="730" y2="145"/><line x1="760" y1="215" x2="730" y2="145"/>
+        </g>
+        <text x="810" y="270" text-anchor="middle" class="big no">20</text>
+        <text x="810" y="296" text-anchor="middle" class="bds">handoff paths</text>
+      </g>
+      <rect x="960" y="88" width="160" height="130" rx="7" fill="#f8f8fd" stroke="#cbd5e1" stroke-width="2"/>
+      <text x="1040" y="120" text-anchor="middle" class="lbl">Meanwhile</text>
+      <text x="1040" y="152" text-anchor="middle" class="bd">tokens: &times;5</text>
+      <text x="1040" y="180" text-anchor="middle" class="bd">latency: &times;5</text>
+      <text x="1040" y="204" text-anchor="middle" class="bds">roughly linear</text>
+      <text x="590" y="326" text-anchor="middle" class="bds">Counting each direction separately &mdash; n(n&minus;1). Every drawn edge runs both ways.</text>
+      <text x="590" y="362" text-anchor="middle" class="bx">Your bill grows with the agents. Your debugging grows with the edges between them.</text>
+      <text x="590" y="394" text-anchor="middle" class="bds">This is why the fifth agent hurts far more than the second.</text>
+    </svg>
+  </div>
+</div>
+
+<div class="slide" data-sec="The coordination tax" data-notes="Be concrete about what you must measure. Nothing here is opinion &mdash; the Day 2 scorecard lab produces these four numbers for a single agent and a graph, on the same eval set.">
+  <h2>So measure it &mdash; four numbers, same eval set</h2>
+  <div class="body">
+    <svg width="1180" height="410" viewBox="0 0 1180 410" role="img" aria-label="Scorecard comparing a single agent and a multi-agent graph">
+      <rect x="70" y="52" width="1040" height="250" rx="8" fill="#f8f8fd" stroke="#4338ca" stroke-width="2"/>
+      <line x1="70" y1="112" x2="1110" y2="112" stroke="#4338ca" stroke-width="2"/>
+      <line x1="560" y1="52" x2="560" y2="302" stroke="#e2e8f0" stroke-width="2"/>
+      <line x1="835" y1="52" x2="835" y2="302" stroke="#e2e8f0" stroke-width="2"/>
+      <text x="100" y="92" class="lbl">Measure</text>
+      <text x="697" y="92" text-anchor="middle" class="lbl">Single agent</text>
+      <text x="972" y="92" text-anchor="middle" class="lbl">Your graph</text>
+
+      <text x="100" y="152" class="bx">Pass rate on the eval set</text>
+      <text x="697" y="152" text-anchor="middle" class="bd">baseline</text>
+      <text x="972" y="152" text-anchor="middle" class="bd">must beat it, or stop</text>
+      <text x="100" y="196" class="bx">Tokens per run</text>
+      <text x="697" y="196" text-anchor="middle" class="bd">baseline</text>
+      <text x="972" y="196" text-anchor="middle" class="bd">expect 3&ndash;10&times;</text>
+      <text x="100" y="240" class="bx">Latency, p50 and p95</text>
+      <text x="697" y="240" text-anchor="middle" class="bd">baseline</text>
+      <text x="972" y="240" text-anchor="middle" class="bd">p95 is the one that bites</text>
+      <text x="100" y="284" class="bx">Failures, by cause</text>
+      <text x="697" y="284" text-anchor="middle" class="bd">baseline</text>
+      <text x="972" y="284" text-anchor="middle" class="bd">new causes appear here</text>
+
+      <rect x="200" y="330" width="780" height="62" rx="6" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
+      <text x="590" y="356" text-anchor="middle" class="bx am">You build the baseline in the last lab of today.</text>
+      <text x="590" y="380" text-anchor="middle" class="bd">Every later milestone is scored against it &mdash; including your capstone.</text>
+    </svg>
+  </div>
+  <div class="take"><b>The discipline:</b> a multi-agent design is a claim. The scorecard is how you find out whether the claim was true.</div>
+</div>
+
+<div class="slide div" data-sec="The decision rubric" data-notes="The takeaway artefact. Tell them to photograph this slide &mdash; it is the thing they will actually use next week.">
+  <div class="k">Part six</div>
+  <h1>The decision rubric</h1>
+</div>
+
+<div class="slide" data-sec="The decision rubric" data-notes="Walk the tree top to bottom, slowly. Four questions in order. Most real requests stop at the first or second box. Tell them to photograph it.">
+  <h2>Four questions, in this order</h2>
+  <div class="body">
+    <svg width="1180" height="430" viewBox="0 0 1180 430" role="img" aria-label="Decision tree for choosing between a workflow, a single agent and a multi-agent system">
+      <rect x="410" y="20" width="360" height="52" rx="6" fill="#1e1b4b"/>
+      <text x="590" y="52" text-anchor="middle" font-size="17" font-weight="600" fill="#fff">Are the steps the same every time?</text>
+      <line x1="410" y1="46" x2="235" y2="46" stroke="#0d9488" stroke-width="2"/>
+      <line x1="235" y1="46" x2="235" y2="96" stroke="#0d9488" stroke-width="2" marker-end="url(#at)"/>
+      <text x="330" y="38" text-anchor="middle" class="bds ok">yes</text>
+      <rect x="70" y="102" width="330" height="62" rx="6" fill="#ecfdf5" stroke="#0d9488" stroke-width="2.5"/>
+      <text x="235" y="130" text-anchor="middle" class="bx ok">Build a workflow.</text>
+      <text x="235" y="152" text-anchor="middle" class="bds">No agent. Cheaper, testable, predictable.</text>
+      <line x1="590" y1="76" x2="590" y2="100" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
+      <text x="624" y="94" class="bds">no</text>
+
+      <rect x="410" y="104" width="360" height="52" rx="6" fill="#1e1b4b"/>
+      <text x="590" y="136" text-anchor="middle" font-size="17" font-weight="600" fill="#fff">Can one agent hold all the tools?</text>
+      <line x1="770" y1="130" x2="955" y2="130" stroke="#0d9488" stroke-width="2"/>
+      <line x1="955" y1="130" x2="955" y2="180" stroke="#0d9488" stroke-width="2" marker-end="url(#at)"/>
+      <text x="850" y="122" text-anchor="middle" class="bds ok">yes</text>
+      <rect x="790" y="186" width="330" height="62" rx="6" fill="#ecfdf5" stroke="#0d9488" stroke-width="2.5"/>
+      <text x="955" y="214" text-anchor="middle" class="bx ok">Build one agent.</text>
+      <text x="955" y="236" text-anchor="middle" class="bds">The default. Roughly a dozen tools is the ceiling.</text>
+      <line x1="590" y1="160" x2="590" y2="184" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
+      <text x="624" y="178" class="bds">no</text>
+
+      <rect x="410" y="188" width="360" height="52" rx="6" fill="#1e1b4b"/>
+      <text x="590" y="220" text-anchor="middle" font-size="17" font-weight="600" fill="#fff">Different tools, or truly parallel?</text>
+      <line x1="410" y1="214" x2="235" y2="214" stroke="#b91c1c" stroke-width="2"/>
+      <line x1="235" y1="214" x2="235" y2="264" stroke="#b91c1c" stroke-width="2" marker-end="url(#ar)"/>
+      <text x="330" y="206" text-anchor="middle" class="bds no">no</text>
+      <rect x="70" y="270" width="330" height="62" rx="6" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
+      <text x="235" y="298" text-anchor="middle" class="bx no">Go back to one agent.</text>
+      <text x="235" y="320" text-anchor="middle" class="bds">Splitting buys nothing you can measure.</text>
+      <line x1="590" y1="244" x2="590" y2="268" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
+      <text x="624" y="262" class="bds">yes</text>
+
+      <rect x="410" y="272" width="360" height="52" rx="6" fill="#1e1b4b"/>
+      <text x="590" y="304" text-anchor="middle" font-size="17" font-weight="600" fill="#fff">Does the route vary, or is it fixed?</text>
+      <line x1="770" y1="298" x2="955" y2="298" stroke="#4338ca" stroke-width="2"/>
+      <line x1="955" y1="298" x2="955" y2="340" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
+      <rect x="790" y="346" width="330" height="62" rx="6" fill="#eef2ff" stroke="#4338ca" stroke-width="2.5"/>
+      <text x="955" y="374" text-anchor="middle" class="bx">varies &#8594; peer to peer</text>
+      <text x="955" y="396" text-anchor="middle" class="bx">fixed &#8594; supervisor / worker</text>
+      <text x="235" y="376" text-anchor="middle" class="bds am">Then prove it with the scorecard &mdash;</text>
+      <text x="235" y="398" text-anchor="middle" class="bds am">the rubric picks a candidate, not a winner.</text>
+    </svg>
+  </div>
+</div>
+
+<div class="slide" data-sec="The decision rubric" data-notes="Three requests, three different answers. Ask the room to call the answer before you reveal it. The middle one is the interesting argument &mdash; people usually say agent, and it is a workflow with one classification call.">
+  <h2>The rubric on three real requests</h2>
+  <div class="body">
+    <svg width="1180" height="420" viewBox="0 0 1180 420" role="img" aria-label="Three requests and the rubric verdict for each">
+      <g>
+        <rect x="50" y="44" width="345" height="330" rx="8" fill="#f8f8fd" stroke="#cbd5e1" stroke-width="2"/>
+        <text x="222" y="80" text-anchor="middle" class="lbl">Request A</text>
+        <text x="222" y="118" text-anchor="middle" class="bd">&ldquo;Every night, reconcile</text>
+        <text x="222" y="142" text-anchor="middle" class="bd">two ledgers and mail</text>
+        <text x="222" y="166" text-anchor="middle" class="bd">the breaks.&rdquo;</text>
+        <line x1="90" y1="196" x2="355" y2="196" stroke="#e2e8f0" stroke-width="2"/>
+        <text x="222" y="230" text-anchor="middle" class="bds">Steps never vary</text>
+        <rect x="90" y="252" width="265" height="58" rx="6" fill="#ecfdf5" stroke="#0d9488" stroke-width="2.5"/>
+        <text x="222" y="288" text-anchor="middle" class="bx ok">Workflow</text>
+        <text x="222" y="342" text-anchor="middle" class="bds">An agent here adds cost</text>
+        <text x="222" y="362" text-anchor="middle" class="bds">and non-determinism.</text>
+      </g>
+      <g>
+        <rect x="417" y="44" width="345" height="330" rx="8" fill="#f8f8fd" stroke="#cbd5e1" stroke-width="2"/>
+        <text x="589" y="80" text-anchor="middle" class="lbl">Request B</text>
+        <text x="589" y="118" text-anchor="middle" class="bd">&ldquo;Answer staff questions</text>
+        <text x="589" y="142" text-anchor="middle" class="bd">about our settlement</text>
+        <text x="589" y="166" text-anchor="middle" class="bd">policy, with citations.&rdquo;</text>
+        <line x1="457" y1="196" x2="722" y2="196" stroke="#e2e8f0" stroke-width="2"/>
+        <text x="589" y="230" text-anchor="middle" class="bds">One skill, one source</text>
+        <rect x="457" y="252" width="265" height="58" rx="6" fill="#ecfdf5" stroke="#0d9488" stroke-width="2.5"/>
+        <text x="589" y="288" text-anchor="middle" class="bx ok">One agent, one retriever</text>
+        <text x="589" y="342" text-anchor="middle" class="bds">Add agency only for the</text>
+        <text x="589" y="362" text-anchor="middle" class="bds">re-query when results are thin.</text>
+      </g>
+      <g>
+        <rect x="784" y="44" width="345" height="330" rx="8" fill="#eef2ff" stroke="#4338ca" stroke-width="2.5"/>
+        <text x="956" y="80" text-anchor="middle" class="lbl">Request C</text>
+        <text x="956" y="118" text-anchor="middle" class="bd">&ldquo;Investigate a payment</text>
+        <text x="956" y="142" text-anchor="middle" class="bd">exception: ledger, policy,</text>
+        <text x="956" y="166" text-anchor="middle" class="bd">counterparty, then write up.&rdquo;</text>
+        <line x1="824" y1="196" x2="1089" y2="196" stroke="#c7d2fe" stroke-width="2"/>
+        <text x="956" y="230" text-anchor="middle" class="bds">Different tools &middot; parallel &middot; needs a critic</text>
+        <rect x="824" y="252" width="265" height="58" rx="6" fill="#4338ca"/>
+        <text x="956" y="288" text-anchor="middle" font-size="17" font-weight="600" fill="#fff">Supervisor / worker</text>
+        <text x="956" y="342" text-anchor="middle" class="bds am">This is your capstone &mdash;</text>
+        <text x="956" y="362" text-anchor="middle" class="bds am">and it still has to beat the baseline.</text>
+      </g>
+    </svg>
+  </div>
+</div>
+
+<div class="slide div" data-sec="On-ramp" data-notes="Two slides only. Enough LangChain to build today's labs, and an honest statement of where it stops being enough. Do not tour the framework.">
+  <div class="k">Part seven</div>
+  <h1>Enough LangChain to start</h1>
+</div>
+
+<div class="slide" data-sec="On-ramp" data-notes="Point out that create_agent IS the loop from part two, prebuilt. Model, tools, prompt, checkpointer. That is the whole surface for today. LangChain 1.x replaced create_react_agent with create_agent &mdash; flag it, the internet is full of the old name.">
+  <h2>The whole surface you need today</h2>
+  <div class="body">
+    <svg width="1180" height="410" viewBox="0 0 1180 410" role="img" aria-label="The create_agent call and what each argument corresponds to">
+      <rect x="50" y="40" width="600" height="300" rx="8" fill="#1e1b4b"/>
+      <text x="76" y="82" font-size="16" font-family="Consolas,monospace" fill="#a5b4fc">from</text>
+      <text x="130" y="82" font-size="16" font-family="Consolas,monospace" fill="#e0e7ff">langchain.agents </text>
+      <text x="330" y="82" font-size="16" font-family="Consolas,monospace" fill="#a5b4fc">import</text>
+      <text x="410" y="82" font-size="16" font-family="Consolas,monospace" fill="#fbbf24">create_agent</text>
+      <text x="76" y="140" font-size="16" font-family="Consolas,monospace" fill="#e0e7ff">agent = </text>
+      <text x="180" y="140" font-size="16" font-family="Consolas,monospace" fill="#fbbf24">create_agent</text>
+      <text x="330" y="140" font-size="16" font-family="Consolas,monospace" fill="#e0e7ff">(</text>
+      <text x="110" y="176" font-size="16" font-family="Consolas,monospace" fill="#7dd3fc">model</text>
+      <text x="180" y="176" font-size="16" font-family="Consolas,monospace" fill="#e0e7ff">=llm,</text>
+      <text x="110" y="212" font-size="16" font-family="Consolas,monospace" fill="#7dd3fc">tools</text>
+      <text x="180" y="212" font-size="16" font-family="Consolas,monospace" fill="#e0e7ff">=[lookup, search],</text>
+      <text x="110" y="248" font-size="16" font-family="Consolas,monospace" fill="#7dd3fc">prompt</text>
+      <text x="192" y="248" font-size="16" font-family="Consolas,monospace" fill="#e0e7ff">=SYSTEM,</text>
+      <text x="110" y="284" font-size="16" font-family="Consolas,monospace" fill="#7dd3fc">checkpointer</text>
+      <text x="272" y="284" font-size="16" font-family="Consolas,monospace" fill="#e0e7ff">=saver,</text>
+      <text x="76" y="320" font-size="16" font-family="Consolas,monospace" fill="#e0e7ff">)</text>
+
+      <line x1="668" y1="176" x2="730" y2="176" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
+      <text x="746" y="182" class="bx">the brain</text>
+      <line x1="668" y1="212" x2="730" y2="212" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
+      <text x="746" y="218" class="bx">the hands</text>
+      <line x1="668" y1="248" x2="730" y2="248" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
+      <text x="746" y="254" class="bx">the standing instruction</text>
+      <line x1="668" y1="284" x2="730" y2="284" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
+      <text x="746" y="290" class="bx">the state that survives</text>
+
+      <rect x="730" y="52" width="390" height="92" rx="7" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
+      <text x="925" y="84" text-anchor="middle" class="bx am">This call is the loop from Part 2,</text>
+      <text x="925" y="110" text-anchor="middle" class="bx am">prebuilt. Nothing more is hidden.</text>
+      <text x="925" y="132" text-anchor="middle" class="bds">Planning lives in the prompt and the model.</text>
+      <text x="925" y="356" text-anchor="middle" class="bds no">LangChain 1.x: it is create_agent. The older create_react_agent name</text>
+      <text x="925" y="378" text-anchor="middle" class="bds no">is all over the internet &mdash; you will hit it, and it is not what we use.</text>
+    </svg>
+  </div>
+</div>
+
+<div class="slide" data-sec="On-ramp" data-notes="Be honest about the boundary. create_agent is perfect until you need to see or steer the state, branch, or resume. That is LangGraph, and it is this afternoon. Do not oversell either.">
+  <h2>Where this stops being enough</h2>
+  <div class="body">
+    <svg width="1180" height="410" viewBox="0 0 1180 410" role="img" aria-label="When to move from create_agent to an explicit LangGraph state graph">
+      <rect x="70" y="52" width="480" height="290" rx="8" fill="#ecfdf5" stroke="#0d9488" stroke-width="2.5"/>
+      <text x="310" y="90" text-anchor="middle" class="bx ok">create_agent is enough when</text>
+      <text x="110" y="140" class="bd">&bull;&nbsp; One loop, one set of tools</text>
+      <text x="110" y="180" class="bd">&bull;&nbsp; You do not need to inspect the state</text>
+      <text x="110" y="220" class="bd">&bull;&nbsp; No branching, no parallel work</text>
+      <text x="110" y="260" class="bd">&bull;&nbsp; A crash mid-run is acceptable</text>
+      <text x="310" y="310" text-anchor="middle" class="bds">Most of this morning&rsquo;s labs.</text>
+
+      <line x1="565" y1="90" x2="615" y2="90" stroke="#94a3b8" stroke-width="2" marker-end="url(#ag)"/>
+
+      <rect x="630" y="52" width="480" height="290" rx="8" fill="#eef2ff" stroke="#4338ca" stroke-width="2.5"/>
+      <text x="870" y="90" text-anchor="middle" class="bx">You need LangGraph when</text>
+      <text x="670" y="140" class="bd">&bull;&nbsp; State must be explicit and inspectable</text>
+      <text x="670" y="180" class="bd">&bull;&nbsp; The run must resume after a restart</text>
+      <text x="670" y="220" class="bd">&bull;&nbsp; Branches, cycles or parallel paths</text>
+      <text x="670" y="260" class="bd">&bull;&nbsp; A human must approve a step mid-run</text>
+      <text x="870" y="310" text-anchor="middle" class="bds am">Module 3, this afternoon &mdash; and everything after it.</text>
+    </svg>
+  </div>
+  <div class="take"><b>Honest boundary:</b> reach for the graph when you need to see, steer or resume the state &mdash; not before.</div>
+</div>
+
+<div class="slide" data-sec="Recap" data-notes="Close in ninety seconds. The rubric is the artefact; the baseline eval set is the homework for the last lab of today. Then go straight into the knowledge check.">
+  <h2>What you take from Module 1</h2>
+  <div class="body">
+    <svg width="1180" height="420" viewBox="0 0 1180 420" role="img" aria-label="Six takeaways from module one">
+      <g>
+        <rect x="60" y="46" width="345" height="112" rx="7" fill="#eef2ff" stroke="#818cf8" stroke-width="2"/>
+        <text x="86" y="78" class="lbl">01</text>
+        <text x="232" y="106" text-anchor="middle" class="bx">An agent is a loop</text>
+        <text x="232" y="134" text-anchor="middle" class="bd">The output decides the next step.</text>
+      </g>
+      <g>
+        <rect x="417" y="46" width="345" height="112" rx="7" fill="#eef2ff" stroke="#818cf8" stroke-width="2"/>
+        <text x="443" y="78" class="lbl">02</text>
+        <text x="589" y="106" text-anchor="middle" class="bx">Four blocks, four gaps</text>
+        <text x="589" y="134" text-anchor="middle" class="bd">Each one patches a model limitation.</text>
+      </g>
+      <g>
+        <rect x="774" y="46" width="345" height="112" rx="7" fill="#eef2ff" stroke="#818cf8" stroke-width="2"/>
+        <text x="800" y="78" class="lbl">03</text>
+        <text x="946" y="106" text-anchor="middle" class="bx">Autonomy is per tool</text>
+        <text x="946" y="134" text-anchor="middle" class="bd">Reads run free. Writes get a gate.</text>
+      </g>
+      <g>
+        <rect x="60" y="176" width="345" height="112" rx="7" fill="#eef2ff" stroke="#818cf8" stroke-width="2"/>
+        <text x="86" y="208" class="lbl">04</text>
+        <text x="232" y="236" text-anchor="middle" class="bx">Every agent is a tax</text>
+        <text x="232" y="264" text-anchor="middle" class="bd">Specialisation or parallelism, or don't.</text>
+      </g>
+      <g>
+        <rect x="417" y="176" width="345" height="112" rx="7" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
+        <text x="443" y="208" class="lbl am">05</text>
+        <text x="589" y="236" text-anchor="middle" class="bx am">The rubric</text>
+        <text x="589" y="264" text-anchor="middle" class="bd">Workflow &#8594; one agent &#8594; many.</text>
+      </g>
+      <g>
+        <rect x="774" y="176" width="345" height="112" rx="7" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
+        <text x="800" y="208" class="lbl am">06</text>
+        <text x="946" y="236" text-anchor="middle" class="bx am">Claims get measured</text>
+        <text x="946" y="264" text-anchor="middle" class="bd">The baseline you build today.</text>
+      </g>
+      <rect x="230" y="316" width="720" height="70" rx="6" fill="#1e1b4b"/>
+      <text x="590" y="346" text-anchor="middle" font-size="18" font-weight="600" fill="#fff">Next: Module 2 &mdash; how the agent decides what to do next</text>
+      <text x="590" y="372" text-anchor="middle" font-size="14" fill="#a5b4fc">Chain-of-Thought, ReAct, Tree-of-Thought and Reflection, compared on identical tasks</text>
+    </svg>
+  </div>
+</div>
+
+<div class="slide div" data-sec="Knowledge check" data-notes="Eight questions. Run them as a room poll &mdash; hands up per option before you advance to the answer. The disagreements are worth more than the score.">
+  <div class="k">Knowledge check</div>
+  <h1>Eight questions</h1>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer C. Watch for people choosing A &mdash; context size is the most common wrong instinct in the room.">
+  <div class="qtag">Question 1 of 8</div>
+  <h2>What makes it an agent?</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">An LLM call is stateless and cannot act. Which single addition turns it into an agent?</div>
+    <div class="opt"><span class="k">A</span><span>A larger context window</span></div>
+    <div class="opt"><span class="k">B</span><span>A system prompt that gives it a persona and a job title</span></div>
+    <div class="opt"><span class="k">C</span><span>A loop in which its output selects the next action, and the result is fed back in</span></div>
+    <div class="opt"><span class="k">D</span><span>A vector store of the organisation's documents</span></div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Reinforce: autonomy comes from control flow, not from model size, personality or retrieval. A, B and D all make a better single call &mdash; still one call.">
+  <div class="qtag">Answer 1 of 8</div>
+  <h2>What makes it an agent?</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">An LLM call is stateless and cannot act. Which single addition turns it into an agent?</div>
+    <div class="opt miss"><span class="k">A</span><span>A larger context window</span></div>
+    <div class="opt miss"><span class="k">B</span><span>A system prompt that gives it a persona and a job title</span></div>
+    <div class="opt hit"><span class="k">C</span><span>A loop in which its output selects the next action, and the result is fed back in</span></div>
+    <div class="opt miss"><span class="k">D</span><span>A vector store of the organisation's documents</span></div>
+    <div class="why"><b>Why:</b> agency comes from control flow, not capability. A, B and D each make a better single call &mdash; it is still a single call. Only the loop moves the decision about what happens next from your code into the model.</div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer A. Expect argument. The tell is 'the steps never vary' &mdash; that is the first rubric question, and it terminates the tree.">
+  <div class="qtag">Question 2 of 8</div>
+  <h2>Which do you build?</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">At 06:00 daily, summarise the overnight trade file and email the summary. The steps never vary.</div>
+    <div class="opt"><span class="k">A</span><span>A scheduled workflow with one LLM call inside it</span></div>
+    <div class="opt"><span class="k">B</span><span>A ReAct agent with a file-reading tool and an email tool</span></div>
+    <div class="opt"><span class="k">C</span><span>A supervisor with a reader worker and a writer worker</span></div>
+    <div class="opt"><span class="k">D</span><span>An agentic RAG pipeline over the trade files</span></div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="The first rubric question ends it: fixed steps means workflow. B, C and D each buy non-determinism and cost for a task that has neither ambiguity nor a varying route.">
+  <div class="qtag">Answer 2 of 8</div>
+  <h2>Which do you build?</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">At 06:00 daily, summarise the overnight trade file and email the summary. The steps never vary.</div>
+    <div class="opt hit"><span class="k">A</span><span>A scheduled workflow with one LLM call inside it</span></div>
+    <div class="opt miss"><span class="k">B</span><span>A ReAct agent with a file-reading tool and an email tool</span></div>
+    <div class="opt miss"><span class="k">C</span><span>A supervisor with a reader worker and a writer worker</span></div>
+    <div class="opt miss"><span class="k">D</span><span>An agentic RAG pipeline over the trade files</span></div>
+    <div class="why"><b>Why:</b> the first rubric question ends it &mdash; the steps are the same every time. B, C and D each buy non-determinism, cost and a wider failure surface for a task that has no ambiguity to resolve.</div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer D. This is the Day 2 lab in question form. Model size is the expensive guess; the description is the cheap fix.">
+  <div class="qtag">Question 3 of 8</div>
+  <h2>Wrong tool, every time</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">A tool-calling agent keeps picking the wrong tool. What do you change first?</div>
+    <div class="opt"><span class="k">A</span><span>Switch to a larger, more capable model</span></div>
+    <div class="opt"><span class="k">B</span><span>Raise the step budget so it has more attempts to recover</span></div>
+    <div class="opt"><span class="k">C</span><span>Add more example conversations to the system prompt</span></div>
+    <div class="opt"><span class="k">D</span><span>Rewrite the tool descriptions and parameter names</span></div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Say that tomorrow's lab measures exactly this: model held constant, descriptions rewritten, accuracy moves. B is actively harmful &mdash; more attempts at the wrong tool is a bigger bill for the same failure.">
+  <div class="qtag">Answer 3 of 8</div>
+  <h2>Wrong tool, every time</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">A tool-calling agent keeps picking the wrong tool. What do you change first?</div>
+    <div class="opt miss"><span class="k">A</span><span>Switch to a larger, more capable model</span></div>
+    <div class="opt miss"><span class="k">B</span><span>Raise the step budget so it has more attempts to recover</span></div>
+    <div class="opt miss"><span class="k">C</span><span>Add more example conversations to the system prompt</span></div>
+    <div class="opt hit"><span class="k">D</span><span>Rewrite the tool descriptions and parameter names</span></div>
+    <div class="why"><b>Why:</b> the description is the only thing the model reads when choosing. Tomorrow's lab holds the model constant and moves accuracy on description quality alone. B is the worst answer &mdash; more attempts at the wrong tool is a bigger bill for the same failure.</div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer B. This is the coordination tax made concrete. Let them argue for A and D before revealing &mdash; both are optimisations of a design that has not justified itself.">
+  <div class="qtag">Question 4 of 8</div>
+  <h2>The scorecard says&hellip;</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">Your 5-agent system costs 8&times; the tokens and 3&times; the latency of the single agent it replaced, for a 4-point pass-rate gain. What does the rubric say?</div>
+    <div class="opt"><span class="k">A</span><span>Route the workers to a cheaper model and keep the design</span></div>
+    <div class="opt"><span class="k">B</span><span>Go back to the single agent unless 4 points clears a threshold you named in advance</span></div>
+    <div class="opt"><span class="k">C</span><span>Add a critic agent to push quality higher and justify the cost</span></div>
+    <div class="opt"><span class="k">D</span><span>Parallelise the workers to win the latency back</span></div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="The threshold must be named BEFORE the measurement, or the number will always be argued into looking acceptable. A and D optimise a design that has not earned its place; C spends more to defend the spend.">
+  <div class="qtag">Answer 4 of 8</div>
+  <h2>The scorecard says&hellip;</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">Your 5-agent system costs 8&times; the tokens and 3&times; the latency of the single agent it replaced, for a 4-point pass-rate gain. What does the rubric say?</div>
+    <div class="opt miss"><span class="k">A</span><span>Route the workers to a cheaper model and keep the design</span></div>
+    <div class="opt hit"><span class="k">B</span><span>Go back to the single agent unless 4 points clears a threshold you named in advance</span></div>
+    <div class="opt miss"><span class="k">C</span><span>Add a critic agent to push quality higher and justify the cost</span></div>
+    <div class="opt miss"><span class="k">D</span><span>Parallelise the workers to win the latency back</span></div>
+    <div class="why"><b>Why:</b> the coordination tax must be paid for by a benefit stated before you measured &mdash; otherwise any number gets argued into looking acceptable. A and D optimise a design that has not earned its place; C spends more to defend the spend.</div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer A. The distinction is where routing happens, not how many agents there are or which library you used.">
+  <div class="qtag">Question 5 of 8</div>
+  <h2>Supervisor or peer to peer?</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">What actually distinguishes a supervisor/worker system from a peer-to-peer one?</div>
+    <div class="opt"><span class="k">A</span><span>Where the routing decision is made</span></div>
+    <div class="opt"><span class="k">B</span><span>The number of agents in the system</span></div>
+    <div class="opt"><span class="k">C</span><span>Whether the agents share one model or use different ones</span></div>
+    <div class="opt"><span class="k">D</span><span>Whether the system is built on LangGraph</span></div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Centralised routing gives you one auditable decision point &mdash; which is why it suits regulated work and why the capstone uses it. Distributed routing gives flexibility and costs you the single place to look when it goes wrong.">
+  <div class="qtag">Answer 5 of 8</div>
+  <h2>Supervisor or peer to peer?</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">What actually distinguishes a supervisor/worker system from a peer-to-peer one?</div>
+    <div class="opt hit"><span class="k">A</span><span>Where the routing decision is made</span></div>
+    <div class="opt miss"><span class="k">B</span><span>The number of agents in the system</span></div>
+    <div class="opt miss"><span class="k">C</span><span>Whether the agents share one model or use different ones</span></div>
+    <div class="opt miss"><span class="k">D</span><span>Whether the system is built on LangGraph</span></div>
+    <div class="why"><b>Why:</b> a supervisor centralises routing, giving one auditable place where delegation happened &mdash; which is why it suits regulated work. Peer to peer distributes that decision through handoffs, buying flexibility and losing the single place to look when it goes wrong.</div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer C. D is the plausible distractor &mdash; checkpointing is about surviving a restart, not about degradation within a session.">
+  <div class="qtag">Question 6 of 8</div>
+  <h2>It was fine on Monday</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">A conversational agent degrades after roughly 40 turns: it repeats itself and forgets constraints stated early on. Most likely cause?</div>
+    <div class="opt"><span class="k">A</span><span>The model's weights drifting over the course of the session</span></div>
+    <div class="opt"><span class="k">B</span><span>Tool descriptions that are too long</span></div>
+    <div class="opt"><span class="k">C</span><span>Unbounded conversation memory crowding the context window</span></div>
+    <div class="opt"><span class="k">D</span><span>A missing checkpointer</span></div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="A is impossible &mdash; weights are frozen, worth saying out loud. D is the good distractor: checkpointing is about surviving a restart, not about degradation inside a live session. The fix is compaction, in Module 3.">
+  <div class="qtag">Answer 6 of 8</div>
+  <h2>It was fine on Monday</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">A conversational agent degrades after roughly 40 turns: it repeats itself and forgets constraints stated early on. Most likely cause?</div>
+    <div class="opt miss"><span class="k">A</span><span>The model's weights drifting over the course of the session</span></div>
+    <div class="opt miss"><span class="k">B</span><span>Tool descriptions that are too long</span></div>
+    <div class="opt hit"><span class="k">C</span><span>Unbounded conversation memory crowding the context window</span></div>
+    <div class="opt miss"><span class="k">D</span><span>A missing checkpointer</span></div>
+    <div class="why"><b>Why:</b> buffer memory grows every turn until the earliest instructions fall out of the window. A is impossible &mdash; the weights are frozen. D is the sharp distractor: a checkpointer restores a run after a restart, it does nothing for degradation inside a live session. The fix is compaction &mdash; Module 3.</div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer B. C is the assertion the whole module exists to dismantle; A is usually false, since one trace is easier than three.">
+  <div class="qtag">Question 7 of 8</div>
+  <h2>Three specialists, or one generalist?</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">What is the strongest reason to split a payment-exception investigation across three specialist agents?</div>
+    <div class="opt"><span class="k">A</span><span>Three focused agents are easier to debug than one broad one</span></div>
+    <div class="opt"><span class="k">B</span><span>The sub-tasks need genuinely different tools and can run at the same time</span></div>
+    <div class="opt"><span class="k">C</span><span>Multi-agent systems are more accurate than single agents by design</span></div>
+    <div class="opt"><span class="k">D</span><span>It lets you use a different vendor's model for each agent</span></div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Specialisation and parallelism are the only two things that repay the tax. A is usually backwards &mdash; one trace beats three. C is the belief this module exists to dismantle. D is a capability, not a reason.">
+  <div class="qtag">Answer 7 of 8</div>
+  <h2>Three specialists, or one generalist?</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">What is the strongest reason to split a payment-exception investigation across three specialist agents?</div>
+    <div class="opt miss"><span class="k">A</span><span>Three focused agents are easier to debug than one broad one</span></div>
+    <div class="opt hit"><span class="k">B</span><span>The sub-tasks need genuinely different tools and can run at the same time</span></div>
+    <div class="opt miss"><span class="k">C</span><span>Multi-agent systems are more accurate than single agents by design</span></div>
+    <div class="opt miss"><span class="k">D</span><span>It lets you use a different vendor's model for each agent</span></div>
+    <div class="why"><b>Why:</b> specialisation and parallelism are the only two things that repay the coordination tax. A is usually backwards &mdash; one trace is easier than three plus the handoffs. C is the assertion this module exists to dismantle. D is a capability, not a reason.</div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer D. Close the module on this: cost and latency scale with agents, debugging scales with the edges between them.">
+  <div class="qtag">Question 8 of 8</div>
+  <h2>Adding the fourth agent</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">You add a fourth agent to a three-agent system. Which grows fastest?</div>
+    <div class="opt"><span class="k">A</span><span>Token cost</span></div>
+    <div class="opt"><span class="k">B</span><span>End-to-end latency</span></div>
+    <div class="opt"><span class="k">C</span><span>Memory footprint of the service</span></div>
+    <div class="opt"><span class="k">D</span><span>The number of handoff paths that can fail</span></div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Final point of the module: 3 agents give 6 paths, 4 give 12, 5 give 20. Cost and latency grow with the agents; debugging grows with the edges. Straight into the labs from here.">
+  <div class="qtag">Answer 8 of 8</div>
+  <h2>Adding the fourth agent</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">You add a fourth agent to a three-agent system. Which grows fastest?</div>
+    <div class="opt miss"><span class="k">A</span><span>Token cost</span></div>
+    <div class="opt miss"><span class="k">B</span><span>End-to-end latency</span></div>
+    <div class="opt miss"><span class="k">C</span><span>Memory footprint of the service</span></div>
+    <div class="opt hit"><span class="k">D</span><span>The number of handoff paths that can fail</span></div>
+    <div class="why"><b>Why:</b> tokens and latency grow roughly linearly with the agent count. Handoff paths do not &mdash; three agents give six, four give twelve, five give twenty. Your bill grows with the agents; your debugging grows with the edges between them.</div>
+  </div></div>
+</div>
+
+<div class="slide div" data-sec="End" data-notes="Hand over to the labs: LLM vs agent, the building blocks, and then the baseline eval set that everything else today is measured against.">
+  <div class="k">End of Module 1</div>
+  <h1>To the labs</h1>
+</div>
+</template>
+
+<script>
+(function(){
+  var stage = document.getElementById('stage');
+  stage.appendChild(document.getElementById('deck').content.cloneNode(true));
+  var slides = Array.prototype.slice.call(stage.querySelectorAll('.slide'));
+  var i = 0, total = slides.length;
+
+  var num = document.getElementById('num'),
+      progf = document.getElementById('progf'),
+      secname = document.getElementById('secname'),
+      toc = document.getElementById('toc'),
+      toclist = document.getElementById('toclist'),
+      notes = document.getElementById('notes'),
+      notesbody = document.getElementById('notesbody');
+
+  /* ---- build the index, grouped by section ---- */
+  var groups = [], last = null;
+  slides.forEach(function(s, n){
+    var sec = s.getAttribute('data-sec') || '';
+    if (sec !== last) { groups.push({sec: sec, items: []}); last = sec; }
+    var h = s.querySelector('h2, h1'), q = s.querySelector('.qtag');
+    var t = h ? h.textContent.trim() : sec;
+    if (q) t = q.textContent.trim() + ' \u2014 ' + t;
+    groups[groups.length-1].items.push({n: n, t: t});
+  });
+  groups.forEach(function(g){
+    var d = document.createElement('div'); d.className = 'grp';
+    var hd = document.createElement('div'); hd.className = 'grph'; hd.textContent = g.sec; d.appendChild(hd);
+    g.items.forEach(function(it){
+      var a = document.createElement('a');
+      a.href = '#'; a.dataset.n = it.n;
+      a.innerHTML = '<span class="n">' + (it.n + 1) + '</span>';
+      a.appendChild(document.createTextNode(it.t));
+      a.addEventListener('click', function(e){ e.preventDefault(); go(it.n); toc.classList.remove('on'); });
+      d.appendChild(a);
+    });
+    toclist.appendChild(d);
+  });
+  var tocLinks = Array.prototype.slice.call(toclist.querySelectorAll('a'));
+
+  function go(n){
+    if (n < 0) n = 0;
+    if (n > total - 1) n = total - 1;
+    slides[i].classList.remove('active');
+    i = n;
+    slides[i].classList.add('active');
+    num.textContent = (i + 1) + ' / ' + total;
+    progf.style.width = ((i + 1) / total * 100) + '%';
+    secname.textContent = slides[i].getAttribute('data-sec') || '';
+    notesbody.textContent = slides[i].getAttribute('data-notes') || 'No notes for this slide.';
+    tocLinks.forEach(function(a){ a.classList.toggle('cur', +a.dataset.n === i); });
+    if (location.hash !== '#' + (i + 1)) history.replaceState(null, '', '#' + (i + 1));
+  }
+
+  /* ---- scale the 1280x720 stage to the available space ---- */
+  function fit(){
+    var w = document.getElementById('wrap');
+    var s = Math.min(w.clientWidth / 1280, w.clientHeight / 720);
+    stage.style.transform = 'scale(' + s + ')';
+  }
+  window.addEventListener('resize', fit);
+  window.addEventListener('hashchange', function(){
+    var n = parseInt((location.hash || '').slice(1), 10);
+    if (!isNaN(n) && n - 1 !== i) go(n - 1);
+  });
+
+  document.getElementById('bnext').addEventListener('click', function(){ go(i + 1); });
+  document.getElementById('bprev').addEventListener('click', function(){ go(i - 1); });
+  document.getElementById('btoc').addEventListener('click', function(){ toc.classList.toggle('on'); });
+  document.getElementById('bnotes').addEventListener('click', function(){ notes.classList.toggle('on'); });
+
+  document.addEventListener('keydown', function(e){
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    var k = e.key;
+    if (k === 'ArrowRight' || k === 'PageDown' || k === ' ') { e.preventDefault(); go(i + 1); }
+    else if (k === 'ArrowLeft' || k === 'PageUp') { e.preventDefault(); go(i - 1); }
+    else if (k === 'Home') { e.preventDefault(); go(0); }
+    else if (k === 'End') { e.preventDefault(); go(total - 1); }
+    else if (k === 't' || k === 'T') { toc.classList.toggle('on'); }
+    else if (k === 'n' || k === 'N') { notes.classList.toggle('on'); }
+    else if (k === 'f' || k === 'F') {
+      if (document.fullscreenElement) document.exitFullscreen();
+      else document.documentElement.requestFullscreen();
+    }
+    else if (k === 'Escape') { toc.classList.remove('on'); notes.classList.remove('on'); }
+  });
+
+  fit();
+  var start = parseInt((location.hash || '').slice(1), 10);
+  go(isNaN(start) ? 0 : start - 1);
+})();
+</script>
+</body>
+</html>
