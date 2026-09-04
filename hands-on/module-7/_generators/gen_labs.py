@@ -857,19 +857,31 @@ def send_to_langfuse():
                              ("tokens", "usage"), ("your assertions", "scores")):
             print(f"    {ours:16} -> {theirs}")
         return
+    # SDK 4.x. Note client.trace(...) is the v3 API and does not exist here --
+    # observations nest by being entered inside one another, which is exactly the
+    # parent link you built by hand above.
     from langfuse import Langfuse
-    client = Langfuse(host=host, public_key=pk, secret_key=sk)
+    lf = Langfuse()                      # reads LANGFUSE_HOST / _PUBLIC_KEY / _SECRET_KEY
+    if not lf.auth_check():
+        print("Langfuse credentials rejected. Check LANGFUSE_PUBLIC_KEY / _SECRET_KEY.")
+        return
     t = sample_run()
-    trace = client.trace(name="module-7-sample-run")
-    for s in t.spans:
-        if s["parent"] is None:
-            continue
-        trace.span(name=s["name"], start_time=None, end_time=None,
-                   metadata={"self_s": self_time(t.spans, s["id"]),
-                             "total_s": total_time(t.spans, s["id"]),
-                             "tokens": s["tokens"], "kind": s["kind"]})
-    client.flush()
+    kids = lambda sid: [c for c in t.spans if c["parent"] == sid]
+
+    def emit(sid):
+        s = t.spans[sid]
+        with lf.start_as_current_observation(name=s["name"], as_type="span") as obs:
+            obs.update(metadata={"kind": s["kind"], "tokens": s["tokens"],
+                                 "self_s": self_time(t.spans, sid),
+                                 "total_s": total_time(t.spans, sid)})
+            for child in kids(sid):
+                emit(child["id"])        # nesting IS the parent link
+
+    root = next(s for s in t.spans if s["parent"] is None)
+    emit(root["id"])
+    lf.flush()
     print(f"sent one trace to {host}")
+    print("Open it in the UI and compare the tree with the one you printed above.")
 
 guard(send_to_langfuse)
 '''),
