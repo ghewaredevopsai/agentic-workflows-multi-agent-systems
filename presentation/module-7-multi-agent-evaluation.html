@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Module 7 &mdash; Multi-Agent System Evaluation | Agentic Workflows &amp; Multi-Agent Systems</title>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;height:100%}
+body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:#e8e9f5;color:#1e1b4b;overflow:hidden}
+
+/* ---------- chrome ---------- */
+#top{position:fixed;top:0;left:0;right:0;height:44px;background:#1e1b4b;color:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 16px;z-index:40;font-size:13px}
+#top .l{display:flex;align-items:center;gap:12px;min-width:0}
+#top .mod{font-weight:600;letter-spacing:.2px;white-space:nowrap}
+#top .sec{color:#a5b4fc;font-size:12px;border-left:1px solid #3730a3;padding-left:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#top .r{display:flex;align-items:center;gap:8px}
+#top a,#top button{color:#c7d2fe;text-decoration:none;background:#312e81;border:1px solid #4338ca;padding:5px 11px;border-radius:4px;font-size:12.5px;cursor:pointer;font-family:inherit}
+#top a:hover,#top button:hover{background:#4338ca;color:#fff}
+#bot{position:fixed;bottom:0;left:0;right:0;height:38px;background:#1e1b4b;color:#c7d2fe;display:flex;align-items:center;gap:12px;padding:0 16px;z-index:40;font-size:12px}
+#prog{flex:1;height:4px;background:#312e81;border-radius:2px;overflow:hidden}
+#progf{height:100%;width:2%;background:#fbbf24;transition:width .25s ease}
+.navbtn{background:#312e81;color:#fff;border:1px solid #4338ca;border-radius:4px;padding:4px 12px;cursor:pointer;font-size:14px;line-height:1.2;font-family:inherit}
+.navbtn:hover{background:#4338ca}
+#num{min-width:66px;text-align:right;font-variant-numeric:tabular-nums}
+#hint{color:#818cf8}
+#wrap{position:fixed;top:44px;bottom:38px;left:0;right:0;display:flex;align-items:center;justify-content:center}
+#stage{width:1280px;height:720px;background:#fff;box-shadow:0 8px 34px rgba(30,27,75,.28);position:relative;transform-origin:center center;overflow:hidden}
+
+/* ---------- index overlay ---------- */
+#toc{position:fixed;inset:44px 0 38px;background:rgba(23,21,60,.975);color:#fff;z-index:35;display:none;overflow:auto;padding:22px 46px}
+#toc.on{display:block}
+#toc h3{margin:0 0 14px;font-size:15px;color:#a5b4fc;letter-spacing:.6px;text-transform:uppercase;font-weight:600}
+#toc .cols{column-count:2;column-gap:38px}
+#toc .grp{margin-bottom:16px;break-inside:avoid}
+#toc .grph{font-size:12px;color:#fbbf24;font-weight:700;letter-spacing:.8px;margin-bottom:5px;text-transform:uppercase}
+#toc a{display:block;color:#dce0f7;text-decoration:none;padding:4px 10px;border-left:2px solid #4338ca;font-size:14px}
+#toc a:hover{background:#312e81;border-left-color:#818cf8}
+#toc a.cur{background:#4338ca;border-left-color:#fbbf24;color:#fff;font-weight:600}
+#toc a .n{display:inline-block;width:28px;color:#818cf8;font-size:12px}
+
+/* ---------- notes ---------- */
+#notes{position:fixed;left:0;right:0;bottom:38px;max-height:34%;overflow:auto;background:#171540;color:#dce0f7;border-top:3px solid #fbbf24;padding:12px 22px;z-index:36;display:none;font-size:14px;line-height:1.55}
+#notes.on{display:block}
+#notes .h{font-size:11px;letter-spacing:.8px;color:#a5b4fc;font-weight:700;margin-bottom:5px;text-transform:uppercase}
+
+/* ---------- slide shell ---------- */
+.slide{position:absolute;inset:0;padding:26px 40px 20px;display:none;flex-direction:column}
+.slide.active{display:flex}
+.slide h2{margin:0 0 14px;font-size:28px;line-height:1.14;color:#1e1b4b;border-bottom:2px solid #4338ca;padding-bottom:8px;font-weight:600}
+.slide .body{flex:1;display:flex;align-items:center;justify-content:center;min-height:0}
+.slide .body.col{flex-direction:column;justify-content:center;gap:10px}
+.take{margin-top:12px;background:#fffbeb;border-left:4px solid #fbbf24;padding:9px 14px;font-size:17px;color:#4b3a10;border-radius:0 3px 3px 0;line-height:1.35}
+.take b{color:#92400e}
+
+/* title slide */
+.slide.title{justify-content:center;align-items:center;text-align:center;background:linear-gradient(135deg,#1e1b4b 0%,#4338ca 100%);color:#fff;padding:0}
+.slide.title h1{font-size:46px;margin:0 0 12px;font-weight:600;line-height:1.15}
+.slide.title .sub{font-size:21px;color:#c7d2fe;margin-bottom:26px}
+.slide.title .rule{width:120px;height:3px;background:#fbbf24;margin:0 auto 26px}
+.slide.title .meta{font-size:15px;color:#a5b4fc;line-height:1.9}
+
+/* section divider */
+.slide.div{justify-content:center;align-items:center;text-align:center;background:#f5f5fb}
+.slide.div .k{font-size:13px;letter-spacing:2px;color:#818cf8;font-weight:700;text-transform:uppercase;margin-bottom:14px}
+.slide.div h1{font-size:40px;margin:0;color:#1e1b4b;font-weight:600}
+
+/* svg text defaults */
+svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
+.lbl{font-size:12.5px;fill:#64748b;letter-spacing:.7px;font-weight:700;text-transform:uppercase}
+.bx{font-size:17px;fill:#1e1b4b;font-weight:600}
+.bxs{font-size:15px;fill:#1e1b4b;font-weight:600}
+.bd{font-size:14px;fill:#475569}
+.bds{font-size:13px;fill:#64748b}
+.big{font-size:23px;fill:#1e1b4b;font-weight:700}
+.num{font-size:26px;fill:#4338ca;font-weight:700}
+.ok{fill:#0d9488}
+.no{fill:#b91c1c}
+.am{fill:#92400e}
+
+/* quiz */
+.q .body{align-items:center}
+.qbox{width:100%}
+.qstem{font-size:23px;line-height:1.35;color:#1e1b4b;font-weight:600;margin-bottom:22px}
+.opt{display:flex;align-items:flex-start;gap:14px;padding:11px 16px;margin-bottom:10px;background:#f8f8fd;border-left:4px solid #c7d2fe;border-radius:0 4px 4px 0;font-size:19px;line-height:1.3}
+.opt .k{font-weight:700;color:#4338ca;min-width:22px}
+.opt.hit{background:#ecfdf5;border-left-color:#0d9488}
+.opt.hit .k{color:#0d9488}
+.opt.miss{opacity:.5}
+.why{margin-top:14px;background:#f5f3ff;border-left:4px solid #7c3aed;padding:10px 15px;font-size:16.5px;color:#3b2a6b;line-height:1.4;border-radius:0 3px 3px 0}
+.why b{color:#5b21b6}
+.qtag{position:absolute;top:26px;right:40px;font-size:12px;letter-spacing:1px;font-weight:700;color:#818cf8;text-transform:uppercase}
+</style>
+</head>
+<body>
+
+<div id="top">
+  <div class="l">
+    <span class="mod">Module 7 &middot; Multi-Agent System Evaluation</span>
+    <span class="sec" id="secname">&nbsp;</span>
+  </div>
+  <div class="r">
+    <button id="btoc" title="Slide index (T)">Index</button>
+    <button id="bnotes" title="Speaker notes (N)">Notes</button>
+    <a href="../resources/video-resources.html" title="Post-session video resources">Resources</a>
+  </div>
+</div>
+
+<div id="wrap"><div id="stage"></div></div>
+
+<div id="toc"><h3>Slide index</h3><div class="cols" id="toclist"></div></div>
+<div id="notes"><div class="h">Speaker notes</div><div id="notesbody"></div></div>
+
+<div id="bot">
+  <button class="navbtn" id="bprev">&#8592;</button>
+  <button class="navbtn" id="bnext">&#8594;</button>
+  <div id="prog"><div id="progf"></div></div>
+  <span id="hint">&#8592; &#8594; move &middot; T index &middot; N notes &middot; F fullscreen</span>
+  <span id="num">1 / 1</span>
+</div>
+
+<template id="deck">
+
+<svg width="0" height="0" style="position:absolute"><defs>
+<marker id="ai" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#4338ca"/></marker>
+<marker id="ag" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker>
+<marker id="aa" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#d97706"/></marker>
+<marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#b91c1c"/></marker>
+<marker id="at" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#0d9488"/></marker>
+</defs></svg>
+
+<div class="slide title" data-sec="Title" data-notes="Day 3 opens here, and the tone changes. Days 1 and 2 added capability. Today asks whether any of it is good enough to put in front of a customer, and gives them the machinery to answer that with numbers instead of a demo.">
+  <h1>Multi-Agent System Evaluation</h1>
+  <div class="sub">Module 7 &middot; Day 3 &mdash; Evaluation, Safety &amp; AgentOps</div>
+  <div class="rule"></div>
+  <div class="meta">
+    Agentic Workflows &amp; Multi-Agent Systems &middot; 3 days &middot; Advanced<br>
+    Trainer: Rajesh Gheware
+  </div>
+</div>
+
+<div class="slide" data-sec="Orientation" data-notes="Set the shift explicitly. Two days of building, one day of finding out. Point out that they have already met this module twice -- the harness in Lab 4.2 and the scorecard in Lab 5.5 were both this module arriving early, because you cannot make a design decision without it.">
+  <h2>Two days of building. Today, finding out.</h2>
+  <div class="body">
+    <svg width="1180" height="424" viewBox="0 0 1180 424" role="img" aria-label="Day 3 as the day capability stops and measurement starts">
+      <rect x="50" y="60" width="480" height="180" rx="8" fill="#f8f8fd" stroke="#cbd5e1" stroke-width="2"/>
+      <text x="290" y="92" text-anchor="middle" class="lbl">Days 1 and 2</text>
+      <text x="290" y="130" text-anchor="middle" class="bx">It can do more</text>
+      <text x="290" y="166" text-anchor="middle" class="bd">reason, remember, act, collaborate, read</text>
+      <text x="290" y="200" text-anchor="middle" class="bds">every module added a capability</text>
+      <text x="290" y="224" text-anchor="middle" class="bds no">and none of them proved it works</text>
+
+      <rect x="650" y="60" width="480" height="180" rx="8" fill="#eef2ff" stroke="#4338ca" stroke-width="2.5"/>
+      <text x="890" y="92" text-anchor="middle" class="lbl">Day 3</text>
+      <text x="890" y="130" text-anchor="middle" class="bx">Is it good enough?</text>
+      <text x="890" y="166" text-anchor="middle" class="bd">measure it &middot; make it safe &middot; run it</text>
+      <text x="890" y="200" text-anchor="middle" class="bds">nothing new gets added today</text>
+      <text x="890" y="224" text-anchor="middle" class="bds ok">which is what makes it shippable</text>
+
+      <line x1="536" y1="150" x2="644" y2="150" stroke="#4338ca" stroke-width="3" marker-end="url(#ai)"/>
+
+      <rect x="150" y="270" width="880" height="138" rx="6" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
+      <text x="590" y="302" text-anchor="middle" class="bxs am">You have met this module twice already</text>
+      <text x="186" y="336" class="bd">&bull;&nbsp; <tspan font-weight="600">Lab 4.2</tspan> built an eval set, an accuracy and a confusion table &mdash; and found no effect</text>
+      <text x="186" y="366" class="bd">&bull;&nbsp; <tspan font-weight="600">Lab 5.5</tspan> priced a graph against a single agent and let &ldquo;don't&rdquo; be an answer</text>
+      <text x="590" y="398" text-anchor="middle" class="bds">Both arrived early because you cannot make a design decision without them. Today they get rigorous.</text>
+    </svg>
+  </div>
+</div>
+
+<div class="slide div" data-sec="Non-determinism" data-notes="Part one. The claim that makes everything else necessary, and the one people nod at without changing any of their practices.">
+  <div class="k">Part one</div>
+  <h1>Why the demo proved nothing</h1>
+</div>
+
+<div class="slide" data-sec="Non-determinism" data-notes="The opening claim, and worth being concrete. Temperature zero does not make an agent deterministic: tool ordering, retrieval ties, timeouts, and the model's own non-determinism at scale all move. Ask who has shipped on the strength of a good demo. Everyone has.">
+  <h2>Same input, twice, two different runs</h2>
+  <div class="body">
+    <svg width="1180" height="424" viewBox="0 0 1180 424" role="img" aria-label="The same input producing different agent runs">
+      <text x="590" y="46" text-anchor="middle" class="lbl">one case, submitted three times</text>
+
+      <rect x="70" y="66" width="330" height="120" rx="8" fill="#f0fdf9" stroke="#0d9488" stroke-width="2.5"/>
+      <text x="235" y="96" text-anchor="middle" class="bxs ok">run 1</text>
+      <text x="235" y="126" text-anchor="middle" class="bds">read &rarr; policy &rarr; recommend</text>
+      <text x="235" y="152" text-anchor="middle" class="bds">3 steps &middot; 1,420 tokens</text>
+      <text x="235" y="176" text-anchor="middle" class="bds ok">correct</text>
+
+      <rect x="425" y="66" width="330" height="120" rx="8" fill="#f0fdf9" stroke="#0d9488" stroke-width="2.5"/>
+      <text x="590" y="96" text-anchor="middle" class="bxs ok">run 2</text>
+      <text x="590" y="126" text-anchor="middle" class="bds">read &rarr; policy &rarr; policy &rarr; recommend</text>
+      <text x="590" y="152" text-anchor="middle" class="bds">4 steps &middot; 1,980 tokens</text>
+      <text x="590" y="176" text-anchor="middle" class="bds ok">correct</text>
+
+      <rect x="780" y="66" width="330" height="120" rx="8" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
+      <text x="945" y="96" text-anchor="middle" class="bxs no">run 3</text>
+      <text x="945" y="126" text-anchor="middle" class="bds">read &rarr; recommend</text>
+      <text x="945" y="152" text-anchor="middle" class="bds">2 steps &middot; 890 tokens</text>
+      <text x="945" y="176" text-anchor="middle" class="bds no">wrong &mdash; never read the policy</text>
+
+      <text x="590" y="222" text-anchor="middle" class="bd">Same case file. Same prompts. Same model. Temperature zero.</text>
+
+      <rect x="120" y="246" width="940" height="162" rx="6" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
+      <text x="590" y="278" text-anchor="middle" class="bxs am">Temperature zero is not determinism, and never was</text>
+      <text x="156" y="312" class="bd">&bull;&nbsp; floating-point non-associativity: batching and hardware change the arithmetic</text>
+      <text x="156" y="342" class="bd">&bull;&nbsp; ties in retrieval and tool ranking break arbitrarily</text>
+      <text x="156" y="372" class="bd">&bull;&nbsp; timeouts, retries and rate limits change the path, not just the timing</text>
+      <text x="590" y="400" text-anchor="middle" class="bds">A demo is one sample. You watched run 1 and shipped. Run 3 was always in there.</text>
+    </svg>
+  </div>
+</div>
+
+<div class="slide" data-sec="Non-determinism" data-notes="The practical consequence, and the arithmetic that stops a pointless argument. If one case is worth ten points, a ten-point difference is one coin flip -- exactly what Lab 4.2 found. Give them the rule of thumb and the honest caveat that it is a rule of thumb.">
+  <h2>So a number without an interval is an anecdote</h2>
+  <div class="body">
+    <svg width="1180" height="424" viewBox="0 0 1180 424" role="img" aria-label="Pass rates with and without repeats and intervals">
+      <rect x="50" y="56" width="500" height="188" rx="8" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
+      <text x="300" y="88" text-anchor="middle" class="lbl no">What gets reported</text>
+      <text x="300" y="132" text-anchor="middle" class="big no">&ldquo;v2 scores 80%&rdquo;</text>
+      <text x="300" y="170" text-anchor="middle" class="bd">ten cases, one run each</text>
+      <text x="300" y="202" text-anchor="middle" class="bds">v1 scored 70%, so v2 is better</text>
+      <text x="300" y="228" text-anchor="middle" class="bds no">and the meeting moves on</text>
+
+      <rect x="630" y="56" width="500" height="188" rx="8" fill="#f0fdf9" stroke="#0d9488" stroke-width="2.5"/>
+      <text x="880" y="88" text-anchor="middle" class="lbl ok">What was measured</text>
+      <text x="880" y="132" text-anchor="middle" class="big ok">8/10, once</text>
+      <text x="880" y="170" text-anchor="middle" class="bd">one case is worth ten points</text>
+      <text x="880" y="202" text-anchor="middle" class="bds">so 70% and 80% are one flip apart</text>
+      <text x="880" y="228" text-anchor="middle" class="bds ok">nothing has been shown</text>
+
+      <rect x="120" y="272" width="940" height="136" rx="6" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
+      <text x="590" y="304" text-anchor="middle" class="bxs am">The rule: if one case is worth more than the difference you are claiming, you have not measured anything</text>
+      <text x="156" y="340" class="bd">&bull;&nbsp; <tspan font-weight="600">Repeat</tspan> &mdash; the same case several times, because the variance is inside the run, not the case</text>
+      <text x="156" y="370" class="bd">&bull;&nbsp; <tspan font-weight="600">Widen</tspan> &mdash; more cases lower the value of each one, which is what buys resolution</text>
+      <text x="156" y="398" class="bd">&bull;&nbsp; <tspan font-weight="600">Report a range</tspan> &mdash; &ldquo;78&ndash;86%&rdquo; ends arguments that &ldquo;80%&rdquo; starts</text>
+    </svg>
+  </div>
+</div>
+
+<div class="slide div" data-sec="Assertions" data-notes="Part two. What you actually write down, and the distinction that catches the bugs an output check cannot see.">
+  <div class="k">Part two</div>
+  <h1>What to assert</h1>
+</div>
+
+<div class="slide" data-sec="Assertions" data-notes="The most useful distinction in the module. An outcome assertion is what everyone writes; a trajectory assertion is what catches the agent that got there by luck, by brute force, or by doing something it should never have done and then undoing it. The bottom row is the one to dwell on -- it passed.">
+  <h2>Outcome, and how it got there</h2>
+  <div class="body">
+    <svg width="1180" height="424" viewBox="0 0 1180 424" role="img" aria-label="Outcome assertions compared with trajectory assertions">
+      <rect x="50" y="52" width="500" height="212" rx="8" fill="#f8f8fd" stroke="#94a3b8" stroke-width="2"/>
+      <text x="300" y="84" text-anchor="middle" class="lbl">Outcome assertions</text>
+      <text x="300" y="120" text-anchor="middle" class="bxs">did it end in the right place?</text>
+      <text x="76" y="158" class="bds">&bull; the recommendation is &ldquo;hold for a human&rdquo;</text>
+      <text x="76" y="188" class="bds">&bull; the answer cites section 3.2</text>
+      <text x="76" y="218" class="bds">&bull; no payment was released</text>
+      <text x="300" y="250" text-anchor="middle" class="bds">easy to write, and everybody writes them</text>
+
+      <rect x="630" y="52" width="500" height="212" rx="8" fill="#eef2ff" stroke="#4338ca" stroke-width="2.5"/>
+      <text x="880" y="84" text-anchor="middle" class="lbl">Trajectory assertions</text>
+      <text x="880" y="120" text-anchor="middle" class="bxs">did it get there properly?</text>
+      <text x="656" y="158" class="bds">&bull; it read the policy before recommending</text>
+      <text x="656" y="188" class="bds">&bull; it took 3 steps, not 9</text>
+      <text x="656" y="218" class="bds">&bull; it never called release_payment at all</text>
+      <text x="880" y="250" text-anchor="middle" class="bds ok">only possible if you kept the trace</text>
+
+      <rect x="120" y="292" width="940" height="116" rx="6" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
+      <text x="590" y="324" text-anchor="middle" class="bx no">The run that passes every outcome assertion</text>
+      <text x="590" y="356" text-anchor="middle" class="bd">It called <tspan font-weight="600">release_payment</tspan>, the gate refused it, it apologised, and it recommended a hold.</text>
+      <text x="590" y="384" text-anchor="middle" class="bd">Right answer. Nothing released. Every outcome assertion green &mdash; and it tried.</text>
+      <text x="590" y="402" text-anchor="middle" class="bds no">You will never see it without a trajectory assertion, and it is the one you needed to see.</text>
+    </svg>
+  </div>
+</div>
+
+<div class="slide" data-sec="Assertions" data-notes="The composition of the eval set. Most teams have only the first column, which is why their pass rate is high and their incidents are surprising. The third column is the one that grows after every incident -- that is the healthy pattern, and it is how the set earns its keep over years.">
+  <h2>Three kinds of case, and only one of them is comfortable</h2>
+  <div class="body">
+    <svg width="1180" height="424" viewBox="0 0 1180 424" role="img" aria-label="Representative, edge and adversarial cases in an eval set">
+      <rect x="50" y="56" width="345" height="216" rx="8" fill="#f0fdf9" stroke="#0d9488" stroke-width="2.5"/>
+      <text x="222" y="88" text-anchor="middle" class="lbl ok">Representative</text>
+      <text x="222" y="124" text-anchor="middle" class="bxs">the traffic you expect</text>
+      <text x="222" y="162" text-anchor="middle" class="bds">a failed payment, a known</text>
+      <text x="222" y="184" text-anchor="middle" class="bds">reason code, a clear policy</text>
+      <text x="222" y="222" text-anchor="middle" class="bd">tells you it works</text>
+      <text x="222" y="252" text-anchor="middle" class="bds no">and almost nothing else</text>
+
+      <rect x="418" y="56" width="345" height="216" rx="8" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
+      <text x="590" y="88" text-anchor="middle" class="lbl am">Edge</text>
+      <text x="590" y="124" text-anchor="middle" class="bxs">real, rare, and awkward</text>
+      <text x="590" y="162" text-anchor="middle" class="bds">a reason code with no policy,</text>
+      <text x="590" y="184" text-anchor="middle" class="bds">a payment that settled while</text>
+      <text x="590" y="206" text-anchor="middle" class="bds">the agent was thinking</text>
+      <text x="590" y="240" text-anchor="middle" class="bd am">tells you what it does</text>
+      <text x="590" y="262" text-anchor="middle" class="bds am">when it does not know</text>
+
+      <rect x="786" y="56" width="345" height="216" rx="8" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
+      <text x="958" y="88" text-anchor="middle" class="lbl no">Adversarial</text>
+      <text x="958" y="124" text-anchor="middle" class="bxs">someone is trying</text>
+      <text x="958" y="162" text-anchor="middle" class="bds">an instruction in a narrative</text>
+      <text x="958" y="184" text-anchor="middle" class="bds">field, a poisoned chunk,</text>
+      <text x="958" y="206" text-anchor="middle" class="bds">a tool result that lies</text>
+      <text x="958" y="240" text-anchor="middle" class="bd no">tells you what it does</text>
+      <text x="958" y="262" text-anchor="middle" class="bds no">when it is attacked</text>
+
+      <rect x="150" y="300" width="880" height="108" rx="6" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
+      <text x="590" y="332" text-anchor="middle" class="bxs am">Every incident becomes a case, permanently</text>
+      <text x="590" y="364" text-anchor="middle" class="bd">That is the mechanism by which the same failure cannot happen twice &mdash; and it is</text>
+      <text x="590" y="390" text-anchor="middle" class="bd">the only part of this that gets more valuable the longer the system runs.</text>
+    </svg>
+  </div>
+</div>
+
+<div class="slide div" data-sec="Traces" data-notes="Part three. You cannot assert on a trajectory you did not record, so this is the enabling machinery for everything in part two.">
+  <div class="k">Part three</div>
+  <h1>Seeing inside the run</h1>
+</div>
+
+<div class="slide" data-sec="Traces" data-notes="The structural point: a trace is a tree and the structure carries the information. Logs tell you what happened; a span tree tells you what happened inside what, which is the only way to attribute cost, time or blame. Note that they build this by hand in Lab 7.2 -- about forty lines, and then LangFuse is recognisable rather than magic.">
+  <h2>A trace is a tree, not a log</h2>
+  <div class="body">
+    <svg width="1180" height="424" viewBox="0 0 1180 424" role="img" aria-label="A flat log compared with a nested span tree">
+      <rect x="50" y="52" width="470" height="296" rx="8" fill="#f8f8fd" stroke="#94a3b8" stroke-width="2"/>
+      <text x="285" y="84" text-anchor="middle" class="lbl">A log</text>
+      <text x="76" y="120" class="bds">09:14:02 supervisor routing</text>
+      <text x="76" y="148" class="bds">09:14:02 ledger lookup PMT-1003</text>
+      <text x="76" y="176" class="bds">09:14:03 policy_for LIMIT_BREACH</text>
+      <text x="76" y="204" class="bds">09:14:05 retrieval 4 chunks</text>
+      <text x="76" y="232" class="bds">09:14:09 writer drafted</text>
+      <text x="76" y="260" class="bds">09:14:09 done</text>
+      <text x="285" y="302" text-anchor="middle" class="bds no">what happened, in order</text>
+      <text x="285" y="328" text-anchor="middle" class="bds no">and nothing about what caused what</text>
+
+      <rect x="600" y="52" width="530" height="296" rx="8" fill="#eef2ff" stroke="#4338ca" stroke-width="2.5"/>
+      <text x="865" y="84" text-anchor="middle" class="lbl">A span tree</text>
+      <text x="626" y="120" class="bds">run&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;7.1s&nbsp;&nbsp;3,180 tok</text>
+      <text x="650" y="148" class="bds">&#9492; supervisor&nbsp;&nbsp;0.4s&nbsp;&nbsp;&nbsp;&nbsp;120 tok</text>
+      <text x="650" y="176" class="bds">&#9492; ledger&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;0.9s&nbsp;&nbsp;&nbsp;&nbsp;380 tok</text>
+      <text x="674" y="204" class="bds">&#9492; tool: lookup&nbsp;0.8s</text>
+      <text x="650" y="232" class="bds">&#9492; policy&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4.1s&nbsp;&nbsp;&nbsp;&nbsp;420 tok</text>
+      <text x="674" y="260" class="bds am">&#9492; retrieval&nbsp;&nbsp;&nbsp;3.9s&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;12 tok</text>
+      <text x="650" y="288" class="bds">&#9492; writer&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1.7s&nbsp;&nbsp;2,260 tok</text>
+      <text x="865" y="326" text-anchor="middle" class="bds ok">the nesting is the information</text>
+
+      <rect x="150" y="366" width="880" height="46" rx="6" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
+      <text x="590" y="395" text-anchor="middle" class="bxs am">You build this in Lab 7.2 &mdash; about forty lines &mdash; and then the tooling is recognisable, not magic</text>
+    </svg>
+  </div>
+</div>
+
+<div class="slide" data-sec="Traces" data-notes="The slide that redirects optimisation effort. Time and money are almost never in the same span: retrieval is slow and nearly free, generation is fast and expensive. A team that optimises the biggest number on the wrong axis works hard and saves nothing. Read the two arrows off the previous slide's numbers.">
+  <h2>The slowest step and the dearest step are not the same step</h2>
+  <div class="body">
+    <svg width="1180" height="424" viewBox="0 0 1180 424" role="img" aria-label="Latency breakdown against token cost breakdown for the same run">
+      <text x="300" y="52" text-anchor="middle" class="lbl">Where the 7.1 seconds went</text>
+      <rect x="70" y="72" width="55" height="36" rx="4" fill="#818cf8"/><text x="140" y="96" class="bds">supervisor 0.4s</text>
+      <rect x="70" y="118" width="124" height="36" rx="4" fill="#818cf8"/><text x="210" y="142" class="bds">ledger 0.9s</text>
+      <rect x="70" y="164" width="425" height="36" rx="4" fill="#b91c1c"/><text x="70" y="222" class="bds no">retrieval 3.9s &mdash; 55% of the wall clock</text>
+      <rect x="70" y="238" width="234" height="36" rx="4" fill="#818cf8"/><text x="320" y="262" class="bds">writer 1.7s</text>
+
+      <line x1="590" y1="44" x2="590" y2="392" stroke="#e2e8f0" stroke-width="2"/>
+
+      <text x="880" y="52" text-anchor="middle" class="lbl">Where the 3,180 tokens went</text>
+      <rect x="650" y="72" width="17" height="36" rx="4" fill="#818cf8"/><text x="690" y="96" class="bds">supervisor 120</text>
+      <rect x="650" y="118" width="54" height="36" rx="4" fill="#818cf8"/><text x="730" y="142" class="bds">ledger 380</text>
+      <rect x="650" y="164" width="2" height="36" rx="4" fill="#0d9488"/><text x="670" y="188" class="bds ok">retrieval 12 &mdash; free</text>
+      <rect x="650" y="212" width="320" height="36" rx="4" fill="#b91c1c"/><text x="650" y="270" class="bds no">writer 2,260 &mdash; 71% of the bill</text>
+
+      <rect x="120" y="300" width="940" height="108" rx="6" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
+      <text x="590" y="332" text-anchor="middle" class="bxs am">Same run, two different villains</text>
+      <text x="590" y="364" text-anchor="middle" class="bd">Cache the retrieval and the run gets fast and no cheaper. Shorten the writer's context</text>
+      <text x="590" y="390" text-anchor="middle" class="bd">and the bill drops and nobody notices the speed. Know which one you were asked to fix.</text>
+    </svg>
+  </div>
+</div>
+
+<div class="slide" data-sec="Traces" data-notes="Attribution. Without a trace the only available diagnosis is 'the agent was wrong', which is not actionable and lands on whoever owns the agent. With one, you can name the step. Walk the ladder: it is a decision procedure they can apply to a failing case on Monday.">
+  <h2>Which step actually caused it?</h2>
+  <div class="body">
+    <svg width="1180" height="424" viewBox="0 0 1180 424" role="img" aria-label="A decision ladder for attributing a failure to a step">
+      <rect x="60" y="56" width="1060" height="52" rx="6" fill="#f8f8fd" stroke="#4338ca" stroke-width="2"/>
+      <text x="86" y="88" class="bds"><tspan font-weight="700">1</tspan>&nbsp;&nbsp; Did the right evidence reach the agent? &nbsp;&mdash;&nbsp; if not, it is <tspan font-weight="600">retrieval</tspan>, and Module 6 is where you go</text>
+      <rect x="60" y="120" width="1060" height="52" rx="6" fill="#f8f8fd" stroke="#4338ca" stroke-width="2"/>
+      <text x="86" y="152" class="bds"><tspan font-weight="700">2</tspan>&nbsp;&nbsp; Did a tool return an error the agent ignored? &nbsp;&mdash;&nbsp; if so, it is the <tspan font-weight="600">tool contract</tspan> or the loop</text>
+      <rect x="60" y="184" width="1060" height="52" rx="6" fill="#f8f8fd" stroke="#4338ca" stroke-width="2"/>
+      <text x="86" y="216" class="bds"><tspan font-weight="700">3</tspan>&nbsp;&nbsp; Did the supervisor send it to the wrong specialist? &nbsp;&mdash;&nbsp; <tspan font-weight="600">routing</tspan>, and Lab 5.1 measures it</text>
+      <rect x="60" y="248" width="1060" height="52" rx="6" fill="#f8f8fd" stroke="#4338ca" stroke-width="2"/>
+      <text x="86" y="280" class="bds"><tspan font-weight="700">4</tspan>&nbsp;&nbsp; Did a handoff drop a constraint? &nbsp;&mdash;&nbsp; <tspan font-weight="600">the message</tspan>, and both agents were behaving correctly</text>
+      <rect x="60" y="312" width="1060" height="52" rx="6" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
+      <text x="86" y="344" class="bds am"><tspan font-weight="700">5</tspan>&nbsp;&nbsp; Only now: the evidence was there, complete, and the model still got it wrong &nbsp;&mdash;&nbsp; <tspan font-weight="600">generation</tspan></text>
+
+      <text x="590" y="398" text-anchor="middle" class="bd no">Without a trace, every one of these is reported as &ldquo;the agent hallucinated&rdquo; &mdash; and four of the five are not.</text>
+    </svg>
+  </div>
+</div>
+
+<div class="slide div" data-sec="Scoring" data-notes="Part four. How a run becomes a number, and what it costs to get each kind.">
+  <div class="k">Part four</div>
+  <h1>Turning a run into a number</h1>
+</div>
+
+<div class="slide" data-sec="Scoring" data-notes="Three kinds of score with three different economics. The middle column is the one to be careful about: an LLM judge is broad and cheap and you now have two systems whose agreement with a human is unknown. Say plainly that a judge needs its own eval set, which is the recursion everyone discovers late.">
+  <h2>Three ways to score, and what each one costs you</h2>
+  <div class="body">
+    <svg width="1180" height="424" viewBox="0 0 1180 424" role="img" aria-label="Programmatic, model-judged and human scoring compared">
+      <rect x="50" y="56" width="345" height="240" rx="8" fill="#f0fdf9" stroke="#0d9488" stroke-width="2.5"/>
+      <text x="222" y="88" text-anchor="middle" class="lbl ok">Programmatic</text>
+      <text x="222" y="124" text-anchor="middle" class="bxs">an assertion in code</text>
+      <text x="222" y="162" text-anchor="middle" class="bds">free, instant, identical</text>
+      <text x="222" y="184" text-anchor="middle" class="bds">every time, and auditable</text>
+      <text x="222" y="222" text-anchor="middle" class="bd am">only fits narrow questions</text>
+      <text x="222" y="252" text-anchor="middle" class="bds">&ldquo;did it release anything?&rdquo;</text>
+      <text x="222" y="278" text-anchor="middle" class="bds ok">use wherever it fits at all</text>
+
+      <rect x="418" y="56" width="345" height="240" rx="8" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
+      <text x="590" y="88" text-anchor="middle" class="lbl am">Model-judged</text>
+      <text x="590" y="124" text-anchor="middle" class="bxs">ask a model to grade it</text>
+      <text x="590" y="162" text-anchor="middle" class="bds">handles judgement calls</text>
+      <text x="590" y="184" text-anchor="middle" class="bds">a rule cannot express</text>
+      <text x="590" y="222" text-anchor="middle" class="bd no">now you have two systems</text>
+      <text x="590" y="252" text-anchor="middle" class="bds no">and the judge needs its own</text>
+      <text x="590" y="274" text-anchor="middle" class="bds no">eval set, against humans</text>
+
+      <rect x="786" y="56" width="345" height="240" rx="8" fill="#f8f8fd" stroke="#94a3b8" stroke-width="2"/>
+      <text x="958" y="88" text-anchor="middle" class="lbl">Human</text>
+      <text x="958" y="124" text-anchor="middle" class="bxs">the ground truth</text>
+      <text x="958" y="162" text-anchor="middle" class="bds">expensive, slow, and the</text>
+      <text x="958" y="184" text-anchor="middle" class="bds">only thing the other two</text>
+      <text x="958" y="206" text-anchor="middle" class="bds">are approximating</text>
+      <text x="958" y="244" text-anchor="middle" class="bd">spend it on the cases that</text>
+      <text x="958" y="266" text-anchor="middle" class="bd">calibrate the judge</text>
+
+      <rect x="150" y="324" width="880" height="84" rx="6" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
+      <text x="590" y="354" text-anchor="middle" class="bxs am">Reach for the left column first, every time</text>
+      <text x="590" y="386" text-anchor="middle" class="bds">&ldquo;Did it call release_payment?&rdquo; is a line of code. &ldquo;Was the tone appropriate?&rdquo; is not.</text>
+      <text x="590" y="404" text-anchor="middle" class="bds">Most teams reach for the judge first, and then cannot say how good the judge is.</text>
+    </svg>
+  </div>
+</div>
+
+<div class="slide" data-sec="Scoring" data-notes="The operational discipline. An edit in place is an unmeasured deploy -- and the reason nobody can answer 'what changed?' after a regression. Note the last box: this is exactly how you already treat code, and nobody finds it controversial there.">
+  <h2>A prompt is a deployed artifact, not a text box</h2>
+  <div class="body">
+    <svg width="1180" height="424" viewBox="0 0 1180 424" role="img" aria-label="Editing a prompt in place versus versioning and rolling it out">
+      <rect x="50" y="56" width="500" height="230" rx="8" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
+      <text x="300" y="88" text-anchor="middle" class="lbl no">Edited in place</text>
+      <text x="300" y="126" text-anchor="middle" class="bxs no">someone improved the wording</text>
+      <text x="76" y="166" class="bd">&bull; no version, so no rollback</text>
+      <text x="76" y="200" class="bd">&bull; no eval run, so no idea what it did</text>
+      <text x="76" y="234" class="bd">&bull; no record of who, or when, or why</text>
+      <text x="300" y="268" text-anchor="middle" class="bds no">&ldquo;it got worse last Tuesday&rdquo; is now unanswerable</text>
+
+      <rect x="630" y="56" width="500" height="230" rx="8" fill="#f0fdf9" stroke="#0d9488" stroke-width="2.5"/>
+      <text x="880" y="88" text-anchor="middle" class="lbl ok">Versioned and rolled out</text>
+      <text x="880" y="126" text-anchor="middle" class="bxs ok">prompt v7 &rarr; eval &rarr; 10% &rarr; 100%</text>
+      <text x="656" y="166" class="bd">&bull; every version has a score on the same set</text>
+      <text x="656" y="200" class="bd">&bull; rollback is selecting the previous one</text>
+      <text x="656" y="234" class="bd">&bull; the diff and the delta sit side by side</text>
+      <text x="880" y="268" text-anchor="middle" class="bds ok">and a regression names its own cause</text>
+
+      <rect x="150" y="312" width="880" height="96" rx="6" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
+      <text x="590" y="344" text-anchor="middle" class="bxs am">This is how you already treat code, and nobody argues about it there</text>
+      <text x="590" y="376" text-anchor="middle" class="bd">The prompt is the highest-leverage, least-governed file in the system: it changes behaviour</text>
+      <text x="590" y="400" text-anchor="middle" class="bd">more than a model swap does, and in most teams it is edited by whoever noticed something.</text>
+    </svg>
+  </div>
+</div>
+
+<div class="slide" data-sec="Scoring" data-notes="Offline and online answer different questions and neither replaces the other. The offline set is a regression gate you own; traffic is the only thing that contains the cases you failed to imagine. The bottom line matters for a bank: A/B on real payments has a blast radius, so the gate comes first.">
+  <h2>Your eval set and real traffic answer different questions</h2>
+  <div class="body">
+    <svg width="1180" height="424" viewBox="0 0 1180 424" role="img" aria-label="Offline eval set compared with online A/B on real traffic">
+      <rect x="50" y="56" width="500" height="240" rx="8" fill="#eef2ff" stroke="#4338ca" stroke-width="2.5"/>
+      <text x="300" y="88" text-anchor="middle" class="lbl">Offline, on your eval set</text>
+      <text x="300" y="126" text-anchor="middle" class="bxs">&ldquo;did I break anything I knew about?&rdquo;</text>
+      <text x="76" y="166" class="bd">&bull; runs before deploy, costs nothing but tokens</text>
+      <text x="76" y="200" class="bd">&bull; deterministic set, comparable across versions</text>
+      <text x="76" y="234" class="bd">&bull; catches regressions, which is most of the value</text>
+      <text x="300" y="272" text-anchor="middle" class="bds no">blind to every case you did not think of</text>
+
+      <rect x="630" y="56" width="500" height="240" rx="8" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
+      <text x="880" y="88" text-anchor="middle" class="lbl am">Online, on real traffic</text>
+      <text x="880" y="126" text-anchor="middle" class="bxs am">&ldquo;what happens on cases I never imagined?&rdquo;</text>
+      <text x="656" y="166" class="bd">&bull; the only source of genuinely new cases</text>
+      <text x="656" y="200" class="bd">&bull; needs volume before a difference is real</text>
+      <text x="656" y="234" class="bd am">&bull; and the losing arm happens to actual customers</text>
+      <text x="880" y="272" text-anchor="middle" class="bds am">so it goes behind the gate, never instead of it</text>
+
+      <rect x="150" y="322" width="880" height="86" rx="6" fill="#f0fdf9" stroke="#0d9488" stroke-width="2.5"/>
+      <text x="590" y="354" text-anchor="middle" class="bxs ok">The loop that makes both worth having</text>
+      <text x="590" y="386" text-anchor="middle" class="bd">traffic surfaces a failure &rarr; the failure becomes a case &rarr; the case joins the offline set forever</text>
+      <text x="590" y="404" text-anchor="middle" class="bds">After a year the offline set is a record of everything that has ever gone wrong. That is the asset.</text>
+    </svg>
+  </div>
+</div>
+
+<div class="slide div" data-sec="Gates" data-notes="Part five, and the shortest. One idea, and it is the difference between a team that measures and a team that is governed by what it measures.">
+  <div class="k">Part five</div>
+  <h1>A number nobody blocks on</h1>
+</div>
+
+<div class="slide" data-sec="Gates" data-notes="Close the module here. A dashboard is a report; a gate is a decision that has already been made. The three thresholds on the right are the deliverable of Lab 7.5 -- and note the last line: a gate you routinely override is a report with extra steps, so agree the override path in advance.">
+  <h2>A dashboard is a report. A gate is a decision.</h2>
+  <div class="body">
+    <svg width="1180" height="424" viewBox="0 0 1180 424" role="img" aria-label="Metrics as a dashboard compared with metrics as release gates">
+      <rect x="50" y="56" width="500" height="228" rx="8" fill="#f8f8fd" stroke="#94a3b8" stroke-width="2"/>
+      <text x="300" y="88" text-anchor="middle" class="lbl">As a report</text>
+      <text x="300" y="126" text-anchor="middle" class="bxs">&ldquo;cost per case is up 40%&rdquo;</text>
+      <text x="76" y="166" class="bd">&bull; someone sees it, eventually</text>
+      <text x="76" y="200" class="bd">&bull; it competes with the roadmap</text>
+      <text x="76" y="234" class="bd">&bull; it is a topic, not an outcome</text>
+      <text x="300" y="266" text-anchor="middle" class="bds no">the deploy already happened</text>
+
+      <rect x="630" y="56" width="500" height="228" rx="8" fill="#f0fdf9" stroke="#0d9488" stroke-width="2.5"/>
+      <text x="880" y="88" text-anchor="middle" class="lbl ok">As a gate</text>
+      <text x="880" y="126" text-anchor="middle" class="bxs ok">the build fails</text>
+      <text x="656" y="166" class="bd">&bull; quality &ge; the current version, on the same set</text>
+      <text x="656" y="200" class="bd">&bull; cost per case &le; an agreed ceiling</text>
+      <text x="656" y="234" class="bd">&bull; p95 latency &le; an agreed ceiling</text>
+      <text x="880" y="266" text-anchor="middle" class="bds ok">the deploy does not happen</text>
+
+      <rect x="120" y="310" width="940" height="98" rx="6" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
+      <text x="590" y="342" text-anchor="middle" class="bxs am">Set the thresholds while nobody is under pressure</text>
+      <text x="590" y="374" text-anchor="middle" class="bd">A gate agreed in a calm week gets respected in a bad one. A gate invented during an incident</text>
+      <text x="590" y="398" text-anchor="middle" class="bd">is a negotiation &mdash; and a gate you routinely override is a report with extra steps.</text>
+    </svg>
+  </div>
+</div>
+
+<div class="slide" data-sec="Recap" data-notes="Tie it together. The single sentence: you cannot govern what you cannot see, and you cannot see an agent without a trace. Then hand over to Module 8, which turns some of these measurements into controls.">
+  <h2>What this module actually changed</h2>
+  <div class="body">
+    <svg width="1180" height="420" viewBox="0 0 1180 420" role="img" aria-label="Recap of Module 7 in four statements">
+      <rect x="60" y="56" width="510" height="146" rx="8" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
+      <text x="315" y="88" text-anchor="middle" class="lbl no">The premise</text>
+      <text x="315" y="126" text-anchor="middle" class="bx no">One run tells you almost nothing</text>
+      <text x="315" y="160" text-anchor="middle" class="bd">repeat, widen, and report a range</text>
+      <text x="315" y="184" text-anchor="middle" class="bd">&mdash; temperature zero was never determinism</text>
+
+      <rect x="610" y="56" width="510" height="146" rx="8" fill="#eef2ff" stroke="#4338ca" stroke-width="2.5"/>
+      <text x="865" y="88" text-anchor="middle" class="lbl">What to assert</text>
+      <text x="865" y="126" text-anchor="middle" class="bx">Outcome and trajectory</text>
+      <text x="865" y="160" text-anchor="middle" class="bd">the run that tried to release and was refused</text>
+      <text x="865" y="184" text-anchor="middle" class="bd">passes every outcome check you wrote</text>
+
+      <rect x="60" y="222" width="510" height="146" rx="8" fill="#f8f8fd" stroke="#c7d2fe" stroke-width="2"/>
+      <text x="315" y="254" text-anchor="middle" class="lbl">What to keep</text>
+      <text x="315" y="292" text-anchor="middle" class="bx">A span tree, not a log</text>
+      <text x="315" y="326" text-anchor="middle" class="bd">the slowest step and the dearest step differ,</text>
+      <text x="315" y="350" text-anchor="middle" class="bd">and attribution needs the nesting</text>
+
+      <rect x="610" y="222" width="510" height="146" rx="8" fill="#f0fdf9" stroke="#0d9488" stroke-width="2.5"/>
+      <text x="865" y="254" text-anchor="middle" class="lbl ok">What to do with it</text>
+      <text x="865" y="292" text-anchor="middle" class="bx ok">Gate, do not report</text>
+      <text x="865" y="326" text-anchor="middle" class="bd">version the prompt, score every version,</text>
+      <text x="865" y="350" text-anchor="middle" class="bd">and let the build fail</text>
+
+      <text x="590" y="404" text-anchor="middle" class="bd">Next: Module 8 turns some of these measurements into controls that hold when the model does not.</text>
+    </svg>
+  </div>
+</div>
+
+<div class="slide div" data-sec="Knowledge check" data-notes="Eight questions. Question 3 is the one that changes what they write on Monday; question 6 is the one senior people argue about, and the argument is worth having.">
+  <div class="k">Knowledge check</div>
+  <h1>Eight questions</h1>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer D. If the room reaches for A, that is the whole problem -- hours are lost hunting a bug that is not there.">
+  <div class="qtag">Question 1 of 8</div>
+  <h2>Temperature zero, two different runs</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">You set temperature to 0 and submit the same case twice. The agent takes three steps the first time and four the second. What is the most likely explanation?</div>
+    <div class="opt"><span class="k">A</span><span>A bug in your agent loop</span></div>
+    <div class="opt"><span class="k">B</span><span>The temperature setting was not applied</span></div>
+    <div class="opt"><span class="k">C</span><span>Something changed in the case file between the runs</span></div>
+    <div class="opt"><span class="k">D</span><span>Temperature zero was never determinism &mdash; batching arithmetic, tie-breaking and retries all move the path</span></div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer D. If the room reaches for A, that is the whole problem -- hours are lost hunting a bug that is not there.">
+  <div class="qtag">Answer 1 of 8</div>
+  <h2>Temperature zero, two different runs</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">You set temperature to 0 and submit the same case twice. The agent takes three steps the first time and four the second. What is the most likely explanation?</div>
+    <div class="opt miss"><span class="k">A</span><span>A bug in your agent loop</span></div>
+    <div class="opt miss"><span class="k">B</span><span>The temperature setting was not applied</span></div>
+    <div class="opt miss"><span class="k">C</span><span>Something changed in the case file between the runs</span></div>
+    <div class="opt hit"><span class="k">D</span><span>Temperature zero was never determinism &mdash; batching arithmetic, tie-breaking and retries all move the path</span></div>
+    <div class="why"><b>Why:</b> Temperature 0 makes sampling greedy; it does not make the arithmetic reproducible, and it does nothing about a retrieval tie or a retried call. Reaching for A costs you an afternoon looking for a bug that is not there &mdash; and, worse, teaches you to distrust the harness.</div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer A. C is the trap for careful people: 'confirm with a second run' still asserts v2 is better, and it is the sentence that gets quoted without the caveat.">
+  <div class="qtag">Question 2 of 8</div>
+  <h2>Seven out of ten, then eight</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">On your ten-case eval set, v1 scored 7/10 and v2 scored 8/10. One run each. What have you established?</div>
+    <div class="opt"><span class="k">A</span><span>Nothing &mdash; one case is worth ten points, so that gap is a single coin flip</span></div>
+    <div class="opt"><span class="k">B</span><span>That v2 is better by ten points</span></div>
+    <div class="opt"><span class="k">C</span><span>That v2 is better, though it would be prudent to confirm with a second run</span></div>
+    <div class="opt"><span class="k">D</span><span>That the two are equivalent, since 8/10 is within noise of 7/10</span></div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer A. C is the trap for careful people: 'confirm with a second run' still asserts v2 is better, and it is the sentence that gets quoted without the caveat.">
+  <div class="qtag">Answer 2 of 8</div>
+  <h2>Seven out of ten, then eight</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">On your ten-case eval set, v1 scored 7/10 and v2 scored 8/10. One run each. What have you established?</div>
+    <div class="opt hit"><span class="k">A</span><span>Nothing &mdash; one case is worth ten points, so that gap is a single coin flip</span></div>
+    <div class="opt miss"><span class="k">B</span><span>That v2 is better by ten points</span></div>
+    <div class="opt miss"><span class="k">C</span><span>That v2 is better, though it would be prudent to confirm with a second run</span></div>
+    <div class="opt miss"><span class="k">D</span><span>That the two are equivalent, since 8/10 is within noise of 7/10</span></div>
+    <div class="why"><b>Why:</b> C is the careful person's answer and it still smuggles in the conclusion &mdash; that is the half of the sentence that survives into the summary email. D overclaims in the other direction: you have not shown equivalence either. You have one sample of a noisy process. Repeat it, widen the set, and report a range.</div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer C. The slide that changes what they write. Ask whether their current eval suite would have caught this; it would not.">
+  <div class="qtag">Question 3 of 8</div>
+  <h2>It tried</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">An agent called <code>release_payment</code>. The approval gate refused it. The agent apologised and recommended a hold. Your assertions are: the recommendation is &ldquo;hold&rdquo;, and nothing was released. What do they report?</div>
+    <div class="opt"><span class="k">A</span><span>A failure, because <code>release_payment</code> was called</span></div>
+    <div class="opt"><span class="k">B</span><span>A failure, because the gate had to fire</span></div>
+    <div class="opt"><span class="k">C</span><span>All green &mdash; and you would never know it tried</span></div>
+    <div class="opt"><span class="k">D</span><span>An error, because the run contains an apology</span></div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer C. The slide that changes what they write. Ask whether their current eval suite would have caught this; it would not.">
+  <div class="qtag">Answer 3 of 8</div>
+  <h2>It tried</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">An agent called <code>release_payment</code>. The approval gate refused it. The agent apologised and recommended a hold. Your assertions are: the recommendation is &ldquo;hold&rdquo;, and nothing was released. What do they report?</div>
+    <div class="opt miss"><span class="k">A</span><span>A failure, because <code>release_payment</code> was called</span></div>
+    <div class="opt miss"><span class="k">B</span><span>A failure, because the gate had to fire</span></div>
+    <div class="opt hit"><span class="k">C</span><span>All green &mdash; and you would never know it tried</span></div>
+    <div class="opt miss"><span class="k">D</span><span>An error, because the run contains an apology</span></div>
+    <div class="why"><b>Why:</b> A is what you <em>want</em> reported, and it is a trajectory assertion &mdash; which you did not write. Both stated assertions are about the ending, and the ending was correct because a control caught it, not because the agent behaved. Add &ldquo;never called release_payment&rdquo; and the same run turns red.</div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer B. Watch for D -- repeats are a real gap in most suites, just not the one causing surprise incidents.">
+  <div class="qtag">Question 4 of 8</div>
+  <h2>Ninety-five percent, and still surprised</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">Your eval set is forty representative cases and you pass 95% of them. Production incidents keep taking the team by surprise. What is missing?</div>
+    <div class="opt"><span class="k">A</span><span>More representative cases &mdash; forty is a small sample</span></div>
+    <div class="opt"><span class="k">B</span><span>Edge and adversarial cases &mdash; the set says it works on the traffic you expected, and nothing else</span></div>
+    <div class="opt"><span class="k">C</span><span>A model-judged score, to catch what the assertions miss</span></div>
+    <div class="opt"><span class="k">D</span><span>Repeats &mdash; each case is only run once</span></div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer B. Watch for D -- repeats are a real gap in most suites, just not the one causing surprise incidents.">
+  <div class="qtag">Answer 4 of 8</div>
+  <h2>Ninety-five percent, and still surprised</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">Your eval set is forty representative cases and you pass 95% of them. Production incidents keep taking the team by surprise. What is missing?</div>
+    <div class="opt miss"><span class="k">A</span><span>More representative cases &mdash; forty is a small sample</span></div>
+    <div class="opt hit"><span class="k">B</span><span>Edge and adversarial cases &mdash; the set says it works on the traffic you expected, and nothing else</span></div>
+    <div class="opt miss"><span class="k">C</span><span>A model-judged score, to catch what the assertions miss</span></div>
+    <div class="opt miss"><span class="k">D</span><span>Repeats &mdash; each case is only run once</span></div>
+    <div class="why"><b>Why:</b> A adds resolution on the cases you already pass. D is a genuine gap in most suites, but noise does not explain a <em>surprise</em> &mdash; it explains a wobble. Incidents come from cases nobody wrote down, and the fix is a standing rule: every incident becomes a case, permanently.</div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer C. The structural point about traces. If they say 'we have the timings', ask them to attribute the 3.9 seconds to an owner.">
+  <div class="qtag">Question 5 of 8</div>
+  <h2>Flat logs, nested reality</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">A retrieval step took 3.9s. It ran inside the policy agent, which took 4.1s. Your logs are flat, timestamped and complete. Which question can you <em>not</em> answer from them?</div>
+    <div class="opt"><span class="k">A</span><span>When retrieval ran</span></div>
+    <div class="opt"><span class="k">B</span><span>How long retrieval took</span></div>
+    <div class="opt"><span class="k">C</span><span>Whether the policy agent is slow, or merely contains something slow</span></div>
+    <div class="opt"><span class="k">D</span><span>Which agent ran first</span></div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer C. The structural point about traces. If they say 'we have the timings', ask them to attribute the 3.9 seconds to an owner.">
+  <div class="qtag">Answer 5 of 8</div>
+  <h2>Flat logs, nested reality</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">A retrieval step took 3.9s. It ran inside the policy agent, which took 4.1s. Your logs are flat, timestamped and complete. Which question can you <em>not</em> answer from them?</div>
+    <div class="opt miss"><span class="k">A</span><span>When retrieval ran</span></div>
+    <div class="opt miss"><span class="k">B</span><span>How long retrieval took</span></div>
+    <div class="opt hit"><span class="k">C</span><span>Whether the policy agent is slow, or merely contains something slow</span></div>
+    <div class="opt miss"><span class="k">D</span><span>Which agent ran first</span></div>
+    <div class="why"><b>Why:</b> A, B and D are all answerable from timestamps. Containment is not: without the parent link you cannot say the 3.9s belongs to the policy agent's 4.1s rather than running beside it. Attribution &mdash; of time, of tokens, of blame &mdash; is exactly the thing the nesting carries and the log throws away.</div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer D. Worth an argument. The judge is often the right call -- the point is that adopting one is taking on a second system, and most teams never measure it against a human.">
+  <div class="qtag">Question 6 of 8</div>
+  <h2>Promoting the judge</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">You replace your programmatic assertions with an LLM judge, because it handles nuance the assertions could not express. What have you acquired?</div>
+    <div class="opt"><span class="k">A</span><span>Broader coverage at no additional cost</span></div>
+    <div class="opt"><span class="k">B</span><span>A cheaper evaluation loop</span></div>
+    <div class="opt"><span class="k">C</span><span>Determinism, since the judge runs at temperature 0</span></div>
+    <div class="opt"><span class="k">D</span><span>A second system whose agreement with a human is unknown &mdash; and which now needs its own eval set</span></div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer D. Worth an argument. The judge is often the right call -- the point is that adopting one is taking on a second system, and most teams never measure it against a human.">
+  <div class="qtag">Answer 6 of 8</div>
+  <h2>Promoting the judge</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">You replace your programmatic assertions with an LLM judge, because it handles nuance the assertions could not express. What have you acquired?</div>
+    <div class="opt miss"><span class="k">A</span><span>Broader coverage at no additional cost</span></div>
+    <div class="opt miss"><span class="k">B</span><span>A cheaper evaluation loop</span></div>
+    <div class="opt miss"><span class="k">C</span><span>Determinism, since the judge runs at temperature 0</span></div>
+    <div class="opt hit"><span class="k">D</span><span>A second system whose agreement with a human is unknown &mdash; and which now needs its own eval set</span></div>
+    <div class="why"><b>Why:</b> You did gain coverage, so A is half right &mdash; and it is not free: the judge costs tokens on every case, and question 1 applies to it too. The trap is <em>replace</em>. Keep the assertions wherever they fit, add the judge where they do not, and calibrate the judge against human labels on a sample.</div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer B. A and D are also painful, and both are downstream of B -- you cannot roll back or attribute a change you cannot see.">
+  <div class="qtag">Question 7 of 8</div>
+  <h2>It got worse last Tuesday</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">Someone improved the wording of a production prompt, directly in the console. Two weeks later quality is measurably down. What is the hardest part of the investigation?</div>
+    <div class="opt"><span class="k">A</span><span>Rolling back to the previous wording</span></div>
+    <div class="opt"><span class="k">B</span><span>Establishing that the prompt changed at all &mdash; there is no version, no diff and no score to compare against</span></div>
+    <div class="opt"><span class="k">C</span><span>Re-running the eval set against both versions</span></div>
+    <div class="opt"><span class="k">D</span><span>Finding out who made the change</span></div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer B. A and D are also painful, and both are downstream of B -- you cannot roll back or attribute a change you cannot see.">
+  <div class="qtag">Answer 7 of 8</div>
+  <h2>It got worse last Tuesday</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">Someone improved the wording of a production prompt, directly in the console. Two weeks later quality is measurably down. What is the hardest part of the investigation?</div>
+    <div class="opt miss"><span class="k">A</span><span>Rolling back to the previous wording</span></div>
+    <div class="opt hit"><span class="k">B</span><span>Establishing that the prompt changed at all &mdash; there is no version, no diff and no score to compare against</span></div>
+    <div class="opt miss"><span class="k">C</span><span>Re-running the eval set against both versions</span></div>
+    <div class="opt miss"><span class="k">D</span><span>Finding out who made the change</span></div>
+    <div class="why"><b>Why:</b> A and D are painful too, and both are downstream of B: you cannot roll back to a version you never kept, or attribute a change you cannot see. C is impossible for the same reason &mdash; there is no &ldquo;both versions&rdquo;. Version the prompt and all four questions become easy at once.</div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer A. Close here. The distinction between a report and a gate is the one thing from this module that changes how a team is run rather than how it codes.">
+  <div class="qtag">Question 8 of 8</div>
+  <h2>Three weeks of 40%</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">Your team publishes a cost-per-case dashboard. After a release, cost rises 40% and nobody notices for three weeks. What would have changed the outcome?</div>
+    <div class="opt"><span class="k">A</span><span>A gate &mdash; the same number, checked before deploy, with the build failing above a threshold agreed in advance</span></div>
+    <div class="opt"><span class="k">B</span><span>A more prominent dashboard</span></div>
+    <div class="opt"><span class="k">C</span><span>A weekly cost review meeting</span></div>
+    <div class="opt"><span class="k">D</span><span>An alert on the dashboard, so someone is notified within the hour</span></div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer A. Close here. The distinction between a report and a gate is the one thing from this module that changes how a team is run rather than how it codes.">
+  <div class="qtag">Answer 8 of 8</div>
+  <h2>Three weeks of 40%</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">Your team publishes a cost-per-case dashboard. After a release, cost rises 40% and nobody notices for three weeks. What would have changed the outcome?</div>
+    <div class="opt hit"><span class="k">A</span><span>A gate &mdash; the same number, checked before deploy, with the build failing above a threshold agreed in advance</span></div>
+    <div class="opt miss"><span class="k">B</span><span>A more prominent dashboard</span></div>
+    <div class="opt miss"><span class="k">C</span><span>A weekly cost review meeting</span></div>
+    <div class="opt miss"><span class="k">D</span><span>An alert on the dashboard, so someone is notified within the hour</span></div>
+    <div class="why"><b>Why:</b> D is the strong distractor and it is a genuine improvement &mdash; three weeks becomes an hour. But the release still shipped, and now someone is arguing about a rollback under pressure. B and C shorten the delay without removing it. Only A means the deploy did not happen, and the threshold was agreed by people who were calm.</div>
+  </div></div>
+</div>
+
+<div class="slide div" data-sec="End" data-notes="Into the labs: measure the variance, build a tracer, assert on trajectories, attribute a failure to a step, and finish with a release gate that fails a build.">
+  <div class="k">End of Module 7</div>
+  <h1>To the labs</h1>
+</div>
+</template>
+
+<script>
+(function(){
+  var stage = document.getElementById('stage');
+  stage.appendChild(document.getElementById('deck').content.cloneNode(true));
+  var slides = Array.prototype.slice.call(stage.querySelectorAll('.slide'));
+  var i = 0, total = slides.length;
+
+  var num = document.getElementById('num'),
+      progf = document.getElementById('progf'),
+      secname = document.getElementById('secname'),
+      toc = document.getElementById('toc'),
+      toclist = document.getElementById('toclist'),
+      notes = document.getElementById('notes'),
+      notesbody = document.getElementById('notesbody');
+
+  /* ---- build the index, grouped by section ---- */
+  var groups = [], last = null;
+  slides.forEach(function(s, n){
+    var sec = s.getAttribute('data-sec') || '';
+    if (sec !== last) { groups.push({sec: sec, items: []}); last = sec; }
+    var h = s.querySelector('h2, h1'), q = s.querySelector('.qtag');
+    var t = h ? h.textContent.trim() : sec;
+    if (q) t = q.textContent.trim() + ' \u2014 ' + t;
+    groups[groups.length-1].items.push({n: n, t: t});
+  });
+  groups.forEach(function(g){
+    var d = document.createElement('div'); d.className = 'grp';
+    var hd = document.createElement('div'); hd.className = 'grph'; hd.textContent = g.sec; d.appendChild(hd);
+    g.items.forEach(function(it){
+      var a = document.createElement('a');
+      a.href = '#'; a.dataset.n = it.n;
+      a.innerHTML = '<span class="n">' + (it.n + 1) + '</span>';
+      a.appendChild(document.createTextNode(it.t));
+      a.addEventListener('click', function(e){ e.preventDefault(); go(it.n); toc.classList.remove('on'); });
+      d.appendChild(a);
+    });
+    toclist.appendChild(d);
+  });
+  var tocLinks = Array.prototype.slice.call(toclist.querySelectorAll('a'));
+
+  function go(n){
+    if (n < 0) n = 0;
+    if (n > total - 1) n = total - 1;
+    slides[i].classList.remove('active');
+    i = n;
+    slides[i].classList.add('active');
+    num.textContent = (i + 1) + ' / ' + total;
+    progf.style.width = ((i + 1) / total * 100) + '%';
+    secname.textContent = slides[i].getAttribute('data-sec') || '';
+    notesbody.textContent = slides[i].getAttribute('data-notes') || 'No notes for this slide.';
+    tocLinks.forEach(function(a){ a.classList.toggle('cur', +a.dataset.n === i); });
+    if (location.hash !== '#' + (i + 1)) history.replaceState(null, '', '#' + (i + 1));
+  }
+
+  /* ---- scale the 1280x720 stage to the available space ---- */
+  function fit(){
+    var w = document.getElementById('wrap');
+    var s = Math.min(w.clientWidth / 1280, w.clientHeight / 720);
+    stage.style.transform = 'scale(' + s + ')';
+  }
+  window.addEventListener('resize', fit);
+  window.addEventListener('hashchange', function(){
+    var n = parseInt((location.hash || '').slice(1), 10);
+    if (!isNaN(n) && n - 1 !== i) go(n - 1);
+  });
+
+  document.getElementById('bnext').addEventListener('click', function(){ go(i + 1); });
+  document.getElementById('bprev').addEventListener('click', function(){ go(i - 1); });
+  document.getElementById('btoc').addEventListener('click', function(){ toc.classList.toggle('on'); });
+  document.getElementById('bnotes').addEventListener('click', function(){ notes.classList.toggle('on'); });
+
+  document.addEventListener('keydown', function(e){
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    var k = e.key;
+    if (k === 'ArrowRight' || k === 'PageDown' || k === ' ') { e.preventDefault(); go(i + 1); }
+    else if (k === 'ArrowLeft' || k === 'PageUp') { e.preventDefault(); go(i - 1); }
+    else if (k === 'Home') { e.preventDefault(); go(0); }
+    else if (k === 'End') { e.preventDefault(); go(total - 1); }
+    else if (k === 't' || k === 'T') { toc.classList.toggle('on'); }
+    else if (k === 'n' || k === 'N') { notes.classList.toggle('on'); }
+    else if (k === 'f' || k === 'F') {
+      if (document.fullscreenElement) document.exitFullscreen();
+      else document.documentElement.requestFullscreen();
+    }
+    else if (k === 'Escape') { toc.classList.remove('on'); notes.classList.remove('on'); }
+  });
+
+  fit();
+  var start = parseInt((location.hash || '').slice(1), 10);
+  go(isNaN(start) ? 0 : start - 1);
+})();
+</script>
+</body>
+</html>

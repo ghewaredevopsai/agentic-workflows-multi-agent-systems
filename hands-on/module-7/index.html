@@ -1,0 +1,132 @@
+<meta charset="utf-8">
+<title>Module 7 Labs &mdash; Multi-Agent System Evaluation</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;padding:0}
+body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:#f5f5fb;color:#2d3748;font-size:14px;line-height:1.45}
+a{color:#4338ca}
+header{background:linear-gradient(135deg,#1e1b4b 0%,#4338ca 100%);color:#fff;padding:14px 18px;text-align:center;border-bottom:3px solid #818cf8}
+header h1{margin:0;font-size:1.35em}
+header .tagline{margin-top:4px;color:#c7d2fe;font-size:.9em;font-weight:600}
+header .meta{margin-top:6px;color:#c3c9de;font-size:.82em}
+header .meta span{margin:0 5px}
+.container{max-width:1060px;margin:12px auto;background:#fff;padding:14px 20px 10px;box-shadow:0 0 10px rgba(0,0,0,.1)}
+.how{background:#f0fdf9;border-left:3px solid #0d9488;padding:9px 13px;font-size:.88em;color:#134e4a;border-radius:0 3px 3px 0;margin-bottom:12px}
+.how p{margin:0 0 5px}.how p:last-child{margin:0}
+.how code{font-family:Consolas,'JetBrains Mono',monospace;background:#d7f5ee;padding:0 3px;border-radius:2px}
+.lab{background:#f8f8fd;border-left:3px solid #4338ca;border-radius:0 3px 3px 0;padding:9px 13px;margin-bottom:9px;break-inside:avoid}
+.lab h3{margin:0 0 4px;font-size:1.02em;color:#312e81}
+.lab h3 a{text-decoration:none}.lab h3 a:hover{text-decoration:underline}
+.lab .tags{float:right;font-size:.76em;color:#6b7280;font-weight:600}
+.lab .tags .lvl{color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:9px;padding:0 7px;margin-left:5px}
+.lab p{margin:0 0 5px;font-size:.92em;color:#4b5563}
+.lab ul{margin:0;padding-left:17px;font-size:.9em;color:#475569}
+.lab li{margin-bottom:1px}
+.lab .sol{font-size:.84em;color:#6b7280;margin-top:5px}
+.note{background:#fffbeb;border-left:3px solid #fbbf24;padding:9px 13px;font-size:.86em;color:#4b3a10;border-radius:0 3px 3px 0;margin-top:12px}
+footer{background:#1e1b4b;color:#fff;text-align:center;padding:10px;font-size:.8em}
+footer a{color:#c7d2fe;text-decoration:none}
+</style>
+
+<header>
+  <h1>Module 7 &mdash; Multi-Agent System Evaluation</h1>
+  <div class="tagline">Day 3 hands-on &middot; five labs, intermediate to advanced</div>
+  <div class="meta"><span>One case file throughout</span> &middot; <span>self-checked</span> &middot; <span>solutions provided</span></div>
+</header>
+
+<div class="container">
+
+  <div class="how">
+    <p><strong>How these labs work.</strong> Fill every <code>BLANK</code>, then run the
+      <strong>Self-check</strong> cell under each section. It prints <code>[PASS]</code>,
+      <code>[FAIL]</code> or <code>[TODO]</code>, and the last cell prints your
+      <code>Score</code>.</p>
+    <p><strong>Your score never depends on a live model.</strong> Graded cells are plain Python.
+      Cells marked <strong>Run it for real</strong> do call the sandbox model &mdash; if it is
+      unreachable they print how to fix it rather than crashing, so <em>Run All</em> is always safe
+      on an untouched notebook.</p>
+    <p><strong>Nothing is built today.</strong> These labs measure what the last two days produced.
+      The stand-in agent is a seeded RNG, so the statistics are real statistics computed offline for
+      nothing; the tracer is yours, written by hand, and the <strong>Run it for real</strong> cells
+      measure the sandbox model's actual variance and map your span tree onto LangFuse's fields.</p>
+  </div>
+
+          <div class="lab">
+    <div class="tags">30 min<span class="lvl">Intermediate &rarr; Advanced</span></div>
+    <h3><a href="lab-7-01-non-determinism-measured.ipynb">Lab 7.1 &mdash; Non-Determinism, Measured</a></h3>
+    <p>On ten cases, even a 35-point improvement cannot be established. Find out why, and what fixes it.</p>
+    <ul>
+      <li>Watch the same system score differently run after run</li>
+      <li>Compute the range a single run was drawing from</li>
+      <li>Decide whether a difference between two versions is real</li>
+      <li>Discover what size of win your eval set can detect at all</li>
+    </ul>
+    <div class="sol">3 blanks &middot; 16 checks &middot; solution: <code>solutions/lab-7-01-non-determinism-measured.ipynb</code></div>
+  </div>
+
+  <div class="lab">
+    <div class="tags">40 min<span class="lvl">Advanced</span></div>
+    <h3><a href="lab-7-02-build-the-tracer.ipynb">Lab 7.2 &mdash; Build the Tracer</a></h3>
+    <p>Forty lines. Afterwards a tracing product is a UI over something you understand.</p>
+    <ul>
+      <li>Spans with parent links &mdash; the nesting is the information</li>
+      <li>Separate a span's own time from its children's</li>
+      <li>Find that the slowest step and the dearest step are different steps</li>
+      <li>Map every field you built onto LangFuse's</li>
+    </ul>
+    <div class="sol">2 blanks &middot; 21 checks &middot; solution: <code>solutions/lab-7-02-build-the-tracer.ipynb</code></div>
+  </div>
+
+  <div class="lab">
+    <div class="tags">35 min<span class="lvl">Advanced</span></div>
+    <h3><a href="lab-7-03-outcome-and-trajectory.ipynb">Lab 7.3 &mdash; Outcome and Trajectory Assertions</a></h3>
+    <p>Five recorded runs. Four pass every outcome check. One of them tried to release a sanctioned payment.</p>
+    <ul>
+      <li>Write the outcome assertions everybody writes</li>
+      <li>Find the run they all pass and should not</li>
+      <li>Add trajectory assertions and watch two runs turn red</li>
+      <li>Grade representative, edge and adversarial cases separately</li>
+    </ul>
+    <div class="sol">2 blanks &middot; 18 checks &middot; solution: <code>solutions/lab-7-03-outcome-and-trajectory.ipynb</code></div>
+  </div>
+
+  <div class="lab">
+    <div class="tags">35 min<span class="lvl">Advanced</span></div>
+    <h3><a href="lab-7-04-locating-the-failure.ipynb">Lab 7.4 &mdash; Locating the Failure</a></h3>
+    <p>Six failed runs. Without a trace all six are &ldquo;the agent hallucinated&rdquo;. Five of them are not.</p>
+    <ul>
+      <li>Walk an ordered attribution ladder to the step that caused it</li>
+      <li>Handle the run with three things wrong &mdash; the first one is the cause</li>
+      <li>Count the spend wasted downstream of each failure</li>
+      <li>Let the totals choose which fix comes first</li>
+    </ul>
+    <div class="sol">3 blanks &middot; 18 checks &middot; solution: <code>solutions/lab-7-04-locating-the-failure.ipynb</code></div>
+  </div>
+
+  <div class="lab">
+    <div class="tags">40 min<span class="lvl">Advanced &middot; challenge</span></div>
+    <h3><a href="lab-7-05-challenge-the-release-gate.ipynb">Lab 7.5 &mdash; Challenge: The Release Gate</a></h3>
+    <p>Four candidates, three thresholds agreed in advance, and one version that is provably better and blocked.</p>
+    <ul>
+      <li>Summarise each candidate as a mean and a range</li>
+      <li>Build a gate that fails a build, not a dashboard nobody reads</li>
+      <li>Find the conservative test that lets a bad version through</li>
+      <li>Produce a ship / do-not-ship decision with reasons</li>
+    </ul>
+    <div class="sol">2 blanks &middot; 18 checks &middot; solution: <code>solutions/lab-7-05-challenge-the-release-gate.ipynb</code></div>
+  </div>
+
+  <div class="note">
+    <strong>Regenerating.</strong> Labs and solutions are built from a single source
+    (<code>_generators/gen_labs.py</code>) so a blank can never drift from the answer that grades
+    it. Run <code>_generators/regenerate.sh</code> to rebuild and re-verify both directions.
+    Runtime prerequisites are in <code>../module-1/RUNTIME.md</code>.
+  </div>
+
+</div>
+
+<footer>
+  &copy; 2026 Gheware DevOps &amp; Agentic AI |
+  <a href="https://devops.gheware.com">devops.gheware.com</a> |
+  Trainer: Rajesh Gheware |
+  Questions: <a href="mailto:dev@gheware.com">dev@gheware.com</a>
+</footer>
