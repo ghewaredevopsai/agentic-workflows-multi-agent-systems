@@ -30,11 +30,17 @@ for fn in sorted(f for f in os.listdir(SOLDIR) if f.endswith(".ipynb")):
     n_todo = out.count("[TODO]")
     n_pass = out.count("[PASS]")
     m = re.search(r"Score: (\d+)/(\d+)", out)
-    ok = n_fail == 0 and n_todo == 0 and m and m.group(1) == m.group(2)
+    # A solution that trips guard() has an unfilled name in it -- the cell is ungraded, so
+    # nothing else here would notice. This is how a broken "Run it for real" cell hides.
+    n_guard = out.count("a blank above is still unfilled")
+    ok = n_fail == 0 and n_todo == 0 and n_guard == 0 and m and m.group(1) == m.group(2)
     print(f"[{'OK    ' if ok else 'BROKEN'}] {fn:44} {n_pass} pass, {n_fail} fail, {n_todo} todo, "
           f"score {m.group(0) if m else 'MISSING'}")
     if not ok:
         fails += 1
+        if n_guard:
+            print(f"           {n_guard} guard() message(s) in a SOLUTION -- an unfilled name in "
+                  f"an ungraded cell")
         for line in out.splitlines():
             if "[FAIL]" in line or "[TODO]" in line:
                 print("           " + line)
