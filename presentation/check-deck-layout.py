@@ -41,8 +41,28 @@ probe = r"""
       svg.querySelectorAll('text').forEach(function(t){
         var b;try{b=t.getBBox();}catch(e){return;}
         if(!b||b.width===0)return;
-        if(t.getAttribute('transform'))return;           // rotated: getBBox is un-rotated
         var txt=(t.textContent||'').trim().slice(0,48);
+        var tf=t.getAttribute('transform');
+        if(tf){
+          // getBBox is pre-transform. For rotate(a cx cy) -- the only form these decks use --
+          // map the four corners and take the axis-aligned hull, then viewBox-check that.
+          // Rotated captions clip silently otherwise; one did, and only a screenshot caught it.
+          var m=/rotate\(\s*(-?[\d.]+)[ ,]+(-?[\d.]+)[ ,]+(-?[\d.]+)\s*\)/.exec(tf);
+          if(!m)return;                                  // any other transform: skip, as before
+          var a=+m[1]*Math.PI/180, cx=+m[2], cy=+m[3], xs=[], ys=[];
+          [[b.x,b.y],[b.x+b.width,b.y],[b.x,b.y+b.height],[b.x+b.width,b.y+b.height]]
+            .forEach(function(p){
+              var dx=p[0]-cx, dy=p[1]-cy;
+              xs.push(cx+dx*Math.cos(a)-dy*Math.sin(a));
+              ys.push(cy+dx*Math.sin(a)+dy*Math.cos(a));
+            });
+          var rx=Math.min.apply(null,xs), ry=Math.min.apply(null,ys);
+          var rw=Math.max.apply(null,xs)-rx, rh=Math.max.apply(null,ys)-ry;
+          if(rx+rw>VW+0.5||ry+rh>VH+0.5||rx<-0.5||ry<-0.5)
+            out.push({s:si+1,k:'rotated',t:txt,
+                      d:Math.round(Math.max(rx+rw-VW,ry+rh-VH,-rx,-ry))});
+          return;                                        // rect collisions: still not checked
+        }
         if(b.x+b.width>VW+0.5||b.y+b.height>VH+0.5||b.x<-0.5){
           out.push({s:si+1,k:'viewBox',t:txt,d:Math.round(Math.max(b.x+b.width-VW,b.y+b.height-VH))});
           return;
