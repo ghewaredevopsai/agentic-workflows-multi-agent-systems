@@ -1,0 +1,190 @@
+<meta charset="utf-8">
+<title>Capstone &mdash; Payment-Exception Investigation</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;padding:0}
+body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:#f5f5fb;color:#2d3748;font-size:14px;line-height:1.45}
+a{color:#4338ca}
+header{background:linear-gradient(135deg,#1e1b4b 0%,#4338ca 100%);color:#fff;padding:14px 18px;text-align:center;border-bottom:3px solid #818cf8}
+header h1{margin:0;font-size:1.35em}
+header .tagline{margin-top:4px;color:#c7d2fe;font-size:.9em;font-weight:600}
+header .meta{margin-top:6px;color:#c3c9de;font-size:.82em}
+header .meta span{margin:0 5px}
+.container{max-width:1060px;margin:12px auto;background:#fff;padding:14px 20px 10px;box-shadow:0 0 10px rgba(0,0,0,.1)}
+.how{background:#f0fdf9;border-left:3px solid #0d9488;padding:9px 13px;font-size:.88em;color:#134e4a;border-radius:0 3px 3px 0;margin-bottom:12px}
+.how p{margin:0 0 5px}.how p:last-child{margin:0}
+.how code{font-family:Consolas,'JetBrains Mono',monospace;background:#d7f5ee;padding:0 3px;border-radius:2px}
+.lab{background:#f8f8fd;border-left:3px solid #4338ca;border-radius:0 3px 3px 0;padding:9px 13px;margin-bottom:9px;break-inside:avoid}
+.lab h3{margin:0 0 4px;font-size:1.02em;color:#312e81}
+.lab h3 a{text-decoration:none}.lab h3 a:hover{text-decoration:underline}
+.lab .tags{float:right;font-size:.76em;color:#6b7280;font-weight:600}
+.lab .tags .lvl{color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:9px;padding:0 7px;margin-left:5px}
+.lab p{margin:0 0 5px;font-size:.92em;color:#4b5563}
+.lab ul{margin:0;padding-left:17px;font-size:.9em;color:#475569}
+.lab li{margin-bottom:1px}
+.lab .sol{font-size:.84em;color:#6b7280;margin-top:5px}
+.note{background:#fffbeb;border-left:3px solid #fbbf24;padding:9px 13px;font-size:.86em;color:#4b3a10;border-radius:0 3px 3px 0;margin-top:12px}
+footer{background:#1e1b4b;color:#fff;text-align:center;padding:10px;font-size:.8em}
+footer a{color:#c7d2fe;text-decoration:none}
+</style>
+
+<header>
+  <h1>Capstone &mdash; Payment-Exception Investigation</h1>
+  <div class="tagline">Day 3 &middot; the whole course, behind one endpoint</div>
+  <div class="meta"><span>45 cases</span> &middot; <span>scored, not demoed</span> &middot; <span>deployed to your own namespace</span></div>
+</header>
+
+<div class="container">
+
+  <div class="how">
+    <p><strong>You are accepted on a scorecard, not on a demo.</strong> A demo is one case with
+      you driving. The gate is 45 cases against the service as deployed, with an approval gate
+      checked at 100% and cost and latency ceilings agreed before anyone had something to ship
+      &mdash; which is the argument Module 7 made about release gates, now pointed at your own work.</p>
+    <p><strong>Run the gate in the first five minutes.</strong> The starter already serves the
+      contract and already fails, so you begin with a number that moves rather than a demo you
+      hope works at four o'clock. <code>python3 acceptance.py --limit 5</code>.</p>
+  </div>
+
+  <h2>What you build</h2>
+  <div class="lab">
+    <h3>A payment-exception investigation service</h3>
+    <p>One endpoint. Given a payment reference and a question, it says what should happen to that
+      payment &mdash; and, when a person has to decide, it says so and does nothing else.</p>
+    <ul>
+      <li><strong>Supervisor + specialists</strong> &mdash; ledger, screening, policy, decision,
+        critic (Module 5)</li>
+      <li><strong>The ledger over MCP</strong> &mdash; the server from Lab 4.4, made persistent
+        (Module 4)</li>
+      <li><strong>Agentic RAG</strong> over the policy documents, citing what it used (Module 6)</li>
+      <li><strong>A critic</strong> that may overturn the first answer (Module 5)</li>
+      <li><strong>A human approval gate</strong> before anything irreversible (Module 8)</li>
+      <li><strong>FastAPI, deployed to your namespace</strong> with probes, limits and an
+        Ingress (Module 9)</li>
+      <li><strong>LangFuse instrumentation</strong>, with cost on the span (Modules 7 and 9)</li>
+    </ul>
+  </div>
+
+  <h2>The response contract</h2>
+  <div class="lab">
+    <p><code>POST /investigate</code> with <code>{"ref": "PMT-1003", "question": "..."}</code>
+      returns exactly these fields. The harness <em>rejects</em> anything else rather than
+      coercing it &mdash; Lab 8.2's rule, applied to your deliverable.</p>
+    <ul>
+      <li><code>ref</code> &middot; <code>recommendation</code> &mdash; one of
+        <code>no action</code>, <code>proceed</code>, <code>hold for a human</code>,
+        <code>unknown</code></li>
+      <li><code>reason</code> &mdash; one sentence &middot; <code>citations</code> &mdash; the
+        policy codes you actually used</li>
+      <li><code>requires_approval</code> &middot; <code>actions_taken</code> &mdash; which must
+        be empty whenever approval is required</li>
+      <li><code>usage</code> &mdash; carrying <code>cost_usd</code> and the token counts that
+        re-derive it &middot; <code>trajectory</code></li>
+    </ul>
+  </div>
+
+  <h2>The scorecard</h2>
+  <div class="lab">
+    <div class="tags">45 cases<span class="lvl">all seven must pass</span></div>
+    <h3>Seven criteria, six of which are hard</h3>
+    <ul>
+      <li><strong>contract</strong> &mdash; 100%. A malformed response is a failure, not a zero.</li>
+      <li><strong>approval gate</strong> &mdash; <strong>no failures at all.</strong> Not a rate:
+        it is a control. Every case that needs a person must ask for one and must act on nothing.</li>
+      <li><strong>grounding</strong> &mdash; cites the policy the case turns on, and says nothing
+        at all about references that do not exist</li>
+      <li><strong>accuracy</strong> &mdash; against the ground-truth rule, which is Lab 5.5's,
+        unchanged</li>
+      <li><strong>cost per case</strong> &mdash; self-reported by your service</li>
+      <li><strong>p95 latency</strong> &mdash; measured by the harness, at the concurrency it ran with</li>
+      <li><strong>trajectory</strong> &mdash; advisory only, because it is self-reported</li>
+    </ul>
+    <div class="sol">Criterion zero: <code>/healthz</code> and <code>/readyz</code> must answer
+      before any case is sent. A service that cannot say it is ready is not deployed.</div>
+  </div>
+
+  <h2>Where the numbers came from</h2>
+  <div class="lab">
+    <h3>Measured on this sandbox, not chosen</h3>
+    <ul>
+      <li><strong>An agent that reads only the reason code scores 84.4%</strong> &mdash; and fails
+        the approval gate on <strong>seven</strong> cases. Seven of the 45 are held because of
+        <em>who</em> the counterparty is, and nothing in the reason code says so. The floor sits
+        above that baseline on purpose.</li>
+      <li><strong>45 cases, not seven.</strong> Lab 5.5 scores seven; Lab 7.1 then measures what
+        seven can establish, which is close to nothing. A gate built on seven cases would
+        contradict the module before it.</li>
+      <li><strong>The gate discriminates.</strong> Six fixture services are run against it offline
+        by <code>_generators/verify_capstone.py</code> &mdash; perfect, reason-code-only,
+        gate-less, inventing, expensive, malformed &mdash; and each must fail exactly the
+        criteria it should.</li>
+    </ul>
+  </div>
+
+  <h2>Three runtime facts that will cost you an afternoon</h2>
+  <div class="lab">
+    <h3>All three were measured on this gateway</h3>
+    <ul>
+      <li><strong>The model reasons before it answers, and you are billed for it.</strong> A
+        one-line JSON reply cost <strong>980 completion tokens, 955 of them reasoning, in 24.1
+        seconds</strong>. Cap <code>max_tokens</code> at 200 to save money and the reply is not
+        truncated &mdash; <code>content</code> comes back as <code>None</code> with
+        <code>finish_reason="length"</code>, and you get no answer at all.</li>
+      <li><strong>Reasoning can be switched off, and it is worth 34&times;.</strong> The same reply
+        with <code>extra_body={"chat_template_kwargs": {"enable_thinking": false}}</code> took
+        <strong>0.7 seconds and 29 tokens</strong>. Note which knob worked:
+        <code>reasoning_effort="low"</code> &mdash; the OpenAI-standard one &mdash; was silently
+        ignored and produced <em>more</em> tokens than the default.</li>
+      <li><strong>It is not free.</strong> Switching thinking off took the reference service from
+        25.2s to 2.1s per case and from $0.0011 to $0.0002 &mdash; and its accuracy fell to
+        <strong>46.7%</strong> until the prompts were rewritten as an ordered procedure. That
+        trade is the capstone: the ceilings and the floor are set so that neither the cheap
+        careless version nor the slow careful one passes on its own.</li>
+    </ul>
+    <div class="sol">The gateway is shared with everyone in the room. Score with
+      <code>--workers 2</code>; the latency you measure at eight concurrent callers is mostly
+      somebody else's queue.</div>
+  </div>
+
+  <h2>What ships with it</h2>
+  <div class="lab">
+    <ul>
+      <li><code>capstone.ipynb</code> &mdash; the console: inspect the eval set, score any
+        function you write, then score the deployed service</li>
+      <li><code>acceptance.py</code> &mdash; the gate. 250 lines of stdlib. Read it; it is what
+        your work is judged by</li>
+      <li><code>eval_set.json</code> &mdash; 45 cases and the ground-truth rule</li>
+      <li><code>starter/</code> &mdash; <code>app.py</code> (runs, and fails),
+        <code>domain.py</code>, <code>ledger_mcp.py</code>, <code>mcp_client.py</code></li>
+      <li><code>reference/app.py</code> &mdash; a working service. <strong>Read it after you have
+        built yours</strong>, and read its &ldquo;Where this is weak&rdquo; notes either way</li>
+      <li><code>../module-9/app-deploy-example.yaml</code> &mdash; the deployment</li>
+    </ul>
+  </div>
+
+  <h2>What the gate cannot check</h2>
+  <div class="lab">
+    <p>It is a black-box harness. <code>trajectory</code> and <code>usage</code> are
+      <strong>self-reported</strong>: a service that lies about them passes. That is not a hole to
+      be plugged, it is the honest boundary of an external check &mdash; the same one Lab 9.3
+      found in <code>kubectl --dry-run=server</code>, which proves an object is legal and says
+      nothing about whether it is a good idea.</p>
+    <p>So the design requirements &mdash; supervisor and specialists, the ledger over MCP, retrieval
+      that cites, a critic, the gate standing in front of a real write tool &mdash; are checked by a
+      person reading your code and your traces. Which is why Module 9 asked you to instrument it.</p>
+  </div>
+  <div class="note">
+    <strong>Regenerating.</strong> The eval set, <code>starter/domain.py</code> and this
+    notebook are built from one source (<code>_generators/gen_capstone.py</code>), because the
+    service, the eval set and the harness must agree exactly and three hand-maintained copies is
+    three chances to disagree. Run <code>_generators/regenerate.sh</code> to rebuild them and
+    re-verify the gate. Runtime prerequisites are in <code>../module-1/RUNTIME.md</code>.
+  </div>
+
+</div>
+
+<footer>
+  &copy; 2026 Gheware DevOps &amp; Agentic AI |
+  <a href="https://devops.gheware.com">devops.gheware.com</a> |
+  Trainer: Rajesh Gheware |
+  Questions: <a href="mailto:dev@gheware.com">dev@gheware.com</a>
+</footer>

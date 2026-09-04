@@ -128,6 +128,7 @@ weaker on Python than assumed, Day 2 is where it shows. Have the drop order read
 | `course-outline-agentic-workflows-multi-agent-systems.html` | **The course outline — sole source of truth.** CSS inlined, 9 modules + lab strips + capstone + take-aways + participant setup block. **Prints to exactly 1 A4 page.** |
 | `presentation/` | Delivery decks — self-contained single-file slide runners, no CDN, hand-authored SVG |
 | `hands-on/module-N/` | Lab notebooks + `solutions/` + `_generators/` (single-source generation) + `RUNTIME.md` |
+| `hands-on/capstone/` | The brief, the 45-case eval set, `acceptance.py` (the gate), a starter and a reference service |
 | `resources/video-resources.html` | Post-session curated video resources, mapped to the modules |
 
 Removed 2026-09-03 (in git history at `ae94c05`): the `.md` outline, the exported outline PDF, and a
@@ -190,6 +191,14 @@ uncaught exception.
       under both `exec()` and a real Jupyter kernel
 - [x] Post-session video resources — 57 links, all verified live
 - [x] Lab runtime live — 30 sandboxes, per-participant app namespace, LangFuse, verified end to end
+- [x] **Capstone** — brief, 45-case eval set, response contract, and `acceptance.py`: seven
+      criteria of which the approval gate is checked at 100%. The gate is itself verified offline
+      against six fixture services (perfect, reason-code-only, gate-less, inventing, expensive,
+      malformed) — it must accept the first and reject the rest for the right reasons
+- [ ] **Calibrate the capstone ceilings against the reference service** — `_generators/calibrate.sh`.
+      Measured so far: an agent that never screens the counterparty scores 84.4% and fails the gate
+      on 7 cases; the reference with thinking off runs 45 cases in 86s at $0.0002/case. The
+      rewritten prompts are **unscored** — the lab host went off the network mid-run
 - [ ] **Author the two non-selected labs** (Day 1 baseline eval set; Day 2 multi-agent vs.
       single-agent scorecard). These carry the measurement thread — if they slip, the thread is just
       a claim on a page

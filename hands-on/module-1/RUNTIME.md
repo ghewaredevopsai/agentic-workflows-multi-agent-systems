@@ -37,6 +37,39 @@ LAB_LLM_BASE_URL=http://<service>.agenticai.svc.cluster.local:<port>/v1
 **These values are deliberately not baked into the notebooks.** If they are unset, every live cell
 prints the two `export` lines it needs and continues — it never raises.
 
+Module 9's labs and the capstone additionally read `APP_NAMESPACE` and `APP_HOST` — the namespace
+a participant deploys into and the hostname it is published at. Both are injected into the sandbox;
+if they are unset, nothing breaks and every cell that would have used them says so instead.
+
+### If the model reasons (measured 2026-09-04 on `qwen36-35b-a3b-lab`)
+
+The served model thinks before it answers, and the thinking is billed as **completion tokens**.
+This is not a detail — it changes latency, cost and one common bug, by more than an order of
+magnitude:
+
+| | latency | completion tokens | of which reasoning |
+|---|---|---|---|
+| default | 24.1s | 980 | 955 |
+| `extra_body={"chat_template_kwargs": {"enable_thinking": false}}` | **0.7s** | **29** | 0 |
+| `/no_think` appended to the prompt | 8.3s | 363 | 338 |
+| `reasoning_effort="low"` | 28.6s | 1430 | 1405 |
+
+All four returned the same one-line JSON answer. Three things follow.
+
+1. **`max_tokens` is a trap.** Cap it at 200 to control cost and the reply is not truncated —
+   `content` comes back as `None` with `finish_reason="length"`, so a service that does not check
+   for it silently produces nothing. Budget ~1500, or turn thinking off.
+2. **The standard knob does not work here.** `reasoning_effort` is the OpenAI-documented parameter
+   and this backend ignores it, returning *more* tokens than the default. The one that works is
+   vendor-specific and travels through `extra_body`.
+3. **Turning it off is a trade, not a free win.** On the capstone's own eval set, thinking off took
+   the reference service from 25.2s to 2.1s per case and from $0.0011 to $0.0002 — and dropped its
+   accuracy to 46.7% until the prompts were rewritten as an explicit ordered procedure.
+
+Throughput is shared. Output tokens are generated serially per request, so concurrent callers divide
+the gateway's token throughput between them: the same 45-case run that takes 86 seconds alone will
+take considerably longer when thirty people start one at once.
+
 ## 3. Egress
 
 None required. The labs reach only the in-cluster LLM service; the case file is synthetic and
