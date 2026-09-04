@@ -177,24 +177,42 @@ def agent_policy(record, screening, trace):
     return retrieve(query or "payment exception", k=3)
 
 
-# The rules are in the prompt AS AN ORDERED PROCEDURE, and the model is made to name the
-# rule it applied. With thinking off, prose rules were followed unreliably -- 46.7% -- and
-# the same rules as a numbered procedure with the rule id in the output are followed well.
-# Making a model say which rule it used is cheap structure that does some of the work
-# reasoning tokens were doing, and it lands in the trace where you can audit it.
+# THREE MEASURED REVISIONS LIVE IN THIS PROMPT, and each one is a lab in miniature.
+#
+#   1. The rules as prose, thinking off            -> 46.7% accuracy
+#   2. The same rules as a numbered procedure      -> 86.7%
+#   3. The checks stated against NAMED FACT FIELDS,
+#      each with the citation it implies           -> see the calibration numbers
+#
+# Revision 2 also collapsed grounding to 16.1%, and the cause was one careless token:
+# the reply template said `"citations": ["POLICY_CODE", ...]` and eleven cases dutifully
+# cited a document called POLICY_CODE. A placeholder in an example IS an instruction.
+#
+# The model is told to decide from the FACTS and to use the retrieved policy for citation
+# and explanation. That sounds backwards for a RAG system and it is deliberate: the facts
+# are exact and the retrieval is fuzzy, so letting retrieval decide the outcome was how
+# PMT-1003 -- a LIMIT_BREACH on a counterparty nobody has ever screened -- came back as
+# "proceed" citing SANCTIONS_SCREENING.
 DECIDE_SYSTEM = (
-    "You are a payments operations analyst. Decide what happens to ONE payment.\n"
-    "Apply these rules IN ORDER and STOP at the first one that matches:\n"
-    '  R1  status is "settled"                       -> "no action"\n'
-    '  R2  the screening result says listed: true    -> "hold for a human"\n'
-    '  R3  reason_code is LIMIT_BREACH or SANCTIONS_REVIEW -> "hold for a human"\n'
-    '  R4  anything else                             -> "proceed"\n'
-    "R2 comes before R3 on purpose: a listed counterparty is held even when the reason "
-    "code is routine. Screening does not depend on the reason code.\n"
+    "You are a payments operations analyst. Decide what happens to ONE payment.\n\n"
+    "Decide from the FACTS and the SCREENING RESULT. The policy extracts are there so you "
+    "can cite and explain -- do not search them for the answer.\n\n"
+    "Work through these checks IN ORDER and STOP at the first one that is true:\n"
+    '  C1  facts.status is "settled"\n'
+    '        -> recommendation "no action",        citations []\n'
+    "  C2  screening.listed is true\n"
+    '        -> recommendation "hold for a human", citations ["SANCTIONS_SCREENING"]\n'
+    '  C3  facts.reason_code is "LIMIT_BREACH" or "SANCTIONS_REVIEW"\n'
+    '        -> recommendation "hold for a human", citations [that reason code]\n'
+    "  C4  otherwise\n"
+    '        -> recommendation "proceed",          citations [facts.reason_code]\n\n'
+    "C1 is first because a settled payment needs nothing even when its counterparty is "
+    "listed. C2 is before C3 because a listed counterparty is held even when the reason "
+    "code is routine -- screening does not depend on the reason code.\n\n"
     "Reply with ONLY a JSON object and nothing else:\n"
-    '{"rule": "R1"|"R2"|"R3"|"R4", "recommendation": one of ["no action","proceed",'
-    '"hold for a human"], "reason": "one sentence", "citations": ["POLICY_CODE", ...]}\n'
-    "Cite the policy codes you actually used.")
+    '{"check": "C1"|"C2"|"C3"|"C4", "recommendation": "...", "reason": "one sentence", '
+    '"citations": [...]}\n'
+    "Put real document ids in citations, exactly as the checks above specify.")
 
 
 async def agent_decide(record, screening, docs, question, usage, trace):
@@ -349,14 +367,41 @@ async def investigate(body: Ask):
 
 # ---------------------------------------------------------------- Where this is weak
 #
-# 1. `actions_taken` is always empty because this service has no write tool at all. That
+# Calibrated 2026-09-04: 93.3% accuracy, a clean approval gate, 100% grounding, $0.0002
+# per case and p95 3.4s at four concurrent callers. Four consecutive runs, identical.
+# ACCEPTED -- and here is everything wrong with it.
+#
+# 1. IT MISSES EVERY SETTLED-AND-LISTED CASE. The three wrong answers are not three
+#    unlucky ones: they are ALL THREE of the payments that are settled AND whose
+#    counterparty is on the screening list, and it gets all three wrong the same way.
+#    C1 says a settled payment needs nothing and C2 says a listed counterparty is held;
+#    the prompt says C1 comes first and explains why, and the model applies C2 anyway.
+#    A systematic rule-ordering failure looks exactly like random noise in an aggregate,
+#    and looks like what it is the moment you read three traces. Lab 7.4, on this file.
+#    It is at least wrong in the safe direction: it over-holds a settled payment.
+#
+# 2. THINKING ON IS MORE ACCURATE AND FAILS THE GATE. With reasoning enabled it scored
+#    15/15 on the first fifteen cases, against 14/15 for this configuration -- a
+#    one-case difference, which Lab 7.1 says establishes nothing -- and its p95 was
+#    65.9s against a 30s ceiling. Being better is not the same as being shippable, and
+#    a gate with only a quality criterion would have taken the wrong one.
+#
+# 3. THE OPERATING PROCEDURE IS IN THE PROMPT, not derived from the retrieved documents.
+#    That is why it passes and it is the least interesting thing about it: a decision
+#    table with a language model in front. The harder version reads the policy corpus
+#    and works out the ordering itself, and the eval set does not care which you do --
+#    which is the point of scoring outcomes rather than implementations.
+#
+# 4. `actions_taken` is always empty because this service has no write tool at all. That
 #    makes the approval gate trivially safe and also makes it untested: the interesting
 #    version has a write tool the gate stands in front of.
-# 2. The critic is prompted for one specific failure -- the watchlist one. That is honest
-#    engineering for a known weakness and it is also overfitting to this eval set. A
-#    critic that only catches the mistake you already know about buys less than it looks.
-# 3. Retrieval is lexical over seven documents, so it always retrieves the right thing.
+#
+# 5. The critic is prompted for one specific failure -- the watchlist one. Honest
+#    engineering for a known weakness, and also overfitting to this eval set. Note that
+#    it does not catch failure 1, because it is only asked about decisions to ACT.
+#
+# 6. Retrieval is lexical over seven documents, so it always retrieves the right thing.
 #    Nothing here would survive a corpus of seven hundred, and Lab 6.3's adequacy check
 #    is missing entirely.
-# 4. There is no cache. The same reference asked twice costs twice, and roughly half of
-#    the eval set's cost is the critic re-deriving what the decider already got right.
+#
+# 7. There is no cache. The same reference asked twice costs twice.

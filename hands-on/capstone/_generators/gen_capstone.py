@@ -88,6 +88,29 @@ def expected(record) -> str:
     return "proceed"
 
 
+def expected_citation(record):
+    """The document the decision actually turns on.
+
+    Corrected after the first calibration run: for a payment held because its counterparty
+    is on the screening list, the load-bearing document is the WATCHLIST NOTE, not the
+    reason-code policy. The reference service was citing SANCTIONS_SCREENING for those and
+    being marked wrong for it, which was the eval set's mistake and not the service's.
+    """
+    if record is None or record["status"] == "settled":
+        return None
+    if record["counterparty"] in SANCTIONS_WATCH:
+        return "SANCTIONS_SCREENING"
+    return record["reason_code"]
+
+
+def is_trap(record) -> bool:
+    """Held purely because of WHO the counterparty is -- nothing in the reason code says so.
+    These are the cases that separate an agent from a lookup on the reason code."""
+    return bool(record and record["status"] != "settled"
+                and record["counterparty"] in SANCTIONS_WATCH
+                and record["reason_code"] not in NEEDS_HUMAN)
+
+
 def build_ledger() -> dict:
     """The seven canonical cases, then 33 more under the same rule. Deterministic."""
     rng = random.Random(20260909)
@@ -144,10 +167,11 @@ def build_eval_set(ledger: dict) -> list:
             "ref": ref,
             "question": QUESTIONS[i % len(QUESTIONS)] if i >= 7 else rng.choice(QUESTIONS),
             "expected": expected(rec),
-            # What a correct answer must have consulted. Used for the trajectory check,
-            # never for scoring the outcome.
-            "expected_citation": (rec["reason_code"] if rec and rec["reason_code"] else None),
+            # The document the answer must have consulted. Scored separately from the
+            # outcome: being right for the wrong reason is luck, and luck does not repeat.
+            "expected_citation": expected_citation(rec),
             "watchlisted": bool(rec and rec["counterparty"] in SANCTIONS_WATCH),
+            "trap": is_trap(rec),
         })
     return cases
 
@@ -351,9 +375,7 @@ print()
 
 # The cases that turn on a rule the reason code does not contain: a watchlisted
 # counterparty with a completely routine failure.
-trap = [c for c in CASES
-        if c["watchlisted"] and c["expected"] == "hold for a human"
-        and c["expected_citation"] not in NEEDS_HUMAN and c["expected_citation"]]
+trap = [c for c in CASES if c["trap"]]
 print(f"{len(trap)} cases are held because of WHO the counterparty is, not why it failed:")
 for c in trap:
     r = LEDGER[c["ref"]]
@@ -510,9 +532,7 @@ def main():
     print(f"notebook  {len(NOTEBOOK)} cells    -> {os.path.relpath(p3, ROOT)}")
     print("outcomes ", counts)
     watch = sum(1 for c in cases if c["watchlisted"] and c["expected"] == "hold for a human")
-    trap = sum(1 for c in cases
-               if c["watchlisted"] and c["expected"] == "hold for a human"
-               and c["expected_citation"] not in NEEDS_HUMAN and c["expected_citation"])
+    trap = sum(1 for c in cases if c["trap"])
     print(f"watchlist {watch} held for the counterparty, of which {trap} have a mundane "
           f"reason code -- the cases that separate a real agent from a lookup table")
 

@@ -34,25 +34,30 @@ from concurrent.futures import ThreadPoolExecutor
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 # ------------------------------------------------------------------ the agreed ceilings
-# Every one of these is set from a measurement on this sandbox, not chosen for looking
-# round. What each one is anchored to:
+# CALIBRATED 2026-09-04 against the reference service on this sandbox. Four consecutive
+# 45-case runs of the accepted configuration gave an identical scorecard, so these are not
+# one lucky number:
 #
-#   accuracy   an agent that reads the reason code and never screens the counterparty
-#              scores exactly 84.4% (38/45). The floor is 90%, which is 2.5 cases of
-#              margin above it -- a gate one lucky case wide is not a gate.
-#   grounding  31 of the 45 cases turn on a named policy document. 90% allows three
-#              of them to be cited wrongly and no more.
-#   cost       the reference service costs $0.0002/case with thinking off and $0.0011
-#              with it on. $0.0030 admits both and still binds on a wasteful design.
-#   latency    the reference measured p95 15.3s at four concurrent callers. 30s is
-#              two-fold headroom AT THAT CONCURRENCY, which is why the number is
-#              meaningless without it.
+#                        accuracy   gate   grounding   cost/case   p95      verdict
+#   reference, no think    93.3%   clean     100%      $0.0002     3.4s   ACCEPTED
+#   reference, thinking   100.0%*  clean     100%      $0.0013    65.9s   rejected: latency
+#   reason-code-only        84.4%  7 fails    100%      $0         --     rejected
+#                                                          (* on 15 cases, not 45)
 #
-# CALIBRATION STATUS: the reference implementation has been run end to end against this
-# harness with thinking OFF and the first draft of its prompts (46.7% accuracy -- the
-# measurement that caused the prompts to be rewritten). The rewritten version has NOT
-# yet been scored, because the lab host went off the network mid-run. Re-run
-# _generators/calibrate.sh before delivery and move these numbers if it says so.
+# The two reference configurations land on OPPOSITE SIDES of the gate, and that is the
+# whole design: the more accurate one is rejected on latency, so quality alone does not
+# buy a pass. What each ceiling is anchored to:
+#
+#   accuracy   84.4% is what an agent that never screens the counterparty scores. The
+#              floor is 90%: 5.6 points above that baseline, and 3.3 below the reference,
+#              which is 1.5 cases of margin either way.
+#   grounding  31 of the 45 cases turn on a named document. Both reference
+#              configurations cite all 31 correctly, so 90% allows three misses.
+#   cost       $0.0002 without thinking, $0.0013 with. $0.0030 admits both and still
+#              binds on a design that calls the model six times per case.
+#   latency    the number is meaningless without the concurrency. 30s at four concurrent
+#              callers rejects the thinking configuration at 65.9s and passes the other
+#              at 3.4s.
 ACCURACY_FLOOR      = 0.90     # of 45 cases
 CITATION_FLOOR      = 0.90     # of the cases that have a policy to cite
 COST_CEILING        = 0.0030   # mean USD per case

@@ -195,10 +195,12 @@ uncaught exception.
       criteria of which the approval gate is checked at 100%. The gate is itself verified offline
       against six fixture services (perfect, reason-code-only, gate-less, inventing, expensive,
       malformed) — it must accept the first and reject the rest for the right reasons
-- [ ] **Calibrate the capstone ceilings against the reference service** — `_generators/calibrate.sh`.
-      Measured so far: an agent that never screens the counterparty scores 84.4% and fails the gate
-      on 7 cases; the reference with thinking off runs 45 cases in 86s at $0.0002/case. The
-      rewritten prompts are **unscored** — the lab host went off the network mid-run
+- [x] **Capstone ceilings calibrated** (2026-09-04, four identical consecutive runs). The
+      reference scores 93.3% / clean gate / 100% grounding / $0.0002 per case / p95 3.4s and is
+      **accepted**; the same service with reasoning enabled is *more* accurate and is **rejected on
+      latency** at p95 65.9s; an agent that never screens the counterparty scores 84.4% and fails
+      the approval gate on 7 cases. The two reference configurations landing on opposite sides of
+      the gate is the design, not a coincidence — quality alone does not buy a pass
 - [ ] **Author the two non-selected labs** (Day 1 baseline eval set; Day 2 multi-agent vs.
       single-agent scorecard). These carry the measurement thread — if they slip, the thread is just
       a claim on a page

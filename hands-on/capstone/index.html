@@ -104,20 +104,47 @@ footer a{color:#c7d2fe;text-decoration:none}
 
   <h2>Where the numbers came from</h2>
   <div class="lab">
-    <h3>Measured on this sandbox, not chosen</h3>
+    <h3>Calibrated against a reference service, not chosen</h3>
+    <p>Four consecutive 45-case runs of the accepted configuration gave an identical
+      scorecard, so none of this is one lucky number.</p>
     <ul>
-      <li><strong>An agent that reads only the reason code scores 84.4%</strong> &mdash; and fails
-        the approval gate on <strong>seven</strong> cases. Seven of the 45 are held because of
-        <em>who</em> the counterparty is, and nothing in the reason code says so. The floor sits
-        above that baseline on purpose.</li>
-      <li><strong>45 cases, not seven.</strong> Lab 5.5 scores seven; Lab 7.1 then measures what
-        seven can establish, which is close to nothing. A gate built on seven cases would
-        contradict the module before it.</li>
-      <li><strong>The gate discriminates.</strong> Six fixture services are run against it offline
-        by <code>_generators/verify_capstone.py</code> &mdash; perfect, reason-code-only,
-        gate-less, inventing, expensive, malformed &mdash; and each must fail exactly the
-        criteria it should.</li>
+      <li><strong>reference, thinking off</strong> &mdash; accuracy <strong>93.3%</strong>, gate
+        clean, grounding 100%, $0.0002/case, p95 3.4s &rarr; <strong>ACCEPTED</strong></li>
+      <li><strong>reference, thinking on</strong> &mdash; accuracy 100% (on 15 cases), gate clean,
+        grounding 100%, $0.0013/case, p95 <strong>65.9s</strong> &rarr; <strong>rejected on
+        latency</strong></li>
+      <li><strong>reason-code-only</strong> &mdash; accuracy 84.4%, <strong>7 approval-gate
+        failures</strong> &rarr; rejected</li>
     </ul>
+    <p><strong>The two reference configurations land on opposite sides of the gate, and that is
+      the design.</strong> The more accurate one is rejected on latency. Quality alone does not
+      buy a pass, which is the entire argument Module 7 made about release gates &mdash; and a
+      gate with only a quality criterion would have taken the wrong configuration.</p>
+    <div class="sol">The floor is 90%: 5.6 points above the agent that never screens the
+      counterparty, and 3.3 below the reference. About one and a half cases of margin either way.</div>
+  </div>
+
+  <div class="lab">
+    <h3>Two things that were wrong, and were found by measuring</h3>
+    <ul>
+      <li><strong>The eval set was wrong first.</strong> For a payment held because its
+        counterparty is listed, the document the decision turns on is the <em>watchlist note</em>,
+        not the reason-code policy &mdash; and the eval set expected the reason code. The service
+        was citing correctly and being marked down for it. Grounding read 16.1% until the ground
+        truth was fixed.</li>
+      <li><strong>One careless token cost eleven citations.</strong> The reply template said
+        <code>"citations": ["POLICY_CODE", ...]</code> and eleven cases dutifully cited a document
+        called <code>POLICY_CODE</code>. A placeholder inside an example is an instruction.</li>
+    </ul>
+  </div>
+
+  <div class="lab">
+    <h3>The reference passes, and here is what is wrong with it</h3>
+    <p>It misses <strong>all three</strong> of the payments that are settled <em>and</em>
+      watchlisted, every time, the same way &mdash; a systematic rule-ordering failure that looks
+      like random noise in an aggregate and like what it is the moment you read three traces.
+      Read the rest of the list at the foot of <code>reference/app.py</code> before you copy
+      anything from it.</p>
   </div>
 
   <h2>Three runtime facts that will cost you an afternoon</h2>
