@@ -1,0 +1,127 @@
+<meta charset="utf-8">
+<title>Module 4 Labs &mdash; Tool Calling &amp; MCP</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;padding:0}
+body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:#f5f5fb;color:#2d3748;font-size:14px;line-height:1.45}
+a{color:#4338ca}
+header{background:linear-gradient(135deg,#1e1b4b 0%,#4338ca 100%);color:#fff;padding:14px 18px;text-align:center;border-bottom:3px solid #818cf8}
+header h1{margin:0;font-size:1.35em}
+header .tagline{margin-top:4px;color:#c7d2fe;font-size:.9em;font-weight:600}
+header .meta{margin-top:6px;color:#c3c9de;font-size:.82em}
+header .meta span{margin:0 5px}
+.container{max-width:1060px;margin:12px auto;background:#fff;padding:14px 20px 10px;box-shadow:0 0 10px rgba(0,0,0,.1)}
+.how{background:#f0fdf9;border-left:3px solid #0d9488;padding:9px 13px;font-size:.88em;color:#134e4a;border-radius:0 3px 3px 0;margin-bottom:12px}
+.how p{margin:0 0 5px}.how p:last-child{margin:0}
+.how code{font-family:Consolas,'JetBrains Mono',monospace;background:#d7f5ee;padding:0 3px;border-radius:2px}
+.lab{background:#f8f8fd;border-left:3px solid #4338ca;border-radius:0 3px 3px 0;padding:9px 13px;margin-bottom:9px;break-inside:avoid}
+.lab h3{margin:0 0 4px;font-size:1.02em;color:#312e81}
+.lab h3 a{text-decoration:none}.lab h3 a:hover{text-decoration:underline}
+.lab .tags{float:right;font-size:.76em;color:#6b7280;font-weight:600}
+.lab .tags .lvl{color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:9px;padding:0 7px;margin-left:5px}
+.lab p{margin:0 0 5px;font-size:.92em;color:#4b5563}
+.lab ul{margin:0;padding-left:17px;font-size:.9em;color:#475569}
+.lab li{margin-bottom:1px}
+.lab .sol{font-size:.84em;color:#6b7280;margin-top:5px}
+.note{background:#fffbeb;border-left:3px solid #fbbf24;padding:9px 13px;font-size:.86em;color:#4b3a10;border-radius:0 3px 3px 0;margin-top:12px}
+footer{background:#1e1b4b;color:#fff;text-align:center;padding:10px;font-size:.8em}
+footer a{color:#c7d2fe;text-decoration:none}
+</style>
+
+<header>
+  <h1>Module 4 &mdash; Tool Calling &amp; MCP</h1>
+  <div class="tagline">Day 2 hands-on &middot; five labs, intermediate to advanced</div>
+  <div class="meta"><span>One case file throughout</span> &middot; <span>self-checked</span> &middot; <span>solutions provided</span></div>
+</header>
+
+<div class="container">
+
+  <div class="how">
+    <p><strong>How these labs work.</strong> Fill every <code>BLANK</code>, then run the
+      <strong>Self-check</strong> cell under each section. It prints <code>[PASS]</code>,
+      <code>[FAIL]</code> or <code>[TODO]</code>, and the last cell prints your
+      <code>Score</code>.</p>
+    <p><strong>Your score never depends on a live model.</strong> Graded cells are plain Python.
+      Cells marked <strong>Run it for real</strong> do call the sandbox model &mdash; if it is
+      unreachable they print how to fix it rather than crashing, so <em>Run All</em> is always safe
+      on an untouched notebook.</p>
+    <p><strong>The same case file as Day 1</strong> &mdash; payment exceptions on a small synthetic
+      ledger, now reached through tools the agent chooses, and then through tools it did not write.
+      Lab 4.4 needs no model and no network: it launches your own MCP server as a real subprocess.</p>
+  </div>
+
+    <div class="lab">
+    <div class="tags">30 min<span class="lvl">Intermediate</span></div>
+    <h3><a href="lab-4-01-the-tool-contract.ipynb">Lab 4.1 &mdash; The Tool Contract</a></h3>
+    <p>Three fields cross the boundary to the model. Everything else you wrote stays behind.</p>
+    <ul>
+      <li>Build the descriptor a model actually receives</li>
+      <li>Decide which failures are worth a retry &mdash; and which never are</li>
+      <li>Turn a tool that raises into one the agent can act on</li>
+    </ul>
+    <div class="sol">3 blanks &middot; 18 checks &middot; solution: <code>solutions/lab-4-01-the-tool-contract.ipynb</code></div>
+  </div>
+
+  <div class="lab">
+    <div class="tags">35 min<span class="lvl">Intermediate &rarr; Advanced</span></div>
+    <h3><a href="lab-4-02-descriptions-are-instructions.ipynb">Lab 4.2 &mdash; Tool Descriptions Are Instructions</a></h3>
+    <p>The measured lab: build the harness offline, then move accuracy on description text alone.</p>
+    <ul>
+      <li>An eval set with the ambiguous cases in it</li>
+      <li>Accuracy, and a confusion table that names the overlapping pair</li>
+      <li>The experimental control &mdash; only the description may differ</li>
+    </ul>
+    <div class="sol">3 blanks &middot; 17 checks &middot; solution: <code>solutions/lab-4-02-descriptions-are-instructions.ipynb</code></div>
+  </div>
+
+  <div class="lab">
+    <div class="tags">35 min<span class="lvl">Advanced</span></div>
+    <h3><a href="lab-4-03-multi-tool-orchestration.ipynb">Lab 4.3 &mdash; Multi-Tool Orchestration</a></h3>
+    <p>Step two's argument does not exist until step one has run. That is what multi-tool means.</p>
+    <ul>
+      <li>Extract the argument &mdash; and notice when there is not one</li>
+      <li>Thread one tool's output into the next tool's input</li>
+      <li>Recognise a repeated call, and stop on a budget</li>
+    </ul>
+    <div class="sol">3 blanks &middot; 26 checks &middot; solution: <code>solutions/lab-4-03-multi-tool-orchestration.ipynb</code></div>
+  </div>
+
+  <div class="lab">
+    <div class="tags">40 min<span class="lvl">Advanced</span></div>
+    <h3><a href="lab-4-04-mcp-from-the-wire-up.ipynb">Lab 4.4 &mdash; MCP From the Wire Up</a></h3>
+    <p>No SDK. Frame the messages, write the server, write the client, then run it over a real pipe.</p>
+    <ul>
+      <li>Content-Length framing, and why it counts bytes</li>
+      <li>initialize, tools/list, tools/call &mdash; and where tool failures belong</li>
+      <li>Read an <code>mcpServers</code> config as a list of access grants</li>
+    </ul>
+    <div class="sol">4 blanks &middot; 27 checks &middot; solution: <code>solutions/lab-4-04-mcp-from-the-wire-up.ipynb</code></div>
+  </div>
+
+  <div class="lab">
+    <div class="tags">40 min<span class="lvl">Advanced &middot; challenge</span></div>
+    <h3><a href="lab-4-05-challenge-bridge-and-boundary.ipynb">Lab 4.5 &mdash; Challenge: The Bridge, and What Comes Back Through It</a></h3>
+    <p>Forty lines bridge MCP into an agent. The hard part is the prose that arrives with it.</p>
+    <ul>
+      <li>Adapt MCP descriptors into tool objects an agent can be handed</li>
+      <li>Audit descriptions you did not write, and refuse the ones you cannot</li>
+      <li>Stop an instruction hidden in a legitimate tool result</li>
+      <li>Build the gate no tool result can talk past</li>
+    </ul>
+    <div class="sol">4 blanks &middot; 31 checks &middot; solution: <code>solutions/lab-4-05-challenge-bridge-and-boundary.ipynb</code></div>
+  </div>
+
+  <div class="note">
+    <strong>Regenerating.</strong> Labs and solutions are built from a single source
+    (<code>_generators/gen_labs.py</code>) so a blank can never drift from the answer that grades
+    it. Run <code>_generators/regenerate.sh</code> to rebuild and re-verify both directions.
+    Runtime prerequisites are in <code>../module-1/RUNTIME.md</code>.
+  </div>
+
+</div>
+
+<footer>
+  &copy; 2026 Gheware DevOps &amp; Agentic AI |
+  <a href="https://devops.gheware.com">devops.gheware.com</a> |
+  Trainer: Rajesh Gheware |
+  Questions: <a href="mailto:dev@gheware.com">dev@gheware.com</a>
+</footer>
