@@ -79,6 +79,10 @@ probe = r"""
     if(sl.scrollHeight>721) out.push({s:si+1,k:'overflow',t:(sl.querySelector('h2,h1')||{textContent:''}).textContent.trim().slice(0,48),d:sl.scrollHeight-720});
     sl.style.display='';
   });
+  // A deck whose template never closed renders no slides at all, and would otherwise
+  // report a clean bill of health. Count what was actually inspected.
+  var seen=document.querySelectorAll('#stage .slide').length;
+  if(seen===0) out.push({s:0,k:'NOSLIDES',t:'the runner rendered no slides -- is the markup intact?',d:0});
   var d=document.createElement('div');d.id='PROBE_RESULT';
   d.textContent=JSON.stringify(out);document.body.appendChild(d);
 })();
