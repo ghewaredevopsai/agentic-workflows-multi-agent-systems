@@ -33,7 +33,12 @@ LABDIR = os.path.abspath(os.path.join(HERE, ".."))
 # runaway that ALLOCATES can still kill the kernel first; that is caught too.
 CELL_TIMEOUT = int(os.environ.get("LAB_CELL_TIMEOUT", "120"))
 
-for v in ("LAB_LLM_BASE_URL", "OPENAI_BASE_URL", "LAB_LLM_MODEL", "OPENAI_MODEL"):
+# Every name the notebooks resolve a model from, including the LITELLM_* fallback and
+# OPENAI_API_BASE. Miss one and this "offline" verifier makes real model calls on the
+# cluster -- where all of them are set -- so the run stops being free and deterministic.
+for v in ("LAB_LLM_BASE_URL", "LAB_LLM_MODEL",
+          "OPENAI_BASE_URL", "OPENAI_API_BASE", "OPENAI_MODEL",
+          "LITELLM_BASE_URL", "LITELLM_MODEL"):
     os.environ.pop(v, None)
 
 import nbformat
