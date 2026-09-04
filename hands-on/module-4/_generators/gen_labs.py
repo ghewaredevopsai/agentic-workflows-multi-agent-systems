@@ -541,7 +541,7 @@ LAB2 = [
            ["Write an eval set for tool selection &mdash; including the cases that are genuinely ambiguous",
             "Build the metric: accuracy, and a confusion table that says <em>which</em> tool it wrongly picked",
             "Enforce the experimental control &mdash; only the description text may differ",
-            "Run the same eval set against the live model at three description qualities and read the delta"],
+            "Run it against the live model at three description qualities &mdash; and find out whether there is a delta at all"],
            "> **This is the measured lab.** The harness is graded offline; the number comes from\n"
            "> your own run against the sandbox model. You will reuse this harness on Day 3."),
     setup(2),
@@ -797,6 +797,8 @@ needs the model, because **the model is the thing under test**.
 The cell below asks the sandbox model to choose one tool per ask, three times over &mdash; once per
 description quality &mdash; and feeds the results through *your* harness. If the model is not
 reachable it says so and the lab still scores.
+
+Do not expect the three rows to fan out neatly. Read the next section **after** you run it.
 """),
     code('''
 SELECT_SYSTEM = ("You route a user's request to exactly one tool. "
@@ -837,18 +839,52 @@ if llm_ready():
     md("""
 ### Read it
 
-Three things to look for, in order of how much they should change what you do on Monday:
+**You probably saw three identical rows, all at or near 100%.** That is the expected result on this
+sandbox, and it is the most useful thing this lab has to tell you.
 
-1. **Does L0 &rarr; L1 move accuracy more than L1 &rarr; L2, or the other way round?** If L1 is
-   already near the ceiling on this eval set, your asks are too easy &mdash; the ambiguous cases are
-   where a boundary sentence can show up at all.
-2. **Which pair dominates the confusion table?** That pair is two descriptions that overlap, and it
-   names the exact sentence to go and write.
-3. **Run it twice.** The same input can give a different answer, which is Module 7's opening line.
-   One run is an anecdote; the harness you just built is what turns it into a measurement.
+Here is what we measured on this model before writing the lab:
 
-A caveat worth carrying: twelve asks is a small sample, so a one-case difference is noise. Widen
-the eval set before you report a number to anyone else.
+| eval set | L0 label only | L1 what it does | L2 with boundary |
+|---|---|---|---|
+| these twelve asks | 100% | 100% | 100% |
+| the same, with the tool names obfuscated to `pmt_inq_01` etc. | 100% | 100% | 100% |
+| ten deliberately ambiguous asks | 90% | 80% | 80% |
+| the same ten, run again | 80% | 80% | &mdash; |
+
+Three conclusions, and none of them is the one the lab's title leads you to expect.
+
+**1. The model is at the ceiling, so there is nothing for the description to add.** Every ask here
+names its intent plainly, and `lookup_payment` / `search_payments` are self-documenting. We removed
+that second advantage by renaming the tools to `pmt_inq_01` and friends &mdash; the sort of name an
+internal payments API really has &mdash; and it still scored 100%. When the task is easy enough, a
+better description has no work left to do.
+
+**2. On genuinely hard asks the difference appeared, and pointed the wrong way.** The richer
+descriptions did *worse*, and the misses were all the same shape: asks that name a reference but
+want the policy, pulled toward `lookup_payment` because its L1 text says &ldquo;such as PMT-1002&rdquo;.
+A description can attract a call as easily as it can repel one.
+
+**3. And then the fourth row cancels the third.** The same ten asks, run twice, moved by a whole
+case. At ten asks one case is worth ten points, so a ten-point gap is one coin flip. **If one case
+is worth more than the difference you are claiming, you have not measured anything.**
+
+So: a null result, then a suggestive result, then a noise floor that swallows it. That is not a
+failed lab &mdash; it is what measuring actually looks like, and it is why the harness is the part
+worth keeping. What you now know that you did not know an hour ago:
+
+- On *this* workload, with *this* model, description quality is not your accuracy problem. Anyone
+  who spends next week rewriting docstrings for this tool set is optimising a ceiling.
+- The place it could still matter is the ambiguous asks &mdash; and to tell a real 10-point effect
+  from a coin flip there you need hundreds of cases, or dozens of repeats, not twelve asks and one run.
+- Both of those are findings you can defend, and neither was available by reasoning about it.
+
+Everything in Module 4 that is *not* measured here still holds, because it does not depend on this
+result: a tool that returns instead of raising, a boundary sentence that stops a wrong call, an
+allow-list on what comes back. Those are structural. This one was empirical, and the empirical
+answer on this workload is &ldquo;no effect detectable&rdquo;.
+
+Day 3 is where this gets sharp: the same harness, an eval set big enough to have a noise floor you
+can quote, and repeats, so that &ldquo;better&rdquo; becomes a claim with an interval around it.
 """),
 
     code('''
@@ -857,12 +893,16 @@ score()
     md("""
 ## Your turn
 
-1. Add four asks that are genuinely ambiguous to a human too &mdash; the honest answer is &ldquo;ask a
+1. Replicate the third row. Write ten asks that name a payment reference but want a *different*
+   tool &mdash; &ldquo;PMT-1004. What do the rules say about this kind?&rdquo; &mdash; and run all three
+   qualities against them. Then run it twice more and see whether your ordering survives.
+2. Add four asks that are genuinely ambiguous to a human too &mdash; the honest answer is &ldquo;ask a
    clarifying question&rdquo;. What should the expected value even be? (Day 3 has an answer: a fifth
    outcome, not a fifth tool.)
-2. Write an L3 that adds one worked example to each description. Does it beat L2, and is the extra
-   prompt cost on every single call worth it?
-3. Keep this file. On Day 3 you will extend this exact harness into the eval set that gates the
+3. Write an L3 that adds one worked example to each description. Does it beat L2, and is the extra
+   prompt cost on every single call worth it? Decide in advance how big a difference you would
+   believe, given the size of your eval set.
+4. Keep this file. On Day 3 you will extend this exact harness into the eval set that gates the
    capstone &mdash; same metric, more cases, and a cost budget alongside the accuracy.
 """),
 ]
