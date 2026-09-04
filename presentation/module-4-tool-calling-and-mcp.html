@@ -258,18 +258,18 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
   </div>
 </div>
 
-<div class="slide" data-sec="Tools" data-notes="This is the module's headline claim and Lab 4.2 is where they prove it on their own eval set. Do not assert the numbers as universal -- the shape is what transfers. Point out that the third column costs one extra sentence per tool and no tokens at inference beyond that sentence.">
+<div class="slide" data-sec="Tools" data-notes="Frame each level by the ambiguity it removes, not by an accuracy number -- what each one closes is structural and always true; how much accuracy it buys depends entirely on the workload. Lab 4.2 tests that on the sandbox model and finds NO measurable movement, because the model is already at the ceiling on those asks. Say so before the lab rather than after: the point being made here is that Level 2 costs one sentence and closes a failure mode, and the point being made there is that you measure rather than assume.">
   <h2>A tool description is a specification, not a comment</h2>
   <div class="body">
-    <svg width="1180" height="430" viewBox="0 0 1180 430" role="img" aria-label="Three qualities of tool description and their effect on selection accuracy">
+    <svg width="1180" height="430" viewBox="0 0 1180 430" role="img" aria-label="Three qualities of tool description and the failure each one closes">
       <rect x="50" y="52" width="340" height="250" rx="8" fill="#fef2f2" stroke="#b91c1c" stroke-width="2"/>
       <text x="220" y="84" text-anchor="middle" class="lbl">Level 0 &mdash; a label</text>
       <text x="220" y="120" text-anchor="middle" class="bxs">&ldquo;Gets a payment.&rdquo;</text>
       <text x="220" y="164" text-anchor="middle" class="bd">The model must guess when</text>
       <text x="220" y="188" text-anchor="middle" class="bd">it applies and what a</text>
       <text x="220" y="212" text-anchor="middle" class="bd">reference looks like</text>
-      <text x="220" y="262" text-anchor="middle" class="num no">low</text>
-      <text x="220" y="286" text-anchor="middle" class="bds">selection accuracy</text>
+      <text x="220" y="258" text-anchor="middle" class="bxs no">Failures 1, 2 and 3</text>
+      <text x="220" y="284" text-anchor="middle" class="bds">all still open</text>
 
       <rect x="420" y="52" width="340" height="250" rx="8" fill="#f8f8fd" stroke="#94a3b8" stroke-width="2"/>
       <text x="590" y="84" text-anchor="middle" class="lbl">Level 1 &mdash; what it does</text>
@@ -277,8 +277,8 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
       <text x="590" y="144" text-anchor="middle" class="bxs">for a reference like PMT-1002.&rdquo;</text>
       <text x="590" y="188" text-anchor="middle" class="bd">Now it knows the shape</text>
       <text x="590" y="212" text-anchor="middle" class="bd">of a valid argument</text>
-      <text x="590" y="262" text-anchor="middle" class="num">better</text>
-      <text x="590" y="286" text-anchor="middle" class="bds">fixes failure 3</text>
+      <text x="590" y="258" text-anchor="middle" class="bxs">Closes failure 3</text>
+      <text x="590" y="284" text-anchor="middle" class="bds">wrong arguments</text>
 
       <rect x="790" y="52" width="340" height="250" rx="8" fill="#f0fdf9" stroke="#0d9488" stroke-width="2.5"/>
       <text x="960" y="84" text-anchor="middle" class="lbl">Level 2 &mdash; when, and when not</text>
@@ -287,12 +287,13 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
       <text x="960" y="168" text-anchor="middle" class="bxs ok">Not for searching.&rdquo;</text>
       <text x="960" y="212" text-anchor="middle" class="bd">The boundary is the sentence</text>
       <text x="960" y="236" text-anchor="middle" class="bd">that stops the wrong call</text>
-      <text x="960" y="278" text-anchor="middle" class="num ok">best</text>
+      <text x="960" y="258" text-anchor="middle" class="bxs ok">Closes failure 2</text>
+      <text x="960" y="284" text-anchor="middle" class="bds">wrong tool</text>
 
       <rect x="230" y="330" width="720" height="84" rx="6" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
       <text x="590" y="360" text-anchor="middle" class="bxs am">Write the description for a competent new joiner with no context</text>
       <text x="590" y="386" text-anchor="middle" class="bds">what it returns &middot; when to reach for it &middot; when <tspan font-style="italic">not</tspan> to &middot; what a valid argument looks like</text>
-      <text x="590" y="406" text-anchor="middle" class="bds">Lab 4.2 holds the model fixed and moves only this text</text>
+      <text x="590" y="406" text-anchor="middle" class="bds">Lab 4.2 measures what that is worth on your workload &mdash; sometimes the answer is nothing</text>
     </svg>
   </div>
 </div>
