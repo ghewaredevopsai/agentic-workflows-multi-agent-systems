@@ -1,0 +1,129 @@
+<meta charset="utf-8">
+<title>Module 5 Labs &mdash; Multi-Agent Collaboration &amp; Orchestration</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;padding:0}
+body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:#f5f5fb;color:#2d3748;font-size:14px;line-height:1.45}
+a{color:#4338ca}
+header{background:linear-gradient(135deg,#1e1b4b 0%,#4338ca 100%);color:#fff;padding:14px 18px;text-align:center;border-bottom:3px solid #818cf8}
+header h1{margin:0;font-size:1.35em}
+header .tagline{margin-top:4px;color:#c7d2fe;font-size:.9em;font-weight:600}
+header .meta{margin-top:6px;color:#c3c9de;font-size:.82em}
+header .meta span{margin:0 5px}
+.container{max-width:1060px;margin:12px auto;background:#fff;padding:14px 20px 10px;box-shadow:0 0 10px rgba(0,0,0,.1)}
+.how{background:#f0fdf9;border-left:3px solid #0d9488;padding:9px 13px;font-size:.88em;color:#134e4a;border-radius:0 3px 3px 0;margin-bottom:12px}
+.how p{margin:0 0 5px}.how p:last-child{margin:0}
+.how code{font-family:Consolas,'JetBrains Mono',monospace;background:#d7f5ee;padding:0 3px;border-radius:2px}
+.lab{background:#f8f8fd;border-left:3px solid #4338ca;border-radius:0 3px 3px 0;padding:9px 13px;margin-bottom:9px;break-inside:avoid}
+.lab h3{margin:0 0 4px;font-size:1.02em;color:#312e81}
+.lab h3 a{text-decoration:none}.lab h3 a:hover{text-decoration:underline}
+.lab .tags{float:right;font-size:.76em;color:#6b7280;font-weight:600}
+.lab .tags .lvl{color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:9px;padding:0 7px;margin-left:5px}
+.lab p{margin:0 0 5px;font-size:.92em;color:#4b5563}
+.lab ul{margin:0;padding-left:17px;font-size:.9em;color:#475569}
+.lab li{margin-bottom:1px}
+.lab .sol{font-size:.84em;color:#6b7280;margin-top:5px}
+.note{background:#fffbeb;border-left:3px solid #fbbf24;padding:9px 13px;font-size:.86em;color:#4b3a10;border-radius:0 3px 3px 0;margin-top:12px}
+footer{background:#1e1b4b;color:#fff;text-align:center;padding:10px;font-size:.8em}
+footer a{color:#c7d2fe;text-decoration:none}
+</style>
+
+<header>
+  <h1>Module 5 &mdash; Multi-Agent Collaboration &amp; Orchestration</h1>
+  <div class="tagline">Day 2 hands-on &middot; five labs, intermediate to advanced</div>
+  <div class="meta"><span>One case file throughout</span> &middot; <span>self-checked</span> &middot; <span>solutions provided</span></div>
+</header>
+
+<div class="container">
+
+  <div class="how">
+    <p><strong>How these labs work.</strong> Fill every <code>BLANK</code>, then run the
+      <strong>Self-check</strong> cell under each section. It prints <code>[PASS]</code>,
+      <code>[FAIL]</code> or <code>[TODO]</code>, and the last cell prints your
+      <code>Score</code>.</p>
+    <p><strong>Your score never depends on a live model.</strong> Graded cells are plain Python.
+      Cells marked <strong>Run it for real</strong> do call the sandbox model &mdash; if it is
+      unreachable they print how to fix it rather than crashing, so <em>Run All</em> is always safe
+      on an untouched notebook.</p>
+    <p><strong>The same case file throughout</strong> &mdash; payment exceptions on a small synthetic
+      ledger, now worked by several specialists at once. The specialists are deterministic stand-ins,
+      so a graph's structure <em>and</em> its cost can be graded exactly; the <strong>Run it for real</strong>
+      cells put the sandbox model behind the same interfaces.</p>
+  </div>
+
+      <div class="lab">
+    <div class="tags">30 min<span class="lvl">Intermediate &rarr; Advanced</span></div>
+    <h3><a href="lab-5-01-supervisor-as-router.ipynb">Lab 5.1 &mdash; The Supervisor Is a Router</a></h3>
+    <p>A supervisor picks a worker the way an agent picks a tool. So measure it the same way.</p>
+    <ul>
+      <li>Build a rule-based supervisor and score it honestly</li>
+      <li>Read the confusion table &mdash; every miss lands on the default</li>
+      <li>Price a misroute: everything downstream of it was wasted</li>
+    </ul>
+    <div class="sol">2 blanks &middot; 18 checks &middot; solution: <code>solutions/lab-5-01-supervisor-as-router.ipynb</code></div>
+  </div>
+
+  <div class="lab">
+    <div class="tags">35 min<span class="lvl">Advanced</span></div>
+    <h3><a href="lab-5-02-decomposition-and-handoffs.ipynb">Lab 5.2 &mdash; Decomposition, Distribution and Handoffs</a></h3>
+    <p>Four agents, but only two ever run together &mdash; and the handoff drops the constraint.</p>
+    <ul>
+      <li>Level a dependency graph into execution waves</li>
+      <li>Build the handoff payload and decide what crosses it</li>
+      <li>Reproduce the bug where both agents are right and the answer is wrong</li>
+    </ul>
+    <div class="sol">3 blanks &middot; 27 checks &middot; solution: <code>solutions/lab-5-02-decomposition-and-handoffs.ipynb</code></div>
+  </div>
+
+  <div class="lab">
+    <div class="tags">40 min<span class="lvl">Advanced</span></div>
+    <h3><a href="lab-5-03-parallel-reducers-disagreement.ipynb">Lab 5.3 &mdash; Parallel Execution, Reducers and Disagreement</a></h3>
+    <p>A whole specialist's findings vanish, nothing raises, and the summary still reads fine.</p>
+    <ul>
+      <li>Watch a parallel branch's work disappear into a plain dict update</li>
+      <li>Declare a reducer per key, and add the CI check that catches the next one</li>
+      <li>Settle a disagreement by authority and provenance, not by counting</li>
+    </ul>
+    <div class="sol">3 blanks &middot; 25 checks &middot; solution: <code>solutions/lab-5-03-parallel-reducers-disagreement.ipynb</code></div>
+  </div>
+
+  <div class="lab">
+    <div class="tags">35 min<span class="lvl">Advanced</span></div>
+    <h3><a href="lab-5-04-human-in-the-loop.ipynb">Lab 5.4 &mdash; Human-in-the-Loop as an Orchestration Mechanism</a></h3>
+    <p>Interrupt, approve, time out, escalate &mdash; all four are checkpointing with a person in it.</p>
+    <ul>
+      <li>Stop before the irreversible node and checkpoint the evidence</li>
+      <li>Open the gate for a named human &mdash; an identity, not a boolean</li>
+      <li>Climb an escalation ladder that terminates</li>
+      <li>Prove the one property of a gate: at the gate, &ldquo;no&rdquo; is still free</li>
+    </ul>
+    <div class="sol">3 blanks &middot; 28 checks &middot; solution: <code>solutions/lab-5-04-human-in-the-loop.ipynb</code></div>
+  </div>
+
+  <div class="lab">
+    <div class="tags">40 min<span class="lvl">Advanced &middot; challenge</span></div>
+    <h3><a href="lab-5-05-challenge-the-scorecard.ipynb">Lab 5.5 &mdash; Challenge: The Scorecard</a></h3>
+    <p>Not a graph &mdash; an argument about whether to build one, with numbers a risk owner can dispute.</p>
+    <ul>
+      <li>State the ground truth before measuring anything</li>
+      <li>Score a single agent and a four-specialist graph on the same cases</li>
+      <li>Price both, including the context re-sent at every hop</li>
+      <li>Compute the breakeven &mdash; and let &ldquo;don't&rdquo; be a real answer</li>
+    </ul>
+    <div class="sol">2 blanks &middot; 21 checks &middot; solution: <code>solutions/lab-5-05-challenge-the-scorecard.ipynb</code></div>
+  </div>
+
+  <div class="note">
+    <strong>Regenerating.</strong> Labs and solutions are built from a single source
+    (<code>_generators/gen_labs.py</code>) so a blank can never drift from the answer that grades
+    it. Run <code>_generators/regenerate.sh</code> to rebuild and re-verify both directions.
+    Runtime prerequisites are in <code>../module-1/RUNTIME.md</code>.
+  </div>
+
+</div>
+
+<footer>
+  &copy; 2026 Gheware DevOps &amp; Agentic AI |
+  <a href="https://devops.gheware.com">devops.gheware.com</a> |
+  Trainer: Rajesh Gheware |
+  Questions: <a href="mailto:dev@gheware.com">dev@gheware.com</a>
+</footer>
