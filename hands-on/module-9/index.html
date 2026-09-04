@@ -1,0 +1,136 @@
+<meta charset="utf-8">
+<title>Module 9 Labs &mdash; Deployment &amp; AgentOps</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;padding:0}
+body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:#f5f5fb;color:#2d3748;font-size:14px;line-height:1.45}
+a{color:#4338ca}
+header{background:linear-gradient(135deg,#1e1b4b 0%,#4338ca 100%);color:#fff;padding:14px 18px;text-align:center;border-bottom:3px solid #818cf8}
+header h1{margin:0;font-size:1.35em}
+header .tagline{margin-top:4px;color:#c7d2fe;font-size:.9em;font-weight:600}
+header .meta{margin-top:6px;color:#c3c9de;font-size:.82em}
+header .meta span{margin:0 5px}
+.container{max-width:1060px;margin:12px auto;background:#fff;padding:14px 20px 10px;box-shadow:0 0 10px rgba(0,0,0,.1)}
+.how{background:#f0fdf9;border-left:3px solid #0d9488;padding:9px 13px;font-size:.88em;color:#134e4a;border-radius:0 3px 3px 0;margin-bottom:12px}
+.how p{margin:0 0 5px}.how p:last-child{margin:0}
+.how code{font-family:Consolas,'JetBrains Mono',monospace;background:#d7f5ee;padding:0 3px;border-radius:2px}
+.lab{background:#f8f8fd;border-left:3px solid #4338ca;border-radius:0 3px 3px 0;padding:9px 13px;margin-bottom:9px;break-inside:avoid}
+.lab h3{margin:0 0 4px;font-size:1.02em;color:#312e81}
+.lab h3 a{text-decoration:none}.lab h3 a:hover{text-decoration:underline}
+.lab .tags{float:right;font-size:.76em;color:#6b7280;font-weight:600}
+.lab .tags .lvl{color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:9px;padding:0 7px;margin-left:5px}
+.lab p{margin:0 0 5px;font-size:.92em;color:#4b5563}
+.lab ul{margin:0;padding-left:17px;font-size:.9em;color:#475569}
+.lab li{margin-bottom:1px}
+.lab .sol{font-size:.84em;color:#6b7280;margin-top:5px}
+.note{background:#fffbeb;border-left:3px solid #fbbf24;padding:9px 13px;font-size:.86em;color:#4b3a10;border-radius:0 3px 3px 0;margin-top:12px}
+footer{background:#1e1b4b;color:#fff;text-align:center;padding:10px;font-size:.8em}
+footer a{color:#c7d2fe;text-decoration:none}
+</style>
+
+<header>
+  <h1>Module 9 &mdash; Deployment &amp; AgentOps</h1>
+  <div class="tagline">Day 3 hands-on &middot; five labs, intermediate to advanced</div>
+  <div class="meta"><span>No cluster required</span> &middot; <span>self-checked</span> &middot; <span>solutions provided</span></div>
+</header>
+
+<div class="container">
+
+  <div class="how">
+    <p><strong>How these labs work.</strong> Fill every <code>BLANK</code>, then run the
+      <strong>Self-check</strong> cell under each section. It prints <code>[PASS]</code>,
+      <code>[FAIL]</code> or <code>[TODO]</code>, and the last cell prints your
+      <code>Score</code>.</p>
+    <p><strong>Your score never depends on a live model.</strong> Graded cells are plain Python.
+      Cells marked <strong>Run it for real</strong> do call the sandbox model &mdash; if it is
+      unreachable they print how to fix it rather than crashing, so <em>Run All</em> is always safe
+      on an untouched notebook.</p>
+    <p><strong>Nothing here needs a cluster.</strong> Every graded cell is stdlib and runs
+      offline: the kubelet's probe loop is twenty lines, and a Kubernetes manifest is a Python
+      dict, because a manifest <em>is</em> JSON and YAML is a surface syntax over it. The
+      <strong>Run it for real</strong> cells put the sandbox gateway, your own namespace and
+      LangFuse on the other side &mdash; and a full starter manifest ships beside these
+      notebooks as <code>app-deploy-example.yaml</code>.</p>
+  </div>
+
+  <div class="lab">
+    <div class="tags">35 min<span class="lvl">Intermediate &rarr; Advanced</span></div>
+    <h3><a href="lab-9-01-the-service-boundary.ipynb">Lab 9.1 &mdash; The Service Boundary</a></h3>
+    <p>Same answers, same code, no error anywhere &mdash; and ten callers take ten times as long.</p>
+    <ul>
+      <li>Map every failure to a status code a caller can act on</li>
+      <li>Find out why a refusal must not be a 5xx</li>
+      <li>Measure what one blocking call does to an async worker</li>
+      <li>See how streaming fixes the status before the outcome is known</li>
+    </ul>
+    <div class="sol">3 blanks &middot; 24 checks &middot; solution: <code>solutions/lab-9-01-the-service-boundary.ipynb</code></div>
+  </div>
+
+  <div class="lab">
+    <div class="tags">35 min<span class="lvl">Advanced</span></div>
+    <h3><a href="lab-9-02-probes-that-can-fail.ipynb">Lab 9.2 &mdash; Probes That Can Actually Fail</a></h3>
+    <p>The gateway blinked for thirty seconds, so Kubernetes restarted three healthy processes.</p>
+    <ul>
+      <li>Write liveness and readiness so they answer different questions</li>
+      <li>Simulate the kubelet and price failureThreshold in seconds of traffic</li>
+      <li>Compare three probe configurations through the same outage</li>
+      <li>Find out what a readiness check that calls the model costs</li>
+    </ul>
+    <div class="sol">3 blanks &middot; 22 checks &middot; solution: <code>solutions/lab-9-02-probes-that-can-fail.ipynb</code></div>
+  </div>
+
+  <div class="lab">
+    <div class="tags">35 min<span class="lvl">Advanced</span></div>
+    <h3><a href="lab-9-03-the-manifest-is-the-deploy.ipynb">Lab 9.3 &mdash; The Manifest Is the Deployment</a></h3>
+    <p>Five blocking findings in a manifest that looks perfectly ordinary &mdash; and one rule that is wrong.</p>
+    <ul>
+      <li>Turn the production-readiness checklist into predicates that run</li>
+      <li>Separate what blocks a release from what is worth an argument</li>
+      <li>Show that the HPA everyone ships never fires for this workload</li>
+      <li>Send the object you linted to a real API server</li>
+    </ul>
+    <div class="sol">3 blanks &middot; 22 checks &middot; solution: <code>solutions/lab-9-03-the-manifest-is-the-deploy.ipynb</code></div>
+  </div>
+
+  <div class="lab">
+    <div class="tags">35 min<span class="lvl">Advanced</span></div>
+    <h3><a href="lab-9-04-spans-you-can-bill.ipynb">Lab 9.4 &mdash; Spans You Can Bill</a></h3>
+    <p>Three of six questions cannot be answered at any price, because nobody recorded the attribute.</p>
+    <ul>
+      <li>Put cost on the span, with the token counts that re-derive it</li>
+      <li>Work out which questions your instrumentation can answer</li>
+      <li>Count the time series a label adds before you add it</li>
+      <li>Do the arithmetic that shows head sampling loses the incident</li>
+    </ul>
+    <div class="sol">3 blanks &middot; 30 checks &middot; solution: <code>solutions/lab-9-04-spans-you-can-bill.ipynb</code></div>
+  </div>
+
+  <div class="lab">
+    <div class="tags">40 min<span class="lvl">Advanced &middot; challenge</span></div>
+    <h3><a href="lab-9-05-challenge-up-and-wrong.ipynb">Lab 9.5 &mdash; Challenge: The Service That Is Up and Wrong</a></h3>
+    <p>Every golden signal flat and green, and one payment in twelve went out without a human.</p>
+    <ul>
+      <li>Find an incident that no conventional dashboard shows</li>
+      <li>Pick a scaling signal that moves when CPU does not</li>
+      <li>Write alarms that fire on the incident and stay quiet on a good day</li>
+      <li>Leave with the runbook page for an agentic service</li>
+    </ul>
+    <div class="sol">3 blanks &middot; 27 checks &middot; solution: <code>solutions/lab-9-05-challenge-up-and-wrong.ipynb</code></div>
+  </div>
+
+  <div class="note">
+    <strong>Regenerating.</strong> Labs and solutions are built from a single source
+    (<code>_generators/gen_labs.py</code>) so a blank can never drift from the answer that grades
+    it. Run <code>_generators/regenerate.sh</code> to rebuild and re-verify both directions.
+    Runtime prerequisites are in <code>../module-1/RUNTIME.md</code>. The starter
+    manifest <code>app-deploy-example.yaml</code> in this folder is the one Lab 9.3 lints and the
+    capstone deploys.
+  </div>
+
+</div>
+
+<footer>
+  &copy; 2026 Gheware DevOps &amp; Agentic AI |
+  <a href="https://devops.gheware.com">devops.gheware.com</a> |
+  Trainer: Rajesh Gheware |
+  Questions: <a href="mailto:dev@gheware.com">dev@gheware.com</a>
+</footer>

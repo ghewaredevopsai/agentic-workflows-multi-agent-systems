@@ -1,0 +1,1113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Module 9 &mdash; Deployment &amp; AgentOps | Agentic Workflows &amp; Multi-Agent Systems</title>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;height:100%}
+body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:#e8e9f5;color:#1e1b4b;overflow:hidden}
+
+/* ---------- chrome ---------- */
+#top{position:fixed;top:0;left:0;right:0;height:44px;background:#1e1b4b;color:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 16px;z-index:40;font-size:13px}
+#top .l{display:flex;align-items:center;gap:12px;min-width:0}
+#top .mod{font-weight:600;letter-spacing:.2px;white-space:nowrap}
+#top .sec{color:#a5b4fc;font-size:12px;border-left:1px solid #3730a3;padding-left:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#top .r{display:flex;align-items:center;gap:8px}
+#top a,#top button{color:#c7d2fe;text-decoration:none;background:#312e81;border:1px solid #4338ca;padding:5px 11px;border-radius:4px;font-size:12.5px;cursor:pointer;font-family:inherit}
+#top a:hover,#top button:hover{background:#4338ca;color:#fff}
+#bot{position:fixed;bottom:0;left:0;right:0;height:38px;background:#1e1b4b;color:#c7d2fe;display:flex;align-items:center;gap:12px;padding:0 16px;z-index:40;font-size:12px}
+#prog{flex:1;height:4px;background:#312e81;border-radius:2px;overflow:hidden}
+#progf{height:100%;width:2%;background:#fbbf24;transition:width .25s ease}
+.navbtn{background:#312e81;color:#fff;border:1px solid #4338ca;border-radius:4px;padding:4px 12px;cursor:pointer;font-size:14px;line-height:1.2;font-family:inherit}
+.navbtn:hover{background:#4338ca}
+#num{min-width:66px;text-align:right;font-variant-numeric:tabular-nums}
+#hint{color:#818cf8}
+#wrap{position:fixed;top:44px;bottom:38px;left:0;right:0;display:flex;align-items:center;justify-content:center}
+#stage{width:1280px;height:720px;background:#fff;box-shadow:0 8px 34px rgba(30,27,75,.28);position:relative;transform-origin:center center;overflow:hidden}
+
+/* ---------- index overlay ---------- */
+#toc{position:fixed;inset:44px 0 38px;background:rgba(23,21,60,.975);color:#fff;z-index:35;display:none;overflow:auto;padding:22px 46px}
+#toc.on{display:block}
+#toc h3{margin:0 0 14px;font-size:15px;color:#a5b4fc;letter-spacing:.6px;text-transform:uppercase;font-weight:600}
+#toc .cols{column-count:2;column-gap:38px}
+#toc .grp{margin-bottom:16px;break-inside:avoid}
+#toc .grph{font-size:12px;color:#fbbf24;font-weight:700;letter-spacing:.8px;margin-bottom:5px;text-transform:uppercase}
+#toc a{display:block;color:#dce0f7;text-decoration:none;padding:4px 10px;border-left:2px solid #4338ca;font-size:14px}
+#toc a:hover{background:#312e81;border-left-color:#818cf8}
+#toc a.cur{background:#4338ca;border-left-color:#fbbf24;color:#fff;font-weight:600}
+#toc a .n{display:inline-block;width:28px;color:#818cf8;font-size:12px}
+
+/* ---------- notes ---------- */
+#notes{position:fixed;left:0;right:0;bottom:38px;max-height:34%;overflow:auto;background:#171540;color:#dce0f7;border-top:3px solid #fbbf24;padding:12px 22px;z-index:36;display:none;font-size:14px;line-height:1.55}
+#notes.on{display:block}
+#notes .h{font-size:11px;letter-spacing:.8px;color:#a5b4fc;font-weight:700;margin-bottom:5px;text-transform:uppercase}
+
+/* ---------- slide shell ---------- */
+.slide{position:absolute;inset:0;padding:26px 40px 20px;display:none;flex-direction:column}
+.slide.active{display:flex}
+.slide h2{margin:0 0 14px;font-size:28px;line-height:1.14;color:#1e1b4b;border-bottom:2px solid #4338ca;padding-bottom:8px;font-weight:600}
+.slide .body{flex:1;display:flex;align-items:center;justify-content:center;min-height:0}
+.slide .body.col{flex-direction:column;justify-content:center;gap:10px}
+.take{margin-top:12px;background:#fffbeb;border-left:4px solid #fbbf24;padding:9px 14px;font-size:17px;color:#4b3a10;border-radius:0 3px 3px 0;line-height:1.35}
+.take b{color:#92400e}
+
+/* title slide */
+.slide.title{justify-content:center;align-items:center;text-align:center;background:linear-gradient(135deg,#1e1b4b 0%,#4338ca 100%);color:#fff;padding:0}
+.slide.title h1{font-size:46px;margin:0 0 12px;font-weight:600;line-height:1.15}
+.slide.title .sub{font-size:21px;color:#c7d2fe;margin-bottom:26px}
+.slide.title .rule{width:120px;height:3px;background:#fbbf24;margin:0 auto 26px}
+.slide.title .meta{font-size:15px;color:#a5b4fc;line-height:1.9}
+
+/* section divider */
+.slide.div{justify-content:center;align-items:center;text-align:center;background:#f5f5fb}
+.slide.div .k{font-size:13px;letter-spacing:2px;color:#818cf8;font-weight:700;text-transform:uppercase;margin-bottom:14px}
+.slide.div h1{font-size:40px;margin:0;color:#1e1b4b;font-weight:600}
+
+/* svg text defaults */
+svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
+.lbl{font-size:12.5px;fill:#64748b;letter-spacing:.7px;font-weight:700;text-transform:uppercase}
+.bx{font-size:17px;fill:#1e1b4b;font-weight:600}
+.bxs{font-size:15px;fill:#1e1b4b;font-weight:600}
+.bd{font-size:14px;fill:#475569}
+.bds{font-size:13px;fill:#64748b}
+.big{font-size:23px;fill:#1e1b4b;font-weight:700}
+.num{font-size:26px;fill:#4338ca;font-weight:700}
+.ok{fill:#0d9488}
+.no{fill:#b91c1c}
+.am{fill:#92400e}
+
+/* quiz */
+.q .body{align-items:center}
+.qbox{width:100%}
+.qstem{font-size:23px;line-height:1.35;color:#1e1b4b;font-weight:600;margin-bottom:22px}
+.opt{display:flex;align-items:flex-start;gap:14px;padding:11px 16px;margin-bottom:10px;background:#f8f8fd;border-left:4px solid #c7d2fe;border-radius:0 4px 4px 0;font-size:19px;line-height:1.3}
+.opt .k{font-weight:700;color:#4338ca;min-width:22px}
+.opt.hit{background:#ecfdf5;border-left-color:#0d9488}
+.opt.hit .k{color:#0d9488}
+.opt.miss{opacity:.5}
+.why{margin-top:14px;background:#f5f3ff;border-left:4px solid #7c3aed;padding:10px 15px;font-size:16.5px;color:#3b2a6b;line-height:1.4;border-radius:0 3px 3px 0}
+.why b{color:#5b21b6}
+.qtag{position:absolute;top:26px;right:40px;font-size:12px;letter-spacing:1px;font-weight:700;color:#818cf8;text-transform:uppercase}
+</style>
+</head>
+<body>
+
+<div id="top">
+  <div class="l">
+    <span class="mod">Module 9 &middot; Deployment &amp; AgentOps</span>
+    <span class="sec" id="secname">&nbsp;</span>
+  </div>
+  <div class="r">
+    <button id="btoc" title="Slide index (T)">Index</button>
+    <button id="bnotes" title="Speaker notes (N)">Notes</button>
+    <a href="../resources/video-resources.html" title="Post-session video resources">Resources</a>
+  </div>
+</div>
+
+<div id="wrap"><div id="stage"></div></div>
+
+<div id="toc"><h3>Slide index</h3><div class="cols" id="toclist"></div></div>
+<div id="notes"><div class="h">Speaker notes</div><div id="notesbody"></div></div>
+
+<div id="bot">
+  <button class="navbtn" id="bprev">&#8592;</button>
+  <button class="navbtn" id="bnext">&#8594;</button>
+  <div id="prog"><div id="progf"></div></div>
+  <span id="hint">&#8592; &#8594; move &middot; T index &middot; N notes &middot; F fullscreen</span>
+  <span id="num">1 / 1</span>
+</div>
+
+<template id="deck">
+
+<svg width="0" height="0" style="position:absolute"><defs>
+<marker id="ai" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#4338ca"/></marker>
+<marker id="ag" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker>
+<marker id="aa" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#d97706"/></marker>
+<marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#b91c1c"/></marker>
+<marker id="at" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#0d9488"/></marker>
+</defs></svg>
+<div class="slide title" data-sec="Title" data-notes="Nine modules in, the agent works. This module is about the day somebody else calls it. Open by saying that everything that follows comes from three properties of an agent service that break the standard web-service playbook -- and that all three are measured in the labs, not asserted here.">
+  <h1>Deployment &amp; AgentOps</h1>
+  <div class="sub">Module 9 &middot; Day 3 &mdash; Evaluation, Safety &amp; AgentOps</div>
+  <div class="rule"></div>
+  <div class="meta">
+    Agentic Workflows &amp; Multi-Agent Systems &middot; 3 days &middot; Advanced<br>
+    Trainer: Rajesh Gheware
+  </div>
+</div>
+
+<div class="slide" data-sec="Orientation" data-notes="This is the spine of the module. Everything a good platform team already knows about running a service still applies -- and these three properties change what the defaults should be. IO-bound breaks async and autoscaling. Non-deterministic breaks the error rate. Expensive makes cost a per-request property. Each one gets a lab.">
+  <h2>Three properties that break the playbook</h2>
+  <div class="body">
+    <svg width="1180" height="430" viewBox="0 0 1180 430" role="img" aria-label="Three properties of an agent service and what each one breaks">
+      <rect x="40" y="50" width="352" height="228" rx="8" fill="#eef2ff" stroke="#4338ca" stroke-width="2.5"/>
+      <text x="216" y="82" text-anchor="middle" class="lbl">1. IO-bound</text>
+      <text x="216" y="118" text-anchor="middle" class="bx">99% of the wall clock</text>
+      <text x="216" y="142" text-anchor="middle" class="bx">is spent waiting</text>
+      <text x="64" y="184" class="bd">&bull; one blocking call serialises a worker</text>
+      <text x="64" y="212" class="bd">&bull; CPU stays flat while latency triples</text>
+      <text x="64" y="240" class="bd">&bull; so CPU autoscaling never fires</text>
+      <text x="216" y="266" text-anchor="middle" class="bds">Labs 9.1 and 9.5</text>
+
+      <rect x="414" y="50" width="352" height="228" rx="8" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
+      <text x="590" y="82" text-anchor="middle" class="lbl no">2. Non-deterministic</text>
+      <text x="590" y="118" text-anchor="middle" class="bx no">200 OK is not the same</text>
+      <text x="590" y="142" text-anchor="middle" class="bx no">claim as &ldquo;it worked&rdquo;</text>
+      <text x="438" y="184" class="bd">&bull; it can be wrong without erroring</text>
+      <text x="438" y="212" class="bd">&bull; every golden signal stays green</text>
+      <text x="438" y="240" class="bd">&bull; so the alarm has to be on a decision</text>
+      <text x="590" y="266" text-anchor="middle" class="bds">Labs 9.4 and 9.5</text>
+
+      <rect x="788" y="50" width="352" height="228" rx="8" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
+      <text x="964" y="82" text-anchor="middle" class="lbl am">3. Expensive</text>
+      <text x="964" y="118" text-anchor="middle" class="bx am">every call has a price,</text>
+      <text x="964" y="142" text-anchor="middle" class="bx am">and requests differ</text>
+      <text x="812" y="184" class="bd">&bull; an average cost tells you nothing</text>
+      <text x="812" y="212" class="bd">&bull; it cannot be recovered from an invoice</text>
+      <text x="812" y="240" class="bd">&bull; so cost belongs on the span</text>
+      <text x="964" y="266" text-anchor="middle" class="bds">Lab 9.4</text>
+
+      <rect x="150" y="306" width="880" height="96" rx="6" fill="#f0fdf9" stroke="#0d9488" stroke-width="2.5"/>
+      <text x="590" y="340" text-anchor="middle" class="bxs ok">Everything else you know about running a service still applies</text>
+      <text x="590" y="372" text-anchor="middle" class="bd">These three change the <tspan font-weight="700">defaults</tspan>. Today is about which defaults, and by how much &mdash;</text>
+      <text x="590" y="394" text-anchor="middle" class="bd">every number in this deck is measured in a lab you can re-run.</text>
+    </svg>
+  </div>
+</div>
+
+<div class="slide div" data-sec="The service" data-notes="Part one. From a notebook to an endpoint. Three things change and each has a lab section.">
+  <div class="k">Part one</div>
+  <h1>An agent becomes a service</h1>
+</div>
+
+<div class="slide" data-sec="The service" data-notes="The measured result from Lab 9.1 Section 2. Ten concurrent callers, a 200ms call. Awaiting: 0.2 seconds. Blocking: 2.0 seconds. Same answers from both, no error anywhere, every correctness test green. Ask the room how they would have found this before production -- the honest answer is a load test, which is why one belongs in the pipeline. Measured against the real gateway in Lab 9.1, five concurrent calls overlapped only 3.1x rather than 5x: fixing your own event loop stops you being the bottleneck, it does not create capacity downstream. Worth saying out loud so nobody leaves thinking one await solves capacity.">
+  <h2>One blocking call, and the worker is serial</h2>
+  <div class="body">
+    <svg width="1180" height="430" viewBox="0 0 1180 430" role="img" aria-label="Ten concurrent requests served by an awaiting worker and by a blocking worker">
+      <text x="60" y="52" class="lbl ok">await &mdash; the loop runs the other nine while each one waits</text>
+      <rect x="60" y="66" width="120" height="15" rx="2" fill="#0d9488" opacity="0.85"/>
+      <rect x="60" y="85" width="120" height="15" rx="2" fill="#0d9488" opacity="0.85"/>
+      <rect x="60" y="104" width="120" height="15" rx="2" fill="#0d9488" opacity="0.85"/>
+      <rect x="60" y="123" width="120" height="15" rx="2" fill="#0d9488" opacity="0.85"/>
+      <rect x="60" y="142" width="120" height="15" rx="2" fill="#0d9488" opacity="0.85"/>
+      <text x="196" y="112" class="bds">&times;10 requests, all in flight together</text>
+      <text x="196" y="136" class="num ok">0.2s</text>
+
+      <text x="60" y="196" class="lbl no">no await &mdash; the loop cannot run anything else until each returns</text>
+      <rect x="60" y="210" width="98" height="15" rx="2" fill="#b91c1c" opacity="0.8"/>
+      <rect x="164" y="210" width="98" height="15" rx="2" fill="#b91c1c" opacity="0.8"/>
+      <rect x="268" y="210" width="98" height="15" rx="2" fill="#b91c1c" opacity="0.8"/>
+      <rect x="372" y="210" width="98" height="15" rx="2" fill="#b91c1c" opacity="0.8"/>
+      <rect x="476" y="210" width="98" height="15" rx="2" fill="#b91c1c" opacity="0.8"/>
+      <rect x="580" y="210" width="98" height="15" rx="2" fill="#b91c1c" opacity="0.8"/>
+      <rect x="684" y="210" width="98" height="15" rx="2" fill="#b91c1c" opacity="0.8"/>
+      <rect x="788" y="210" width="98" height="15" rx="2" fill="#b91c1c" opacity="0.8"/>
+      <rect x="892" y="210" width="98" height="15" rx="2" fill="#b91c1c" opacity="0.8"/>
+      <rect x="996" y="210" width="98" height="15" rx="2" fill="#b91c1c" opacity="0.8"/>
+      <text x="1104" y="223" class="num no">2.0s</text>
+      <text x="60" y="252" class="bds">the tenth caller waits for the other nine to finish before their request starts</text>
+
+      <rect x="60" y="278" width="512" height="124" rx="6" fill="#f8f8fd" stroke="#94a3b8" stroke-width="2"/>
+      <text x="316" y="308" text-anchor="middle" class="bxs">Nothing tells you</text>
+      <text x="82" y="338" class="bd">&bull; same answers, in the same order</text>
+      <text x="82" y="364" class="bd">&bull; no exception, no warning, no log line</text>
+      <text x="82" y="390" class="bd">&bull; invisible on one developer's machine</text>
+
+      <rect x="608" y="278" width="512" height="124" rx="6" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
+      <text x="864" y="308" text-anchor="middle" class="bxs am">The symptom is latency under concurrency</text>
+      <text x="630" y="338" class="bd">&bull; the gap is O(n): 40 callers is 4&times; worse again</text>
+      <text x="630" y="364" class="bd">&bull; the fix is one <tspan font-family="Consolas,monospace">await</tspan> and an async client</text>
+      <text x="630" y="390" class="bd">&bull; the cost of missing it scales with your success</text>
+    </svg>
+  </div>
+</div>
+
+<div class="slide" data-sec="The service" data-notes="A 5xx is not a description, it is an instruction: retry, burn error budget, page someone. Ask the room what happens to their on-call rota if every guardrail refusal returns 503. Then make the positive point -- the refusal is a successful response with a decision in it, which is exactly what the service exists to produce.">
+  <h2>A refusal is not a server error</h2>
+  <div class="body">
+    <svg width="1180" height="430" viewBox="0 0 1180 430" role="img" aria-label="What each status code instructs a caller to do">
+      <rect x="46" y="48" width="256" height="196" rx="8" fill="#f8f8fd" stroke="#94a3b8" stroke-width="2"/>
+      <text x="174" y="78" text-anchor="middle" class="lbl">4xx &mdash; your request</text>
+      <text x="174" y="112" text-anchor="middle" class="bx">400 / 422</text>
+      <text x="68" y="146" class="bds">missing field, prompt too long,</text>
+      <text x="68" y="168" class="bds">an argument you did not ask for</text>
+      <text x="174" y="204" text-anchor="middle" class="bd">caller fixes it</text>
+      <text x="174" y="228" text-anchor="middle" class="bds">retrying unchanged is pointless</text>
+
+      <rect x="318" y="48" width="256" height="196" rx="8" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
+      <text x="446" y="78" text-anchor="middle" class="lbl no">5xx &mdash; we broke</text>
+      <text x="446" y="112" text-anchor="middle" class="bx no">502 / 504 / 500</text>
+      <text x="340" y="146" class="bds">gateway down, gateway slow,</text>
+      <text x="340" y="168" class="bds">an exception you did not expect</text>
+      <text x="446" y="204" text-anchor="middle" class="bd no">retry &middot; error budget &middot; page</text>
+      <text x="446" y="228" text-anchor="middle" class="bds">the code is an instruction</text>
+
+      <rect x="590" y="48" width="256" height="196" rx="8" fill="#f0fdf9" stroke="#0d9488" stroke-width="2.5"/>
+      <text x="718" y="78" text-anchor="middle" class="lbl ok">200 &mdash; a decision</text>
+      <text x="718" y="112" text-anchor="middle" class="bx ok">200 + refused</text>
+      <text x="612" y="146" class="bds">the guardrail declined, the gate</text>
+      <text x="612" y="168" class="bds">held it, a human is needed</text>
+      <text x="718" y="204" text-anchor="middle" class="bd ok">the service worked</text>
+      <text x="718" y="228" text-anchor="middle" class="bds">and said what it decided</text>
+
+      <rect x="862" y="48" width="272" height="196" rx="8" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
+      <text x="998" y="78" text-anchor="middle" class="lbl am">429 &mdash; not now</text>
+      <text x="998" y="112" text-anchor="middle" class="bx am">429 + Retry-After</text>
+      <text x="884" y="146" class="bds">in-flight is above capacity and</text>
+      <text x="884" y="168" class="bds">the queue is already too long</text>
+      <text x="998" y="204" text-anchor="middle" class="bd am">shed load, honestly</text>
+      <text x="998" y="228" text-anchor="middle" class="bds">better than a 200 in four minutes</text>
+
+      <rect x="120" y="278" width="940" height="124" rx="6" fill="#eef2ff" stroke="#4338ca" stroke-width="2.5"/>
+      <text x="590" y="312" text-anchor="middle" class="bxs">Return 503 when a guardrail declines and you have built a pager that fires</text>
+      <text x="590" y="340" text-anchor="middle" class="bxs">every time your safety controls work</text>
+      <text x="590" y="374" text-anchor="middle" class="bd">The load balancer will also retry it &mdash; on another replica, which will decline it again, more</text>
+      <text x="590" y="396" text-anchor="middle" class="bd">expensively. Module 8's control becomes Module 9's incident, purely through a status code.</text>
+    </svg>
+  </div>
+</div>
+
+<div class="slide" data-sec="The service" data-notes="Streaming is what makes an agent feel fast, and the price is paid at the boundary. Once the first chunk is out, the status is committed. Make the dashboard point explicitly: your error rate is computed from status codes, so post-first-chunk failures are counted as successes -- the error rate is wrong by construction, in the safe-looking direction.">
+  <h2>Streaming commits the status code</h2>
+  <div class="body">
+    <svg width="1180" height="430" viewBox="0 0 1180 430" role="img" aria-label="Where a streaming response can and cannot report a failure">
+      <line x1="80" y1="128" x2="1100" y2="128" stroke="#94a3b8" stroke-width="2"/>
+      <circle cx="230" cy="128" r="7" fill="#4338ca"/>
+      <circle cx="470" cy="128" r="7" fill="#4338ca"/>
+      <circle cx="710" cy="128" r="7" fill="#4338ca"/>
+      <circle cx="950" cy="128" r="7" fill="#4338ca"/>
+      <text x="230" y="112" text-anchor="middle" class="bds">first chunk</text>
+      <text x="470" y="112" text-anchor="middle" class="bds">chunk 2</text>
+      <text x="710" y="112" text-anchor="middle" class="bds">chunk 3</text>
+      <text x="950" y="112" text-anchor="middle" class="bds">end</text>
+      <text x="1112" y="133" class="lbl">time</text>
+
+      <rect x="80" y="150" width="150" height="66" rx="5" fill="#f0fdf9" stroke="#0d9488" stroke-width="2.5"/>
+      <text x="155" y="176" text-anchor="middle" class="bxs ok">before</text>
+      <text x="155" y="202" text-anchor="middle" class="bds ok">a real status code</text>
+      <text x="155" y="240" text-anchor="middle" class="bd ok">502 &middot; 504 &middot; 500</text>
+
+      <rect x="230" y="150" width="870" height="66" rx="5" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
+      <text x="665" y="176" text-anchor="middle" class="bxs no">after &mdash; the 200 has already left the building</text>
+      <text x="665" y="202" text-anchor="middle" class="bds no">a failure can only travel as an event inside the stream</text>
+      <text x="665" y="240" text-anchor="middle" class="bd no">status stays 200, whatever happens next</text>
+
+      <rect x="80" y="272" width="490" height="132" rx="6" fill="#f8f8fd" stroke="#94a3b8" stroke-width="2"/>
+      <text x="325" y="302" text-anchor="middle" class="bxs">A client that reads the status code</text>
+      <text x="325" y="336" text-anchor="middle" class="big ok">&ldquo;success&rdquo;</text>
+      <text x="325" y="370" text-anchor="middle" class="bd">which is the default in most HTTP libraries</text>
+      <text x="325" y="392" text-anchor="middle" class="bds">and in every dashboard built on 5xx rate</text>
+
+      <rect x="610" y="272" width="490" height="132" rx="6" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
+      <text x="855" y="302" text-anchor="middle" class="bxs am">So, two deliberate decisions</text>
+      <text x="632" y="332" class="bd">&bull; emit the error metric from the <tspan font-weight="700">stream</tspan>, not the status</text>
+      <text x="632" y="360" class="bd">&bull; choose how long to buffer the first chunk &mdash;</text>
+      <text x="652" y="384" class="bd">perceived speed, traded for a usable status code</text>
+    </svg>
+  </div>
+</div>
+<div class="slide div" data-sec="Probes" data-notes="Part two. The two questions Kubernetes asks, and the three ways a service answers them badly. Lab 9.2 measures all three through the same thirty-second outage.">
+  <div class="k">Part two</div>
+  <h1>Probes, and what they do</h1>
+</div>
+
+<div class="slide" data-sec="Probes" data-notes="Get the room to say the difference out loud before you show it. The key line: a liveness failure is a destructive action -- it kills a process and throws away warm state -- so it must never depend on something you do not control. Readiness is the gentle one and can depend on everything.">
+  <h2>Two probes, two questions, two consequences</h2>
+  <div class="body">
+    <svg width="1180" height="430" viewBox="0 0 1180 430" role="img" aria-label="Liveness restarts the container, readiness removes the pod from the Service">
+      <rect x="60" y="48" width="500" height="212" rx="8" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
+      <text x="310" y="80" text-anchor="middle" class="lbl no">livenessProbe</text>
+      <text x="310" y="116" text-anchor="middle" class="bx">&ldquo;is this process broken beyond recovery?&rdquo;</text>
+      <text x="310" y="156" text-anchor="middle" class="big no">restarts the container</text>
+      <text x="86" y="194" class="bd">&bull; destructive: warm clients, caches, in-flight requests</text>
+      <text x="86" y="222" class="bd">&bull; so it must not depend on anything remote</text>
+      <text x="310" y="248" text-anchor="middle" class="bds no">answer it with a local check and nothing else</text>
+
+      <rect x="620" y="48" width="500" height="212" rx="8" fill="#f0fdf9" stroke="#0d9488" stroke-width="2.5"/>
+      <text x="870" y="80" text-anchor="middle" class="lbl ok">readinessProbe</text>
+      <text x="870" y="116" text-anchor="middle" class="bx">&ldquo;should this replica get traffic right now?&rdquo;</text>
+      <text x="870" y="156" text-anchor="middle" class="big ok">removes it from the Service</text>
+      <text x="646" y="194" class="bd">&bull; reversible: it comes back on the next passing probe</text>
+      <text x="646" y="222" class="bd">&bull; so it may depend on everything you need</text>
+      <text x="870" y="248" text-anchor="middle" class="bds ok">this is the one that should know about the gateway</text>
+
+      <rect x="150" y="292" width="880" height="112" rx="6" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
+      <text x="590" y="324" text-anchor="middle" class="bxs am">A probe reads the status code. It never reads the body.</text>
+      <text x="590" y="356" text-anchor="middle" class="bd">Returning <tspan font-family="Consolas,monospace">200</tspan> with <tspan font-family="Consolas,monospace">{"ready": false}</tspan> is a readiness check that removes a pod exactly never &mdash;</text>
+      <text x="590" y="382" text-anchor="middle" class="bd">and it is the single most common way this gets written.</text>
+    </svg>
+  </div>
+</div>
+
+<div class="slide" data-sec="Probes" data-notes="These are the measured numbers from Lab 9.2, not estimates: three replicas, a thirty-second gateway outage, periodSeconds 5, failureThreshold 3, initialDelaySeconds 30. Point at the last column and let it land -- the configuration with the best availability number is the one that sent every request of the outage to a replica that could not answer it.">
+  <h2>The same outage, three configurations</h2>
+  <div class="body col">
+    <svg width="1180" height="386" viewBox="0 0 1180 386" role="img" aria-label="Measured outcomes for three probe configurations through one 30-second gateway outage">
+      <text x="60" y="34" class="lbl">3 replicas &middot; gateway unreachable for 30s &middot; period 5s &middot; threshold 3</text>
+      <line x1="60" y1="48" x2="1120" y2="48" stroke="#94a3b8" stroke-width="1.5"/>
+      <text x="72" y="76" class="bds">configuration</text>
+      <text x="560" y="76" text-anchor="middle" class="bds">restarts</text>
+      <text x="720" y="76" text-anchor="middle" class="bds">no ready replica</text>
+      <text x="890" y="76" text-anchor="middle" class="bds">back in service at</text>
+      <text x="1060" y="76" text-anchor="middle" class="bds">served while broken</text>
+      <line x1="60" y1="88" x2="1120" y2="88" stroke="#cbd5e1" stroke-width="1.5"/>
+
+      <rect x="60" y="96" width="1060" height="62" rx="4" fill="#f0fdf9"/>
+      <text x="80" y="124" class="bxs ok">healthz + readyz</text>
+      <text x="80" y="146" class="bds">liveness local, readiness checks the gateway</text>
+      <text x="560" y="134" text-anchor="middle" class="num ok">0</text>
+      <text x="720" y="134" text-anchor="middle" class="bx">20s</text>
+      <text x="890" y="134" text-anchor="middle" class="bx">t = 60s</text>
+      <text x="1060" y="134" text-anchor="middle" class="bx">10s</text>
+
+      <rect x="60" y="166" width="1060" height="62" rx="4" fill="#fef2f2"/>
+      <text x="80" y="194" class="bxs no">readyz + readyz</text>
+      <text x="80" y="216" class="bds">both probes on the same endpoint &mdash; the common mistake</text>
+      <text x="560" y="204" text-anchor="middle" class="num no">3</text>
+      <text x="720" y="204" text-anchor="middle" class="bx no">30s</text>
+      <text x="890" y="204" text-anchor="middle" class="bx no">t = 70s</text>
+      <text x="1060" y="204" text-anchor="middle" class="bx">10s</text>
+
+      <rect x="60" y="236" width="1060" height="62" rx="4" fill="#fffbeb"/>
+      <text x="80" y="264" class="bxs am">readiness that cannot fail</text>
+      <text x="80" y="286" class="bds">200 with a body that says not ready</text>
+      <text x="560" y="274" text-anchor="middle" class="num">0</text>
+      <text x="720" y="274" text-anchor="middle" class="bx ok">0s</text>
+      <text x="890" y="274" text-anchor="middle" class="bx">never down</text>
+      <text x="1060" y="274" text-anchor="middle" class="num no">30s</text>
+
+      <text x="60" y="336" class="bd">&bull; Row two restarted three <tspan font-weight="700">healthy</tspan> processes and stayed down 10s longer than the outage that caused it.</text>
+      <text x="60" y="364" class="bd">&bull; Row three has the best availability column on the page, and answered nothing for thirty seconds.</text>
+    </svg>
+  </div>
+  <div class="take"><b>Readiness alone was enough.</b> Nothing needed restarting &mdash; the gateway came back and so did the replicas, on the next probe.</div>
+</div>
+
+<div class="slide" data-sec="Probes" data-notes="Two ideas on one slide. First, secrets: three places they must not be, and the third one is the one people forget -- the trace and the log, which Module 8's data-boundary lab already made them think about. Second, the cost of the readiness check itself: it is the only code in the service whose cost is set by periodSeconds rather than by traffic.">
+  <h2>Secrets, and the cost of asking</h2>
+  <div class="body">
+    <svg width="1180" height="430" viewBox="0 0 1180 430" role="img" aria-label="Where secrets must not go, and what a dependency-checking readiness probe costs">
+      <rect x="46" y="46" width="540" height="230" rx="8" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
+      <text x="316" y="78" text-anchor="middle" class="lbl no">a credential must not be in</text>
+      <text x="70" y="118" class="bx no">1. the image</text>
+      <text x="90" y="144" class="bds">it ships to every registry mirror and every pull</text>
+      <text x="70" y="180" class="bx no">2. the manifest</text>
+      <text x="90" y="206" class="bds">it is in git, and in every <tspan font-family="Consolas,monospace">get deploy -o yaml</tspan></text>
+      <text x="70" y="242" class="bx no">3. the trace or the log</text>
+      <text x="90" y="268" class="bds">Module 8's third data store, with a longer retention</text>
+
+      <rect x="614" y="46" width="520" height="230" rx="8" fill="#eef2ff" stroke="#4338ca" stroke-width="2.5"/>
+      <text x="874" y="78" text-anchor="middle" class="lbl">what readiness costs, per day</text>
+      <text x="640" y="118" class="bd">3 replicas &times; a probe every 10s</text>
+      <text x="874" y="162" text-anchor="middle" class="num">51,840 calls / day</text>
+      <text x="640" y="204" class="bd">If that probe calls the model, it is a load generator</text>
+      <text x="640" y="230" class="bd">you did not plan for, pointed at the dependency</text>
+      <text x="640" y="256" class="bd">you are already worried about.</text>
+
+      <rect x="120" y="306" width="940" height="98" rx="6" fill="#f0fdf9" stroke="#0d9488" stroke-width="2.5"/>
+      <text x="590" y="338" text-anchor="middle" class="bxs ok">Check locally; observe the dependency passively</text>
+      <text x="590" y="370" text-anchor="middle" class="bd">Is the client constructed, did config load, is in-flight below the limit &mdash; and a flag your</text>
+      <text x="590" y="394" text-anchor="middle" class="bd">request path sets when it sees the gateway fail. Readiness reads the flag. It generates no traffic.</text>
+    </svg>
+  </div>
+</div>
+
+<div class="slide div" data-sec="Manifest" data-notes="Part three. The manifest, and the readiness checklist as something that executes rather than something you remember.">
+  <div class="k">Part three</div>
+  <h1>The manifest is the deployment</h1>
+</div>
+
+<div class="slide" data-sec="Manifest" data-notes="A tour of the objects, and the one sentence each exists for. Keep it brisk -- most rooms know Kubernetes; the value here is the agent-specific column on the right. The starter manifest in the lab folder is exactly these objects, commented.">
+  <h2>What the cluster needs to know</h2>
+  <div class="body">
+    <svg width="1180" height="430" viewBox="0 0 1180 430" role="img" aria-label="The Kubernetes objects an agent service needs and what each one is for">
+      <rect x="50" y="48" width="212" height="94" rx="6" fill="#eef2ff" stroke="#4338ca" stroke-width="2.5"/>
+      <text x="156" y="78" text-anchor="middle" class="bxs">Deployment</text>
+      <text x="156" y="104" text-anchor="middle" class="bds">how many, which image,</text>
+      <text x="156" y="124" text-anchor="middle" class="bds">probes, resources</text>
+
+      <rect x="282" y="48" width="212" height="94" rx="6" fill="#eef2ff" stroke="#4338ca" stroke-width="2.5"/>
+      <text x="388" y="78" text-anchor="middle" class="bxs">Service</text>
+      <text x="388" y="104" text-anchor="middle" class="bds">one stable name in front</text>
+      <text x="388" y="124" text-anchor="middle" class="bds">of the ready replicas</text>
+
+      <rect x="514" y="48" width="212" height="94" rx="6" fill="#eef2ff" stroke="#4338ca" stroke-width="2.5"/>
+      <text x="620" y="78" text-anchor="middle" class="bxs">Ingress</text>
+      <text x="620" y="104" text-anchor="middle" class="bds">a hostname, and the</text>
+      <text x="620" y="124" text-anchor="middle" class="bds">read timeout an agent needs</text>
+
+      <rect x="746" y="48" width="212" height="94" rx="6" fill="#f0fdf9" stroke="#0d9488" stroke-width="2.5"/>
+      <text x="852" y="78" text-anchor="middle" class="bxs ok">Secret</text>
+      <text x="852" y="104" text-anchor="middle" class="bds">the gateway key, mounted</text>
+      <text x="852" y="124" text-anchor="middle" class="bds">as env, never in the image</text>
+
+      <rect x="978" y="48" width="152" height="94" rx="6" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
+      <text x="1054" y="78" text-anchor="middle" class="bxs am">HPA</text>
+      <text x="1054" y="104" text-anchor="middle" class="bds">more replicas</text>
+      <text x="1054" y="124" text-anchor="middle" class="bds">when&hellip; see part five</text>
+
+      <rect x="50" y="176" width="540" height="228" rx="8" fill="#f8f8fd" stroke="#94a3b8" stroke-width="2"/>
+      <text x="320" y="206" text-anchor="middle" class="lbl">requests and limits are a contract</text>
+      <text x="74" y="244" class="bx">requests</text>
+      <text x="94" y="270" class="bds">what the scheduler reserves. Too low and you are</text>
+      <text x="94" y="292" class="bds">packed onto a busy node; too high and you idle.</text>
+      <text x="74" y="330" class="bx">limits</text>
+      <text x="94" y="356" class="bds">CPU over the limit is <tspan font-weight="700">throttled</tspan> &mdash; latency, quietly.</text>
+      <text x="94" y="378" class="bds">Memory over the limit is <tspan font-weight="700">OOMKilled</tspan> &mdash; instantly.</text>
+
+      <rect x="618" y="176" width="512" height="228" rx="8" fill="#eef2ff" stroke="#4338ca" stroke-width="2.5"/>
+      <text x="874" y="206" text-anchor="middle" class="lbl">what an agent adds to the usual list</text>
+      <text x="642" y="244" class="bd">&bull; a long ingress read timeout &mdash; a request is 40s,</text>
+      <text x="662" y="266" class="bd">not 40ms, and the default will cut it</text>
+      <text x="642" y="300" class="bd">&bull; memory sized for the client and its buffers, not</text>
+      <text x="662" y="322" class="bd">for a model &mdash; nothing is loaded in-process</text>
+      <text x="642" y="356" class="bd">&bull; a termination grace period long enough to finish</text>
+      <text x="662" y="378" class="bd">the request in flight, or you cut a caller off</text>
+    </svg>
+  </div>
+</div>
+
+<div class="slide" data-sec="Manifest" data-notes="This is Lab 9.3. The point is not the five rules -- everyone knows them -- but that written as predicates they run in CI, and written as prose they are a thing to forget. The last rule is the interesting one and part five comes back to it.">
+  <h2>A checklist you remember is one you skip</h2>
+  <div class="body">
+    <svg width="1180" height="430" viewBox="0 0 1180 430" role="img" aria-label="Five blocking rules and one advisory over a manifest">
+      <rect x="46" y="48" width="470" height="300" rx="8" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
+      <text x="281" y="80" text-anchor="middle" class="lbl no">blocks the release</text>
+      <text x="70" y="118" class="bxs">requests and limits on every container</text>
+      <text x="70" y="160" class="bxs">liveness and readiness, and not the same check</text>
+      <text x="70" y="202" class="bxs">no credential as a literal in the manifest</text>
+      <text x="70" y="244" class="bxs">an image tag that is not <tspan font-family="Consolas,monospace">:latest</tspan></text>
+      <text x="70" y="286" class="bxs">more than one replica, or something that can add one</text>
+      <text x="281" y="326" text-anchor="middle" class="bds">five findings in a manifest that looks ordinary</text>
+
+      <rect x="556" y="48" width="578" height="140" rx="8" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
+      <text x="845" y="80" text-anchor="middle" class="lbl am">advises, and cannot block</text>
+      <text x="580" y="116" class="bxs am">scales on CPU only</text>
+      <text x="580" y="150" class="bds">right for a service that renders templates,</text>
+      <text x="580" y="172" class="bds">wrong for one that waits &mdash; so it names the assumption</text>
+
+      <rect x="556" y="208" width="578" height="140" rx="8" fill="#f0fdf9" stroke="#0d9488" stroke-width="2.5"/>
+      <text x="845" y="240" text-anchor="middle" class="lbl ok">and the two decisions per rule</text>
+      <text x="580" y="278" class="bd">&bull; does it fail the build?</text>
+      <text x="580" y="312" class="bd">&bull; can it be waived &mdash; by whom, why, until when?</text>
+      <text x="580" y="338" class="bds">a waiver without an expiry is a silence with a comment on it</text>
+
+      <rect x="120" y="368" width="940" height="42" rx="5" fill="#eef2ff" stroke="#4338ca" stroke-width="2"/>
+      <text x="590" y="395" text-anchor="middle" class="bxs">A manifest is JSON. Every rule above is a predicate over a dict, and runs with no cluster at all.</text>
+    </svg>
+  </div>
+</div>
+<div class="slide div" data-sec="Telemetry" data-notes="Part four. OpenTelemetry gives three signals and one vocabulary; an agent needs a fourth thing that none of them provides for free.">
+  <div class="k">Part four</div>
+  <h1>Traces, metrics, logs &mdash; and cost</h1>
+</div>
+
+<div class="slide" data-sec="Telemetry" data-notes="Three pillars, and the honest point: latency, cost and error rate come free with any HTTP instrumentation. Did a guardrail fire, did the answer cite its source, was it right -- those have to be recorded on purpose, by you, as span attributes. That gap is the whole of the difference between observability for a web service and AgentOps.">
+  <h2>Three pillars, and the thing they do not give you</h2>
+  <div class="body">
+    <svg width="1180" height="430" viewBox="0 0 1180 430" role="img" aria-label="What traces, metrics and logs each answer, and what an agent needs on top">
+      <rect x="46" y="48" width="348" height="188" rx="8" fill="#eef2ff" stroke="#4338ca" stroke-width="2.5"/>
+      <text x="220" y="80" text-anchor="middle" class="lbl">trace</text>
+      <text x="220" y="118" text-anchor="middle" class="bx">one request, as a tree</text>
+      <text x="220" y="156" text-anchor="middle" class="bd">&ldquo;where did the time go</text>
+      <text x="220" y="180" text-anchor="middle" class="bd">on <tspan font-style="italic">this</tspan> one?&rdquo;</text>
+      <text x="220" y="214" text-anchor="middle" class="bds">expensive, so it is sampled</text>
+
+      <rect x="416" y="48" width="348" height="188" rx="8" fill="#eef2ff" stroke="#4338ca" stroke-width="2.5"/>
+      <text x="590" y="80" text-anchor="middle" class="lbl">metric</text>
+      <text x="590" y="118" text-anchor="middle" class="bx">a number over a window</text>
+      <text x="590" y="156" text-anchor="middle" class="bd">&ldquo;how often, how bad,</text>
+      <text x="590" y="180" text-anchor="middle" class="bd">across all of them?&rdquo;</text>
+      <text x="590" y="214" text-anchor="middle" class="bds">cheap per event, priced by labels</text>
+
+      <rect x="786" y="48" width="348" height="188" rx="8" fill="#eef2ff" stroke="#4338ca" stroke-width="2.5"/>
+      <text x="960" y="80" text-anchor="middle" class="lbl">log</text>
+      <text x="960" y="118" text-anchor="middle" class="bx">an event with a timestamp</text>
+      <text x="960" y="156" text-anchor="middle" class="bd">&ldquo;what exactly happened</text>
+      <text x="960" y="180" text-anchor="middle" class="bd">at 14:07?&rdquo;</text>
+      <text x="960" y="214" text-anchor="middle" class="bds">carry the trace ID, or it is orphaned</text>
+
+      <rect x="120" y="266" width="940" height="140" rx="6" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
+      <text x="590" y="298" text-anchor="middle" class="bxs am">All three are green while the agent answers the wrong thing</text>
+      <text x="590" y="332" text-anchor="middle" class="bd">Latency, cost and error rate come free with any HTTP instrumentation. <tspan font-weight="700">Did a guardrail fire</tspan>,</text>
+      <text x="590" y="358" text-anchor="middle" class="bd"><tspan font-weight="700">did the answer cite its source</tspan>, <tspan font-weight="700">was it right</tspan> &mdash; nothing records those unless you decide to.</text>
+      <text x="590" y="392" text-anchor="middle" class="bds">That decision is made weeks before the incident, when nothing is wrong.</text>
+    </svg>
+  </div>
+</div>
+
+<div class="slide" data-sec="Telemetry" data-notes="The concrete answer to the previous slide. Walk the attribute list -- the gen_ai.* names are the OpenTelemetry semantic convention, which is why the choice of backend is reversible and the choice of what to record is not. Note that recording tokens as well as cost means the history survives a price change.">
+  <h2>What goes on the span</h2>
+  <div class="body">
+    <svg width="1180" height="430" viewBox="0 0 1180 430" role="img" aria-label="Span attributes an agent service should record">
+      <rect x="46" y="48" width="520" height="356" rx="8" fill="#f8f8fd" stroke="#94a3b8" stroke-width="2"/>
+      <text x="306" y="80" text-anchor="middle" class="lbl">free with any HTTP instrumentation</text>
+      <text x="72" y="118" class="bds" font-family="Consolas,monospace">http.route</text>
+      <text x="72" y="150" class="bds" font-family="Consolas,monospace">http.status_code</text>
+      <text x="72" y="182" class="bds" font-family="Consolas,monospace">duration</text>
+      <text x="306" y="226" text-anchor="middle" class="lbl">the model call, by convention</text>
+      <text x="72" y="264" class="bds" font-family="Consolas,monospace">gen_ai.request.model</text>
+      <text x="72" y="296" class="bds" font-family="Consolas,monospace">gen_ai.usage.input_tokens</text>
+      <text x="72" y="328" class="bds" font-family="Consolas,monospace">gen_ai.usage.output_tokens</text>
+      <text x="306" y="372" text-anchor="middle" class="bds">standard names, so the backend stays replaceable</text>
+
+      <rect x="602" y="48" width="532" height="356" rx="8" fill="#f0fdf9" stroke="#0d9488" stroke-width="2.5"/>
+      <text x="868" y="80" text-anchor="middle" class="lbl ok">what you have to decide to record</text>
+      <text x="628" y="118" class="bds ok" font-family="Consolas,monospace">app.cost_usd</text>
+      <text x="648" y="142" class="bds">with the token counts, so a price change</text>
+      <text x="648" y="164" class="bds">does not invalidate the history</text>
+      <text x="628" y="202" class="bds ok" font-family="Consolas,monospace">app.decision</text>
+      <text x="648" y="226" class="bds">answered &middot; refused &middot; escalated &mdash; Module 8's</text>
+      <text x="648" y="248" class="bds">control, made visible</text>
+      <text x="628" y="286" class="bds ok" font-family="Consolas,monospace">app.cited_policy</text>
+      <text x="648" y="310" class="bds">Module 6's grounding check, made visible</text>
+      <text x="628" y="348" class="bds ok" font-family="Consolas,monospace">app.tenant</text>
+      <text x="648" y="372" class="bds">so &ldquo;who spent it&rdquo; has an answer</text>
+    </svg>
+  </div>
+</div>
+
+<div class="slide" data-sec="Telemetry" data-notes="The cardinality trap, with the arithmetic. A span attribute is stored once per request; a metric label creates a time series per distinct combination, forever. Payment reference on the span is right; on the metric it is 144,000 series for one metric, and unbounded thereafter.">
+  <h2>A label multiplies. An attribute does not.</h2>
+  <div class="body">
+    <svg width="1180" height="430" viewBox="0 0 1180 430" role="img" aria-label="How adding metric labels multiplies the number of time series">
+      <text x="60" y="52" class="lbl">one metric &mdash; request duration &mdash; and its labels</text>
+
+      <rect x="60" y="70" width="800" height="52" rx="5" fill="#f0fdf9" stroke="#0d9488" stroke-width="2"/>
+      <text x="84" y="102" class="bxs" font-family="Consolas,monospace">service + endpoint + status</text>
+      <text x="1000" y="102" text-anchor="middle" class="num ok">12</text>
+
+      <rect x="60" y="134" width="800" height="52" rx="5" fill="#f0fdf9" stroke="#0d9488" stroke-width="2"/>
+      <text x="84" y="166" class="bxs" font-family="Consolas,monospace">&hellip; + model</text>
+      <text x="1000" y="166" text-anchor="middle" class="num ok">24</text>
+
+      <rect x="60" y="198" width="800" height="52" rx="5" fill="#fffbeb" stroke="#fbbf24" stroke-width="2"/>
+      <text x="84" y="230" class="bxs" font-family="Consolas,monospace">&hellip; + tenant</text>
+      <text x="1000" y="230" text-anchor="middle" class="num am">120</text>
+
+      <rect x="60" y="262" width="800" height="52" rx="5" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
+      <text x="84" y="294" class="bxs no" font-family="Consolas,monospace">&hellip; + payment_ref</text>
+      <text x="1000" y="294" text-anchor="middle" class="num no">144,000</text>
+      <text x="1088" y="294" class="bds no">and rising</text>
+
+      <rect x="120" y="336" width="940" height="72" rx="6" fill="#eef2ff" stroke="#4338ca" stroke-width="2.5"/>
+      <text x="590" y="366" text-anchor="middle" class="bxs">The same field on a span costs one string, once, on that request</text>
+      <text x="590" y="394" text-anchor="middle" class="bd">High-cardinality identifiers belong on spans and in logs. Never on a metric label.</text>
+    </svg>
+  </div>
+</div>
+
+<div class="slide" data-sec="Telemetry" data-notes="Two things here. The collector -- one place to sample, redact and fan out, changeable without redeploying the service. And the sampling arithmetic, which is the number to remember: head sampling at ten percent loses the entire day's evidence about one day in three.">
+  <h2>The collector, and what sampling costs you</h2>
+  <div class="body">
+    <svg width="1180" height="430" viewBox="0 0 1180 430" role="img" aria-label="OTLP collector between the service and its backends, and head versus tail sampling">
+      <rect x="46" y="56" width="176" height="88" rx="6" fill="#eef2ff" stroke="#4338ca" stroke-width="2.5"/>
+      <text x="134" y="94" text-anchor="middle" class="bxs">your service</text>
+      <text x="134" y="120" text-anchor="middle" class="bds">OTel SDK</text>
+
+      <line x1="222" y1="100" x2="300" y2="100" stroke="#4338ca" stroke-width="2.5" marker-end="url(#ai)"/>
+      <text x="261" y="88" text-anchor="middle" class="bds">OTLP</text>
+
+      <rect x="304" y="46" width="240" height="108" rx="6" fill="#f0fdf9" stroke="#0d9488" stroke-width="2.5"/>
+      <text x="424" y="78" text-anchor="middle" class="bxs ok">collector</text>
+      <text x="424" y="104" text-anchor="middle" class="bds">sample &middot; redact &middot; batch</text>
+      <text x="424" y="130" text-anchor="middle" class="bds">changed without a redeploy</text>
+
+      <line x1="544" y1="82" x2="626" y2="70" stroke="#94a3b8" stroke-width="2" marker-end="url(#ag)"/>
+      <line x1="544" y1="100" x2="626" y2="100" stroke="#94a3b8" stroke-width="2" marker-end="url(#ag)"/>
+      <line x1="544" y1="118" x2="626" y2="132" stroke="#94a3b8" stroke-width="2" marker-end="url(#ag)"/>
+      <rect x="630" y="50" width="180" height="40" rx="5" fill="#f8f8fd" stroke="#94a3b8" stroke-width="2"/>
+      <text x="720" y="76" text-anchor="middle" class="bds">a tracing backend</text>
+      <rect x="630" y="80" width="180" height="40" rx="5" fill="#f8f8fd" stroke="#94a3b8" stroke-width="2"/>
+      <text x="720" y="106" text-anchor="middle" class="bds">metrics</text>
+      <rect x="630" y="110" width="180" height="42" rx="5" fill="#f8f8fd" stroke="#94a3b8" stroke-width="2"/>
+      <text x="720" y="137" text-anchor="middle" class="bds">LangFuse</text>
+
+      <text x="856" y="72" class="bd">One place to decide what leaves,</text>
+      <text x="856" y="98" class="bd">what is redacted, and where it goes.</text>
+      <text x="856" y="132" class="bds">The sampling decision belongs here,</text>
+      <text x="856" y="152" class="bds">not in your application.</text>
+
+      <rect x="46" y="186" width="1088" height="216" rx="8" fill="#f8f8fd" stroke="#94a3b8" stroke-width="2"/>
+      <text x="590" y="216" text-anchor="middle" class="lbl">2,000 requests a day &middot; 1 failure in 200 &middot; so ten failures to explain</text>
+
+      <rect x="70" y="236" width="516" height="72" rx="5" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
+      <text x="328" y="264" text-anchor="middle" class="bxs no">head sampling at 10%</text>
+      <text x="328" y="292" text-anchor="middle" class="bd">keeps 1 failure &mdash; and on <tspan font-weight="700">35% of days</tspan>, none at all</text>
+
+      <rect x="594" y="236" width="516" height="72" rx="5" fill="#f0fdf9" stroke="#0d9488" stroke-width="2.5"/>
+      <text x="852" y="264" text-anchor="middle" class="bxs ok">tail sampling, 5% of the clean ones</text>
+      <text x="852" y="292" text-anchor="middle" class="bd">keeps <tspan font-weight="700">every</tspan> failure, and stores 45% less</text>
+
+      <text x="70" y="338" class="bd">Tail sampling decides when the request <tspan font-style="italic">ends</tspan>, so the collector has to buffer the trace &mdash; which is the</text>
+      <text x="70" y="362" class="bd">real cost, and the reason it lives in the collector rather than the SDK.</text>
+      <text x="70" y="390" class="bd">For an agent, extend the keep rule past errors: every <tspan font-weight="700">refusal</tspan>, every <tspan font-weight="700">escalation</tspan>, and the slowest 1%.</text>
+    </svg>
+  </div>
+</div>
+
+<div class="slide div" data-sec="Running it" data-notes="Part five. Scaling, alarming, and the on-call page for a system that can be wrong without erroring.">
+  <div class="k">Part five</div>
+  <h1>Running it</h1>
+</div>
+
+<div class="slide" data-sec="Running it" data-notes="Measured in Lab 9.5. The HPA is correctly configured, correctly deployed, and will never fire -- because the replica is waiting, not computing. Emphasise that the fix is not a lower CPU target; it is a different signal. And the last row: scaling has a ceiling that is a budget, past which the correct behaviour is a 429.">
+  <h2>CPU autoscaling never fires for an agent</h2>
+  <div class="body col">
+    <svg width="1180" height="380" viewBox="0 0 1180 380" role="img" aria-label="CPU utilisation, replica counts and latency at increasing concurrency">
+      <text x="60" y="32" class="lbl">one replica serves 8 concurrent requests &middot; a request is 8s, of which 0.015s is CPU</text>
+      <line x1="60" y1="44" x2="1120" y2="44" stroke="#94a3b8" stroke-width="1.5"/>
+      <text x="120" y="72" text-anchor="middle" class="bds">in flight</text>
+      <text x="330" y="72" text-anchor="middle" class="bds">CPU</text>
+      <text x="560" y="72" text-anchor="middle" class="bds">HPA on CPU asks for</text>
+      <text x="810" y="72" text-anchor="middle" class="bds">HPA on in-flight asks for</text>
+      <text x="1030" y="72" text-anchor="middle" class="bds">latency, unscaled</text>
+      <line x1="60" y1="84" x2="1120" y2="84" stroke="#cbd5e1" stroke-width="1.5"/>
+
+      <text x="120" y="122" text-anchor="middle" class="bx">4</text>
+      <text x="330" y="122" text-anchor="middle" class="bx">0.8%</text>
+      <text x="560" y="122" text-anchor="middle" class="bx">1</text>
+      <text x="810" y="122" text-anchor="middle" class="bx">1</text>
+      <text x="1030" y="122" text-anchor="middle" class="bx ok">8s</text>
+
+      <text x="120" y="168" text-anchor="middle" class="bx">12</text>
+      <text x="330" y="168" text-anchor="middle" class="bx">2.3%</text>
+      <text x="560" y="168" text-anchor="middle" class="bx">1</text>
+      <text x="810" y="168" text-anchor="middle" class="bx">3</text>
+      <text x="1030" y="168" text-anchor="middle" class="bx">16s</text>
+
+      <rect x="60" y="188" width="1060" height="46" rx="4" fill="#fef2f2"/>
+      <text x="120" y="218" text-anchor="middle" class="bx no">60</text>
+      <text x="330" y="218" text-anchor="middle" class="bx no">11%</text>
+      <text x="560" y="218" text-anchor="middle" class="num no">1</text>
+      <text x="810" y="218" text-anchor="middle" class="num ok">11</text>
+      <text x="1030" y="218" text-anchor="middle" class="bx no">64s</text>
+
+      <text x="120" y="266" text-anchor="middle" class="bx">120</text>
+      <text x="330" y="266" text-anchor="middle" class="bx">23%</text>
+      <text x="560" y="266" text-anchor="middle" class="bx no">1</text>
+      <text x="810" y="266" text-anchor="middle" class="bx">22</text>
+      <text x="1030" y="266" text-anchor="middle" class="bx no">120s</text>
+
+      <text x="60" y="312" class="bd">&bull; The CPU metric crosses 70% only near 400 in flight &mdash; a concurrency at which a request already takes 400 seconds.</text>
+      <text x="60" y="340" class="bd">&bull; The fix is not a lower CPU target. It is a signal that grows with waiting: in-flight, queue depth, time-to-first-token.</text>
+      <text x="60" y="368" class="bd">&bull; And the ceiling is a <tspan font-weight="700">budget</tspan>, not a technical limit. Past it, shed load with a 429 &mdash; do not accept a request you will answer in four minutes.</text>
+    </svg>
+  </div>
+</div>
+
+<div class="slide" data-sec="Running it" data-notes="The closing measurement of the course. Same seed, same traffic, one deploy in between: latency, cost, errors and traffic are identical, and one payment in twelve that should have gone to a human did not. Ask what alarm would have caught it -- and make the point that it has to be two-sided, because a control that stops working makes its own metric go DOWN.">
+  <h2>Every signal green, and the control is off</h2>
+  <div class="body">
+    <svg width="1180" height="430" viewBox="0 0 1180 430" role="img" aria-label="Metrics before and after a deploy that disabled a control">
+      <text x="60" y="46" class="lbl">2,000 requests each day &middot; same code path &middot; one deploy in between</text>
+      <line x1="60" y1="58" x2="1120" y2="58" stroke="#94a3b8" stroke-width="1.5"/>
+      <text x="330" y="86" text-anchor="middle" class="bds">metric</text>
+      <text x="700" y="86" text-anchor="middle" class="bds">yesterday</text>
+      <text x="880" y="86" text-anchor="middle" class="bds">today</text>
+      <text x="1050" y="86" text-anchor="middle" class="bds">alarm?</text>
+      <line x1="60" y1="98" x2="1120" y2="98" stroke="#cbd5e1" stroke-width="1.5"/>
+
+      <text x="80" y="132" class="bx">5xx rate</text>
+      <text x="700" y="132" text-anchor="middle" class="bx">1.95%</text>
+      <text x="880" y="132" text-anchor="middle" class="bx">1.95%</text>
+      <text x="1050" y="132" text-anchor="middle" class="bd ok">quiet</text>
+
+      <text x="80" y="170" class="bx">p95 latency</text>
+      <text x="700" y="170" text-anchor="middle" class="bx">11.6s</text>
+      <text x="880" y="170" text-anchor="middle" class="bx">11.6s</text>
+      <text x="1050" y="170" text-anchor="middle" class="bd ok">quiet</text>
+
+      <text x="80" y="208" class="bx">cost per request</text>
+      <text x="700" y="208" text-anchor="middle" class="bx">$0.0020</text>
+      <text x="880" y="208" text-anchor="middle" class="bx">$0.0020</text>
+      <text x="1050" y="208" text-anchor="middle" class="bd ok">quiet</text>
+
+      <rect x="60" y="222" width="1060" height="48" rx="4" fill="#fef2f2"/>
+      <text x="80" y="252" class="bx no">refusal rate</text>
+      <text x="700" y="252" text-anchor="middle" class="bx">8.9%</text>
+      <text x="880" y="252" text-anchor="middle" class="num no">0.7%</text>
+      <text x="1050" y="252" text-anchor="middle" class="bd no">nothing fired</text>
+
+      <rect x="60" y="274" width="1060" height="48" rx="4" fill="#fef2f2"/>
+      <text x="80" y="304" class="bx no">citation rate</text>
+      <text x="700" y="304" text-anchor="middle" class="bx">91.9%</text>
+      <text x="880" y="304" text-anchor="middle" class="num no">55.9%</text>
+      <text x="1050" y="304" text-anchor="middle" class="bd no">nothing fired</text>
+
+      <rect x="60" y="340" width="1060" height="72" rx="6" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
+      <text x="590" y="370" text-anchor="middle" class="bxs am">A control that stops working makes its own metric go DOWN</text>
+      <text x="590" y="398" text-anchor="middle" class="bd">So the alarm is two-sided: <tspan font-weight="700">moved &plusmn;25% against the trailing week</tspan>. A one-sided threshold sees nothing here.</text>
+    </svg>
+  </div>
+</div>
+
+<div class="slide" data-sec="Running it" data-notes="The runbook page. This is the artifact they take away. Read the four agent-specific rows out loud -- in-flight, refusal, citation, cost -- and then the three first actions, especially do not restart before checking the dependency, which is Lab 9.2's whole point.">
+  <h2>The on-call page for an agentic service</h2>
+  <div class="body">
+    <svg width="1180" height="430" viewBox="0 0 1180 430" role="img" aria-label="What to alarm on and what to do first">
+      <rect x="46" y="46" width="560" height="358" rx="8" fill="#eef2ff" stroke="#4338ca" stroke-width="2.5"/>
+      <text x="326" y="78" text-anchor="middle" class="lbl">page on</text>
+      <text x="70" y="112" class="bds">5xx rate above 1% for five minutes</text>
+      <text x="70" y="142" class="bds">p95 latency above 3&times; baseline</text>
+      <text x="70" y="180" class="bxs ok">in-flight per replica above 70% of capacity</text>
+      <text x="90" y="202" class="bds">because CPU will not tell you</text>
+      <text x="70" y="240" class="bxs ok">refusal or escalation rate moved &plusmn;25%</text>
+      <text x="90" y="262" class="bds">because a control stopped working</text>
+      <text x="70" y="300" class="bxs ok">citation rate moved &plusmn;25%</text>
+      <text x="90" y="322" class="bds">because grounding stopped working</text>
+      <text x="70" y="360" class="bxs ok">cost per request above 2&times; baseline</text>
+      <text x="90" y="382" class="bds">a retry loop, or somebody's routing change</text>
+
+      <rect x="626" y="46" width="508" height="192" rx="8" fill="#f0fdf9" stroke="#0d9488" stroke-width="2.5"/>
+      <text x="880" y="78" text-anchor="middle" class="lbl ok">first three things</text>
+      <text x="650" y="114" class="bd">1. Read one <tspan font-weight="700">trace</tspan>, not the logs. Which hop grew,</text>
+      <text x="672" y="136" class="bd">and did it grow in count or in duration?</text>
+      <text x="650" y="170" class="bd">2. Look at the last deploy. <tspan font-weight="700">A prompt is a deploy.</tspan></text>
+      <text x="672" y="192" class="bd">So is a model version somebody else changed.</text>
+      <text x="650" y="226" class="bd">3. Check the dependency <tspan font-style="italic">before</tspan> restarting anything.</text>
+
+      <rect x="626" y="256" width="508" height="148" rx="8" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
+      <text x="880" y="288" text-anchor="middle" class="lbl no">do not</text>
+      <text x="650" y="318" class="bd">&bull; raise the CPU target to make the HPA fire &mdash;</text>
+      <text x="670" y="340" class="bd">it is the wrong signal, not a mistuned one</text>
+      <text x="650" y="366" class="bd">&bull; silence the control that is alarming</text>
+      <text x="650" y="390" class="bd">&bull; conclude anything from a green dashboard</text>
+    </svg>
+  </div>
+</div>
+
+<div class="slide" data-sec="Recap" data-notes="Close the module and the teaching part of the course. Each row is a default that changes, and each one was measured rather than asserted. Then hand over to the labs and the capstone.">
+  <h2>What this module actually changed</h2>
+  <div class="body">
+    <svg width="1180" height="430" viewBox="0 0 1180 430" role="img" aria-label="Defaults that change for an agent service">
+      <line x1="590" y1="46" x2="590" y2="404" stroke="#cbd5e1" stroke-width="2"/>
+      <text x="300" y="44" text-anchor="middle" class="lbl">the default</text>
+      <text x="880" y="44" text-anchor="middle" class="lbl ok">for an agent service</text>
+
+      <text x="70" y="92" class="bd">a sync client inside <tspan font-family="Consolas,monospace">async def</tspan></text>
+      <text x="620" y="92" class="bd ok">an async client, or ten callers become one queue</text>
+
+      <text x="70" y="140" class="bd">a refusal is an error</text>
+      <text x="620" y="140" class="bd ok">200 with a decision &mdash; 5xx pages someone</text>
+
+      <text x="70" y="188" class="bd">one health endpoint</text>
+      <text x="620" y="188" class="bd ok">liveness local, readiness may check the gateway</text>
+
+      <text x="70" y="236" class="bd">a checklist in a wiki</text>
+      <text x="620" y="236" class="bd ok">predicates over the manifest, run in CI</text>
+
+      <text x="70" y="284" class="bd">head sampling at 10%</text>
+      <text x="620" y="284" class="bd ok">tail sampling: keep errors, refusals, escalations</text>
+
+      <text x="70" y="332" class="bd">autoscale on CPU</text>
+      <text x="620" y="332" class="bd ok">autoscale on in-flight &mdash; CPU never moves</text>
+
+      <text x="70" y="380" class="bd">alarm when a number goes up</text>
+      <text x="620" y="380" class="bd ok">alarm when a control's number moves either way</text>
+    </svg>
+  </div>
+  <div class="take"><b>Everything in that right-hand column was measured in a lab</b> you can re-run, on numbers you can change.</div>
+</div>
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer B. If the room says A, ask what `await` actually does. The point to leave them with is that correctness tests cannot find this -- only concurrency can.">
+  <div class="qtag">Question 1 of 8</div>
+  <h2>Ten users at once</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">Your endpoint is <code>async def</code> and calls the synchronous OpenAI client. Each call takes 200ms. Ten users arrive at the same instant. What does the tenth one experience?</div>
+    <div class="opt"><span class="k">A</span><span>Nothing unusual &mdash; <code>async def</code> makes the handler concurrent</span></div>
+    <div class="opt"><span class="k">B</span><span>About two seconds, because the event loop cannot run anything else while each call blocks</span></div>
+    <div class="opt"><span class="k">C</span><span>A 500, because the event loop raises when a coroutine blocks</span></div>
+    <div class="opt"><span class="k">D</span><span>Higher memory use, but the same latency</span></div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer B. If the room says A, ask what `await` actually does. The point to leave them with is that correctness tests cannot find this -- only concurrency can.">
+  <div class="qtag">Answer 1 of 8</div>
+  <h2>Ten users at once</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">Your endpoint is <code>async def</code> and calls the synchronous OpenAI client. Each call takes 200ms. Ten users arrive at the same instant. What does the tenth one experience?</div>
+    <div class="opt miss"><span class="k">A</span><span>Nothing unusual &mdash; <code>async def</code> makes the handler concurrent</span></div>
+    <div class="opt hit"><span class="k">B</span><span>About two seconds, because the event loop cannot run anything else while each call blocks</span></div>
+    <div class="opt miss"><span class="k">C</span><span>A 500, because the event loop raises when a coroutine blocks</span></div>
+    <div class="opt miss"><span class="k">D</span><span>Higher memory use, but the same latency</span></div>
+    <div class="why"><b>Why:</b> <code>async def</code> is a promise to give the loop back while waiting, and a synchronous client never does. The answers are all correct and arrive in the right order, which is why nothing catches this except a load test. The gap is O(n): forty callers is four times worse again.</div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer C. The strongest challenge is 403, so be ready for it: 403 says the caller lacks permission, which is a different claim from the agent deciding a human must look at it.">
+  <div class="qtag">Question 2 of 8</div>
+  <h2>The guardrail declined</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">Your approval gate refuses to release a held payment without a human. What should the endpoint return?</div>
+    <div class="opt"><span class="k">A</span><span>403, because the caller was not authorised</span></div>
+    <div class="opt"><span class="k">B</span><span>503, because the request could not be completed</span></div>
+    <div class="opt"><span class="k">C</span><span>200, with the decision and its reason in the body</span></div>
+    <div class="opt"><span class="k">D</span><span>500, and log it as a failure</span></div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer C. The strongest challenge is 403, so be ready for it: 403 says the caller lacks permission, which is a different claim from the agent deciding a human must look at it.">
+  <div class="qtag">Answer 2 of 8</div>
+  <h2>The guardrail declined</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">Your approval gate refuses to release a held payment without a human. What should the endpoint return?</div>
+    <div class="opt miss"><span class="k">A</span><span>403, because the caller was not authorised</span></div>
+    <div class="opt miss"><span class="k">B</span><span>503, because the request could not be completed</span></div>
+    <div class="opt hit"><span class="k">C</span><span>200, with the decision and its reason in the body</span></div>
+    <div class="opt miss"><span class="k">D</span><span>500, and log it as a failure</span></div>
+    <div class="why"><b>Why:</b> The service worked exactly as designed &mdash; producing a decision is what it exists for. A 5xx is an instruction: retry, burn error budget, page someone. Return one here and every working guardrail becomes an incident, retried on another replica that will decline it again.</div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer A. Push on why B is wrong: readiness would do exactly that, and the mistake is that liveness is also failing, which is destructive.">
+  <div class="qtag">Question 3 of 8</div>
+  <h2>Both probes, one endpoint</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">Liveness and readiness both point at <code>/readyz</code>, which checks the model gateway. The gateway is unreachable for thirty seconds. What happens to your three replicas?</div>
+    <div class="opt"><span class="k">A</span><span>All three are restarted, and the service is down for longer than the gateway was</span></div>
+    <div class="opt"><span class="k">B</span><span>All three drain and return the moment the gateway comes back</span></div>
+    <div class="opt"><span class="k">C</span><span>Nothing &mdash; probes do not act on a transient failure</span></div>
+    <div class="opt"><span class="k">D</span><span>They are evicted and rescheduled onto another node</span></div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer A. Push on why B is wrong: readiness would do exactly that, and the mistake is that liveness is also failing, which is destructive.">
+  <div class="qtag">Answer 3 of 8</div>
+  <h2>Both probes, one endpoint</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">Liveness and readiness both point at <code>/readyz</code>, which checks the model gateway. The gateway is unreachable for thirty seconds. What happens to your three replicas?</div>
+    <div class="opt hit"><span class="k">A</span><span>All three are restarted, and the service is down for longer than the gateway was</span></div>
+    <div class="opt miss"><span class="k">B</span><span>All three drain and return the moment the gateway comes back</span></div>
+    <div class="opt miss"><span class="k">C</span><span>Nothing &mdash; probes do not act on a transient failure</span></div>
+    <div class="opt miss"><span class="k">D</span><span>They are evicted and rescheduled onto another node</span></div>
+    <div class="why"><b>Why:</b> Measured in Lab 9.2: three restarts, and each restarted replica has to get back through <code>initialDelaySeconds</code> &mdash; so the outage outlasts the gateway blip by ten seconds. Readiness alone would have drained traffic and restored it with nothing killed.</div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer D. Worth pausing on: this is the single most common way readiness gets written, and it looks careful in review.">
+  <div class="qtag">Question 4 of 8</div>
+  <h2>Ready, apparently</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">Your readiness endpoint returns HTTP 200 with the body <code>{"ready": false}</code> whenever the gateway is unreachable. What does the kubelet do with that?</div>
+    <div class="opt"><span class="k">A</span><span>Removes the pod from the Service, as intended</span></div>
+    <div class="opt"><span class="k">B</span><span>Restarts the container</span></div>
+    <div class="opt"><span class="k">C</span><span>Logs a warning and keeps the pod in the Service</span></div>
+    <div class="opt"><span class="k">D</span><span>Nothing at all &mdash; a probe reads the status code and never the body</span></div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer D. Worth pausing on: this is the single most common way readiness gets written, and it looks careful in review.">
+  <div class="qtag">Answer 4 of 8</div>
+  <h2>Ready, apparently</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">Your readiness endpoint returns HTTP 200 with the body <code>{"ready": false}</code> whenever the gateway is unreachable. What does the kubelet do with that?</div>
+    <div class="opt miss"><span class="k">A</span><span>Removes the pod from the Service, as intended</span></div>
+    <div class="opt miss"><span class="k">B</span><span>Restarts the container</span></div>
+    <div class="opt miss"><span class="k">C</span><span>Logs a warning and keeps the pod in the Service</span></div>
+    <div class="opt hit"><span class="k">D</span><span>Nothing at all &mdash; a probe reads the status code and never the body</span></div>
+    <div class="why"><b>Why:</b> The check is decorative. In the lab it produces the best availability column on the table &mdash; zero seconds without a ready replica &mdash; by sending every request of the outage to a replica that could not answer any of them.</div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer A. If someone argues it is useful, agree: it is. Then point out that a span already gives them exactly that, at a cost that does not compound.">
+  <div class="qtag">Question 5 of 8</div>
+  <h2>One more label</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">You add <code>payment_ref</code> as a label on your request-duration metric so you can debug individual cases. What have you done?</div>
+    <div class="opt"><span class="k">A</span><span>Created an unbounded number of time series, stored and indexed forever</span></div>
+    <div class="opt"><span class="k">B</span><span>Nothing costly &mdash; labels are metadata and are cheap</span></div>
+    <div class="opt"><span class="k">C</span><span>Made every trace larger</span></div>
+    <div class="opt"><span class="k">D</span><span>Broken the histogram's bucket boundaries</span></div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer A. If someone argues it is useful, agree: it is. Then point out that a span already gives them exactly that, at a cost that does not compound.">
+  <div class="qtag">Answer 5 of 8</div>
+  <h2>One more label</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">You add <code>payment_ref</code> as a label on your request-duration metric so you can debug individual cases. What have you done?</div>
+    <div class="opt hit"><span class="k">A</span><span>Created an unbounded number of time series, stored and indexed forever</span></div>
+    <div class="opt miss"><span class="k">B</span><span>Nothing costly &mdash; labels are metadata and are cheap</span></div>
+    <div class="opt miss"><span class="k">C</span><span>Made every trace larger</span></div>
+    <div class="opt miss"><span class="k">D</span><span>Broken the histogram's bucket boundaries</span></div>
+    <div class="why"><b>Why:</b> Labels multiply. Three labels gave twelve series; adding model and tenant gave 120; adding the payment reference gives 144,000 and grows with every new payment. The same field on a <em>span</em> costs one string on one request &mdash; which is where identifiers belong.</div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer D. Make them do 0.9 to the tenth out loud. The expected count of one per day is what makes A feel right, and it is exactly why the median intuition fails here.">
+  <div class="qtag">Question 6 of 8</div>
+  <h2>One day in how many</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">Head sampling at 10%, 2,000 requests a day, one failure in 200. How often does an entire day pass with not a single failing trace stored?</div>
+    <div class="opt"><span class="k">A</span><span>Never &mdash; ten failures a day, so at least one is always kept</span></div>
+    <div class="opt"><span class="k">B</span><span>About one day in a hundred</span></div>
+    <div class="opt"><span class="k">C</span><span>About one day in twenty</span></div>
+    <div class="opt"><span class="k">D</span><span>About one day in three</span></div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer D. Make them do 0.9 to the tenth out loud. The expected count of one per day is what makes A feel right, and it is exactly why the median intuition fails here.">
+  <div class="qtag">Answer 6 of 8</div>
+  <h2>One day in how many</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">Head sampling at 10%, 2,000 requests a day, one failure in 200. How often does an entire day pass with not a single failing trace stored?</div>
+    <div class="opt miss"><span class="k">A</span><span>Never &mdash; ten failures a day, so at least one is always kept</span></div>
+    <div class="opt miss"><span class="k">B</span><span>About one day in a hundred</span></div>
+    <div class="opt miss"><span class="k">C</span><span>About one day in twenty</span></div>
+    <div class="opt hit"><span class="k">D</span><span>About one day in three</span></div>
+    <div class="why"><b>Why:</b> Ten failures, each kept independently with probability 0.1, so the chance of losing all of them is 0.9<sup>10</sup> = 35%. Tail sampling at 5% of the clean traffic keeps every failure and stores 45% less than head sampling at 10%.</div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer C. A is the tempting one and is worth naming explicitly as the wrong fix -- it is what most teams try first, and it makes the autoscaler flap on noise instead.">
+  <div class="qtag">Question 7 of 8</div>
+  <h2>The autoscaler that never fires</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">Your agent service has an HPA targeting 70% CPU. At sixty concurrent requests, latency is 64 seconds and the HPA has not added a replica. Why not?</div>
+    <div class="opt"><span class="k">A</span><span>The HPA is misconfigured &mdash; the target should be lower</span></div>
+    <div class="opt"><span class="k">B</span><span>metrics-server is not reporting, so the HPA has no data</span></div>
+    <div class="opt"><span class="k">C</span><span>The replica is about 11% busy: it is waiting on the gateway, not computing, so CPU does not track load</span></div>
+    <div class="opt"><span class="k">D</span><span><code>maxReplicas</code> is set to 1</span></div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer C. A is the tempting one and is worth naming explicitly as the wrong fix -- it is what most teams try first, and it makes the autoscaler flap on noise instead.">
+  <div class="qtag">Answer 7 of 8</div>
+  <h2>The autoscaler that never fires</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">Your agent service has an HPA targeting 70% CPU. At sixty concurrent requests, latency is 64 seconds and the HPA has not added a replica. Why not?</div>
+    <div class="opt miss"><span class="k">A</span><span>The HPA is misconfigured &mdash; the target should be lower</span></div>
+    <div class="opt miss"><span class="k">B</span><span>metrics-server is not reporting, so the HPA has no data</span></div>
+    <div class="opt hit"><span class="k">C</span><span>The replica is about 11% busy: it is waiting on the gateway, not computing, so CPU does not track load</span></div>
+    <div class="opt miss"><span class="k">D</span><span><code>maxReplicas</code> is set to 1</span></div>
+    <div class="why"><b>Why:</b> The object is correct, deployed and useless. CPU only crosses 70% near 400 in flight, where a request already takes 400 seconds. Lowering the target is not the fix &mdash; the signal has to be one that grows with waiting: in-flight requests, queue depth, or time-to-first-token.</div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer B. Close the module here. Let someone argue for A, then ask what evidence would distinguish A from a broken control -- the answer is a trace, and only if they recorded the decision.">
+  <div class="qtag">Question 8 of 8</div>
+  <h2>A better week</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">After a deploy: 5xx flat, p95 flat, cost per request flat, traffic flat. The refusal rate has fallen from 8% to 1%. What is your first move?</div>
+    <div class="opt"><span class="k">A</span><span>Note the improvement &mdash; fewer unnecessary refusals is what you wanted</span></div>
+    <div class="opt"><span class="k">B</span><span>Treat it as an incident: a control has probably stopped working, and every dashboard is green</span></div>
+    <div class="opt"><span class="k">C</span><span>Wait a week to see whether it holds</span></div>
+    <div class="opt"><span class="k">D</span><span>Raise the refusal threshold so the rate comes back up</span></div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer B. Close the module here. Let someone argue for A, then ask what evidence would distinguish A from a broken control -- the answer is a trace, and only if they recorded the decision.">
+  <div class="qtag">Answer 8 of 8</div>
+  <h2>A better week</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">After a deploy: 5xx flat, p95 flat, cost per request flat, traffic flat. The refusal rate has fallen from 8% to 1%. What is your first move?</div>
+    <div class="opt miss"><span class="k">A</span><span>Note the improvement &mdash; fewer unnecessary refusals is what you wanted</span></div>
+    <div class="opt hit"><span class="k">B</span><span>Treat it as an incident: a control has probably stopped working, and every dashboard is green</span></div>
+    <div class="opt miss"><span class="k">C</span><span>Wait a week to see whether it holds</span></div>
+    <div class="opt miss"><span class="k">D</span><span>Raise the refusal threshold so the rate comes back up</span></div>
+    <div class="why"><b>Why:</b> It might genuinely be an improvement, and from the dashboard you cannot tell that from a guardrail that was disabled by a prompt change. In the lab it is the second: one payment in twelve that should have gone to a human did not. This is why the alarm has to be two-sided and why it must page.</div>
+  </div></div>
+</div>
+
+<div class="slide div" data-sec="End" data-notes="Into the last five labs: a service boundary that returns its failures, probes that answer two different questions, a readiness checklist that executes, spans that carry cost and decisions, and the two signals an agent needs that a web service does not. Then the capstone, which puts all nine modules behind one endpoint.">
+  <div class="k">End of Module 9</div>
+  <h1>To the labs</h1>
+</div>
+</template>
+
+<script>
+(function(){
+  var stage = document.getElementById('stage');
+  stage.appendChild(document.getElementById('deck').content.cloneNode(true));
+  var slides = Array.prototype.slice.call(stage.querySelectorAll('.slide'));
+  var i = 0, total = slides.length;
+
+  var num = document.getElementById('num'),
+      progf = document.getElementById('progf'),
+      secname = document.getElementById('secname'),
+      toc = document.getElementById('toc'),
+      toclist = document.getElementById('toclist'),
+      notes = document.getElementById('notes'),
+      notesbody = document.getElementById('notesbody');
+
+  /* ---- build the index, grouped by section ---- */
+  var groups = [], last = null;
+  slides.forEach(function(s, n){
+    var sec = s.getAttribute('data-sec') || '';
+    if (sec !== last) { groups.push({sec: sec, items: []}); last = sec; }
+    var h = s.querySelector('h2, h1'), q = s.querySelector('.qtag');
+    var t = h ? h.textContent.trim() : sec;
+    if (q) t = q.textContent.trim() + ' \u2014 ' + t;
+    groups[groups.length-1].items.push({n: n, t: t});
+  });
+  groups.forEach(function(g){
+    var d = document.createElement('div'); d.className = 'grp';
+    var hd = document.createElement('div'); hd.className = 'grph'; hd.textContent = g.sec; d.appendChild(hd);
+    g.items.forEach(function(it){
+      var a = document.createElement('a');
+      a.href = '#'; a.dataset.n = it.n;
+      a.innerHTML = '<span class="n">' + (it.n + 1) + '</span>';
+      a.appendChild(document.createTextNode(it.t));
+      a.addEventListener('click', function(e){ e.preventDefault(); go(it.n); toc.classList.remove('on'); });
+      d.appendChild(a);
+    });
+    toclist.appendChild(d);
+  });
+  var tocLinks = Array.prototype.slice.call(toclist.querySelectorAll('a'));
+
+  function go(n){
+    if (n < 0) n = 0;
+    if (n > total - 1) n = total - 1;
+    slides[i].classList.remove('active');
+    i = n;
+    slides[i].classList.add('active');
+    num.textContent = (i + 1) + ' / ' + total;
+    progf.style.width = ((i + 1) / total * 100) + '%';
+    secname.textContent = slides[i].getAttribute('data-sec') || '';
+    notesbody.textContent = slides[i].getAttribute('data-notes') || 'No notes for this slide.';
+    tocLinks.forEach(function(a){ a.classList.toggle('cur', +a.dataset.n === i); });
+    if (location.hash !== '#' + (i + 1)) history.replaceState(null, '', '#' + (i + 1));
+  }
+
+  /* ---- scale the 1280x720 stage to the available space ---- */
+  function fit(){
+    var w = document.getElementById('wrap');
+    var s = Math.min(w.clientWidth / 1280, w.clientHeight / 720);
+    stage.style.transform = 'scale(' + s + ')';
+  }
+  window.addEventListener('resize', fit);
+  window.addEventListener('hashchange', function(){
+    var n = parseInt((location.hash || '').slice(1), 10);
+    if (!isNaN(n) && n - 1 !== i) go(n - 1);
+  });
+
+  document.getElementById('bnext').addEventListener('click', function(){ go(i + 1); });
+  document.getElementById('bprev').addEventListener('click', function(){ go(i - 1); });
+  document.getElementById('btoc').addEventListener('click', function(){ toc.classList.toggle('on'); });
+  document.getElementById('bnotes').addEventListener('click', function(){ notes.classList.toggle('on'); });
+
+  document.addEventListener('keydown', function(e){
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    var k = e.key;
+    if (k === 'ArrowRight' || k === 'PageDown' || k === ' ') { e.preventDefault(); go(i + 1); }
+    else if (k === 'ArrowLeft' || k === 'PageUp') { e.preventDefault(); go(i - 1); }
+    else if (k === 'Home') { e.preventDefault(); go(0); }
+    else if (k === 'End') { e.preventDefault(); go(total - 1); }
+    else if (k === 't' || k === 'T') { toc.classList.toggle('on'); }
+    else if (k === 'n' || k === 'N') { notes.classList.toggle('on'); }
+    else if (k === 'f' || k === 'F') {
+      if (document.fullscreenElement) document.exitFullscreen();
+      else document.documentElement.requestFullscreen();
+    }
+    else if (k === 'Escape') { toc.classList.remove('on'); notes.classList.remove('on'); }
+  });
+
+  fit();
+  var start = parseInt((location.hash || '').slice(1), 10);
+  go(isNaN(start) ? 0 : start - 1);
+})();
+</script>
+</body>
+</html>

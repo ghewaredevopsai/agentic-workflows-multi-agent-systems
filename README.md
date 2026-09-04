@@ -1,6 +1,6 @@
 # Agentic Workflows & Multi-Agent Systems
 
-**3 days · Advanced · 45% theory / 55% labs · 9 modules · 43 labs · capstone**
+**3 days · Advanced · 45% theory / 55% labs · 9 modules · 45 labs · capstone**
 
 An instructor-led course by Rajesh Gheware (Gheware UniGPS Solutions LLP). Participants build,
 evaluate and operate multi-agent systems, and — as much to the point — learn when *not* to build one.
@@ -182,12 +182,14 @@ uncaught exception.
 
 ## Build state
 
-- [x] Outline v3.1 — 9 modules, 43 labs, capstone, participant setup block
-- [x] Module 1 deck — 51 slides, 26 SVG diagrams, 8-question knowledge check
-- [x] Module 1 labs — 5 notebooks + solutions, generated and verified
+- [x] Outline v3.1 — 9 modules, 45 labs, capstone, participant setup block
+- [x] **All nine decks** — 354 slides, 140 hand-authored SVGs, an 8-question knowledge check each,
+      every one clean under `presentation/check-deck-layout.py`
+- [x] **All nine lab sets** — 45 notebooks + 45 solutions, single-source generated; 140 blanks and
+      914 self-checks; every solution scores full marks and every untouched lab survives *Run All*
+      under both `exec()` and a real Jupyter kernel
 - [x] Post-session video resources — 57 links, all verified live
-- [ ] Modules 2–9 decks
-- [ ] Modules 2–9 labs
+- [x] Lab runtime live — 30 sandboxes, per-participant app namespace, LangFuse, verified end to end
 - [ ] **Author the two non-selected labs** (Day 1 baseline eval set; Day 2 multi-agent vs.
       single-agent scorecard). These carry the measurement thread — if they slip, the thread is just
       a claim on a page

@@ -1,0 +1,210 @@
+# =============================================================================
+# STARTER KIT (Module 9 / capstone) -- deploy YOUR agent service to your namespace.
+#
+# There is no docker in the sandbox and you do not build an image on the cluster.
+# You mount your code into the SAME image the sandbox runs, which already carries
+# FastAPI, LangGraph, LangChain, the openai SDK and the langfuse client.
+#
+# In a sandbox TERMINAL:
+#
+#   export IMAGE=$(kubectl get pod "$(hostname)" -n agenticai \
+#                    -o jsonpath='{.spec.containers[0].image}')
+#   envsubst < app-deploy-example.yaml | kubectl apply -f -
+#   kubectl -n "$APP_NAMESPACE" rollout status deploy/agent-app
+#   curl -s https://$APP_HOST/healthz
+#
+# APP_NAMESPACE and APP_HOST are already in your environment -- check with
+# `env | grep APP_`. The ConfigMap below carries an EXAMPLE app.py. To run your own,
+# either edit that data: block, or overwrite the ConfigMap afterwards:
+#
+#   kubectl create configmap app-code --from-file=app.py -n "$APP_NAMESPACE" \
+#     -o yaml --dry-run=client | kubectl apply -f -
+#   kubectl -n "$APP_NAMESPACE" rollout restart deploy/agent-app
+#
+# uvicorn does not reload a file that changed underneath it, so the restart is not
+# optional. Tearing the whole thing down again:
+#
+#   kubectl -n "$APP_NAMESPACE" delete deploy,svc,ingress,hpa,cm -l lab=agenticai
+#
+# Every object below is one the labs lint, probe or scale. Read the comments: the
+# last one marks a decision the labs show to be wrong for this workload.
+# =============================================================================
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-code
+  namespace: ${APP_NAMESPACE}
+  labels: {app: agent-app, lab: agenticai}
+data:
+  app.py: |
+    """A minimal agent service. Replace this with your capstone.
+
+    Module 9 asks for four things this file demonstrates: async handling, a health
+    endpoint distinct from a readiness endpoint, error handling that returns rather
+    than raises, and request validation. Lab 9.1 grades all four.
+    """
+    import os
+    from fastapi import FastAPI
+    from fastapi.responses import JSONResponse
+    from pydantic import BaseModel, Field
+    from openai import AsyncOpenAI
+
+    app = FastAPI(title="${APP_NAMESPACE} agent service")
+
+    BASE  = os.environ.get("LAB_LLM_BASE_URL") or os.environ.get("OPENAI_BASE_URL")
+    MODEL = os.environ.get("LAB_LLM_MODEL")    or os.environ.get("OPENAI_MODEL")
+
+    # AsyncOpenAI, not OpenAI. A synchronous client inside an `async def` handler
+    # serialises every concurrent request -- Lab 9.1 Section 2 measures what that costs.
+    client = AsyncOpenAI(base_url=BASE, api_key=os.environ.get("OPENAI_API_KEY", "sandbox"))
+
+    class Ask(BaseModel):
+        prompt: str = Field(min_length=1, max_length=4000)
+
+    @app.get("/healthz")
+    def healthz():
+        """Liveness: is the process up? Must not depend on anything downstream."""
+        return {"status": "ok", "owner": "${APP_NAMESPACE}"}
+
+    @app.get("/readyz")
+    def readyz():
+        """Readiness: is it safe to send traffic? This one MAY check dependencies.
+
+        A probe reads the STATUS CODE, not the body. Returning 200 with
+        {"ready": false} is a readiness check that can never fail -- Lab 9.2.
+        """
+        if BASE and MODEL:
+            return JSONResponse({"ready": True, "model": MODEL})
+        return JSONResponse({"ready": False, "why": "LLM env not set"}, status_code=503)
+
+    @app.post("/ask")
+    async def ask(body: Ask):
+        try:
+            r = await client.chat.completions.create(
+                model=MODEL,
+                messages=[{"role": "user", "content": body.prompt}],
+                timeout=60)
+            return {"ok": True, "answer": r.choices[0].message.content}
+        except Exception as exc:
+            # A service returns its failures. Module 4's tool contract, one layer out.
+            return {"ok": False, "error": type(exc).__name__, "message": str(exc)[:200]}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agent-app
+  namespace: ${APP_NAMESPACE}
+  labels: {app: agent-app, lab: agenticai}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: agent-app}
+  template:
+    metadata:
+      labels: {app: agent-app}
+    spec:
+      # Same PodSecurity restricted profile as the sandbox.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+      - name: app
+        image: ${IMAGE}                # the sandbox's own image, read from your own pod
+        command: ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
+        workingDir: /app
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities: {drop: ["ALL"]}
+        # Credentials arrive from Secrets. Never a literal in the manifest -- Lab 9.3
+        # fails a release for exactly this.
+        envFrom:
+        - secretRef:
+            name: ${APP_NAMESPACE}-llm        # published into this namespace by the lab setup
+        - secretRef:
+            name: ${APP_NAMESPACE}-langfuse   # so the deployed service traces too
+        ports:
+        - containerPort: 8000
+        # Liveness restarts a wedged process. Readiness only removes it from the
+        # Service. Pointing both at the same endpoint is the classic mistake: one slow
+        # dependency then restarts a perfectly healthy pod. Lab 9.2 measures it --
+        # three restarts, and an outage that outlasts the one that caused it.
+        livenessProbe:
+          httpGet: {path: /healthz, port: 8000}
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        readinessProbe:
+          httpGet: {path: /readyz, port: 8000}
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          requests: {cpu: 100m, memory: 128Mi}
+          limits:   {cpu: 500m, memory: 512Mi}
+        volumeMounts:
+        - name: code
+          mountPath: /app
+      volumes:
+      - name: code
+        configMap: {name: app-code}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: agent-app
+  namespace: ${APP_NAMESPACE}
+  labels: {app: agent-app, lab: agenticai}
+spec:
+  selector: {app: agent-app}
+  ports:
+  - port: 80
+    targetPort: 8000
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: agent-app
+  namespace: ${APP_NAMESPACE}
+  labels: {app: agent-app, lab: agenticai}
+  annotations:
+    # HTTP only at the ingress -- TLS is terminated at the edge and plain HTTP is
+    # spoken to nginx. No tls: block belongs here.
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: ${APP_HOST}
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: agent-app
+            port: {number: 80}
+---
+# DELIBERATELY THE WRONG SIGNAL, and left here because you should see it.
+#
+# This is the default every autoscaling guide reaches for, and Labs 9.3 and 9.5 show
+# it never fires for an agent service: at sixty concurrent requests the replica is
+# ~11% busy and each request takes 64 seconds. CPU does not track load for a workload
+# that spends its wall clock waiting on a gateway.
+#
+# The object is correct, deployed and useless. Replace the metric with in-flight
+# requests, queue depth or time-to-first-token, exported by your own service and
+# scraped as a custom metric. Lab 9.5 Section 2 works out the replica counts.
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: agent-app
+  namespace: ${APP_NAMESPACE}
+  labels: {app: agent-app, lab: agenticai}
+spec:
+  scaleTargetRef: {apiVersion: apps/v1, kind: Deployment, name: agent-app}
+  minReplicas: 1
+  maxReplicas: 3            # the namespace quota caps total pods at 8
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target: {type: Utilization, averageUtilization: 70}
