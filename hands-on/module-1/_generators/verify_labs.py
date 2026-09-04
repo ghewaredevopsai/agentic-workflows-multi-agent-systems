@@ -96,8 +96,20 @@ for fn in sorted(f for f in os.listdir(LABDIR) if f.endswith(".ipynb")):
     if k_todo == 0:
         problems.append("no [TODO] in an untouched lab -- blanks are not raising NameError")
 
+    # A [FAIL] in an UNTOUCHED lab is usually a lie: a helper inside the self-check cell
+    # caught the NameError from an unfilled blank and returned a value, so the participant
+    # is told their answer is wrong rather than that they have not written one yet. It can
+    # also be legitimate (a "rewrite this" task with no blank to raise), so this is reported
+    # rather than failed -- but every one of them is worth reading.
+    notes = []
+    if k_fail:
+        notes.append(f"{k_fail} [FAIL] in an untouched lab -- check each is a real "
+                     f"'not done yet' and not a swallowed NameError")
+
     status = "OK    " if not problems else "BROKEN"
-    print(f"[{status}] {fn:44} {k_todo} todo, {k_pass} pass, {len(k_crash)} crash")
+    print(f"[{status}] {fn:44} {k_todo} todo, {k_pass} pass, {k_fail} fail, {len(k_crash)} crash")
+    for n in notes:
+        print("     note  " + n)
     for p in problems:
         print("           " + p)
         bad += 1

@@ -531,8 +531,12 @@ TOOLS = {"lookup_payment": lookup_payment, "policy_for": policy_for}
     code('''
 # --- Self-check: Section 1
 def _no_raise(fn, *a):
+    """Call fn and report whether it raised. NameError is re-raised deliberately: swallowing
+    it here would turn an unfilled blank into a [FAIL] instead of a [TODO]."""
     try:
         return fn(*a), None
+    except NameError:
+        raise
     except Exception as exc:
         return None, exc
 
@@ -1321,23 +1325,35 @@ def pass_rate(runner):
 '''),
     code('''
 # --- Self-check: Section 3
-_ZERO = {"pass_rate": 0.0, "steps": 0, "tokens": 0, "seconds": 0.0}
-_single = guard(lambda: pass_rate(run_single), _ZERO)
-_multi = guard(lambda: pass_rate(run_supervised), _ZERO)
-print("single    :", _single)
-print("supervised:", _multi)
-print(f"\\ntoken ratio: {_multi['tokens'] / max(_single['tokens'], 1):.1f}x   "
-      f"step ratio: {_multi['steps'] / max(_single['steps'], 1):.1f}x")
+_measured = {}
+
+def measured(which):
+    """Run one architecture over the eval set, once and then cached.
+
+    Called from inside check(), so an unfilled blank above raises NameError there and prints
+    [TODO]. Measuring into a zero-filled default instead would report [FAIL] on three of these
+    checks -- and a false [PASS] on the fourth, since 0 == 0 * 3.
+    """
+    if which not in _measured:
+        _measured[which] = pass_rate(run_single if which == "single" else run_supervised)
+    return _measured[which]
+
+guard(lambda: print("single    :", measured("single")))
+guard(lambda: print("supervised:", measured("supervised")))
+guard(lambda: print(
+    f"\\ntoken ratio: {measured('supervised')['tokens'] / max(measured('single')['tokens'], 1):.1f}x   "
+    f"step ratio: {measured('supervised')['steps'] / max(measured('single')['steps'], 1):.1f}x"))
 
 check("both architectures answer every case",
-      lambda: _single["steps"] == len(EVAL_SET) and _multi["steps"] == len(EVAL_SET) * 3)
-check("the single agent scores on the eval set", lambda: _single["pass_rate"] >= 0.8,
+      lambda: measured("single")["steps"] == len(EVAL_SET)
+              and measured("supervised")["steps"] == len(EVAL_SET) * 3)
+check("the single agent scores on the eval set", lambda: measured("single")["pass_rate"] >= 0.8,
       "check the pass condition -- the expected string should appear in the answer")
 check("the supervised design costs strictly more tokens",
-      lambda: _multi["tokens"] > _single["tokens"],
+      lambda: measured("supervised")["tokens"] > measured("single")["tokens"],
       "three hops re-read the context; that is the tax")
 check("the supervised design takes three times the steps",
-      lambda: _multi["steps"] == _single["steps"] * 3)
+      lambda: measured("supervised")["steps"] == measured("single")["steps"] * 3)
 '''),
 
     md("""
