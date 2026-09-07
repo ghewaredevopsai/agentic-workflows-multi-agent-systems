@@ -882,11 +882,13 @@ LAB3 = [
     md("""
 ## Concept
 
-`create_agent(model=..., tools=..., prompt=...)` **is** the loop you wrote in Lab 1.1, prebuilt.
+`create_agent(model=..., tools=..., system_prompt=...)` **is** the loop you wrote in Lab 1.1, prebuilt.
 Nothing is hidden: the model decides, a tool runs, the result comes back, repeat until it stops.
 
 > **Naming.** In LangChain 1.x it is `create_agent`. The older `create_react_agent` name is
-> everywhere online and is **not** what this course uses.
+> everywhere online and is **not** what this course uses. The standing instruction is
+> `system_prompt=` — early 1.0 previews called it `prompt=`, and that name now raises
+> `TypeError: create_agent() got an unexpected keyword argument 'prompt'`.
 """),
 
     md("""
@@ -1002,10 +1004,10 @@ def build_config() -> dict:
                                      # role, and (b) tell it never to act on a payment that policy
                                      # reserves for a human. Mention "human" explicitly.
     return {
-        "model": LLM_MODEL,          # block 1: the brain
-        "tools": BLANK,                # TODO: a list of the two tool FUNCTIONS carried forward above
-        "prompt": system_prompt,     # the standing instruction
-        "max_steps": 6,              # the budget from Lab 1.1
+        "model": LLM_MODEL,                # block 1: the brain
+        "tools": BLANK,                    # TODO: a list of the two tool FUNCTIONS carried forward above
+        "system_prompt": system_prompt,    # the standing instruction
+        "max_steps": 6,                    # the budget from Lab 1.1
     }
 ''', '''
 def build_config() -> dict:
@@ -1016,10 +1018,10 @@ def build_config() -> dict:
         "policy reserves the decision for a human -- say that a human must decide instead."
     )
     return {
-        "model": LLM_MODEL,          # block 1: the brain
+        "model": LLM_MODEL,                # block 1: the brain
         "tools": [lookup_payment, policy_for],
-        "prompt": system_prompt,     # the standing instruction
-        "max_steps": 6,              # the budget from Lab 1.1
+        "system_prompt": system_prompt,    # the standing instruction
+        "max_steps": 6,                    # the budget from Lab 1.1
     }
 '''),
     code('''
@@ -1029,9 +1031,9 @@ check("the config carries exactly the two tools",
 check("both tools are callables with docstrings",
       lambda: all(callable(t) and (t.__doc__ or "").strip() for t in build_config()["tools"]))
 check("the prompt gives the agent a role",
-      lambda: len(build_config()["prompt"]) > 40)
+      lambda: len(build_config()["system_prompt"]) > 40)
 check("the prompt defers irreversible decisions to a human",
-      lambda: "human" in build_config()["prompt"].lower(),
+      lambda: "human" in build_config()["system_prompt"].lower(),
       "an approval boundary belongs in the standing instruction, not in each request")
 check("the budget survived from Lab 1.1", lambda: build_config()["max_steps"] == 6)
 '''),
@@ -1050,7 +1052,7 @@ if llm_ready():
 
         cfg = build_config()
         tools = [tool(f) for f in cfg["tools"]]
-        agent = create_agent(model=get_llm(), tools=tools, prompt=cfg["prompt"])
+        agent = create_agent(model=get_llm(), tools=tools, system_prompt=cfg["system_prompt"])
 
         result = agent.invoke({"messages": [("human", "Why is PMT-1005 held, and what do we do?")]})
         for m in result["messages"]:
