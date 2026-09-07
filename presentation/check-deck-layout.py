@@ -2,21 +2,42 @@
 """Geometry check for a deck. Makes the "no slide overflows the stage" rule executable.
 
     python3 presentation/check-deck-layout.py presentation/module-4-tool-calling-and-mcp.html
+    python3 presentation/check-deck-layout.py <deck> --baseline <older copy of the same deck>
 
 The slide runner CLIPS rather than scrolls, so an overflowing slide loses its
 bottom silently, and a caption that runs out of its box only looks wrong on a
 projector. Neither is visible in the HTML source, and neither survives review by
 reading. So render the deck in headless Chrome, force every slide visible, and
-measure. Four kinds of problem are reported:
+measure. Five kinds of problem fail the run:
 
   overflow  the slide is taller than the 720px stage -- the bottom is cut off
   viewBox   SVG text runs outside its own viewBox
   rect      text starts inside a box and runs out of it
   collide   text overlaps a box it does not belong to
+  textovl   two pieces of text overlap each other
+
+...and one is advisory, printed only with --baseline (see below):
+
+  onpath    text overlaps a line/path/circle rather than a box
 
 Adapted from the equivalent check in the Copilot ADLC course. It found a real
 defect on its first run here: Module 3 slide 5, a red caption overrunning into
 the right-hand column. Run it after every deck edit.
+
+WHY textovl EXISTS: the box checks above compare text against <rect> only, so two
+captions could sit on top of each other and still report a clean bill of health.
+Raising the deck type scale on 2026-09-07 did exactly that -- Module 2 slide 8's
+"score every branch" landed on "C pruned", and Module 4 slide 8 had two more that
+had been shipping unnoticed. Text-vs-text is a hard failure: across all nine decks
+it has no false positives.
+
+WHY onpath IS ADVISORY: a label sitting on a line is usually deliberate -- a number
+inside a circle, a "yes"/"no" beside an arrow. There are ~44 such legitimate cases
+across the decks, so failing on them would be useless noise. It earns its keep as a
+DIFF instead: after a resize, run with --baseline pointing at the pre-change copy
+(git show HEAD:path > /tmp/old.html) and only genuinely new collisions are printed.
+That is how the Module 4 chart was caught, where the axis title had come to rest on
+top of the trend curve.
 
 Needs google-chrome on PATH. No network, no other dependency.
 """
@@ -38,6 +59,12 @@ probe = r"""
       var VW=vb[2],VH=vb[3];
       var rects=[].slice.call(svg.querySelectorAll('rect')).map(function(r){
         var b;try{b=r.getBBox();}catch(e){return null;} return b;}).filter(Boolean);
+      // everything that is NOT a box, for the advisory onpath check
+      var geo=[].slice.call(svg.querySelectorAll('path,line,circle,polyline,polygon')).map(function(g){
+        var b;try{b=g.getBBox();}catch(e){return null;}
+        return (b&&(b.width||b.height))?b:null;}).filter(Boolean);
+      // untransformed text, collected for the pairwise checks below
+      var texts=[];
       svg.querySelectorAll('text').forEach(function(t){
         var b;try{b=t.getBBox();}catch(e){return;}
         if(!b||b.width===0)return;
@@ -63,6 +90,7 @@ probe = r"""
                       d:Math.round(Math.max(rx+rw-VW,ry+rh-VH,-rx,-ry))});
           return;                                        // rect collisions: still not checked
         }
+        texts.push({b:b,t:txt});
         if(b.x+b.width>VW+0.5||b.y+b.height>VH+0.5||b.x<-0.5){
           out.push({s:si+1,k:'viewBox',t:txt,d:Math.round(Math.max(b.x+b.width-VW,b.y+b.height-VH))});
           return;
@@ -93,6 +121,26 @@ probe = r"""
           if(o){ out.push({s:si+1,k:'collide',t:txt,d:o}); break; }
         }
       });
+      // text vs text. The rect checks above never compare two captions, so a pair
+      // sitting on top of each other passed review until this was added.
+      for(var i=0;i<texts.length;i++)for(var j=i+1;j<texts.length;j++){
+        var a=texts[i].b, c=texts[j].b;
+        var h=Math.min(a.x+a.width,c.x+c.width)-Math.max(a.x,c.x);
+        var v=Math.min(a.y+a.height,c.y+c.height)-Math.max(a.y,c.y);
+        if(h>4&&v>3)
+          out.push({s:si+1,k:'textovl',d:Math.round(Math.min(h,v)),
+                    t:texts[i].t+'  ||  '+texts[j].t});
+      }
+      // text vs line/path/circle. Advisory -- see the module docstring.
+      texts.forEach(function(x){
+        var worst=0;
+        geo.forEach(function(g){
+          var h=Math.min(x.b.x+x.b.width,g.x+g.width)-Math.max(x.b.x,g.x);
+          var v=Math.min(x.b.y+x.b.height,g.y+g.height)-Math.max(x.b.y,g.y);
+          if(h>6&&v>6) worst=Math.max(worst,Math.round(Math.min(h,v)));
+        });
+        if(worst) out.push({s:si+1,k:'onpath',t:x.t,d:worst});
+      });
     });
   });
   document.querySelectorAll('#stage .slide').forEach(function(sl,si){
@@ -107,19 +155,40 @@ probe = r"""
   d.textContent=JSON.stringify(out);document.body.appendChild(d);
 })();
 """
-path=sys.argv[1]
-inj=open(path).read().replace('</body>','<script>'+probe+'</script></body>')
-fd,tmp=tempfile.mkstemp(suffix='.html',prefix='deckprobe-')
-with os.fdopen(fd,'w') as fh: fh.write(inj)
-try:
-    dom=subprocess.run(['google-chrome','--headless','--disable-gpu','--no-sandbox',
-                        '--virtual-time-budget=4000','--dump-dom','file://'+tmp],
-                       capture_output=True,text=True).stdout
-finally:
-    os.unlink(tmp)
-m=re.search(r'id="PROBE_RESULT">(.*?)</div>',dom,re.S)
-if not m: print('PROBE FAILED'); sys.exit(1)
-res=json.loads(html.unescape(m.group(1)))
-print('=== %s — %d geometry problems ===' % (path.split('/')[-1], len(res)))
-for r in res: print('  slide %-3s %-9s +%-4s %s' % (r['s'],r['k'],r['d'],r['t']))
-sys.exit(1 if res else 0)
+
+def measure(path):
+    inj=open(path).read().replace('</body>','<script>'+probe+'</script></body>')
+    fd,tmp=tempfile.mkstemp(suffix='.html',prefix='deckprobe-')
+    with os.fdopen(fd,'w') as fh: fh.write(inj)
+    try:
+        dom=subprocess.run(['google-chrome','--headless','--disable-gpu','--no-sandbox',
+                            '--virtual-time-budget=4000','--dump-dom','file://'+tmp],
+                           capture_output=True,text=True).stdout
+    finally:
+        os.unlink(tmp)
+    m=re.search(r'id="PROBE_RESULT">(.*?)</div>',dom,re.S)
+    if not m: print('PROBE FAILED for '+path); sys.exit(1)
+    return json.loads(html.unescape(m.group(1)))
+
+args=[a for a in sys.argv[1:] if a!='--baseline']
+baseline = sys.argv[sys.argv.index('--baseline')+1] if '--baseline' in sys.argv else None
+path=args[0]
+if baseline and baseline in args: args.remove(baseline)
+
+res=measure(path)
+hard=[r for r in res if r['k']!='onpath']
+soft=[r for r in res if r['k']=='onpath']
+
+print('=== %s — %d geometry problems ===' % (path.split('/')[-1], len(hard)))
+for r in hard: print('  slide %-3s %-9s +%-4s %s' % (r['s'],r['k'],r['d'],r['t']))
+
+if baseline:
+    # only report label-on-line collisions this edit INTRODUCED; the deliberate ones
+    # (a number in a circle, "yes" beside an arrow) are in the baseline too and drop out.
+    was={(r['s'],r['t']) for r in measure(baseline) if r['k']=='onpath'}
+    new=[r for r in soft if (r['s'],r['t']) not in was]
+    print('--- %d new text-on-line overlaps vs %s (advisory) ---'
+          % (len(new), baseline.split('/')[-1]))
+    for r in new: print('  slide %-3s %-9s +%-4s %s' % (r['s'],r['k'],r['d'],r['t']))
+
+sys.exit(1 if hard else 0)
