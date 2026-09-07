@@ -50,7 +50,7 @@ body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:#e8e9f5;
 .slide h2{margin:0 0 14px;font-size:28px;line-height:1.14;color:#1e1b4b;border-bottom:2px solid #4338ca;padding-bottom:8px;font-weight:600}
 .slide .body{flex:1;display:flex;align-items:center;justify-content:center;min-height:0}
 .slide .body.col{flex-direction:column;justify-content:center;gap:10px}
-.take{margin-top:12px;background:#fffbeb;border-left:4px solid #fbbf24;padding:9px 14px;font-size:17px;color:#4b3a10;border-radius:0 3px 3px 0;line-height:1.35}
+.take{margin-top:12px;background:#fffbeb;border-left:4px solid #fbbf24;padding:9px 14px;font-size:19px;color:#3f3009;border-radius:0 3px 3px 0;line-height:1.35}
 .take b{color:#92400e}
 
 /* title slide */
@@ -58,22 +58,22 @@ body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:#e8e9f5;
 .slide.title h1{font-size:46px;margin:0 0 12px;font-weight:600;line-height:1.15}
 .slide.title .sub{font-size:21px;color:#c7d2fe;margin-bottom:26px}
 .slide.title .rule{width:120px;height:3px;background:#fbbf24;margin:0 auto 26px}
-.slide.title .meta{font-size:15px;color:#a5b4fc;line-height:1.9}
+.slide.title .meta{font-size:17px;color:#c7d2fe;line-height:1.9}
 
 /* section divider */
 .slide.div{justify-content:center;align-items:center;text-align:center;background:#f5f5fb}
-.slide.div .k{font-size:13px;letter-spacing:2px;color:#818cf8;font-weight:700;text-transform:uppercase;margin-bottom:14px}
+.slide.div .k{font-size:15px;letter-spacing:2px;color:#818cf8;font-weight:700;text-transform:uppercase;margin-bottom:14px}
 .slide.div h1{font-size:40px;margin:0;color:#1e1b4b;font-weight:600}
 
 /* svg text defaults */
 svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
-.lbl{font-size:12.5px;fill:#64748b;letter-spacing:.7px;font-weight:700;text-transform:uppercase}
-.bx{font-size:17px;fill:#1e1b4b;font-weight:600}
-.bxs{font-size:15px;fill:#1e1b4b;font-weight:600}
-.bd{font-size:14px;fill:#475569}
-.bds{font-size:13px;fill:#64748b}
-.big{font-size:23px;fill:#1e1b4b;font-weight:700}
-.num{font-size:26px;fill:#4338ca;font-weight:700}
+.lbl{font-size:15px;fill:#475569;letter-spacing:.7px;font-weight:700;text-transform:uppercase}
+.bx{font-size:20px;fill:#1e1b4b;font-weight:600}
+.bxs{font-size:18px;fill:#1e1b4b;font-weight:600}
+.bd{font-size:17px;fill:#334155}
+.bds{font-size:16px;fill:#475569}
+.big{font-size:25px;fill:#1e1b4b;font-weight:700}
+.num{font-size:28px;fill:#4338ca;font-weight:700}
 .ok{fill:#0d9488}
 .no{fill:#b91c1c}
 .am{fill:#92400e}
@@ -81,15 +81,15 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
 /* quiz */
 .q .body{align-items:center}
 .qbox{width:100%}
-.qstem{font-size:23px;line-height:1.35;color:#1e1b4b;font-weight:600;margin-bottom:22px}
-.opt{display:flex;align-items:flex-start;gap:14px;padding:11px 16px;margin-bottom:10px;background:#f8f8fd;border-left:4px solid #c7d2fe;border-radius:0 4px 4px 0;font-size:19px;line-height:1.3}
+.qstem{font-size:25px;line-height:1.35;color:#1e1b4b;font-weight:600;margin-bottom:22px}
+.opt{display:flex;align-items:flex-start;gap:14px;padding:11px 16px;margin-bottom:10px;background:#f8f8fd;border-left:4px solid #c7d2fe;border-radius:0 4px 4px 0;font-size:20px;line-height:1.3}
 .opt .k{font-weight:700;color:#4338ca;min-width:22px}
 .opt.hit{background:#ecfdf5;border-left-color:#0d9488}
 .opt.hit .k{color:#0d9488}
-.opt.miss{opacity:.5}
-.why{margin-top:14px;background:#f5f3ff;border-left:4px solid #7c3aed;padding:10px 15px;font-size:16.5px;color:#3b2a6b;line-height:1.4;border-radius:0 3px 3px 0}
+.opt.miss{opacity:.62}
+.why{margin-top:14px;background:#f5f3ff;border-left:4px solid #7c3aed;padding:10px 15px;font-size:18px;color:#332457;line-height:1.4;border-radius:0 3px 3px 0}
 .why b{color:#5b21b6}
-.qtag{position:absolute;top:26px;right:40px;font-size:12px;letter-spacing:1px;font-weight:700;color:#818cf8;text-transform:uppercase}
+.qtag{position:absolute;top:26px;right:40px;font-size:13px;letter-spacing:1px;font-weight:700;color:#6366f1;text-transform:uppercase}
 </style>
 </head>
 <body>
@@ -185,14 +185,14 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
       <rect x="40" y="50" width="262" height="180" rx="8" fill="#f8f8fd" stroke="#cbd5e1" stroke-width="2"/>
       <text x="171" y="78" text-anchor="middle" class="lbl">Single</text>
       <circle cx="171" cy="128" r="24" fill="#4338ca"/>
-      <text x="171" y="134" text-anchor="middle" font-size="13" fill="#fff">A</text>
+      <text x="171" y="134" text-anchor="middle" font-size="15" fill="#fff">A</text>
       <text x="171" y="186" text-anchor="middle" class="bd">one context, one trace</text>
       <text x="171" y="212" text-anchor="middle" class="bds ok">cheapest, and the baseline</text>
 
       <rect x="318" y="50" width="262" height="180" rx="8" fill="#eef2ff" stroke="#4338ca" stroke-width="2.5"/>
       <text x="449" y="78" text-anchor="middle" class="lbl">Supervisor / worker</text>
       <circle cx="449" cy="112" r="18" fill="#4338ca"/>
-      <text x="449" y="117" text-anchor="middle" font-size="11" fill="#fff">S</text>
+      <text x="449" y="117" text-anchor="middle" font-size="14" fill="#fff">S</text>
       <circle cx="405" cy="168" r="15" fill="#818cf8"/><circle cx="449" cy="168" r="15" fill="#818cf8"/><circle cx="493" cy="168" r="15" fill="#818cf8"/>
       <line x1="443" y1="128" x2="410" y2="154" stroke="#94a3b8" stroke-width="1.6"/>
       <line x1="449" y1="130" x2="449" y2="152" stroke="#94a3b8" stroke-width="1.6"/>
@@ -281,7 +281,7 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
 
       <rect x="120" y="192" width="440" height="196" rx="8" fill="#f0fdf9" stroke="#0d9488" stroke-width="2.5"/>
       <text x="340" y="224" text-anchor="middle" class="lbl">Crosses, because you sent it</text>
-      <text x="148" y="264" class="bd ok">&#10003;&nbsp; the task &mdash; &ldquo;decide whether PMT-1003 can be released&rdquo;</text>
+      <text x="148" y="264" class="bd ok">&#10003;&nbsp; the task &mdash; &ldquo;can PMT-1003 be released?&rdquo;</text>
       <text x="148" y="300" class="bd ok">&#10003;&nbsp; the findings so far &mdash; status, amount, reason code</text>
       <text x="148" y="336" class="bd ok">&#10003;&nbsp; who is asking, and for what outcome</text>
       <text x="340" y="372" text-anchor="middle" class="bds">this is the part everyone remembers</text>
@@ -290,7 +290,7 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
       <text x="840" y="224" text-anchor="middle" class="lbl no">Dropped, unless you send it</text>
       <text x="648" y="264" class="bd no">&#10007;&nbsp; the <tspan font-weight="600">reasoning</tspan> &mdash; so it re-derives, and pays again</text>
       <text x="648" y="300" class="bd no">&#10007;&nbsp; the <tspan font-weight="600">constraints</tspan> &mdash; so it breaks a rule it never saw</text>
-      <text x="648" y="336" class="bd no">&#10007;&nbsp; the <tspan font-weight="600">failure history</tspan> &mdash; so it retries what already failed</text>
+      <text x="648" y="336" class="bd no">&#10007;&nbsp; the <tspan font-weight="600">failure history</tspan> &mdash; so it retries what failed</text>
       <text x="840" y="372" text-anchor="middle" class="bds no">each one has its own signature bug</text>
     </svg>
   </div>
@@ -302,7 +302,7 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
     <svg width="1180" height="424" viewBox="0 0 1180 424" role="img" aria-label="Supervisor as a chokepoint versus peer-to-peer with no chokepoint">
       <text x="300" y="44" text-anchor="middle" class="lbl">Through a supervisor</text>
       <circle cx="300" cy="106" r="26" fill="#4338ca"/>
-      <text x="300" y="112" text-anchor="middle" font-size="12" fill="#fff">S</text>
+      <text x="300" y="112" text-anchor="middle" font-size="14" fill="#fff">S</text>
       <circle cx="180" cy="212" r="20" fill="#818cf8"/><circle cx="300" cy="212" r="20" fill="#818cf8"/><circle cx="420" cy="212" r="20" fill="#818cf8"/>
       <line x1="288" y1="129" x2="192" y2="192" stroke="#4338ca" stroke-width="2"/>
       <line x1="300" y1="132" x2="300" y2="190" stroke="#4338ca" stroke-width="2"/>
@@ -641,24 +641,24 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
     <svg width="1180" height="410" viewBox="0 0 1180 410" role="img" aria-label="Sequential versus parallel execution: same tokens, less wall clock">
       <text x="140" y="70" class="lbl">Sequential</text>
       <rect x="140" y="86" width="170" height="40" rx="4" fill="#4338ca"/>
-      <text x="225" y="112" text-anchor="middle" font-size="12" fill="#fff">read</text>
+      <text x="225" y="112" text-anchor="middle" font-size="14" fill="#fff">read</text>
       <rect x="316" y="86" width="200" height="40" rx="4" fill="#818cf8"/>
-      <text x="416" y="112" text-anchor="middle" font-size="12" fill="#fff">policy</text>
+      <text x="416" y="112" text-anchor="middle" font-size="14" fill="#fff">policy</text>
       <rect x="522" y="86" width="200" height="40" rx="4" fill="#818cf8"/>
-      <text x="622" y="112" text-anchor="middle" font-size="12" fill="#fff">sanctions</text>
+      <text x="622" y="112" text-anchor="middle" font-size="14" fill="#fff">sanctions</text>
       <rect x="728" y="86" width="180" height="40" rx="4" fill="#fbbf24"/>
-      <text x="818" y="112" text-anchor="middle" font-size="12" fill="#3b2708">recommend</text>
+      <text x="818" y="112" text-anchor="middle" font-size="14" fill="#3b2708">recommend</text>
       <text x="930" y="112" class="bds">4 waves</text>
 
       <text x="140" y="184" class="lbl">Parallel</text>
       <rect x="140" y="200" width="170" height="40" rx="4" fill="#4338ca"/>
-      <text x="225" y="226" text-anchor="middle" font-size="12" fill="#fff">read</text>
+      <text x="225" y="226" text-anchor="middle" font-size="14" fill="#fff">read</text>
       <rect x="316" y="178" width="200" height="40" rx="4" fill="#818cf8"/>
-      <text x="416" y="204" text-anchor="middle" font-size="12" fill="#fff">policy</text>
+      <text x="416" y="204" text-anchor="middle" font-size="14" fill="#fff">policy</text>
       <rect x="316" y="222" width="200" height="40" rx="4" fill="#818cf8"/>
-      <text x="416" y="248" text-anchor="middle" font-size="12" fill="#fff">sanctions</text>
+      <text x="416" y="248" text-anchor="middle" font-size="14" fill="#fff">sanctions</text>
       <rect x="522" y="200" width="180" height="40" rx="4" fill="#fbbf24"/>
-      <text x="612" y="226" text-anchor="middle" font-size="12" fill="#3b2708">recommend</text>
+      <text x="612" y="226" text-anchor="middle" font-size="14" fill="#3b2708">recommend</text>
       <text x="724" y="226" class="bds ok">3 waves &mdash; 25% less wall clock</text>
 
       <rect x="140" y="292" width="440" height="98" rx="6" fill="#f0fdf9" stroke="#0d9488" stroke-width="2.5"/>

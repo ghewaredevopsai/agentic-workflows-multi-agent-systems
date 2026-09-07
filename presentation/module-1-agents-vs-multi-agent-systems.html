@@ -50,7 +50,7 @@ body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:#e8e9f5;
 .slide h2{margin:0 0 14px;font-size:28px;line-height:1.14;color:#1e1b4b;border-bottom:2px solid #4338ca;padding-bottom:8px;font-weight:600}
 .slide .body{flex:1;display:flex;align-items:center;justify-content:center;min-height:0}
 .slide .body.col{flex-direction:column;justify-content:center;gap:10px}
-.take{margin-top:12px;background:#fffbeb;border-left:4px solid #fbbf24;padding:9px 14px;font-size:17px;color:#4b3a10;border-radius:0 3px 3px 0;line-height:1.35}
+.take{margin-top:12px;background:#fffbeb;border-left:4px solid #fbbf24;padding:9px 14px;font-size:19px;color:#3f3009;border-radius:0 3px 3px 0;line-height:1.35}
 .take b{color:#92400e}
 
 /* title slide */
@@ -58,22 +58,22 @@ body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:#e8e9f5;
 .slide.title h1{font-size:46px;margin:0 0 12px;font-weight:600;line-height:1.15}
 .slide.title .sub{font-size:21px;color:#c7d2fe;margin-bottom:26px}
 .slide.title .rule{width:120px;height:3px;background:#fbbf24;margin:0 auto 26px}
-.slide.title .meta{font-size:15px;color:#a5b4fc;line-height:1.9}
+.slide.title .meta{font-size:17px;color:#c7d2fe;line-height:1.9}
 
 /* section divider */
 .slide.div{justify-content:center;align-items:center;text-align:center;background:#f5f5fb}
-.slide.div .k{font-size:13px;letter-spacing:2px;color:#818cf8;font-weight:700;text-transform:uppercase;margin-bottom:14px}
+.slide.div .k{font-size:15px;letter-spacing:2px;color:#818cf8;font-weight:700;text-transform:uppercase;margin-bottom:14px}
 .slide.div h1{font-size:40px;margin:0;color:#1e1b4b;font-weight:600}
 
 /* svg text defaults */
 svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
-.lbl{font-size:12.5px;fill:#64748b;letter-spacing:.7px;font-weight:700;text-transform:uppercase}
-.bx{font-size:17px;fill:#1e1b4b;font-weight:600}
-.bxs{font-size:15px;fill:#1e1b4b;font-weight:600}
-.bd{font-size:14px;fill:#475569}
-.bds{font-size:13px;fill:#64748b}
-.big{font-size:23px;fill:#1e1b4b;font-weight:700}
-.num{font-size:26px;fill:#4338ca;font-weight:700}
+.lbl{font-size:15px;fill:#475569;letter-spacing:.7px;font-weight:700;text-transform:uppercase}
+.bx{font-size:20px;fill:#1e1b4b;font-weight:600}
+.bxs{font-size:18px;fill:#1e1b4b;font-weight:600}
+.bd{font-size:17px;fill:#334155}
+.bds{font-size:16px;fill:#475569}
+.big{font-size:25px;fill:#1e1b4b;font-weight:700}
+.num{font-size:28px;fill:#4338ca;font-weight:700}
 .ok{fill:#0d9488}
 .no{fill:#b91c1c}
 .am{fill:#92400e}
@@ -81,15 +81,15 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
 /* quiz */
 .q .body{align-items:center}
 .qbox{width:100%}
-.qstem{font-size:23px;line-height:1.35;color:#1e1b4b;font-weight:600;margin-bottom:22px}
-.opt{display:flex;align-items:flex-start;gap:14px;padding:11px 16px;margin-bottom:10px;background:#f8f8fd;border-left:4px solid #c7d2fe;border-radius:0 4px 4px 0;font-size:19px;line-height:1.3}
+.qstem{font-size:25px;line-height:1.35;color:#1e1b4b;font-weight:600;margin-bottom:22px}
+.opt{display:flex;align-items:flex-start;gap:14px;padding:11px 16px;margin-bottom:10px;background:#f8f8fd;border-left:4px solid #c7d2fe;border-radius:0 4px 4px 0;font-size:20px;line-height:1.3}
 .opt .k{font-weight:700;color:#4338ca;min-width:22px}
 .opt.hit{background:#ecfdf5;border-left-color:#0d9488}
 .opt.hit .k{color:#0d9488}
-.opt.miss{opacity:.5}
-.why{margin-top:14px;background:#f5f3ff;border-left:4px solid #7c3aed;padding:10px 15px;font-size:16.5px;color:#3b2a6b;line-height:1.4;border-radius:0 3px 3px 0}
+.opt.miss{opacity:.62}
+.why{margin-top:14px;background:#f5f3ff;border-left:4px solid #7c3aed;padding:10px 15px;font-size:18px;color:#332457;line-height:1.4;border-radius:0 3px 3px 0}
 .why b{color:#5b21b6}
-.qtag{position:absolute;top:26px;right:40px;font-size:12px;letter-spacing:1px;font-weight:700;color:#818cf8;text-transform:uppercase}
+.qtag{position:absolute;top:26px;right:40px;font-size:13px;letter-spacing:1px;font-weight:700;color:#6366f1;text-transform:uppercase}
 </style>
 </head>
 <body>
@@ -391,7 +391,7 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
         <rect x="60" y="58" width="250" height="180" rx="7" fill="#f8f8fd" stroke="#c7d2fe" stroke-width="2"/>
         <rect x="90" y="82" width="190" height="40" rx="4" fill="#fff" stroke="#cbd5e1"/><text x="185" y="107" text-anchor="middle" class="bds">question</text>
         <line x1="185" y1="126" x2="185" y2="146" stroke="#94a3b8" stroke-width="2" marker-end="url(#ag)"/>
-        <rect x="90" y="150" width="190" height="40" rx="4" fill="#4338ca"/><text x="185" y="176" text-anchor="middle" font-size="14" font-weight="600" fill="#fff">LLM</text>
+        <rect x="90" y="150" width="190" height="40" rx="4" fill="#4338ca"/><text x="185" y="176" text-anchor="middle" font-size="16" font-weight="600" fill="#fff">LLM</text>
         <line x1="185" y1="194" x2="185" y2="210" stroke="#94a3b8" stroke-width="2" marker-end="url(#ag)"/>
         <text x="185" y="228" text-anchor="middle" class="bds">answer</text>
         <text x="185" y="272" text-anchor="middle" class="bd">One hop. No outside data.</text>
@@ -404,7 +404,7 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
         <line x1="530" y1="120" x2="530" y2="132" stroke="#94a3b8" stroke-width="2" marker-end="url(#ag)"/>
         <rect x="410" y="136" width="240" height="34" rx="4" fill="#eef2ff" stroke="#818cf8"/><text x="530" y="158" text-anchor="middle" class="bds">retrieve &mdash; always</text>
         <line x1="530" y1="174" x2="530" y2="186" stroke="#94a3b8" stroke-width="2" marker-end="url(#ag)"/>
-        <rect x="410" y="190" width="240" height="34" rx="4" fill="#4338ca"/><text x="530" y="213" text-anchor="middle" font-size="14" font-weight="600" fill="#fff">LLM &#8594; answer</text>
+        <rect x="410" y="190" width="240" height="34" rx="4" fill="#4338ca"/><text x="530" y="213" text-anchor="middle" font-size="16" font-weight="600" fill="#fff">LLM &#8594; answer</text>
         <text x="530" y="272" text-anchor="middle" class="bd">Two hops, fixed order.</text>
         <text x="530" y="296" text-anchor="middle" class="bd">Retrieves whether it helps or not.</text>
       </g>
@@ -413,7 +413,7 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
         <rect x="750" y="58" width="340" height="180" rx="7" fill="#eef2ff" stroke="#4338ca" stroke-width="2.5"/>
         <rect x="780" y="82" width="280" height="34" rx="4" fill="#fff" stroke="#cbd5e1"/><text x="920" y="104" text-anchor="middle" class="bds">goal</text>
         <line x1="920" y1="120" x2="920" y2="134" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
-        <rect x="800" y="138" width="240" height="40" rx="4" fill="#4338ca"/><text x="920" y="164" text-anchor="middle" font-size="14" font-weight="600" fill="#fff">LLM chooses a tool</text>
+        <rect x="800" y="138" width="240" height="40" rx="4" fill="#4338ca"/><text x="920" y="164" text-anchor="middle" font-size="16" font-weight="600" fill="#fff">LLM chooses a tool</text>
         <path d="M1040 158 Q1075 158 1075 196 Q1075 218 920 218" fill="none" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
         <rect x="790" y="196" width="200" height="34" rx="4" fill="#fff" stroke="#818cf8"/><text x="890" y="219" text-anchor="middle" class="bds">retrieve &middot; query &middot; write</text>
         <path d="M790 213 Q760 213 760 158 Q760 138 794 152" fill="none" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
@@ -467,7 +467,7 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
     <svg width="1180" height="430" viewBox="0 0 1180 430" role="img" aria-label="The four building blocks of an agent arranged around the loop">
       <circle cx="590" cy="212" r="86" fill="#1e1b4b"/>
       <text x="590" y="204" text-anchor="middle" font-size="19" font-weight="700" fill="#fff">THE LOOP</text>
-      <text x="590" y="232" text-anchor="middle" font-size="13" fill="#a5b4fc">binds all four</text>
+      <text x="590" y="232" text-anchor="middle" font-size="15" fill="#a5b4fc">binds all four</text>
 
       <rect x="150" y="52" width="290" height="104" rx="7" fill="#eef2ff" stroke="#4338ca" stroke-width="2"/>
       <text x="176" y="82" class="lbl">01</text>
@@ -565,14 +565,14 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
       <text x="290" y="42" text-anchor="middle" class="lbl">What you write</text>
       <rect x="60" y="60" width="460" height="128" rx="6" fill="#f8f8fd" stroke="#cbd5e1" stroke-width="2"/>
       <text x="86" y="92" font-size="15" font-family="Consolas,monospace" fill="#b91c1c">get_data(id)</text>
-      <text x="86" y="120" font-size="14" font-family="Consolas,monospace" fill="#64748b">"""Gets data."""</text>
+      <text x="86" y="120" font-size="16" font-family="Consolas,monospace" fill="#64748b">"""Gets data."""</text>
       <text x="86" y="158" class="bds no">The model has no idea when to call this.</text>
 
       <rect x="60" y="212" width="460" height="150" rx="6" fill="#ecfdf5" stroke="#0d9488" stroke-width="2"/>
       <text x="86" y="244" font-size="15" font-family="Consolas,monospace" fill="#0d9488">get_settlement_status(payment_ref)</text>
-      <text x="86" y="272" font-size="13.5" font-family="Consolas,monospace" fill="#475569">"""Current settlement state for one</text>
-      <text x="86" y="294" font-size="13.5" font-family="Consolas,monospace" fill="#475569">payment. Use when a payment is late</text>
-      <text x="86" y="316" font-size="13.5" font-family="Consolas,monospace" fill="#475569">or disputed. Not for batch totals."""</text>
+      <text x="86" y="272" font-size="15" font-family="Consolas,monospace" fill="#475569">"""Current settlement state for one</text>
+      <text x="86" y="294" font-size="15" font-family="Consolas,monospace" fill="#475569">payment. Use when a payment is late</text>
+      <text x="86" y="316" font-size="15" font-family="Consolas,monospace" fill="#475569">or disputed. Not for batch totals."""</text>
       <text x="86" y="348" class="bds ok">Names the case, and the case it is not for.</text>
 
       <line x1="530" y1="212" x2="640" y2="212" stroke="#4338ca" stroke-width="2.5" marker-end="url(#ai)"/>
@@ -638,7 +638,7 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
     <svg width="1180" height="410" viewBox="0 0 1180 410" role="img" aria-label="A single agent with several tools">
       <rect x="440" y="56" width="300" height="86" rx="8" fill="#4338ca"/>
       <text x="590" y="94" text-anchor="middle" font-size="21" font-weight="700" fill="#fff">One agent</text>
-      <text x="590" y="122" text-anchor="middle" font-size="14" fill="#c7d2fe">one loop &middot; one context &middot; one trace</text>
+      <text x="590" y="122" text-anchor="middle" font-size="16" fill="#c7d2fe">one loop &middot; one context &middot; one trace</text>
       <line x1="510" y1="146" x2="290" y2="212" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
       <line x1="560" y1="146" x2="470" y2="212" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
       <line x1="620" y1="146" x2="710" y2="212" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
@@ -663,9 +663,9 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
   <h2>Pattern 2 &mdash; multi-agent, peer to peer</h2>
   <div class="body">
     <svg width="1180" height="410" viewBox="0 0 1180 410" role="img" aria-label="Peer to peer agents handing off to each other">
-      <rect x="120" y="90" width="220" height="76" rx="7" fill="#4338ca"/><text x="230" y="124" text-anchor="middle" font-size="17" font-weight="600" fill="#fff">Triage</text><text x="230" y="148" text-anchor="middle" font-size="13" fill="#c7d2fe">classifies the exception</text>
-      <rect x="480" y="90" width="220" height="76" rx="7" fill="#4338ca"/><text x="590" y="124" text-anchor="middle" font-size="17" font-weight="600" fill="#fff">Investigator</text><text x="590" y="148" text-anchor="middle" font-size="13" fill="#c7d2fe">gathers evidence</text>
-      <rect x="840" y="90" width="220" height="76" rx="7" fill="#4338ca"/><text x="950" y="124" text-anchor="middle" font-size="17" font-weight="600" fill="#fff">Drafter</text><text x="950" y="148" text-anchor="middle" font-size="13" fill="#c7d2fe">writes the case note</text>
+      <rect x="120" y="90" width="220" height="76" rx="7" fill="#4338ca"/><text x="230" y="124" text-anchor="middle" font-size="17" font-weight="600" fill="#fff">Triage</text><text x="230" y="148" text-anchor="middle" font-size="15" fill="#c7d2fe">classifies the exception</text>
+      <rect x="480" y="90" width="220" height="76" rx="7" fill="#4338ca"/><text x="590" y="124" text-anchor="middle" font-size="17" font-weight="600" fill="#fff">Investigator</text><text x="590" y="148" text-anchor="middle" font-size="15" fill="#c7d2fe">gathers evidence</text>
+      <rect x="840" y="90" width="220" height="76" rx="7" fill="#4338ca"/><text x="950" y="124" text-anchor="middle" font-size="17" font-weight="600" fill="#fff">Drafter</text><text x="950" y="148" text-anchor="middle" font-size="15" fill="#c7d2fe">writes the case note</text>
       <line x1="345" y1="128" x2="470" y2="128" stroke="#4338ca" stroke-width="2.5" marker-end="url(#ai)"/>
       <line x1="705" y1="128" x2="830" y2="128" stroke="#4338ca" stroke-width="2.5" marker-end="url(#ai)"/>
       <path d="M560 172 Q400 240 265 172" fill="none" stroke="#94a3b8" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#ag)"/>
@@ -686,7 +686,7 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
     <svg width="1180" height="410" viewBox="0 0 1180 410" role="img" aria-label="A supervisor delegating to specialist workers">
       <rect x="440" y="44" width="300" height="82" rx="8" fill="#1e1b4b"/>
       <text x="590" y="78" text-anchor="middle" font-size="19" font-weight="700" fill="#fff">Supervisor</text>
-      <text x="590" y="104" text-anchor="middle" font-size="13" fill="#a5b4fc">decomposes &middot; routes &middot; aggregates</text>
+      <text x="590" y="104" text-anchor="middle" font-size="15" fill="#a5b4fc">decomposes &middot; routes &middot; aggregates</text>
       <line x1="500" y1="130" x2="255" y2="196" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
       <line x1="590" y1="130" x2="590" y2="196" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
       <line x1="680" y1="130" x2="925" y2="196" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
@@ -898,7 +898,7 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
       <text x="850" y="122" text-anchor="middle" class="bds ok">yes</text>
       <rect x="790" y="186" width="330" height="62" rx="6" fill="#ecfdf5" stroke="#0d9488" stroke-width="2.5"/>
       <text x="955" y="214" text-anchor="middle" class="bx ok">Build one agent.</text>
-      <text x="955" y="236" text-anchor="middle" class="bds">The default. Roughly a dozen tools is the ceiling.</text>
+      <text x="955" y="236" text-anchor="middle" class="bds">The default. A dozen tools is the ceiling.</text>
       <line x1="590" y1="160" x2="590" y2="184" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
       <text x="624" y="178" class="bds">no</text>
 
@@ -1087,7 +1087,7 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
       </g>
       <rect x="230" y="316" width="720" height="70" rx="6" fill="#1e1b4b"/>
       <text x="590" y="346" text-anchor="middle" font-size="18" font-weight="600" fill="#fff">Next: Module 2 &mdash; how the agent decides what to do next</text>
-      <text x="590" y="372" text-anchor="middle" font-size="14" fill="#a5b4fc">Chain-of-Thought, ReAct, Tree-of-Thought and Reflection, compared on identical tasks</text>
+      <text x="590" y="372" text-anchor="middle" font-size="16" fill="#a5b4fc">Chain-of-Thought, ReAct, Tree-of-Thought and Reflection, compared on identical tasks</text>
     </svg>
   </div>
 </div>

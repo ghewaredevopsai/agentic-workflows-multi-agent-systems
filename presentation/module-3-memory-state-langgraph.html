@@ -50,7 +50,7 @@ body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:#e8e9f5;
 .slide h2{margin:0 0 14px;font-size:28px;line-height:1.14;color:#1e1b4b;border-bottom:2px solid #4338ca;padding-bottom:8px;font-weight:600}
 .slide .body{flex:1;display:flex;align-items:center;justify-content:center;min-height:0}
 .slide .body.col{flex-direction:column;justify-content:center;gap:10px}
-.take{margin-top:12px;background:#fffbeb;border-left:4px solid #fbbf24;padding:9px 14px;font-size:17px;color:#4b3a10;border-radius:0 3px 3px 0;line-height:1.35}
+.take{margin-top:12px;background:#fffbeb;border-left:4px solid #fbbf24;padding:9px 14px;font-size:19px;color:#3f3009;border-radius:0 3px 3px 0;line-height:1.35}
 .take b{color:#92400e}
 
 /* title slide */
@@ -58,22 +58,22 @@ body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:#e8e9f5;
 .slide.title h1{font-size:46px;margin:0 0 12px;font-weight:600;line-height:1.15}
 .slide.title .sub{font-size:21px;color:#c7d2fe;margin-bottom:26px}
 .slide.title .rule{width:120px;height:3px;background:#fbbf24;margin:0 auto 26px}
-.slide.title .meta{font-size:15px;color:#a5b4fc;line-height:1.9}
+.slide.title .meta{font-size:17px;color:#c7d2fe;line-height:1.9}
 
 /* section divider */
 .slide.div{justify-content:center;align-items:center;text-align:center;background:#f5f5fb}
-.slide.div .k{font-size:13px;letter-spacing:2px;color:#818cf8;font-weight:700;text-transform:uppercase;margin-bottom:14px}
+.slide.div .k{font-size:15px;letter-spacing:2px;color:#818cf8;font-weight:700;text-transform:uppercase;margin-bottom:14px}
 .slide.div h1{font-size:40px;margin:0;color:#1e1b4b;font-weight:600}
 
 /* svg text defaults */
 svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
-.lbl{font-size:12.5px;fill:#64748b;letter-spacing:.7px;font-weight:700;text-transform:uppercase}
-.bx{font-size:17px;fill:#1e1b4b;font-weight:600}
-.bxs{font-size:15px;fill:#1e1b4b;font-weight:600}
-.bd{font-size:14px;fill:#475569}
-.bds{font-size:13px;fill:#64748b}
-.big{font-size:23px;fill:#1e1b4b;font-weight:700}
-.num{font-size:26px;fill:#4338ca;font-weight:700}
+.lbl{font-size:15px;fill:#475569;letter-spacing:.7px;font-weight:700;text-transform:uppercase}
+.bx{font-size:20px;fill:#1e1b4b;font-weight:600}
+.bxs{font-size:18px;fill:#1e1b4b;font-weight:600}
+.bd{font-size:17px;fill:#334155}
+.bds{font-size:16px;fill:#475569}
+.big{font-size:25px;fill:#1e1b4b;font-weight:700}
+.num{font-size:28px;fill:#4338ca;font-weight:700}
 .ok{fill:#0d9488}
 .no{fill:#b91c1c}
 .am{fill:#92400e}
@@ -81,15 +81,15 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
 /* quiz */
 .q .body{align-items:center}
 .qbox{width:100%}
-.qstem{font-size:23px;line-height:1.35;color:#1e1b4b;font-weight:600;margin-bottom:22px}
-.opt{display:flex;align-items:flex-start;gap:14px;padding:11px 16px;margin-bottom:10px;background:#f8f8fd;border-left:4px solid #c7d2fe;border-radius:0 4px 4px 0;font-size:19px;line-height:1.3}
+.qstem{font-size:25px;line-height:1.35;color:#1e1b4b;font-weight:600;margin-bottom:22px}
+.opt{display:flex;align-items:flex-start;gap:14px;padding:11px 16px;margin-bottom:10px;background:#f8f8fd;border-left:4px solid #c7d2fe;border-radius:0 4px 4px 0;font-size:20px;line-height:1.3}
 .opt .k{font-weight:700;color:#4338ca;min-width:22px}
 .opt.hit{background:#ecfdf5;border-left-color:#0d9488}
 .opt.hit .k{color:#0d9488}
-.opt.miss{opacity:.5}
-.why{margin-top:14px;background:#f5f3ff;border-left:4px solid #7c3aed;padding:10px 15px;font-size:16.5px;color:#3b2a6b;line-height:1.4;border-radius:0 3px 3px 0}
+.opt.miss{opacity:.62}
+.why{margin-top:14px;background:#f5f3ff;border-left:4px solid #7c3aed;padding:10px 15px;font-size:18px;color:#332457;line-height:1.4;border-radius:0 3px 3px 0}
 .why b{color:#5b21b6}
-.qtag{position:absolute;top:26px;right:40px;font-size:12px;letter-spacing:1px;font-weight:700;color:#818cf8;text-transform:uppercase}
+.qtag{position:absolute;top:26px;right:40px;font-size:13px;letter-spacing:1px;font-weight:700;color:#6366f1;text-transform:uppercase}
 </style>
 </head>
 <body>
@@ -241,23 +241,23 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
       <text x="300" y="44" text-anchor="middle" class="lbl">Buffer &mdash; keep everything</text>
       <rect x="70" y="62" width="460" height="40" rx="4" fill="#eef2ff" stroke="#818cf8"/>
       <rect x="70" y="62" width="90" height="40" rx="4" fill="#4338ca"/>
-      <text x="115" y="88" text-anchor="middle" font-size="12" fill="#fff">turn 5</text>
+      <text x="115" y="88" text-anchor="middle" font-size="14" fill="#fff">turn 5</text>
       <text x="560" y="88" class="bds ok">fits</text>
 
       <rect x="70" y="116" width="460" height="40" rx="4" fill="#eef2ff" stroke="#818cf8"/>
       <rect x="70" y="116" width="270" height="40" rx="4" fill="#4338ca"/>
-      <text x="205" y="142" text-anchor="middle" font-size="12" fill="#fff">turn 20</text>
+      <text x="205" y="142" text-anchor="middle" font-size="14" fill="#fff">turn 20</text>
       <text x="560" y="142" class="bds">fits</text>
 
       <rect x="70" y="170" width="460" height="40" rx="4" fill="#eef2ff" stroke="#818cf8"/>
       <rect x="70" y="170" width="460" height="40" rx="4" fill="#b91c1c"/>
-      <text x="300" y="196" text-anchor="middle" font-size="12" fill="#fff">turn 40 &mdash; the instruction is now the oldest text in the window</text>
+      <text x="300" y="196" text-anchor="middle" font-size="14" fill="#fff">turn 40 &mdash; the instruction is now the oldest text in the window</text>
       <text x="560" y="196" class="bds no">full</text>
 
       <rect x="70" y="240" width="460" height="40" rx="4" fill="#eef2ff" stroke="#818cf8"/>
       <rect x="70" y="240" width="460" height="40" rx="4" fill="#b91c1c"/>
       <path d="M70 260 L40 260" stroke="#b91c1c" stroke-width="2.5" marker-end="url(#ar)"/>
-      <text x="300" y="266" text-anchor="middle" font-size="12" fill="#fff">turn 60 &mdash; the earliest turns fall out</text>
+      <text x="300" y="266" text-anchor="middle" font-size="14" fill="#fff">turn 60 &mdash; the earliest turns fall out</text>
       <text x="300" y="316" text-anchor="middle" class="bx no">The agent stops obeying constraints</text>
       <text x="300" y="342" text-anchor="middle" class="bx no">it was given at the start.</text>
       <text x="300" y="376" text-anchor="middle" class="bds">And nothing errors. It just gets worse.</text>
@@ -267,16 +267,16 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
       <text x="880" y="44" text-anchor="middle" class="lbl">Summary &mdash; keep the recent, fold the rest</text>
       <rect x="680" y="62" width="400" height="40" rx="4" fill="#eef2ff" stroke="#818cf8"/>
       <rect x="680" y="62" width="70" height="40" rx="4" fill="#fbbf24"/>
-      <text x="715" y="88" text-anchor="middle" font-size="11" fill="#3b2708">summary</text>
+      <text x="715" y="88" text-anchor="middle" font-size="14" fill="#3b2708">summary</text>
       <rect x="756" y="62" width="120" height="40" rx="4" fill="#4338ca"/>
-      <text x="816" y="88" text-anchor="middle" font-size="12" fill="#fff">recent turns</text>
+      <text x="816" y="88" text-anchor="middle" font-size="14" fill="#fff">recent turns</text>
       <text x="880" y="130" text-anchor="middle" class="bd">turn 20</text>
 
       <rect x="680" y="152" width="400" height="40" rx="4" fill="#eef2ff" stroke="#818cf8"/>
       <rect x="680" y="152" width="110" height="40" rx="4" fill="#fbbf24"/>
-      <text x="735" y="178" text-anchor="middle" font-size="11" fill="#3b2708">summary</text>
+      <text x="735" y="178" text-anchor="middle" font-size="14" fill="#3b2708">summary</text>
       <rect x="796" y="152" width="120" height="40" rx="4" fill="#4338ca"/>
-      <text x="856" y="178" text-anchor="middle" font-size="12" fill="#fff">recent turns</text>
+      <text x="856" y="178" text-anchor="middle" font-size="14" fill="#fff">recent turns</text>
       <text x="880" y="220" text-anchor="middle" class="bd">turn 60 &mdash; still bounded</text>
 
       <rect x="700" y="252" width="360" height="106" rx="7" fill="#ecfdf5" stroke="#0d9488" stroke-width="2.5"/>
@@ -300,10 +300,10 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
       <rect x="50" y="56" width="340" height="300" rx="8" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
       <text x="220" y="90" text-anchor="middle" class="bx no">Raw dump</text>
       <rect x="75" y="110" width="290" height="120" rx="4" fill="#fff" stroke="#fecaca"/>
-      <text x="90" y="134" font-size="11.5" font-family="Consolas,monospace" fill="#475569">{"i":1003,"a":990000.0,</text>
-      <text x="90" y="156" font-size="11.5" font-family="Consolas,monospace" fill="#475569">"c":"USD","s":2,"rc":7,</text>
-      <text x="90" y="178" font-size="11.5" font-family="Consolas,monospace" fill="#475569">"vd":"2026-09-02","cp":19,</text>
-      <text x="90" y="200" font-size="11.5" font-family="Consolas,monospace" fill="#475569">"f":null,"x":[],"ts":17...}</text>
+      <text x="90" y="134" font-size="14" font-family="Consolas,monospace" fill="#475569">{"i":1003,"a":990000.0,</text>
+      <text x="90" y="156" font-size="14" font-family="Consolas,monospace" fill="#475569">"c":"USD","s":2,"rc":7,</text>
+      <text x="90" y="178" font-size="14" font-family="Consolas,monospace" fill="#475569">"vd":"2026-09-02","cp":19,</text>
+      <text x="90" y="200" font-size="14" font-family="Consolas,monospace" fill="#475569">"f":null,"x":[],"ts":17...}</text>
       <text x="220" y="262" text-anchor="middle" class="bd">Everything the system knows.</text>
       <text x="220" y="290" text-anchor="middle" class="bds">The model must guess that s=2</text>
       <text x="220" y="312" text-anchor="middle" class="bds">means held and rc=7 is a limit breach.</text>
@@ -312,10 +312,10 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
       <rect x="410" y="56" width="340" height="300" rx="8" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
       <text x="580" y="90" text-anchor="middle" class="bx am">Verbose but decoded</text>
       <rect x="435" y="110" width="290" height="120" rx="4" fill="#fff" stroke="#fde68a"/>
-      <text x="450" y="134" font-size="11.5" font-family="Consolas,monospace" fill="#475569">{"ref":"PMT-1003",</text>
-      <text x="450" y="156" font-size="11.5" font-family="Consolas,monospace" fill="#475569"> "amount":990000.0,</text>
-      <text x="450" y="178" font-size="11.5" font-family="Consolas,monospace" fill="#475569"> "status":"held",</text>
-      <text x="450" y="200" font-size="11.5" font-family="Consolas,monospace" fill="#475569"> "reason":"LIMIT_BREACH"...}</text>
+      <text x="450" y="134" font-size="14" font-family="Consolas,monospace" fill="#475569">{"ref":"PMT-1003",</text>
+      <text x="450" y="156" font-size="14" font-family="Consolas,monospace" fill="#475569"> "amount":990000.0,</text>
+      <text x="450" y="178" font-size="14" font-family="Consolas,monospace" fill="#475569"> "status":"held",</text>
+      <text x="450" y="200" font-size="14" font-family="Consolas,monospace" fill="#475569"> "reason":"LIMIT_BREACH"...}</text>
       <text x="580" y="262" text-anchor="middle" class="bd">Readable, and complete.</text>
       <text x="580" y="290" text-anchor="middle" class="bds">Costs tokens on every step, and</text>
       <text x="580" y="312" text-anchor="middle" class="bds">buries the one field that matters.</text>
@@ -324,10 +324,10 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
       <rect x="770" y="56" width="360" height="300" rx="8" fill="#ecfdf5" stroke="#0d9488" stroke-width="2.5"/>
       <text x="950" y="90" text-anchor="middle" class="bx ok">An observation</text>
       <rect x="795" y="110" width="310" height="120" rx="4" fill="#fff" stroke="#99f6e4"/>
-      <text x="810" y="138" font-size="12" font-family="Consolas,monospace" fill="#0d9488">PMT-1003 is HELD.</text>
-      <text x="810" y="162" font-size="12" font-family="Consolas,monospace" fill="#475569">Reason: LIMIT_BREACH</text>
-      <text x="810" y="186" font-size="12" font-family="Consolas,monospace" fill="#475569">USD 990,000 &gt; 500,000 limit.</text>
-      <text x="810" y="210" font-size="12" font-family="Consolas,monospace" fill="#b91c1c">Human decision required.</text>
+      <text x="810" y="138" font-size="14" font-family="Consolas,monospace" fill="#0d9488">PMT-1003 is HELD.</text>
+      <text x="810" y="162" font-size="14" font-family="Consolas,monospace" fill="#475569">Reason: LIMIT_BREACH</text>
+      <text x="810" y="186" font-size="14" font-family="Consolas,monospace" fill="#475569">USD 990,000 &gt; 500,000 limit.</text>
+      <text x="810" y="210" font-size="14" font-family="Consolas,monospace" fill="#b91c1c">Human decision required.</text>
       <text x="950" y="262" text-anchor="middle" class="bd">The fact, its meaning, and</text>
       <text x="950" y="286" text-anchor="middle" class="bd">the constraint it implies.</text>
       <text x="950" y="322" text-anchor="middle" class="bxs ok">Fewer tokens than the middle box,</text>
@@ -387,13 +387,13 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
       <rect x="50" y="52" width="500" height="310" rx="8" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
       <text x="300" y="86" text-anchor="middle" class="bx no">State hidden in a conversation</text>
       <rect x="80" y="108" width="440" height="28" rx="3" fill="#fff" stroke="#fecaca"/>
-      <text x="95" y="127" font-size="12" fill="#64748b">human: investigate PMT-1003</text>
+      <text x="95" y="127" font-size="14" fill="#64748b">human: investigate PMT-1003</text>
       <rect x="80" y="142" width="440" height="28" rx="3" fill="#fff" stroke="#fecaca"/>
-      <text x="95" y="161" font-size="12" fill="#64748b">ai: Action: lookup_payment("PMT-1003")</text>
+      <text x="95" y="161" font-size="14" fill="#64748b">ai: Action: lookup_payment("PMT-1003")</text>
       <rect x="80" y="176" width="440" height="28" rx="3" fill="#fff" stroke="#fecaca"/>
-      <text x="95" y="195" font-size="12" fill="#64748b">tool: {"status":"held", ...}</text>
+      <text x="95" y="195" font-size="14" fill="#64748b">tool: {"status":"held", ...}</text>
       <rect x="80" y="210" width="440" height="28" rx="3" fill="#fff" stroke="#fecaca"/>
-      <text x="95" y="229" font-size="12" fill="#64748b">ai: Action: policy_for("LIMIT_BREACH")</text>
+      <text x="95" y="229" font-size="14" fill="#64748b">ai: Action: policy_for("LIMIT_BREACH")</text>
       <text x="300" y="272" text-anchor="middle" class="bd">Where is &ldquo;needs a human&rdquo; stored?</text>
       <text x="300" y="300" text-anchor="middle" class="bxs no">Nowhere. It is implied by text.</text>
       <text x="300" y="330" text-anchor="middle" class="bds">You cannot assert on it, resume it,</text>
@@ -404,12 +404,12 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
       <rect x="630" y="52" width="500" height="310" rx="8" fill="#ecfdf5" stroke="#0d9488" stroke-width="2.5"/>
       <text x="880" y="86" text-anchor="middle" class="bx ok">State as an explicit object</text>
       <rect x="660" y="108" width="440" height="150" rx="4" fill="#fff" stroke="#99f6e4"/>
-      <text x="678" y="132" font-size="12.5" font-family="Consolas,monospace" fill="#0d9488">class CaseState(TypedDict):</text>
-      <text x="678" y="156" font-size="12.5" font-family="Consolas,monospace" fill="#475569">    ref: str</text>
-      <text x="678" y="180" font-size="12.5" font-family="Consolas,monospace" fill="#475569">    findings: Annotated[list, add]</text>
-      <text x="678" y="204" font-size="12.5" font-family="Consolas,monospace" fill="#475569">    needs_human: bool</text>
-      <text x="678" y="228" font-size="12.5" font-family="Consolas,monospace" fill="#475569">    steps: int</text>
-      <text x="678" y="250" font-size="12.5" font-family="Consolas,monospace" fill="#b91c1c">    # every node reads and writes THIS</text>
+      <text x="678" y="132" font-size="15" font-family="Consolas,monospace" fill="#0d9488">class CaseState(TypedDict):</text>
+      <text x="678" y="156" font-size="15" font-family="Consolas,monospace" fill="#475569">    ref: str</text>
+      <text x="678" y="180" font-size="15" font-family="Consolas,monospace" fill="#475569">    findings: Annotated[list, add]</text>
+      <text x="678" y="204" font-size="15" font-family="Consolas,monospace" fill="#475569">    needs_human: bool</text>
+      <text x="678" y="228" font-size="15" font-family="Consolas,monospace" fill="#475569">    steps: int</text>
+      <text x="678" y="250" font-size="15" font-family="Consolas,monospace" fill="#b91c1c">    # every node reads and writes THIS</text>
       <text x="880" y="292" text-anchor="middle" class="bd">Printable. Assertable. Storable.</text>
       <text x="880" y="322" text-anchor="middle" class="bxs ok">Everything else in this module</text>
       <text x="880" y="344" text-anchor="middle" class="bxs ok">follows from that one move.</text>
@@ -422,22 +422,22 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
   <h2>Nodes, edges, cycles &mdash; the whole vocabulary</h2>
   <div class="body">
     <svg width="1180" height="420" viewBox="0 0 1180 420" role="img" aria-label="A StateGraph for the payment exception case">
-      <circle cx="90" cy="150" r="22" fill="#1e1b4b"/><text x="90" y="156" text-anchor="middle" font-size="11" fill="#fff">START</text>
+      <circle cx="90" cy="150" r="22" fill="#1e1b4b"/><text x="90" y="156" text-anchor="middle" font-size="14" fill="#fff">START</text>
       <line x1="112" y1="150" x2="168" y2="150" stroke="#4338ca" stroke-width="2.5" marker-end="url(#ai)"/>
 
       <rect x="175" y="120" width="170" height="60" rx="6" fill="#4338ca"/>
-      <text x="260" y="146" text-anchor="middle" font-size="14" font-weight="600" fill="#fff">read_ledger</text>
-      <text x="260" y="166" text-anchor="middle" font-size="11" fill="#c7d2fe">writes: findings, ref</text>
+      <text x="260" y="146" text-anchor="middle" font-size="16" font-weight="600" fill="#fff">read_ledger</text>
+      <text x="260" y="166" text-anchor="middle" font-size="14" fill="#c7d2fe">writes: findings, ref</text>
       <line x1="345" y1="150" x2="400" y2="150" stroke="#4338ca" stroke-width="2.5" marker-end="url(#ai)"/>
 
       <rect x="407" y="120" width="170" height="60" rx="6" fill="#4338ca"/>
-      <text x="492" y="146" text-anchor="middle" font-size="14" font-weight="600" fill="#fff">read_policy</text>
-      <text x="492" y="166" text-anchor="middle" font-size="11" fill="#c7d2fe">writes: findings</text>
+      <text x="492" y="146" text-anchor="middle" font-size="16" font-weight="600" fill="#fff">read_policy</text>
+      <text x="492" y="166" text-anchor="middle" font-size="14" fill="#c7d2fe">writes: findings</text>
       <line x1="577" y1="150" x2="632" y2="150" stroke="#4338ca" stroke-width="2.5" marker-end="url(#ai)"/>
 
       <polygon points="720,110 800,150 720,190 640,150" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
-      <text x="720" y="146" text-anchor="middle" font-size="12" font-weight="700" fill="#92400e">enough?</text>
-      <text x="720" y="164" text-anchor="middle" font-size="10" fill="#92400e">conditional edge</text>
+      <text x="720" y="146" text-anchor="middle" font-size="14" font-weight="700" fill="#92400e">enough?</text>
+      <text x="720" y="164" text-anchor="middle" font-size="13" fill="#92400e">conditional edge</text>
 
       <path d="M720 190 Q720 262 480 262 Q300 262 260 186" fill="none" stroke="#d97706" stroke-width="2.5" marker-end="url(#aa)"/>
       <text x="490" y="284" text-anchor="middle" class="bds am">no &mdash; the cycle: go round again with what you now know</text>
@@ -445,14 +445,14 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
       <line x1="800" y1="150" x2="856" y2="150" stroke="#0d9488" stroke-width="2.5" marker-end="url(#at)"/>
       <text x="828" y="138" text-anchor="middle" class="bds ok">yes</text>
       <rect x="863" y="120" width="170" height="60" rx="6" fill="#0d9488"/>
-      <text x="948" y="146" text-anchor="middle" font-size="14" font-weight="600" fill="#fff">write_note</text>
-      <text x="948" y="166" text-anchor="middle" font-size="11" fill="#ccfbf1">writes: answer</text>
+      <text x="948" y="146" text-anchor="middle" font-size="16" font-weight="600" fill="#fff">write_note</text>
+      <text x="948" y="166" text-anchor="middle" font-size="14" fill="#ccfbf1">writes: answer</text>
       <line x1="1033" y1="150" x2="1078" y2="150" stroke="#4338ca" stroke-width="2.5" marker-end="url(#ai)"/>
-      <circle cx="1102" cy="150" r="22" fill="#1e1b4b"/><text x="1102" y="156" text-anchor="middle" font-size="12" fill="#fff">END</text>
+      <circle cx="1102" cy="150" r="22" fill="#1e1b4b"/><text x="1102" y="156" text-anchor="middle" font-size="14" fill="#fff">END</text>
 
       <rect x="60" y="322" width="245" height="76" rx="6" fill="#f8f8fd" stroke="#c7d2fe" stroke-width="2"/>
       <text x="182" y="348" text-anchor="middle" class="bxs">Node</text>
-      <text x="182" y="374" text-anchor="middle" class="bds">a function: state in, partial state out</text>
+      <text x="182" y="374" text-anchor="middle" class="bds">state in, partial state out</text>
 
       <rect x="325" y="322" width="245" height="76" rx="6" fill="#f8f8fd" stroke="#c7d2fe" stroke-width="2"/>
       <text x="447" y="348" text-anchor="middle" class="bxs">Edge</text>
@@ -476,14 +476,14 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
     <svg width="1180" height="420" viewBox="0 0 1180 420" role="img" aria-label="Replace versus append reducers, and why parallel branches need them">
       <rect x="50" y="52" width="510" height="150" rx="8" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
       <text x="305" y="84" text-anchor="middle" class="bx no">Default: replace</text>
-      <text x="80" y="118" font-size="12.5" font-family="Consolas,monospace" fill="#475569">findings: list</text>
+      <text x="80" y="118" font-size="15" font-family="Consolas,monospace" fill="#475569">findings: list</text>
       <text x="305" y="150" text-anchor="middle" class="bd">node A writes ["held"], then node B</text>
       <text x="305" y="172" text-anchor="middle" class="bd">writes ["needs treasury"] &mdash; and A is gone.</text>
       <text x="305" y="194" text-anchor="middle" class="bds no">Silently. No error, no warning.</text>
 
       <rect x="50" y="222" width="510" height="150" rx="8" fill="#ecfdf5" stroke="#0d9488" stroke-width="2.5"/>
       <text x="305" y="254" text-anchor="middle" class="bx ok">Declared: append</text>
-      <text x="80" y="288" font-size="12.5" font-family="Consolas,monospace" fill="#0d9488">findings: Annotated[list, add]</text>
+      <text x="80" y="288" font-size="15" font-family="Consolas,monospace" fill="#0d9488">findings: Annotated[list, add]</text>
       <text x="305" y="320" text-anchor="middle" class="bd">Both writes survive, in order.</text>
       <text x="305" y="342" text-anchor="middle" class="bd">The reducer says how to merge, once,</text>
       <text x="305" y="364" text-anchor="middle" class="bds ok">instead of every node remembering to.</text>
@@ -492,7 +492,7 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
 
       <text x="880" y="80" text-anchor="middle" class="lbl">Where it stops being optional</text>
       <rect x="800" y="98" width="160" height="46" rx="5" fill="#4338ca"/>
-      <text x="880" y="126" text-anchor="middle" font-size="13" fill="#fff">fan out</text>
+      <text x="880" y="126" text-anchor="middle" font-size="15" fill="#fff">fan out</text>
       <line x1="840" y1="144" x2="740" y2="186" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
       <line x1="880" y1="144" x2="880" y2="186" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
       <line x1="920" y1="144" x2="1020" y2="186" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
@@ -506,7 +506,7 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
       <line x1="880" y1="238" x2="880" y2="278" stroke="#94a3b8" stroke-width="2" marker-end="url(#ag)"/>
       <line x1="1020" y1="238" x2="920" y2="278" stroke="#94a3b8" stroke-width="2" marker-end="url(#ag)"/>
       <rect x="800" y="284" width="160" height="46" rx="5" fill="#0d9488"/>
-      <text x="880" y="312" text-anchor="middle" font-size="13" fill="#fff">join</text>
+      <text x="880" y="312" text-anchor="middle" font-size="15" fill="#fff">join</text>
       <text x="880" y="356" text-anchor="middle" class="bx no">Three writes, one key.</text>
       <text x="880" y="380" text-anchor="middle" class="bds">Without a reducer, two findings vanish.</text>
     </svg>
@@ -524,13 +524,13 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
   <div class="body">
     <svg width="1180" height="420" viewBox="0 0 1180 420" role="img" aria-label="What checkpointing provides">
       <text x="590" y="44" text-anchor="middle" class="lbl">after every node, the full state is written under a thread id</text>
-      <rect x="120" y="62" width="130" height="46" rx="5" fill="#4338ca"/><text x="185" y="90" text-anchor="middle" font-size="12" fill="#fff">read_ledger</text>
+      <rect x="120" y="62" width="130" height="46" rx="5" fill="#4338ca"/><text x="185" y="90" text-anchor="middle" font-size="14" fill="#fff">read_ledger</text>
       <line x1="250" y1="85" x2="290" y2="85" stroke="#94a3b8" stroke-width="2" marker-end="url(#ag)"/>
-      <rect x="295" y="62" width="130" height="46" rx="5" fill="#4338ca"/><text x="360" y="90" text-anchor="middle" font-size="12" fill="#fff">read_policy</text>
+      <rect x="295" y="62" width="130" height="46" rx="5" fill="#4338ca"/><text x="360" y="90" text-anchor="middle" font-size="14" fill="#fff">read_policy</text>
       <line x1="425" y1="85" x2="465" y2="85" stroke="#94a3b8" stroke-width="2" marker-end="url(#ag)"/>
-      <rect x="470" y="62" width="130" height="46" rx="5" fill="#4338ca"/><text x="535" y="90" text-anchor="middle" font-size="12" fill="#fff">decide</text>
+      <rect x="470" y="62" width="130" height="46" rx="5" fill="#4338ca"/><text x="535" y="90" text-anchor="middle" font-size="14" fill="#fff">decide</text>
       <line x1="600" y1="85" x2="640" y2="85" stroke="#94a3b8" stroke-width="2" marker-end="url(#ag)"/>
-      <rect x="645" y="62" width="130" height="46" rx="5" fill="#0d9488"/><text x="710" y="90" text-anchor="middle" font-size="12" fill="#fff">write_note</text>
+      <rect x="645" y="62" width="130" height="46" rx="5" fill="#0d9488"/><text x="710" y="90" text-anchor="middle" font-size="14" fill="#fff">write_note</text>
       <g stroke="#fbbf24" stroke-width="2" stroke-dasharray="3 3">
         <line x1="185" y1="108" x2="185" y2="140"/><line x1="360" y1="108" x2="360" y2="140"/>
         <line x1="535" y1="108" x2="535" y2="140"/><line x1="710" y1="108" x2="710" y2="140"/>
@@ -579,7 +579,7 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
     <svg width="1180" height="410" viewBox="0 0 1180 410" role="img" aria-label="Shared state versus private state across agents">
       <text x="300" y="44" text-anchor="middle" class="lbl">Shared state</text>
       <rect x="130" y="60" width="340" height="46" rx="5" fill="#4338ca"/>
-      <text x="300" y="88" text-anchor="middle" font-size="14" font-weight="600" fill="#fff">one state object</text>
+      <text x="300" y="88" text-anchor="middle" font-size="16" font-weight="600" fill="#fff">one state object</text>
       <line x1="200" y1="106" x2="170" y2="146" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
       <line x1="300" y1="106" x2="300" y2="146" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
       <line x1="400" y1="106" x2="430" y2="146" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
@@ -595,11 +595,11 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
 
       <text x="880" y="44" text-anchor="middle" class="lbl">Private state</text>
       <rect x="700" y="60" width="120" height="42" rx="5" fill="#eef2ff" stroke="#818cf8" stroke-width="2"/><text x="760" y="86" text-anchor="middle" class="bds">ledger</text>
-      <rect x="700" y="112" width="120" height="34" rx="4" fill="#f8f8fd" stroke="#cbd5e1"/><text x="760" y="134" text-anchor="middle" font-size="11" fill="#64748b">own state</text>
+      <rect x="700" y="112" width="120" height="34" rx="4" fill="#f8f8fd" stroke="#cbd5e1"/><text x="760" y="134" text-anchor="middle" font-size="14" fill="#64748b">own state</text>
       <rect x="940" y="60" width="120" height="42" rx="5" fill="#eef2ff" stroke="#818cf8" stroke-width="2"/><text x="1000" y="86" text-anchor="middle" class="bds">policy</text>
-      <rect x="940" y="112" width="120" height="34" rx="4" fill="#f8f8fd" stroke="#cbd5e1"/><text x="1000" y="134" text-anchor="middle" font-size="11" fill="#64748b">own state</text>
+      <rect x="940" y="112" width="120" height="34" rx="4" fill="#f8f8fd" stroke="#cbd5e1"/><text x="1000" y="134" text-anchor="middle" font-size="14" fill="#64748b">own state</text>
       <path d="M820 130 Q880 130 936 130" fill="none" stroke="#94a3b8" stroke-width="2" stroke-dasharray="4 3" marker-end="url(#ag)"/>
-      <text x="880" y="118" text-anchor="middle" class="bds">explicit handoff only</text>
+      <text x="880" y="168" text-anchor="middle" class="bds">explicit handoff only</text>
       <text x="880" y="228" text-anchor="middle" class="bd ok">Contained: a bad finding stays local.</text>
       <text x="880" y="256" text-anchor="middle" class="bd ok">Auditable per agent.</text>
       <text x="880" y="292" text-anchor="middle" class="bd no">Dearer: context is re-sent at each handoff,</text>
@@ -635,7 +635,7 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
 
       <rect x="200" y="286" width="530" height="76" rx="6" fill="#b91c1c"/>
       <text x="465" y="316" text-anchor="middle" font-size="16" font-weight="700" fill="#fff">&ldquo;Retry the payment&rdquo;</text>
-      <text x="465" y="344" text-anchor="middle" font-size="13" fill="#fecaca">on a payment frozen for sanctions review</text>
+      <text x="465" y="344" text-anchor="middle" font-size="15" fill="#fecaca">on a payment frozen for sanctions review</text>
 
       <rect x="790" y="86" width="330" height="276" rx="8" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
       <text x="955" y="122" text-anchor="middle" class="bx am">Why it is so convincing</text>
@@ -693,7 +693,7 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
       </g>
       <rect x="200" y="316" width="780" height="70" rx="6" fill="#1e1b4b"/>
       <text x="590" y="346" text-anchor="middle" font-size="18" font-weight="600" fill="#fff">Day 1 complete: a shape, a way of thinking, and somewhere to keep it</text>
-      <text x="590" y="372" text-anchor="middle" font-size="14" fill="#a5b4fc">Next: Day 2 &mdash; tools, MCP, orchestration and Agentic RAG, all sitting on this substrate</text>
+      <text x="590" y="372" text-anchor="middle" font-size="16" fill="#a5b4fc">Next: Day 2 &mdash; tools, MCP, orchestration and Agentic RAG, all sitting on this substrate</text>
     </svg>
   </div>
 </div>
