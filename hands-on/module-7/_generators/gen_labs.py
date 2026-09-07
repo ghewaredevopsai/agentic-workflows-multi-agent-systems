@@ -868,12 +868,24 @@ def send_to_langfuse():
     t = sample_run()
     kids = lambda sid: [c for c in t.spans if c["parent"] == sid]
 
+    # A span that burned tokens IS a model call, so send it as a GENERATION and put the
+    # count in usage_details. LangFuse fills its token columns from that field ONLY --
+    # the same number sent as metadata is stored and displayed nowhere, which is why a
+    # project full of spans reports zero tokens however much it actually spent.
     def emit(sid):
         s = t.spans[sid]
-        with lf.start_as_current_observation(name=s["name"], as_type="span") as obs:
-            obs.update(metadata={"kind": s["kind"], "tokens": s["tokens"],
+        is_model_call = s["kind"] == "agent" and s["tokens"] > 0
+        with lf.start_as_current_observation(
+                name=s["name"],
+                as_type="generation" if is_model_call else "span") as obs:
+            obs.update(metadata={"kind": s["kind"],
                                  "self_s": self_time(t.spans, sid),
                                  "total_s": total_time(t.spans, sid)})
+            if is_model_call:
+                # our Tracer records one number per span and never split prompt from
+                # completion, so attribute it to output rather than inventing a split.
+                obs.update(model=os.environ.get("LAB_LLM_MODEL", "unknown"),
+                           usage_details={"input": 0, "output": s["tokens"]})
             for child in kids(sid):
                 emit(child["id"])        # nesting IS the parent link
 
@@ -884,6 +896,41 @@ def send_to_langfuse():
     print("Open it in the UI and compare the tree with the one you printed above.")
 
 guard(send_to_langfuse)
+'''),
+
+    md("""
+## Run it for real &mdash; your own tokens
+
+The trace above is the synthetic run, replayed. This cell makes **one real model call** and lets
+LangFuse instrument it for you: `langfuse.openai` is a drop-in for the `openai` client that emits
+the generation, the model name and the true token counts with no other change to your code.
+
+Find it in the UI under your own sandbox &mdash; the environment filter is your username, so the
+cohort shares one project without sharing one another's traces.
+"""),
+    code('''
+def trace_a_real_call():
+    if not (os.environ.get("LANGFUSE_HOST") and os.environ.get("LAB_LLM_MODEL")):
+        print("LangFuse or the model is not configured here -- see the previous cell.")
+        return
+    # The ONLY change from a normal call is the import. Everything else is the openai SDK.
+    from langfuse.openai import openai
+    from langfuse import get_client
+
+    r = openai.OpenAI().chat.completions.create(
+        model=os.environ["LAB_LLM_MODEL"],
+        messages=[{"role": "user",
+                   "content": "In one sentence: why does a payment exception need a human?"}],
+        name="lab-7-2-real-call",         # what the trace is called in the UI
+    )
+    get_client().flush()                  # the SDK batches; a notebook can exit before it sends
+
+    print((r.choices[0].message.content or "").strip())
+    print(f"\\n{r.usage.prompt_tokens} in / {r.usage.completion_tokens} out")
+    print("Those two numbers are now on the generation in LangFuse -- compare them with the")
+    print("synthetic ones above, and with your row on the tokenomics dashboard.")
+
+guard(trace_a_real_call)
 '''),
     md("""
 ### Read it
