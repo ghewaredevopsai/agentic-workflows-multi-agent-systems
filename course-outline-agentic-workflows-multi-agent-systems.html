@@ -54,6 +54,11 @@
       font-size: 0.75em;
     }
     .module h4 { margin: 0 0 3px 0; font-size: 1.03em; color: #312e81; }
+    .module h4 a { color: inherit; text-decoration: none; border-bottom: 1px dotted #818cf8; }
+    .module h4 a:hover { border-bottom-style: solid; }
+    .labs .nb { font-weight: 600; }
+    .labs a, .capstone a { color: #92400e; }
+    .capstone a { color: #5b21b6; }
     .module ul { margin: 0; padding-left: 13px; }
     .module li { margin-bottom: 1px; }
     .labs {
@@ -129,7 +134,7 @@
     <div class="modules-grid">
 
       <div class="module">
-        <h4>Module 1 &middot; Agents vs. Multi-Agent Systems</h4>
+        <h4><a href="presentation/module-1-agents-vs-multi-agent-systems.html">Module 1 &middot; Agents vs. Multi-Agent Systems</a></h4>
         <ul>
           <li>LLM vs. agent &mdash; reasoning loops, action loops, autonomy; agents vs. chatbots vs. RAG</li>
           <li>The four building blocks: <strong>LLM (brain) · Memory (state) · Tools (actions) · Planning</strong></li>
@@ -141,7 +146,7 @@
       </div>
 
       <div class="module">
-        <h4>Module 2 &middot; Agentic Planning &amp; Reasoning</h4>
+        <h4><a href="presentation/module-2-agentic-planning-and-reasoning.html">Module 2 &middot; Agentic Planning &amp; Reasoning</a></h4>
         <ul>
           <li>Architectures compared on identical tasks: <strong>Chain-of-Thought, ReAct, Tree-of-Thought, Reflection</strong></li>
           <li>Task decomposition into sub-goals an agent can finish; dependency-aware ordering</li>
@@ -152,7 +157,7 @@
       </div>
 
       <div class="module">
-        <h4>Module 3 &middot; Memory, State &amp; the LangGraph Substrate</h4>
+        <h4><a href="presentation/module-3-memory-state-langgraph.html">Module 3 &middot; Memory, State &amp; the LangGraph Substrate</a></h4>
         <ul>
           <li>Memory types &mdash; <strong>short-term</strong> (conversation), <strong>long-term</strong> (persistent), <strong>episodic</strong> (experience)</li>
           <li>Buffer vs. summary memory; compaction, and when a long session degrades the agent</li>
@@ -165,14 +170,14 @@
 
     </div>
     <div class="labs">
-      <strong class="lead">Day 1 Labs</strong> &mdash; LLM vs. agent &middot; agent building blocks &middot; Chain-of-Thought &middot; <strong>ReAct pattern</strong> &middot; Tree-of-Thought &middot; Reflection &middot; conversation memory &middot; memory strategies &middot; session management &middot; first StateGraph &middot; state reducers &middot; checkpointing &middot; <strong>build your baseline eval set &amp; pass rate</strong> &mdash; the number every later milestone is measured against
+      <strong class="lead">Day 1 Labs</strong> <span class="nb">(notebooks: <a href="hands-on/module-1/index.html">M1</a> &middot; <a href="hands-on/module-2/index.html">M2</a> &middot; <a href="hands-on/module-3/index.html">M3</a>)</span> &mdash; LLM vs. agent &middot; agent building blocks &middot; Chain-of-Thought &middot; <strong>ReAct pattern</strong> &middot; Tree-of-Thought &middot; Reflection &middot; conversation memory &middot; memory strategies &middot; session management &middot; first StateGraph &middot; state reducers &middot; checkpointing &middot; <strong>build your baseline eval set &amp; pass rate</strong> &mdash; the number every later milestone is measured against
     </div>
 
     <div class="day-header">Day 2 &mdash; Tools, MCP, Orchestration &amp; Agentic RAG</div>
     <div class="modules-grid">
 
       <div class="module">
-        <h4>Module 4 &middot; Tool Calling &amp; MCP <span class="badge">MCP</span></h4>
+        <h4><a href="presentation/module-4-tool-calling-and-mcp.html">Module 4 &middot; Tool Calling &amp; MCP <span class="badge">MCP</span></a></h4>
         <ul>
           <li>Why tools matter; custom tool development, multi-tool orchestration, function-calling agents</li>
           <li><strong>Tool descriptions are instructions</strong> &mdash; measured against an eval set you build, not asserted</li>
@@ -184,7 +189,7 @@
       </div>
 
       <div class="module">
-        <h4>Module 5 &middot; Multi-Agent Collaboration &amp; Orchestration</h4>
+        <h4><a href="presentation/module-5-multi-agent-orchestration.html">Module 5 &middot; Multi-Agent Collaboration &amp; Orchestration</a></h4>
         <ul>
           <li><strong>Supervisor/worker</strong> &mdash; rule-based and LLM-routed &mdash; plus peer-to-peer and agent handoffs</li>
           <li>Task decomposition and distribution; aggregation and <strong>conflict resolution between agents</strong></li>
@@ -197,7 +202,7 @@
       </div>
 
       <div class="module">
-        <h4>Module 6 &middot; Agentic RAG</h4>
+        <h4><a href="presentation/module-6-agentic-rag.html">Module 6 &middot; Agentic RAG</a></h4>
         <ul>
           <li>From RAG pipeline to <strong>retrieval as a tool</strong> the agent chooses to call, repeatedly, with intent</li>
           <li>Embeddings, ChromaDB collections and metadata, document loading, chunking, similarity-search strategy</li>
@@ -210,14 +215,14 @@
 
     </div>
     <div class="labs">
-      <strong class="lead">Day 2 Labs</strong> &mdash; tool basics &middot; <strong>tool-calling accuracy measurement</strong> &middot; multi-tool agent &middot; MCP client config &middot; MCP workflows &middot; <strong>LangChain&ndash;MCP bridge</strong> &middot; supervisor/worker &middot; <strong>LLM-routed supervisor</strong> &middot; peer-to-peer &middot; agent handoffs &middot; task decomposition &middot; aggregation &amp; conflict resolution &middot; parallel execution &middot; human-in-the-loop &middot; <strong>multi-agent vs. single-agent scorecard</strong> (quality · cost · latency) &middot; RAG chain &middot; <strong>RAG with citations</strong>
+      <strong class="lead">Day 2 Labs</strong> <span class="nb">(notebooks: <a href="hands-on/module-4/index.html">M4</a> &middot; <a href="hands-on/module-5/index.html">M5</a> &middot; <a href="hands-on/module-6/index.html">M6</a>)</span> &mdash; tool basics &middot; <strong>tool-calling accuracy measurement</strong> &middot; multi-tool agent &middot; MCP client config &middot; MCP workflows &middot; <strong>LangChain&ndash;MCP bridge</strong> &middot; supervisor/worker &middot; <strong>LLM-routed supervisor</strong> &middot; peer-to-peer &middot; agent handoffs &middot; task decomposition &middot; aggregation &amp; conflict resolution &middot; parallel execution &middot; human-in-the-loop &middot; <strong>multi-agent vs. single-agent scorecard</strong> (quality · cost · latency) &middot; RAG chain &middot; <strong>RAG with citations</strong>
     </div>
 
     <div class="day-header">Day 3 &mdash; Evaluation, Safety &amp; AgentOps</div>
     <div class="modules-grid">
 
       <div class="module">
-        <h4>Module 7 &middot; Multi-Agent System Evaluation</h4>
+        <h4><a href="presentation/module-7-multi-agent-evaluation.html">Module 7 &middot; Multi-Agent System Evaluation</a></h4>
         <ul>
           <li>Why demo-driven development fails here: same input, twice, two different runs</li>
           <li><strong>Extending the Day 1 eval set</strong> &mdash; representative, edge and adversarial cases; <strong>outcome vs. trajectory</strong> assertions</li>
@@ -230,7 +235,7 @@
       </div>
 
       <div class="module">
-        <h4>Module 8 &middot; Safety &amp; Guardrails</h4>
+        <h4><a href="presentation/module-8-safety-and-guardrails.html">Module 8 &middot; Safety &amp; Guardrails</a></h4>
         <ul>
           <li><strong>Prompt-injection detection</strong> and input sanitisation; jailbreak resistance; red-teaming your own system</li>
           <li>Output validation and structured-output contracts enforced between every hop</li>
@@ -243,7 +248,7 @@
       </div>
 
       <div class="module">
-        <h4>Module 9 &middot; Deployment &amp; AgentOps</h4>
+        <h4><a href="presentation/module-9-deployment-and-agentops.html">Module 9 &middot; Deployment &amp; AgentOps</a></h4>
         <ul>
           <li><strong>FastAPI + LangGraph</strong> as a service: async handling, streaming responses, error handling, validation</li>
           <li>Health checks and readiness probes; secrets management; the production readiness checklist</li>
@@ -256,11 +261,11 @@
 
     </div>
     <div class="labs">
-      <strong class="lead">Day 3 Labs</strong> &mdash; tracing agents &middot; <strong>feedback &amp; evaluation</strong> &middot; prompt management &middot; <strong>cost analysis</strong> &middot; prompt-injection detection &middot; output validation &middot; guardrails integration &middot; <strong>red-team testing</strong> &middot; MCP security &amp; governance &middot; FastAPI + LangGraph &middot; health probes &middot; OTel setup &amp; instrumentation &middot; production observability
+      <strong class="lead">Day 3 Labs</strong> <span class="nb">(notebooks: <a href="hands-on/module-7/index.html">M7</a> &middot; <a href="hands-on/module-8/index.html">M8</a> &middot; <a href="hands-on/module-9/index.html">M9</a>)</span> &mdash; tracing agents &middot; <strong>feedback &amp; evaluation</strong> &middot; prompt management &middot; <strong>cost analysis</strong> &middot; prompt-injection detection &middot; output validation &middot; guardrails integration &middot; <strong>red-team testing</strong> &middot; MCP security &amp; governance &middot; FastAPI + LangGraph &middot; health probes &middot; OTel setup &amp; instrumentation &middot; production observability
     </div>
 
     <div class="capstone">
-      <strong>Capstone</strong> &mdash; a <strong>payment-exception investigation</strong> service, built and defended: supervisor + specialist agents &middot; Agentic RAG over policy and runbooks &middot; a ledger queried over <strong>MCP</strong> &middot; a critic agent &middot; <strong>human approval gate before any write</strong> &middot; FastAPI endpoint, containerised and <strong>deployed to Kubernetes</strong> &middot; LangFuse instrumentation. <strong>Accepted only if it clears the Day 1 eval set inside a fixed cost and latency budget</strong> &mdash; not on a successful demo run. All systems and data synthetic.
+      <strong><a href="hands-on/capstone/index.html">Capstone</a></strong> &mdash; a <strong>payment-exception investigation</strong> service, built and defended: supervisor + specialist agents &middot; Agentic RAG over policy and runbooks &middot; a ledger queried over <strong>MCP</strong> &middot; a critic agent &middot; <strong>human approval gate before any write</strong> &middot; FastAPI endpoint, containerised and <strong>deployed to Kubernetes</strong> &middot; LangFuse instrumentation. <strong>Accepted only if it clears the Day 1 eval set inside a fixed cost and latency budget</strong> &mdash; not on a successful demo run. All systems and data synthetic.
     </div>
 
     <div class="takehome">

@@ -4,7 +4,9 @@
 *{box-sizing:border-box}html,body{margin:0;padding:0}
 body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:#f5f5fb;color:#2d3748;font-size:14px;line-height:1.45}
 a{color:#4338ca}
-header{background:linear-gradient(135deg,#1e1b4b 0%,#4338ca 100%);color:#fff;padding:14px 18px;text-align:center;border-bottom:3px solid #818cf8}
+header{position:relative;background:linear-gradient(135deg,#1e1b4b 0%,#4338ca 100%);color:#fff;padding:14px 18px;text-align:center;border-bottom:3px solid #818cf8}
+header .home{position:absolute;left:14px;top:14px;color:#c7d2fe;text-decoration:none;background:#312e81;border:1px solid #4338ca;padding:5px 11px;border-radius:4px;font-size:12.5px}
+header .home:hover{background:#4338ca;color:#fff}
 header h1{margin:0;font-size:1.35em}
 header .tagline{margin-top:4px;color:#c7d2fe;font-size:.9em;font-weight:600}
 header .meta{margin-top:6px;color:#c3c9de;font-size:.82em}
@@ -28,6 +30,7 @@ footer a{color:#c7d2fe;text-decoration:none}
 </style>
 
 <header>
+  <a class="home" href="../../course-outline-agentic-workflows-multi-agent-systems.html" title="Course outline">Home</a>
   <h1>Capstone &mdash; Payment-Exception Investigation</h1>
   <div class="tagline">Day 3 &middot; the whole course, behind one endpoint</div>
   <div class="meta"><span>45 cases</span> &middot; <span>scored, not demoed</span> &middot; <span>deployed to your own namespace</span></div>
