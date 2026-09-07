@@ -970,11 +970,21 @@ def get_data(ref: str) -> str:
 '''),
     code('''
 # --- Self-check: Section 2
+# A docstring is a STRING, so the unfilled blank above is the literal "BLANK" -- not an
+# undefined name. Reading __doc__ directly could therefore never raise NameError, the
+# [TODO] path never fired, and an untouched lab showed a red [FAIL] before the
+# participant had typed anything. Raising it by hand restores [TODO].
+def _rewritten_doc() -> str:
+    doc = get_data.__doc__ or ""
+    if doc.strip() == "BLANK":
+        raise NameError("the docstring has not been rewritten yet")
+    return doc
+
 check("the rewritten docstring passes your checker",
-      lambda: describes_well(get_data.__doc__) is True,
+      lambda: describes_well(_rewritten_doc()) is True,
       "it needs a return clause, a 'use when', and a boundary")
 check("the docstring names the concrete input format",
-      lambda: "PMT-" in (get_data.__doc__ or ""),
+      lambda: "PMT-" in _rewritten_doc(),
       "an example reference removes a whole class of malformed calls")
 check("the behaviour is unchanged", lambda: "INSUFFICIENT_FUNDS" in get_data("PMT-1002"))
 '''),

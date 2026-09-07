@@ -4,7 +4,7 @@
 Live-model cells self-skip because LAB_LLM_BASE_URL is unset, so this runs offline.
 Also checks that each lab has blanks and that no solution does.
 """
-import io, json, os, sys, contextlib, re
+import io, json, os, sys, contextlib, re, tokenize, token
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 LABDIR = os.path.abspath(os.path.join(HERE, ".."))
@@ -50,12 +50,32 @@ for fn in sorted(f for f in os.listdir(SOLDIR) if f.endswith(".ipynb")):
             if "[FAIL]" in line or "[TODO]" in line:
                 print("           " + line)
 
+def count_blanks(nb):
+    """Unfilled blanks = BLANK used as a bare NAME. Not the word in a comment or a string.
+
+    This was a plain substring count, which cannot tell an unfilled blank from a guard that
+    legitimately mentions the sentinel -- lab 1.3 needs to compare a docstring against the
+    literal "BLANK", and that read as four unfilled blanks in the solution. Tokenising counts
+    only real identifier uses, so it still catches every genuine leftover blank.
+    """
+    total = 0
+    for c in nb["cells"]:
+        if c["cell_type"] != "code":
+            continue
+        src = "".join(c["source"])
+        try:
+            total += sum(1 for t in tokenize.generate_tokens(io.StringIO(src).readline)
+                         if t.type == token.NAME and t.string == "BLANK")
+        except (tokenize.TokenError, IndentationError, SyntaxError):
+            total += src.count("BLANK")      # unparseable cell: fall back to the blunt count
+    return total
+
 print("\n--- blanks ---")
 for fn in sorted(f for f in os.listdir(LABDIR) if f.endswith(".ipynb")):
     lab = json.load(open(os.path.join(LABDIR, fn)))
     sol = json.load(open(os.path.join(SOLDIR, fn)))
-    lb = sum("".join(c["source"]).count("BLANK") for c in lab["cells"] if c["cell_type"] == "code")
-    sb = sum("".join(c["source"]).count("BLANK") for c in sol["cells"] if c["cell_type"] == "code")
+    lb = count_blanks(lab)
+    sb = count_blanks(sol)
     good = lb > 0 and sb == 0
     print(f"[{'OK    ' if good else 'BROKEN'}] {fn:44} {lb} blanks in lab, {sb} in solution")
     if not good:
