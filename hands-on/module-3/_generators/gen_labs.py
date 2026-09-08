@@ -575,7 +575,7 @@ score()
 # Lab 3.2 -- perception: turning raw output into an observation
 # =========================================================================== #
 LAB2 = [
-    header(2, "Perception &mdash; Raw Output Is Not an Observation", "Intermediate &rarr; Advanced", 35,
+    header(2, "Perception: Raw Output Is Not an Observation", "Intermediate &rarr; Advanced", 35,
            ["Turn an opaque upstream record into a typed observation with a schema",
             "Distinguish the four kinds of &ldquo;nothing&rdquo; a tool can return",
             "Stamp in what the agent cannot see &mdash; time, authority, provenance",
@@ -1291,7 +1291,7 @@ print("Lab 3.3 graph pieces loaded")
 '''
 
 LAB4 = [
-    header(4, "Checkpointing &mdash; Resume, Approve, Rewind, Audit", "Advanced", 45,
+    header(4, "Checkpointing: Resume, Approve, Rewind, Audit", "Advanced", 45,
            ["Attach a checkpointer and watch state survive a crash",
             "Stop the graph before an irreversible node with <code>interrupt_before</code>",
             "Resume, and rewind to an earlier checkpoint to try a different decision",

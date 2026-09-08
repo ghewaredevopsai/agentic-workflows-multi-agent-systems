@@ -41,74 +41,86 @@ footer a{color:#c7d2fe;text-decoration:none}
   <div class="how">
     <p><strong>How these labs work.</strong> Fill every <code>BLANK</code>, then run the
       <strong>Self-check</strong> cell under each section. It prints <code>[PASS]</code>,
-      <code>[FAIL]</code> or <code>[TODO]</code>, and the last cell prints your
-      <code>Score</code>.</p>
-    <p><strong>Your score never depends on a live model.</strong> Graded cells are plain Python.
-      Cells marked <strong>Run it for real</strong> do call the sandbox model &mdash; if it is
-      unreachable they print how to fix it rather than crashing, so <em>Run All</em> is always safe
-      on an untouched notebook.</p>
+      <code>[FAIL]</code> or <code>[TODO]</code>, and the last cell prints a
+      <code>Self-check</code> tally.</p>
+    <p><strong>You write real LangChain and LangGraph code in every lab.</strong> The
+      <strong>Self-check</strong> cells assert on the objects you build &mdash; a bound tool,
+      a compiled graph, a validated schema &mdash; so they are deterministic and do not need
+      the model. Cells marked <strong>Run it for real</strong> put your code in front of the
+      sandbox model; that is the part worth watching. <em>Run All</em> is always safe on an
+      untouched notebook, and the score line is feedback, not a grade.</p>
     <p><strong>The same case file as Module 1</strong> &mdash; payment exceptions on a small synthetic
       ledger. Modules 1 and 2 chose the shape and the thinking; these labs give both somewhere to live.</p>
   </div>
 
   <div class="lab">
-    <div class="tags">30 min<span class="lvl">Intermediate</span></div>
+    <div class="tags">35 min<span class="lvl">Intermediate</span></div>
     <h3><a href="lab-3-01-memory-that-survives.ipynb">Lab 3.1 &mdash; Memory That Survives a Long Session</a></h3>
-    <p>Find the turn at which buffer memory drops its standing instruction, then fix the part that mattered.</p>
+    <p>Watch an agent forget, bound the window, keep what you dropped, then let a checkpointer do it.</p>
     <ul>
-      <li>Compute the failure turn instead of guessing it</li>
-      <li>Pin the instruction so compaction cannot age it out</li>
-      <li>Measure which facts a real summariser threw away</li>
+      <li>Watch an agent forget, by growing the history until the window bites</li>
+      <li>Bound it with <code>trim_messages</code> &mdash; including the counter that fails here</li>
+      <li>Summarise what you drop, so compaction is not amnesia</li>
+      <li>Hand the whole problem to a checkpointer and a <code>thread_id</code></li>
     </ul>
-    <div class="sol">3 blanks &middot; 13 checks &middot; solution: <code>solutions/lab-3-01-memory-that-survives.ipynb</code></div>
+    <div class="foot">3 blanks &middot; 15 checks &middot; solution:
+      <a href="solutions/lab-3-01-memory-that-survives.ipynb">solutions/lab-3-01-memory-that-survives.ipynb</a></div>
   </div>
 
   <div class="lab">
-    <div class="tags">30 min<span class="lvl">Intermediate &rarr; Advanced</span></div>
-    <h3><a href="lab-3-02-perception-observations.ipynb">Lab 3.2 &mdash; Perception: Raw Output into an Observation</a></h3>
+    <div class="tags">35 min<span class="lvl">Intermediate &rarr; Advanced</span></div>
+    <h3><a href="lab-3-02-perception-observations.ipynb">Lab 3.2 &mdash; Perception: Raw Output Is Not an Observation</a></h3>
     <p>The cheapest accuracy in the course: decide what the agent is allowed to see.</p>
     <ul>
-      <li>Decode an opaque record so the model cannot misread it</li>
-      <li>Distinguish the four kinds of nothing a tool can return</li>
-      <li>Stamp freshness, completeness and authority</li>
+      <li>Turn an opaque upstream record into a typed observation with a schema</li>
+      <li>Distinguish the four kinds of &ldquo;nothing&rdquo; a tool can return</li>
+      <li>Stamp in what the agent cannot see &mdash; time, authority, provenance</li>
+      <li>Watch the same model answer well and badly on the same facts</li>
     </ul>
-    <div class="sol">3 blanks &middot; 18 checks &middot; solution: <code>solutions/lab-3-02-perception-observations.ipynb</code></div>
+    <div class="foot">3 blanks &middot; 19 checks &middot; solution:
+      <a href="solutions/lab-3-02-perception-observations.ipynb">solutions/lab-3-02-perception-observations.ipynb</a></div>
   </div>
 
   <div class="lab">
-    <div class="tags">35 min<span class="lvl">Advanced</span></div>
-    <h3><a href="lab-3-03-stategraph-from-scratch.ipynb">Lab 3.3 &mdash; Build a StateGraph From Scratch</a></h3>
-    <p>Write the forty lines LangGraph is hiding, then run the same graph on the real thing.</p>
+    <div class="tags">45 min<span class="lvl">Advanced</span></div>
+    <h3><a href="lab-3-03-stategraph-from-scratch.ipynb">Lab 3.3 &mdash; Build a Real StateGraph</a></h3>
+    <p>Reducers, partial state, conditional edges and a cycle &mdash; testable without a model in it.</p>
     <ul>
-      <li>Nodes that return partial state, and merge through declared reducers</li>
-      <li>Conditional edges, cycles, and a budget that ends them</li>
-      <li>The same graph on real LangGraph, side by side</li>
+      <li>Declare state as a <code>TypedDict</code> with <code>Annotated</code> reducers</li>
+      <li>Write nodes that return <i>partial</i> state, and let the reducers merge it</li>
+      <li>Wire edges, a conditional edge and a cycle, then <code>compile()</code></li>
+      <li>Watch it run with <code>stream()</code>, one node at a time</li>
     </ul>
-    <div class="sol">3 blanks &middot; 18 checks &middot; solution: <code>solutions/lab-3-03-stategraph-from-scratch.ipynb</code></div>
+    <div class="foot">3 blanks &middot; 21 checks &middot; solution:
+      <a href="solutions/lab-3-03-stategraph-from-scratch.ipynb">solutions/lab-3-03-stategraph-from-scratch.ipynb</a></div>
   </div>
 
   <div class="lab">
-    <div class="tags">35 min<span class="lvl">Advanced</span></div>
+    <div class="tags">45 min<span class="lvl">Advanced</span></div>
     <h3><a href="lab-3-04-checkpointing.ipynb">Lab 3.4 &mdash; Checkpointing: Resume, Approve, Rewind, Audit</a></h3>
-    <p>One mechanism &mdash; state written after every node &mdash; and four capabilities fall out of it.</p>
+    <p>One keyword argument, and suddenly resume, approval, rewind and audit are all possible.</p>
     <ul>
-      <li>Kill a run mid-flight and resume without repeating work</li>
-      <li>Pause before the irreversible step and wait for a human</li>
-      <li>Read the checkpoint history as an audit trail</li>
+      <li>Attach a checkpointer and watch state survive a crash</li>
+      <li>Stop the graph before an irreversible node with <code>interrupt_before</code></li>
+      <li>Resume, and rewind to an earlier checkpoint to try a different decision</li>
+      <li>Read <code>get_state_history()</code> as the audit trail it is</li>
     </ul>
-    <div class="sol">3 blanks &middot; 21 checks &middot; solution: <code>solutions/lab-3-04-checkpointing.ipynb</code></div>
+    <div class="foot">2 blanks &middot; 21 checks &middot; solution:
+      <a href="solutions/lab-3-04-checkpointing.ipynb">solutions/lab-3-04-checkpointing.ipynb</a></div>
   </div>
 
   <div class="lab">
-    <div class="tags">40 min<span class="lvl">Advanced &middot; challenge</span></div>
-    <h3><a href="lab-3-05-challenge-shared-state-poisoning.ipynb">Lab 3.5 &mdash; Challenge: Shared State and Context Poisoning</a></h3>
-    <p>One wrong finding, three confident agents, and nothing errors. The bridge into Day 2.</p>
+    <div class="tags">45 min<span class="lvl">Advanced</span></div>
+    <h3><a href="lab-3-05-challenge-shared-state-poisoning.ipynb">Lab 3.5 &mdash; Challenge &mdash; Shared State and Context Poisoning</a></h3>
+    <p>Three agents, one shared state, one wrong finding &mdash; and the sentence that catches it.</p>
     <ul>
-      <li>Watch a bad premise propagate through shared state</li>
-      <li>Attach provenance so a claim can be checked, not the consensus</li>
-      <li>Compare shared and private state on four axes</li>
+      <li>Build a graph where three agents write into one shared state</li>
+      <li>Introduce one wrong finding and watch it spread through the others</li>
+      <li>Give each agent private state, and measure how far the damage gets</li>
+      <li>Make every finding carry its source, so a wrong one can be traced and dropped</li>
     </ul>
-    <div class="sol">3 blanks &middot; 18 checks &middot; solution: <code>solutions/lab-3-05-challenge-shared-state-poisoning.ipynb</code></div>
+    <div class="foot">2 blanks &middot; 25 checks &middot; solution:
+      <a href="solutions/lab-3-05-challenge-shared-state-poisoning.ipynb">solutions/lab-3-05-challenge-shared-state-poisoning.ipynb</a></div>
   </div>
 
   <div class="note">

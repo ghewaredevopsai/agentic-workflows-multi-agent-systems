@@ -41,74 +41,86 @@ footer a{color:#c7d2fe;text-decoration:none}
   <div class="how">
     <p><strong>How these labs work.</strong> Fill every <code>BLANK</code>, then run the
       <strong>Self-check</strong> cell under each section. It prints <code>[PASS]</code>,
-      <code>[FAIL]</code> or <code>[TODO]</code>, and the last cell prints your
-      <code>Score</code>.</p>
-    <p><strong>Your score never depends on a live model.</strong> Graded cells are plain Python.
-      Cells marked <strong>Run it for real</strong> do call the sandbox model &mdash; if it is
-      unreachable they print how to fix it rather than crashing, so <em>Run All</em> is always safe
-      on an untouched notebook.</p>
+      <code>[FAIL]</code> or <code>[TODO]</code>, and the last cell prints a
+      <code>Self-check</code> tally.</p>
+    <p><strong>You write real LangChain and LangGraph code in every lab.</strong> The
+      <strong>Self-check</strong> cells assert on the objects you build &mdash; a bound tool,
+      a compiled graph, a validated schema &mdash; so they are deterministic and do not need
+      the model. Cells marked <strong>Run it for real</strong> put your code in front of the
+      sandbox model; that is the part worth watching. <em>Run All</em> is always safe on an
+      untouched notebook, and the score line is feedback, not a grade.</p>
     <p><strong>One case runs through all five:</strong> payment exceptions on a small synthetic
       ledger. Each lab carries forward what the previous one built, so work them in order.</p>
   </div>
 
   <div class="lab">
-    <div class="tags">25 min<span class="lvl">Intermediate</span></div>
+    <div class="tags">35 min<span class="lvl">Intermediate</span></div>
     <h3><a href="lab-1-01-llm-vs-agent-loop.ipynb">Lab 1.1 &mdash; From a Stateless Call to an Agent Loop</a></h3>
-    <p>What actually turns a model call into an agent &mdash; and what keeps the loop from running away.</p>
+    <p>What turns a model call into an agent &mdash; built by hand, then handed to <code>create_agent</code>.</p>
     <ul>
-      <li>Carry state by resending it, and watch a bare call forget</li>
-      <li>Write the loop and the stop condition that bounds its budget</li>
-      <li>Detect a loop that is spending money without learning anything</li>
+      <li>Carry state the way LangChain does it &mdash; as a list of message objects you resend</li>
+      <li>Let the model choose a tool for real, with `bind_tools` and `tool_calls`</li>
+      <li>Close the loop by feeding results back as `ToolMessage`, and make it stop</li>
+      <li>Then replace the whole thing with `create_agent` + a checkpointer, and compare</li>
     </ul>
-    <div class="sol">4 blanks &middot; 11 checks &middot; solution: <code>solutions/lab-1-01-llm-vs-agent-loop.ipynb</code></div>
+    <div class="foot">4 blanks &middot; 18 checks &middot; solution:
+      <a href="solutions/lab-1-01-llm-vs-agent-loop.ipynb">solutions/lab-1-01-llm-vs-agent-loop.ipynb</a></div>
   </div>
 
   <div class="lab">
-    <div class="tags">30 min<span class="lvl">Intermediate</span></div>
+    <div class="tags">40 min<span class="lvl">Intermediate</span></div>
     <h3><a href="lab-1-02-four-building-blocks.ipynb">Lab 1.2 &mdash; The Four Building Blocks</a></h3>
-    <p>Build memory, tools and planning by hand, then assemble all four blocks over the case file.</p>
+    <p>Each of the four blocks as a real LangChain object, then all four assembled over the case file.</p>
     <ul>
-      <li>Tools that report failure instead of raising it and aborting the run</li>
-      <li>Short-term memory that compacts, so the window stops growing</li>
-      <li>Dependency-ordered planning, and a cycle that is rejected rather than looped</li>
+      <li>Write tools with a real argument schema, and docstrings the model actually reads</li>
+      <li>Bound memory with `trim_messages` &mdash; including the token counter that breaks on this model</li>
+      <li>Turn a goal into a dependency-ordered plan with `with_structured_output` and Pydantic</li>
+      <li>Assemble all four blocks into one agent over the case file</li>
     </ul>
-    <div class="sol">4 blanks &middot; 17 checks &middot; solution: <code>solutions/lab-1-02-four-building-blocks.ipynb</code></div>
+    <div class="foot">3 blanks &middot; 24 checks &middot; solution:
+      <a href="solutions/lab-1-02-four-building-blocks.ipynb">solutions/lab-1-02-four-building-blocks.ipynb</a></div>
   </div>
 
   <div class="lab">
-    <div class="tags">25 min<span class="lvl">Intermediate &rarr; Advanced</span></div>
-    <h3><a href="lab-1-03-create-agent-on-ramp.ipynb">Lab 1.3 &mdash; The create_agent On-Ramp</a></h3>
-    <p>The same agent, with LangChain owning the loop. Enough framework to build, not a tour.</p>
+    <div class="tags">40 min<span class="lvl">Intermediate &rarr; Advanced</span></div>
+    <h3><a href="lab-1-03-create-agent-on-ramp.ipynb">Lab 1.3 &mdash; create_agent, and What a Tool Description Is Worth</a></h3>
+    <p>The same agent twice, with opaque and with good tool descriptions. Measure the difference.</p>
     <ul>
-      <li>Write the checker for what makes a tool description choosable, then pass it</li>
-      <li>Assemble a <code>create_agent</code> configuration and run it for real</li>
-      <li>Read the trace and find the loop you wrote by hand in Lab 1.1</li>
+      <li>Build the same agent twice &mdash; once with opaque tool descriptions, once with good ones</li>
+      <li><b>Measure</b> the difference in tool-selection accuracy against the live model</li>
+      <li>Make the agent return a typed <code>Verdict</code> with <code>response_format</code>, not prose</li>
+      <li>Read the message trace `create_agent` produces, and find where a run went wrong</li>
     </ul>
-    <div class="sol">5 blanks &middot; 12 checks &middot; solution: <code>solutions/lab-1-03-create-agent-on-ramp.ipynb</code></div>
+    <div class="foot">1 blanks &middot; 15 checks &middot; solution:
+      <a href="solutions/lab-1-03-create-agent-on-ramp.ipynb">solutions/lab-1-03-create-agent-on-ramp.ipynb</a></div>
   </div>
 
   <div class="lab">
-    <div class="tags">35 min<span class="lvl">Advanced</span></div>
-    <h3><a href="lab-1-04-coordination-tax.ipynb">Lab 1.4 &mdash; One Agent or Three: Measuring the Coordination Tax</a></h3>
-    <p>&ldquo;We need multiple agents&rdquo; is a hypothesis. This is how you test it.</p>
+    <div class="tags">50 min<span class="lvl">Advanced</span></div>
+    <h3><a href="lab-1-04-coordination-tax.ipynb">Lab 1.4 &mdash; One Agent or Three: Building the Same App Twice</a></h3>
+    <p>One agent or three? Build both, find out which you would ship, then investigate the gap.</p>
     <ul>
-      <li>Route work to specialist workers from a supervisor</li>
-      <li>Meter both designs identically &mdash; steps, estimated tokens, wall time</li>
-      <li>Score them on one eval set, and count the failure surface that grows fastest</li>
+      <li>Build the same capability twice: one agent with three tools, three agents with one each</li>
+      <li>Run one eval set through both and find out which one you would actually ship</li>
+      <li>Find the bug the second architecture introduces &mdash; a handoff that loses information</li>
+      <li>Fix it with typed handoffs (<code>response_format</code>) and watch the accuracy come back</li>
     </ul>
-    <div class="sol">5 blanks &middot; 16 checks &middot; solution: <code>solutions/lab-1-04-coordination-tax.ipynb</code></div>
+    <div class="foot">4 blanks &middot; 25 checks &middot; solution:
+      <a href="solutions/lab-1-04-coordination-tax.ipynb">solutions/lab-1-04-coordination-tax.ipynb</a></div>
   </div>
 
   <div class="lab">
-    <div class="tags">40 min<span class="lvl">Advanced &middot; challenge</span></div>
-    <h3><a href="lab-1-05-challenge-decision-rubric.ipynb">Lab 1.5 &mdash; Challenge: The Decision Rubric, Made Executable</a></h3>
-    <p>The comprehensive lab. Turn the module&rsquo;s rubric into code that returns a verdict you could defend in a design review.</p>
+    <div class="tags">45 min<span class="lvl">Advanced</span></div>
+    <h3><a href="lab-1-05-challenge-decision-rubric.ipynb">Lab 1.5 &mdash; Challenge &mdash; The Decision Rubric, Made Executable</a></h3>
+    <p>The rubric that answers &ldquo;do we need multiple agents?&rdquo; before anyone starts building.</p>
     <ul>
-      <li>Encode the four questions, including two briefs written to mislead you</li>
-      <li>Gate the verdict on a budget named <em>before</em> the measurement</li>
-      <li>Produce the review table &mdash; candidate, decision, and why</li>
+      <li>Encode the &ldquo;do I need multiple agents?&rdquo; rubric as code that terminates early</li>
+      <li>Write the acceptance bar down <i>before</i> you look at any result</li>
+      <li>Feed Lab 1.4's real pass rates in and let them overrule the architecture you wanted</li>
+      <li>Have an agent produce the design-review record as a typed object, not a paragraph</li>
     </ul>
-    <div class="sol">5 blanks &middot; 18 checks &middot; solution: <code>solutions/lab-1-05-challenge-decision-rubric.ipynb</code></div>
+    <div class="foot">3 blanks &middot; 22 checks &middot; solution:
+      <a href="solutions/lab-1-05-challenge-decision-rubric.ipynb">solutions/lab-1-05-challenge-decision-rubric.ipynb</a></div>
   </div>
 
   <div class="note">

@@ -41,74 +41,86 @@ footer a{color:#c7d2fe;text-decoration:none}
   <div class="how">
     <p><strong>How these labs work.</strong> Fill every <code>BLANK</code>, then run the
       <strong>Self-check</strong> cell under each section. It prints <code>[PASS]</code>,
-      <code>[FAIL]</code> or <code>[TODO]</code>, and the last cell prints your
-      <code>Score</code>.</p>
-    <p><strong>Your score never depends on a live model.</strong> Graded cells are plain Python.
-      Cells marked <strong>Run it for real</strong> do call the sandbox model &mdash; if it is
-      unreachable they print how to fix it rather than crashing, so <em>Run All</em> is always safe
-      on an untouched notebook.</p>
+      <code>[FAIL]</code> or <code>[TODO]</code>, and the last cell prints a
+      <code>Self-check</code> tally.</p>
+    <p><strong>You write real LangChain and LangGraph code in every lab.</strong> The
+      <strong>Self-check</strong> cells assert on the objects you build &mdash; a bound tool,
+      a compiled graph, a validated schema &mdash; so they are deterministic and do not need
+      the model. Cells marked <strong>Run it for real</strong> put your code in front of the
+      sandbox model; that is the part worth watching. <em>Run All</em> is always safe on an
+      untouched notebook, and the score line is feedback, not a grade.</p>
     <p><strong>The same case file as Module 1</strong> &mdash; payment exceptions on a small synthetic
       ledger. Module 1 asked whether to build an agent; these labs ask how it should think.</p>
   </div>
 
   <div class="lab">
-    <div class="tags">25 min<span class="lvl">Intermediate</span></div>
-    <h3><a href="lab-2-01-chain-of-thought-measured.ipynb">Lab 2.1 &mdash; Chain-of-Thought, Measured</a></h3>
-    <p>Does reasoning out loud actually earn its tokens? Run both arms and put a number on it.</p>
+    <div class="tags">35 min<span class="lvl">Intermediate</span></div>
+    <h3><a href="lab-2-01-chain-of-thought-measured.ipynb">Lab 2.1 &mdash; Chain-of-Thought, Built as a Chain</a></h3>
+    <p>Compose your first LCEL chain, then measure what &ldquo;think step by step&rdquo; is worth here.</p>
     <ul>
-      <li>Split the answer from the reasoning, so the answer can be scored</li>
-      <li>Two prompts, one task, one variable changed</li>
-      <li>Read a trace whose reasoning does not support its own correct answer</li>
+      <li>Compose your first LCEL chain: <code>prompt | model | parser</code></li>
+      <li>Build two arms that differ only in their prompt, and nothing else</li>
+      <li>Run a whole eval set in one call with <code>.batch()</code></li>
+      <li>Measure what &ldquo;think step by step&rdquo; is actually worth on your task</li>
     </ul>
-    <div class="sol">3 blanks &middot; 13 checks &middot; solution: <code>solutions/lab-2-01-chain-of-thought-measured.ipynb</code></div>
+    <div class="foot">2 blanks &middot; 19 checks &middot; solution:
+      <a href="solutions/lab-2-01-chain-of-thought-measured.ipynb">solutions/lab-2-01-chain-of-thought-measured.ipynb</a></div>
   </div>
 
   <div class="lab">
-    <div class="tags">30 min<span class="lvl">Intermediate &rarr; Advanced</span></div>
-    <h3><a href="lab-2-02-react-parser-contract.ipynb">Lab 2.2 &mdash; ReAct and the Parser Contract</a></h3>
-    <p>The model emits prose; your code must produce a tool call. Every time, or fail safely.</p>
+    <div class="tags">40 min<span class="lvl">Intermediate &rarr; Advanced</span></div>
+    <h3><a href="lab-2-02-react-parser-contract.ipynb">Lab 2.2 &mdash; ReAct, and the Parser You Do Not Have to Write</a></h3>
+    <p>Write the ReAct parser, break it, then meet the version where the argument is schema-checked.</p>
     <ul>
-      <li>Parse Thought / Action / Observation out of free-form text</li>
-      <li>Break your own parser on eight real drift cases</li>
-      <li>Choose strict or lenient per tool, and defend it</li>
+      <li>Implement the classic text ReAct format &mdash; Thought / Action / Observation</li>
+      <li>Collect the eight ways a model drifts out of that format</li>
+      <li>Discover the failure a parser cannot catch: a valid format with an unusable argument</li>
+      <li>Do the same job with <code>bind_tools</code>, where the argument is schema-checked</li>
     </ul>
-    <div class="sol">4 blanks &middot; 22 checks &middot; solution: <code>solutions/lab-2-02-react-parser-contract.ipynb</code></div>
+    <div class="foot">2 blanks &middot; 17 checks &middot; solution:
+      <a href="solutions/lab-2-02-react-parser-contract.ipynb">solutions/lab-2-02-react-parser-contract.ipynb</a></div>
   </div>
 
   <div class="lab">
-    <div class="tags">35 min<span class="lvl">Advanced</span></div>
-    <h3><a href="lab-2-03-subgoals-and-replanning.ipynb">Lab 2.3 &mdash; Sub-goals That Finish, and When to Re-plan</a></h3>
-    <p>The failure that looks like a reasoning bug, and the one that looks like bad luck.</p>
+    <div class="tags">40 min<span class="lvl">Advanced</span></div>
+    <h3><a href="lab-2-03-subgoals-and-replanning.ipynb">Lab 2.3 &mdash; Sub-goals That Finish, and Knowing When to Re-plan</a></h3>
+    <p>The failure that looks like bad luck, and the one that looks like a reasoning bug.</p>
     <ul>
-      <li>Test whether a sub-goal has a detectable definition of done</li>
-      <li>Diagnose transient vs. wrong plan from the error itself</li>
-      <li>Watch a retry-only agent burn three calls where one was enough</li>
+      <li>Have the model return a <code>Plan</code> object with declared dependencies</li>
+      <li>Reject sub-goals no agent could ever call finished</li>
+      <li>Tell a transient failure from a wrong plan &mdash; retry one, re-plan the other</li>
+      <li>Run a plan against a tool that fails on purpose, and watch it recover</li>
     </ul>
-    <div class="sol">4 blanks &middot; 23 checks &middot; solution: <code>solutions/lab-2-03-subgoals-and-replanning.ipynb</code></div>
+    <div class="foot">3 blanks &middot; 21 checks &middot; solution:
+      <a href="solutions/lab-2-03-subgoals-and-replanning.ipynb">solutions/lab-2-03-subgoals-and-replanning.ipynb</a></div>
   </div>
 
   <div class="lab">
-    <div class="tags">35 min<span class="lvl">Advanced</span></div>
-    <h3><a href="lab-2-04-tree-of-thought-reflection.ipynb">Lab 2.4 &mdash; Branch, Score, Prune &mdash; and the Reflection Knee</a></h3>
-    <p>The two expensive architectures, and how to know in advance whether they are worth it.</p>
+    <div class="tags">40 min<span class="lvl">Advanced</span></div>
+    <h3><a href="lab-2-04-tree-of-thought-reflection.ipynb">Lab 2.4 &mdash; Branch, Score, Prune: and When to Stop Reflecting</a></h3>
+    <p>Branch concurrently, score with a structured judge, and stop reflecting when it stops paying.</p>
     <ul>
-      <li>Count what a tree costs before building one</li>
-      <li>Write the scorer, which decides whether the tree helps at all</li>
-      <li>Find the round where reflection stops paying</li>
+      <li>Generate several candidate actions concurrently with <code>.batch()</code></li>
+      <li>Score them with a structured judge instead of reading them yourself</li>
+      <li>Prune, and look at what you threw away</li>
+      <li>Build a reflection loop that stops when it stops improving</li>
     </ul>
-    <div class="sol">4 blanks &middot; 18 checks &middot; solution: <code>solutions/lab-2-04-tree-of-thought-reflection.ipynb</code></div>
+    <div class="foot">3 blanks &middot; 19 checks &middot; solution:
+      <a href="solutions/lab-2-04-tree-of-thought-reflection.ipynb">solutions/lab-2-04-tree-of-thought-reflection.ipynb</a></div>
   </div>
 
   <div class="lab">
-    <div class="tags">40 min<span class="lvl">Advanced &middot; challenge</span></div>
-    <h3><a href="lab-2-05-challenge-architecture-bakeoff.ipynb">Lab 2.5 &mdash; Challenge: The Architecture Bake-Off</a></h3>
-    <p>Four architectures, one eval set, one threshold named before you look at any number.</p>
+    <div class="tags">45 min<span class="lvl">Advanced</span></div>
+    <h3><a href="lab-2-05-challenge-architecture-bakeoff.ipynb">Lab 2.5 &mdash; Challenge &mdash; The Architecture Bake-Off</a></h3>
+    <p>Four architectures, one eval set, and a bar written before you look at any result.</p>
     <ul>
-      <li>One meter across all four arms, or the comparison is decoration</li>
-      <li>A scorecard that is allowed to reject the interesting answer</li>
-      <li>The design-review paragraph you would actually sign</li>
+      <li>Put all four Module 2 architectures behind one interface</li>
+      <li>Write the acceptance bar before you look at a single result</li>
+      <li>Run one eval set through all four and pick a winner on evidence</li>
+      <li>Find the case that no architecture gets right, and say why</li>
     </ul>
-    <div class="sol">2 blanks &middot; 17 checks &middot; solution: <code>solutions/lab-2-05-challenge-architecture-bakeoff.ipynb</code></div>
+    <div class="foot">2 blanks &middot; 18 checks &middot; solution:
+      <a href="solutions/lab-2-05-challenge-architecture-bakeoff.ipynb">solutions/lab-2-05-challenge-architecture-bakeoff.ipynb</a></div>
   </div>
 
   <div class="note">

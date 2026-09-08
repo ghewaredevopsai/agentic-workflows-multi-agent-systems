@@ -1375,7 +1375,7 @@ score()
 # Lab 2.4 -- branch, score, prune; and knowing when to stop reflecting
 # =========================================================================== #
 LAB4 = [
-    header(4, "Branch, Score, Prune &mdash; and When to Stop Reflecting", "Advanced", 40,
+    header(4, "Branch, Score, Prune: and When to Stop Reflecting", "Advanced", 40,
            ["Generate several candidate actions concurrently with <code>.batch()</code>",
             "Score them with a structured judge instead of reading them yourself",
             "Prune, and look at what you threw away",
