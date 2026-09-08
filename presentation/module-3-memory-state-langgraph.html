@@ -294,10 +294,11 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
   <h1>Perception</h1>
 </div>
 
-<div class="slide" data-sec="Perception" data-notes="Same fact, three renderings. The middle one is what most tools return. The right one is what the model can actually act on. Emphasise: this is free accuracy -- no model change, no extra call.">
+<div class="slide" data-sec="Perception" data-notes="Read the framing line first, because the room will otherwise assume the left box is something imposed on them. It is not: it is what the UPSTREAM ledger hands your tool, and all three columns are choices the same tool could make. Column one is what you get when the tool is a thin pass-through -- return json.dumps(upstream_response) -- which is the lazy default and the failure mode. Then make the connection back to this morning: Module 1&rsquo;s own lookup_payment already returns readable status and an expanded reason code, so they have been living in column two all day without noticing, because that perception was written into the tool for them. Lab 3.2 is where the layer becomes visible and they push it to column three. Emphasise: this is free accuracy -- no model change, no extra call.">
   <h2>Raw output is not an observation</h2>
   <div class="body">
     <svg width="1180" height="420" viewBox="0 0 1180 420" role="img" aria-label="The same tool result rendered three ways">
+            <text x="590" y="36" text-anchor="middle" class="bx">What the upstream ledger returns &mdash; and which of these three reaches the model is your tool&rsquo;s choice.</text>
       <rect x="50" y="56" width="340" height="300" rx="8" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
       <text x="220" y="90" text-anchor="middle" class="bx no">Raw dump</text>
       <rect x="75" y="110" width="290" height="120" rx="4" fill="#fff" stroke="#fecaca"/>
