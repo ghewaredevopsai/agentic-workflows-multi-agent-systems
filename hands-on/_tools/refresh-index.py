@@ -17,11 +17,14 @@ BLURBS = {
  "lab-2-03": "The failure that looks like bad luck, and the one that looks like a reasoning bug.",
  "lab-2-04": "Branch concurrently, score with a structured judge, and stop reflecting when it stops paying.",
  "lab-2-05": "Four architectures, one eval set, and a bar written before you look at any result.",
- "lab-3-01": "Watch an agent forget, bound the window, keep what you dropped, then let a checkpointer do it.",
- "lab-3-02": "The cheapest accuracy in the course: decide what the agent is allowed to see.",
- "lab-3-03": "Reducers, partial state, conditional edges and a cycle &mdash; testable without a model in it.",
- "lab-3-04": "One keyword argument, and suddenly resume, approval, rewind and audit are all possible.",
- "lab-3-05": "Three agents, one shared state, one wrong finding &mdash; and the sentence that catches it.",
+ "lab-3-01": "State, one node, two edges, <code>compile()</code>. No model in it &mdash; and that is the point.",
+ "lab-3-02": "Three nodes in a row, and the discovery that your edges are a dependency order.",
+ "lab-3-03": "A routing function is a pure function returning a name. Module 5's supervisor, early.",
+ "lab-3-04": "Declare the merge rule once. Then run two nodes in one step and watch it matter.",
+ "lab-3-05": "A cycle is an edge pointing backwards. One comparison is what stops it being a hang.",
+ "lab-3-06": "One keyword argument, and resume, inspect, rewind and audit all become possible.",
+ "lab-3-07": "Pause before the irreversible step, let a person edit the state, then meet the rewind surprise.",
+ "lab-3-08": "Assemble all of it &mdash; and gate one branch rather than the whole graph."
 }
 
 SCORE_OLD = ("<code>[FAIL]</code> or <code>[TODO]</code>, and the last cell prints your\n"
@@ -89,7 +92,7 @@ for m in (1, 2, 3):
     assert SCORE_NEW in page, f"{d}: score sentence not updated"
 
     files = sorted(f for f in os.listdir(d) if re.fullmatch(rf"lab-{m}-\d\d-.+\.ipynb", f))
-    assert len(files) == 5, files
+    assert len(files) == (8 if m == 3 else 5), files
     cards = []
     for fn in files:
         slug = fn[:8]

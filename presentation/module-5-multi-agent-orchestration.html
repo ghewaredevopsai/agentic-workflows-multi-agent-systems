@@ -419,7 +419,7 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
   </div>
 </div>
 
-<div class="slide" data-sec="Execution" data-notes="Conflict resolution, and the deliberate provocation is that consensus is the worst default. Module 3's poisoning lab already showed agreement is not truth -- three agents agreeing on a bad premise agree confidently. Authority and provenance beat voting because they are checkable.">
+<div class="slide" data-sec="Execution" data-notes="Conflict resolution, and the deliberate provocation is that consensus is the worst default. Agreement is not truth: three agents given the same bad premise agree confidently, because they inherited the error rather than each finding it. Authority and provenance beat voting because they are checkable.">
   <h2>When two agents disagree</h2>
   <div class="body">
     <svg width="1180" height="424" viewBox="0 0 1180 424" role="img" aria-label="Five conflict resolution strategies ranked by when each is right">
@@ -429,7 +429,7 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
       <text x="156" y="150" text-anchor="middle" class="bds">three agents sharing</text>
       <text x="156" y="172" text-anchor="middle" class="bds">one bad premise</text>
       <text x="156" y="194" text-anchor="middle" class="bds">agree confidently</text>
-      <text x="156" y="234" text-anchor="middle" class="bds no">Module 3 proved this</text>
+      <text x="156" y="234" text-anchor="middle" class="bds no">agreement is not evidence</text>
 
       <rect x="278" y="46" width="212" height="212" rx="8" fill="#f8f8fd" stroke="#94a3b8" stroke-width="2"/>
       <text x="384" y="76" text-anchor="middle" class="lbl">Confidence</text>
@@ -930,7 +930,7 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
   </div></div>
 </div>
 
-<div class="slide q" data-sec="Knowledge check" data-notes="Answer A. Watch for D -- shared memory does fix it, and reintroduces Module 3's poisoning. The narrow fix is to put the constraint in the handoff.">
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer A. Watch for D -- shared memory does fix it, and buys you a wrong finding propagating to every agent that reads it. The narrow fix is to put the constraint in the handoff.">
   <div class="qtag">Question 2 of 8</div>
   <h2>Both agents were right</h2>
   <div class="body"><div class="qbox">
@@ -942,7 +942,7 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
   </div></div>
 </div>
 
-<div class="slide q" data-sec="Knowledge check" data-notes="Answer A. Watch for D -- shared memory does fix it, and reintroduces Module 3's poisoning. The narrow fix is to put the constraint in the handoff.">
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer A. Watch for D -- shared memory does fix it, and buys you a wrong finding propagating to every agent that reads it. The narrow fix is to put the constraint in the handoff.">
   <div class="qtag">Answer 2 of 8</div>
   <h2>Both agents were right</h2>
   <div class="body"><div class="qbox">
@@ -951,7 +951,7 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
     <div class="opt miss"><span class="k">B</span><span>The policy agent was given too weak a model for the judgement</span></div>
     <div class="opt miss"><span class="k">C</span><span>The supervisor should have routed by rule rather than by model</span></div>
     <div class="opt miss"><span class="k">D</span><span>The two agents needed one shared memory instead of separate contexts</span></div>
-    <div class="why"><b>Why:</b> A handoff carries what you put in the message and nothing else. The task crossed; the constraint did not. D would also fix it &mdash; and would hand you Module 3's context poisoning in exchange. Carry the constraint explicitly, and keep the isolation.</div>
+    <div class="why"><b>Why:</b> A handoff carries what you put in the message and nothing else. The task crossed; the constraint did not. D would also fix it &mdash; and would hand you one agent's error propagating to every other in exchange. Carry the constraint explicitly, and keep the isolation.</div>
   </div></div>
 </div>
 
@@ -1001,7 +1001,7 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
     <div class="opt miss"><span class="k">B</span><span>The dissenting agent should have been given the stronger model</span></div>
     <div class="opt hit"><span class="k">C</span><span>Agreement is not evidence &mdash; the one citing a checkable source is the one to believe</span></div>
     <div class="opt miss"><span class="k">D</span><span>Nothing structural; the vote should simply be weighted by each agent's confidence</span></div>
-    <div class="why"><b>Why:</b> Module 3's poisoning lab already showed three agents agreeing on a bad premise. D sounds rigorous and is the same mistake with arithmetic on top: self-reported confidence is not correlated with being right. Provenance and declared authority are checkable by something other than a model.</div>
+    <div class="why"><b>Why:</b> Three agents agreeing on a bad premise is not three pieces of evidence. D sounds rigorous and is the same mistake with arithmetic on top: self-reported confidence is not correlated with being right. Provenance and declared authority are checkable by something other than a model.</div>
   </div></div>
 </div>
 

@@ -156,7 +156,7 @@
     <a href="#setup">Setup</a>
     <a href="#m1">M1 &middot; Agents</a>
     <a href="#m2">M2 &middot; Planning</a>
-    <a href="#m3">M3 &middot; Memory &amp; State</a>
+    <a href="#m3">M3 &middot; LangGraph &amp; State</a>
   </nav>
 </div>
 
@@ -381,7 +381,7 @@ PydanticOutputParser same input                             <span class='out'>-&
   </details>
   <div class="day-header" id="m3">
     <span class="tag">Day 1 &middot; Module 3</span>
-    <h2>Memory, State &amp; the LangGraph Substrate</h2>
+    <h2>LangGraph: Stateful Agent Workflows</h2>
     <span class="cnt">10 questions</span>
   </div>
   <details class="faq" id="m3-when-langgraph">
@@ -392,20 +392,7 @@ PydanticOutputParser same input                             <span class='out'>-&
       <p>Note the honest framing: you are not dropping to LangGraph <i>for the graph</i>. You are doing it for <b>the state the graph forces you to declare</b> &mdash; and a declared state is one you can assert on, resume, and show an auditor.</p>
     </div>
   </details>
-  <details class="faq" id="m3-trim-notimplemented">
-    <summary><span class="q">Q</span><span><code class='inl'>trim_messages</code> raised <code class='inl'>NotImplementedError</code>. What did I do wrong?</span><span class="tw">&#9660;</span></summary>
-    <div class="faq-body">
-      <div class="quick"><span class="lbl">Quick answer</span>Nothing. You passed <code class='inl'>token_counter=llm</code>, and <code class='inl'>langchain-openai</code> can only count for models <code class='inl'>tiktoken</code> has an encoding for. A gateway-served model is not one.</div>
-      <div class='terminal'><span class='com'># raises on any self-hosted or gateway-served model</span>
-trim_messages(msgs, max_tokens=200, token_counter=<span class='str'>llm</span>)
-
-<span class='com'># works: a plain function over the message text</span>
-trim_messages(msgs, max_tokens=200, token_counter=<span class='kw'>count_tokens_approximately</span>)</div>
-      <p>This is not a quirk of our sandbox &mdash; it is what happens to every model that is not on <code class='inl'>tiktoken</code>'s list, and it tends to show up under load rather than in development. Lab 3.1 teaches it deliberately.</p>
-      <p>While you are there: use <code class='inl'>strategy=&quot;last&quot;</code> and <code class='inl'>include_system=True</code>. Trimming that drops the standing instruction is the worst possible trim.</p>
-    </div>
-  </details>
-  <details class="faq" id="m3-what-is-a-reducer">
+    <details class="faq" id="m3-what-is-a-reducer">
     <summary><span class="q">Q</span><span>What is a reducer, and when do I actually need one?</span><span class="tw">&#9660;</span></summary>
     <div class="faq-body">
       <div class="quick"><span class="lbl">Quick answer</span>A reducer says <b>how two writes to the same state key merge</b>. The default is replace. You need one on any key more than one node writes.</div>
@@ -416,13 +403,50 @@ findings: Annotated[list, add]     <span class='com'># declared: append</span></
     </div>
   </details>
   <details class="faq" id="m3-findings-vanished">
-    <summary><span class="q">Q</span><span>Two of my nodes wrote to the same key and the earlier findings vanished.</span><span class="tw">&#9660;</span></summary>
+    <summary><span class="q">Q</span><span>Two of my nodes wrote to the same key and the earlier value vanished.</span><span class="tw">&#9660;</span></summary>
     <div class="faq-body">
-      <div class="quick"><span class="lbl">Quick answer</span>That is the default reducer doing exactly what it says. See the question above &mdash; declare one.</div>
-      <p>It is worth reproducing once on purpose, because the symptom is so unhelpful: the run completes, the state is well-formed, and the answer is composed from a third of the evidence. Nothing distinguishes it from a run where the tools genuinely found nothing.</p>
-      <p>Lab 3.3's self-check runs a real two-node graph and asserts both findings survive, which is the cheapest possible regression test for this and takes no model at all.</p>
+      <div class="quick"><span class="lbl">Quick answer</span>No reducer on that field, so the default applies: replace. The last write wins.</div>
+      <p>A field with no reducer is overwritten by whatever a node returns for it. That is correct for <code class='inl'>decision</code> and wrong for anything that accumulates. Declare it once in the schema &mdash; <code class='inl'>notes: Annotated[list, add]</code> &mdash; and nodes then return only their own line.</p>
+      <p>Worth knowing which version of this bug you have. Two nodes in the <em>same step</em> writing one key with no reducer makes LangGraph raise rather than pick a winner, which you will notice immediately. The sequential version is silent: it just leaves you with an audit trail one line long. Lab 3.4 shows both.</p>
     </div>
   </details>
+  <details class="faq" id="m3-partial-state">
+    <summary><span class="q">Q</span><span>Should a node return the whole state or just what it changed?</span><span class="tw">&#9660;</span></summary>
+    <div class="faq-body">
+      <div class="quick"><span class="lbl">Quick answer</span>Only what it changed. LangGraph merges the rest.</div>
+      <p>Returning the whole state <em>works</em> &mdash; in a straight chain. That is exactly why it survives review: nothing goes wrong until two nodes run in the same step, and then one of them writes back a stale copy of a field the other just changed.</p>
+      <p>Lab 3.1 makes you pick between the two return values, and Lab 3.4 runs the fan-out that punishes the wrong one.</p>
+    </div>
+  </details>
+
+  <details class="faq" id="m3-routing-function">
+    <summary><span class="q">Q</span><span>What is a routing function allowed to do?</span><span class="tw">&#9660;</span></summary>
+    <div class="faq-body">
+      <div class="quick"><span class="lbl">Quick answer</span>Read the state and return a string. Nothing else.</div>
+      <p>It does no work, calls no model and changes nothing. Keeping it that way is what makes the hardest logic in a workflow the cheapest thing to test &mdash; you call it with a dict you invented, no graph involved. Lab 3.3's first self-check is exactly that: four dicts.</p>
+      <p>The string is turned into a node name by the branch map you pass to <code class='inl'>add_conditional_edges</code>, which is why routing logic and graph layout stay separable. And it hangs off the node that produced the facts it reads &mdash; attach it earlier and it is deciding on fields that do not exist yet.</p>
+      <p>Module 5's supervisor is this same function with a model choosing the string.</p>
+    </div>
+  </details>
+
+  <details class="faq" id="m3-cycle-budget">
+    <summary><span class="q">Q</span><span>My graph looped forever. What was I supposed to add?</span><span class="tw">&#9660;</span></summary>
+    <div class="faq-body">
+      <div class="quick"><span class="lbl">Quick answer</span>A counter in the state and a comparison in the router. LangGraph will not stop it for you.</div>
+      <p>A cycle is just an edge pointing backwards, so nothing about it knows when to give up. You write that down: increment a field each time round, and have the routing function send the run to a terminal node once it hits the budget. In Lab 3.5 that is <code class='inl'>attempts &gt;= POLICY["max_clarifications"]</code>, and <code class='inl'>&gt;=</code> is what makes it a budget rather than a suggestion.</p>
+      <p><code class='inl'>recursion_limit</code> in the invoke config is the framework's backstop, and it raises <code class='inl'>GraphRecursionError</code>. Decide which of the two you would rather explain: &ldquo;withdrawn after 2 requests&rdquo;, or a stack-limit error.</p>
+    </div>
+  </details>
+
+  <details class="faq" id="m3-where-gate">
+    <summary><span class="q">Q</span><span>Which node should <code class='inl'>interrupt_before</code> name?</span><span class="tw">&#9660;</span></summary>
+    <div class="faq-body">
+      <div class="quick"><span class="lbl">Quick answer</span>The step with a consequence outside your process &mdash; and ideally on a branch, not on the shared final node.</div>
+      <p>Gate the thinking and the approver is looking at nothing yet. Gate everything and people stop reading the queue, which is worse than having no gate. So it goes before the node that sends, writes or debits.</p>
+      <p>The refinement in Lab 3.8: put the gate on a node only one branch routes through. Gate the shared <code class='inl'>notify</code> and every auto-approval sits waiting for a manager who has nothing to decide. A conditional gate is a routing problem, not a bigger <code class='inl'>interrupt_before</code>.</p>
+    </div>
+  </details>
+
   <details class="faq" id="m3-what-checkpointer-buys">
     <summary><span class="q">Q</span><span>What does a checkpointer actually buy me?</span><span class="tw">&#9660;</span></summary>
     <div class="faq-body">
@@ -444,39 +468,12 @@ answer                    <span class='out'>-&gt; None</span></div>
   <details class="faq" id="m3-thread-id">
     <summary><span class="q">Q</span><span>Is <code class='inl'>thread_id</code> just a session id?</span><span class="tw">&#9660;</span></summary>
     <div class="faq-body">
-      <div class="quick"><span class="lbl">Quick answer</span>Close enough &mdash; and getting it wrong is the commonest way agent memory leaks between users.</div>
-      <p>Each <code class='inl'>thread_id</code> is a separate conversation with its own history. Key it by the thing that should be isolated: a case, a ticket, a user session. In Lab 3.1 two threads hold two different client contacts and neither leaks into the other &mdash; with no code of yours managing either.</p>
-      <p>Now picture the same code with a constant <code class='inl'>thread_id</code>. Every case appends to one history, and the second client's question gets answered with the first client's details. It is a one-line bug with a regulatory-incident shape.</p>
+      <div class="quick"><span class="lbl">Quick answer</span>It is an identity, not a token &mdash; and getting it wrong is the commonest way agent state leaks between cases.</div>
+      <p>Each <code class='inl'>thread_id</code> names the thing being worked on, and runs that share one see each other's state. Key it by what should be isolated: a request, a case, a ticket. Lab 3.6 makes you choose between keying on the request, on the employee, and on a fresh id per run &mdash; and only one of the three lets you pick a paused request up again tomorrow.</p>
+      <p>The two failures are symmetric. Too broad (the employee) and one request overwrites another's state. Too narrow (a fresh id) and &ldquo;resume tomorrow&rdquo; silently starts from scratch. It is a one-line choice with a regulatory-incident shape.</p>
     </div>
   </details>
-  <details class="faq" id="m3-shared-or-private">
-    <summary><span class="q">Q</span><span>Shared state or private state for a multi-agent system?</span><span class="tw">&#9660;</span></summary>
-    <div class="faq-body">
-      <div class="quick"><span class="lbl">Quick answer</span>Mixed, in practice: <b>shared facts, private drafts</b>. Shared is cheap and consistent; private contains a mistake but re-sends context and duplicates work.</div>
-      <p>Shared state is what stops the context fragmentation Lab 1.4 measured &mdash; agents that cannot see each other's work produce worse answers than one agent that can. So the answer to poisoning is not to retreat into isolation.</p>
-      <p>The discipline is about what earns a place in the shared record. An agent's uncertain working notes belong in its own scratch area, where they can be inspected and not believed. The shared findings list is what every other agent treats as fact, so the bar for entering it should be higher than &ldquo;an agent said so&rdquo;.</p>
-    </div>
-  </details>
-  <details class="faq" id="m3-three-agents-agree">
-    <summary><span class="q">Q</span><span>Three agents independently agreed. Isn't that corroboration?</span><span class="tw">&#9660;</span></summary>
-    <div class="faq-body">
-      <div class="quick"><span class="lbl">Quick answer</span>No &mdash; it is an <b>echo</b>. If the first agent was wrong, every later agent was correct <i>given what it was told</i>, and the critic was checking consistency rather than truth.</div>
-      <p>This is what makes context poisoning different from an ordinary bug. Nothing errors. No exception, no anomaly in the trace, no disagreement to investigate. There is just a confident answer built on one bad input, and three concurring agents reading as evidence.</p>
-      <p>A consistency check cannot catch a bad premise. If you want a critic that can, it has to be able to go back to the source &mdash; or to refuse.</p>
-    </div>
-  </details>
-  <details class="faq" id="m3-provenance-not-enough">
-    <summary><span class="q">Q</span><span>We added provenance to every finding and it still got poisoned. What actually stops it?</span><span class="tw">&#9660;</span></summary>
-    <div class="faq-body">
-      <div class="quick"><span class="lbl">Quick answer</span><b>Permission to refuse.</b> Measured in Lab 3.5 on identical poisoned evidence: <b>3/3 flagged the inconsistency with a refusal clause in the prompt, 0/3 without it</b>.</div>
-      <p>Provenance is not verification &mdash; every finding in the poisoned run passes the trustworthiness check, because the wrong one is correctly attributed to a real source. What provenance buys you is the ability to <b>trace and quarantine</b> once you know a source was wrong: drop that source, re-decide on what survives. That is recovery, and it is worth having.</p>
-      <p>Prevention is one sentence in the system prompt:</p>
-      <div class='terminal'>&hellip; if the evidence is inconsistent or insufficient,
-<span class='kw'>say so instead of deciding</span>.</div>
-      <p>With it, the reviewer notices that a settled payment needs no next action and says the evidence is inconsistent. Without it, it does what it was asked &mdash; decides &mdash; and closes the case. The model could catch the poisoning all along; what it lacked was permission. <b>An agent told only to decide will decide, on whatever it has, every time.</b></p>
-    </div>
-  </details>
-
+      
 </div>
 
 <div class="footer">

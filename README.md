@@ -1,6 +1,6 @@
 # Agentic Workflows & Multi-Agent Systems
 
-**3 days · Advanced · 9 modules · 45 labs · capstone**
+**3 days · Advanced · 9 modules · 48 labs · capstone**
 
 Course material for an instructor-led course by Rajesh Gheware (Gheware UniGPS Solutions LLP).
 Participants build, evaluate and operate multi-agent systems — and learn when *not* to build one.
@@ -12,7 +12,7 @@ notebooks with their solutions, and a post-session video list.
 
 | Day | Modules |
 |---|---|
-| 1 | 1 Agents vs. Multi-Agent Systems &middot; 2 Agentic Planning & Reasoning &middot; 3 Memory, State & the LangGraph Substrate |
+| 1 | 1 Agents vs. Multi-Agent Systems &middot; 2 Agentic Planning & Reasoning &middot; 3 LangGraph: Stateful Agent Workflows |
 | 2 | 4 Tool Calling & MCP &middot; 5 Multi-Agent Collaboration & Orchestration &middot; 6 Agentic RAG |
 | 3 | 7 Multi-Agent System Evaluation &middot; 8 Safety & Guardrails &middot; 9 Deployment & AgentOps |
 

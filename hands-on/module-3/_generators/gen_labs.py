@@ -2,6 +2,16 @@
 """
 Generate Module 3 lab notebooks and their solutions from one source.
 
+Module 3 is EIGHT small labs, one concept each, in the order the flagship's LangGraph
+session established: first graph -> multi-step -> conditional routing -> reducers ->
+cycles and retry -> checkpointing -> human-in-the-loop -> challenge. It replaced five
+much larger labs on 2026-09-09; the two that carried the LangGraph substrate were
+~300 LOC apiece and put reducers in front of a participant who had never watched a
+one-node graph run.
+
+The domain is a leave-request workflow in a small HR system -- chosen because every
+participant already knows the rules, so the only new thing in the notebook is LangGraph.
+
 Every code cell is declared once. Where the lab and the solution differ, the cell
 carries both variants, so a blank can never drift from the answer that grades it.
 
@@ -78,7 +88,7 @@ def header(num, title, level, minutes, bullets, note):
     return md(f"""
 # Lab 3.{num} &mdash; {title}
 
-**Level:** {level} &nbsp;|&nbsp; **Est. time:** {minutes} min &nbsp;|&nbsp; **Day 1 &middot; Module 3 &mdash; Memory, State &amp; the LangGraph Substrate**
+**Level:** {level} &nbsp;|&nbsp; **Est. time:** {minutes} min &nbsp;|&nbsp; **Day 1 &middot; Module 3 &mdash; LangGraph: Stateful Agent Workflows**
 
 ### What you'll do
 {items}
@@ -197,1809 +207,2077 @@ def setup(num, extra=""):
 
 
 # --------------------------------------------------------------------------- #
-# the shared synthetic domain -- one use case runs through all five labs
+# the shared domain -- deliberately one flat dict, so no lab spends time on
+# Python plumbing. Every lookup in every lab is REQUESTS[rid].
 # --------------------------------------------------------------------------- #
 DOMAIN = '''
-# ------------------------------------------------- the case file (synthetic, self-contained)
-# One domain runs through all five Module 3 labs: payment exceptions on a small ledger.
-# Nothing here is real data and nothing leaves this notebook.
+# ------------------------------------------------ the case file (synthetic, self-contained)
+# Leave requests in a small HR system. Ordinary rules on purpose: the only new thing in these
+# eight labs is LangGraph. One flat dict -- no joins, no helpers, nothing to learn here.
 
-LEDGER = {
-    "PMT-1001": {"amount": 250000.00, "ccy": "USD", "counterparty": "NORTHWIND",
-                 "status": "settled",  "value_date": "2026-09-01", "reason_code": None},
-    "PMT-1002": {"amount":  48250.75, "ccy": "EUR", "counterparty": "ACME-EU",
-                 "status": "failed",   "value_date": "2026-09-02", "reason_code": "INSUFFICIENT_FUNDS"},
-    "PMT-1003": {"amount": 990000.00, "ccy": "USD", "counterparty": "ZENITH",
-                 "status": "held",     "value_date": "2026-09-02", "reason_code": "LIMIT_BREACH"},
-    "PMT-1004": {"amount":   1200.00, "ccy": "GBP", "counterparty": "ACME-UK",
-                 "status": "failed",   "value_date": "2026-09-03", "reason_code": "INVALID_IBAN"},
-    "PMT-1005": {"amount": 750000.00, "ccy": "USD", "counterparty": "NORTHWIND",
-                 "status": "held",     "value_date": "2026-09-03", "reason_code": "SANCTIONS_REVIEW"},
+REQUESTS = {
+    "LV-5001": {"who": "Priya Nair",   "days":  3, "kind": "annual", "reason": "family wedding",
+                "balance": 12, "manager": "Devi R."},
+    "LV-5002": {"who": "Rahul Menon",  "days":  5, "kind": "annual", "reason": "",
+                "balance":  3, "manager": "Devi R."},
+    "LV-5003": {"who": "Anita Sharma", "days":  2, "kind": "annual", "reason": "moving house",
+                "balance":  0, "manager": "Sam O."},
+    "LV-5004": {"who": "Vikram Rao",   "days": 15, "kind": "annual", "reason": "sabbatical",
+                "balance": 20, "manager": "Sam O."},
+    "LV-5005": {"who": "Priya Nair",   "days":  1, "kind": "sick",   "reason": "flu",
+                "balance": 12, "manager": "Devi R."},
 }
 
-POLICY = {
-    "INSUFFICIENT_FUNDS": "Retry once after 24h. If it fails again, notify the client desk. No manual funding.",
-    "LIMIT_BREACH":       "Payments above USD 500,000 need Treasury approval before release.",
-    "INVALID_IBAN":       "Return to originator with code R04. Never repair beneficiary details in-house.",
-    "SANCTIONS_REVIEW":   "Hold. Compliance decides. Operations must not release or cancel.",
-}
+# The handbook, as three numbers. Every routing decision in this module comes from these.
+POLICY = {"manager_over_days": 2, "hr_over_days": 10, "max_clarifications": 2}
 
-# Which reason codes may an agent resolve on its own, and which need a human?
-NEEDS_HUMAN = {"LIMIT_BREACH", "SANCTIONS_REVIEW"}
-
-print(f"{len(LEDGER)} payments, {len(POLICY)} policy rules loaded")
+print(len(REQUESTS), "leave requests loaded")
 '''
 
-
+THREAD_NOTE = (
+    "> **The thread.** All eight Module 3 labs work one case: leave requests in a small HR\n"
+    "> system. The rules are ordinary on purpose &mdash; the only new thing here is LangGraph."
+)
 
 
 # =========================================================================== #
-# Lab 3.1 -- memory that survives a long session
+# Lab 3.1 -- your first graph
 # =========================================================================== #
 LAB1 = [
-    header(1, "Memory That Survives a Long Session", "Intermediate", 35,
-           ["Watch an agent forget, by growing the history until the window bites",
-            "Bound it with <code>trim_messages</code> &mdash; including the counter that fails here",
-            "Summarise what you drop, so compaction is not amnesia",
-            "Hand the whole problem to a checkpointer and a <code>thread_id</code>"],
-           "> **The thread.** All five Module 3 labs work one case: payment exceptions on a small\n"
-           "> synthetic ledger. Modules 1 and 2 built the agent; Module 3 gives it a memory and a\n"
-           "> state you can inspect."),
+    header(1, "Your First Graph", "Intermediate", 20,
+           ["Declare workflow state as a <code>TypedDict</code>",
+            "Write a node &mdash; a plain function, state in, <i>partial</i> state out",
+            "Wire <code>START</code> and <code>END</code>, then <code>compile()</code> and <code>invoke()</code>"],
+           THREAD_NOTE),
     setup(1),
     code(DOMAIN),
 
     md("""
 ## Concept
 
-Everything an agent "remembers" is something your code put back in front of it. That leaves three
-jobs, and LangChain has a piece for each:
+`create_agent` from Module 1 is one fixed loop: model, tools, repeat. When the control flow is
+yours &mdash; branch here, go round again there, stop for a person &mdash; you want the thing
+underneath it.
 
-| Job | The piece |
+A `StateGraph` has three parts and no more:
+
+| Part | What it is |
 |---|---|
-| keep the window bounded | `trim_messages` |
-| keep what you dropped | a summary chain |
-| keep it across turns and restarts | a checkpointer + `thread_id` |
+| **state** | a `TypedDict`. One shared object every node reads and writes |
+| **nodes** | plain functions: `state -> partial state` |
+| **edges** | what runs next. `START` is the way in, `END` the way out |
 
-Do the first without the second and you have built amnesia with a token budget.
+**There is no model in this lab.** That is the point: the graph is control flow, and control flow
+is ordinary software you can test. The model goes *inside one node*, from Lab 3.5 on.
 """),
 
     md("""
-## Section 1 &mdash; Find the turn where it forgets
+## Section 1 &mdash; State, and a node that returns part of it
 
-A long investigation, one important fact stated at the very beginning. Grow the history until
-the fact falls out of the window, and note which turn it happened on.
+A node gets the **whole** state and returns **only the keys it changed**. LangGraph merges the rest.
+
+Returning the whole state is the classic first mistake: it works until two nodes run and one
+writes back a stale copy of what the other just changed. Both candidates are written out below.
 """),
+
     code('''
-from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
-from langchain_core.messages.utils import count_tokens_approximately
-
-SYSTEM = ("You are a payments operations analyst working one case. Answer only from this "
-          "conversation.")
-
-THE_FACT = "The client contact for this case is Priya Raman on the Singapore desk."
-
-def long_session(turns: int = 14) -> list:
-    """A conversation whose first human turn carries the fact that matters."""
-    msgs = [SystemMessage(SYSTEM), HumanMessage(f"Open the case for PMT-1005. {THE_FACT}")]
-    for i in range(turns):
-        msgs.append(AIMessage(f"Noted. Checking sanction screening batch {i}: "
-                              + "reviewing the counterparty records in detail. " * 6))
-        msgs.append(HumanMessage(f"And what about batch {i + 1}?"))
-    return msgs
+from typing_extensions import TypedDict
+from langgraph.graph import StateGraph, START, END
 
 
-def window_fits(messages: list, budget: int) -> bool:
-    """Does this conversation still fit the budget?"""
-    return count_tokens_approximately(messages) <= budget
+class LeaveState(TypedDict):
+    request_id: str
+    summary: str
+    notes: list
+
+
+def summarise(state: LeaveState) -> dict:
+    r = REQUESTS[state["request_id"]]
+    line = f'{r["who"]}: {r["days"]} day(s) of {r["kind"]} leave'
+
+    whole_state  = {**state, "summary": line, "notes": state["notes"] + ["summarise"]}
+    only_changed = {"summary": line, "notes": state["notes"] + ["summarise"]}
+
+    return BLANK          # TODO: which one does a LangGraph node return?
 ''', '''
-from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
-from langchain_core.messages.utils import count_tokens_approximately
-
-SYSTEM = ("You are a payments operations analyst working one case. Answer only from this "
-          "conversation.")
-
-THE_FACT = "The client contact for this case is Priya Raman on the Singapore desk."
-
-def long_session(turns: int = 14) -> list:
-    """A conversation whose first human turn carries the fact that matters."""
-    msgs = [SystemMessage(SYSTEM), HumanMessage(f"Open the case for PMT-1005. {THE_FACT}")]
-    for i in range(turns):
-        msgs.append(AIMessage(f"Noted. Checking sanction screening batch {i}: "
-                              + "reviewing the counterparty records in detail. " * 6))
-        msgs.append(HumanMessage(f"And what about batch {i + 1}?"))
-    return msgs
+from typing_extensions import TypedDict
+from langgraph.graph import StateGraph, START, END
 
 
-def window_fits(messages: list, budget: int) -> bool:
-    """Does this conversation still fit the budget?"""
-    return count_tokens_approximately(messages) <= budget
+class LeaveState(TypedDict):
+    request_id: str
+    summary: str
+    notes: list
+
+
+def summarise(state: LeaveState) -> dict:
+    r = REQUESTS[state["request_id"]]
+    line = f'{r["who"]}: {r["days"]} day(s) of {r["kind"]} leave'
+
+    whole_state  = {**state, "summary": line, "notes": state["notes"] + ["summarise"]}
+    only_changed = {"summary": line, "notes": state["notes"] + ["summarise"]}
+
+    return only_changed   # a node returns ONLY the keys it changed
 '''),
+
     code('''
-# --- Self-check: Section 1   (counting only -- no model call)
-BUDGET = 400
-
-check("a short session fits",
-      lambda: window_fits(long_session(0), BUDGET) is True)
-check("a long session does not",
-      lambda: window_fits(long_session(14), BUDGET) is False)
-check("the count grows with the conversation",
-      lambda: count_tokens_approximately(long_session(10))
-              > count_tokens_approximately(long_session(2)))
-check("the fact is in the session to begin with",
-      lambda: any("Priya" in str(m.content) for m in long_session(14)),
-      "everything below is about whether it is still there LATER")
-
-def _first_overflow():
-    for n in range(0, 20):
-        if not window_fits(long_session(n), BUDGET):
-            return n
-    return None
-guard(lambda: print(f"\\nthe window overflows at turn {_first_overflow()} "
-                    f"on a {BUDGET}-token budget"))
+# --- Self-check: Section 1
+check("summarise() fills in a readable summary",
+      lambda: "Priya Nair" in summarise({"request_id": "LV-5001", "notes": []})["summary"])
+check("summarise() returns ONLY the keys it changed",
+      lambda: set(summarise({"request_id": "LV-5001", "notes": []})) == {"summary", "notes"},
+      "request_id was not changed by this node, so it should not be in the return value")
+score()
 '''),
 
     md("""
-## Section 2 &mdash; Bound it, and keep what you drop
+## Section 2 &mdash; Edges, compile, invoke
 
-`trim_messages` bounds the window. On its own that is amnesia: the fact from turn one is simply
-gone. So summarise what you are about to drop and put the summary back as a system message.
-
-**The counter matters.** The obvious `token_counter=llm` raises `NotImplementedError` here &mdash;
-`langchain-openai` can only count for models `tiktoken` has an encoding for, and a
-gateway-served model is not one. Use `count_tokens_approximately`, a plain function over the text.
+Four lines build it and one runs it. `START` and `END` are ordinary edge endpoints, not settings.
 """),
+
     code('''
-from langchain_core.messages import trim_messages
-
-def bounded(messages: list, budget: int = 400) -> list:
-    """Keep the system message and as many recent turns as fit."""
-    return trim_messages(
-        messages, max_tokens=budget,
-        token_counter=BLANK,          # TODO: which counter works for a gateway-served model?
-        strategy="last", include_system=True, start_on="human", allow_partial=False)
-
-
-def compact(messages: list, budget: int = 400) -> list:
-    """Trim, then put a summary of what was dropped back in front of what survived."""
-    kept = bounded(messages, budget)
-    kept_ids = {id(m) for m in kept}
-    dropped = [m for m in messages if id(m) not in kept_ids and m.type != "system"]
-    if not dropped:
-        return kept
-    summary = summarise(dropped)
-    head = [m for m in kept if m.type == "system"]
-    tail = [m for m in kept if m.type != "system"]
-    return head + [SystemMessage("Earlier in this case: " + summary)] + tail
-
-
-def summarise(dropped: list) -> str:
-    """One line covering the turns that are about to be discarded."""
-    if not llm_ready():
-        return " ".join(str(m.content) for m in dropped)[:300]
-    joined = "\\n".join(f"{m.type}: {m.content}" for m in dropped)[:4000]
-    return ask("Summarise these earlier turns in two sentences. Preserve every proper noun, "
-               "reference number and named person exactly.\\n\\n" + joined)
+def build_graph():
+    builder = StateGraph(LeaveState)
+    builder.add_node("summarise", summarise)
+    builder.add_edge(BLANK, "summarise")   # TODO: what runs before the first node?
+    builder.add_edge("summarise", BLANK)   # TODO: and what marks the run finished?
+    return builder.compile()
 ''', '''
-from langchain_core.messages import trim_messages
-
-def bounded(messages: list, budget: int = 400) -> list:
-    """Keep the system message and as many recent turns as fit."""
-    return trim_messages(
-        messages, max_tokens=budget,
-        token_counter=count_tokens_approximately,   # a plain function over the message text
-        strategy="last", include_system=True, start_on="human", allow_partial=False)
-
-
-def compact(messages: list, budget: int = 400) -> list:
-    """Trim, then put a summary of what was dropped back in front of what survived."""
-    kept = bounded(messages, budget)
-    kept_ids = {id(m) for m in kept}
-    dropped = [m for m in messages if id(m) not in kept_ids and m.type != "system"]
-    if not dropped:
-        return kept
-    summary = summarise(dropped)
-    head = [m for m in kept if m.type == "system"]
-    tail = [m for m in kept if m.type != "system"]
-    return head + [SystemMessage("Earlier in this case: " + summary)] + tail
-
-
-def summarise(dropped: list) -> str:
-    """One line covering the turns that are about to be discarded."""
-    if not llm_ready():
-        return " ".join(str(m.content) for m in dropped)[:300]
-    joined = "\\n".join(f"{m.type}: {m.content}" for m in dropped)[:4000]
-    return ask("Summarise these earlier turns in two sentences. Preserve every proper noun, "
-               "reference number and named person exactly.\\n\\n" + joined)
+def build_graph():
+    builder = StateGraph(LeaveState)
+    builder.add_node("summarise", summarise)
+    builder.add_edge(START, "summarise")   # START is the way in
+    builder.add_edge("summarise", END)     # END is the way out
+    return builder.compile()
 '''),
-    code('''
-# --- Self-check: Section 2   (trim_messages is pure; summarise degrades offline)
-_long = long_session(14)
 
-check("trimming bounds the window",
-      lambda: window_fits(bounded(_long), 420) is True,
-      "trim_messages needs a token_counter it can actually call on this model")
-check("trimming really dropped turns",
-      lambda: len(bounded(_long)) < len(_long))
-check("the system message survives",
-      lambda: bounded(_long)[0].type == "system",
-      "include_system=True -- dropping the instructions is the worst possible trim")
-check("what survives is the END of the conversation",
-      lambda: bounded(_long)[-1].content == _long[-1].content,
-      \'strategy="last" keeps recent turns; "first" would keep the stale ones\')
-check("plain trimming LOSES the fact from turn one",
-      lambda: not any("Priya" in str(m.content) for m in bounded(_long)),
-      "this is the point of the section -- a bounded window is amnesia unless you do more")
-check("compaction puts a summary back",
-      lambda: sum(1 for m in compact(_long) if m.type == "system") == 2,
-      "one system message for the instructions, one for what was dropped")
-check("a short session is left alone",
-      lambda: len(compact(long_session(0))) == len(long_session(0)))
+    code('''
+# --- Self-check: Section 2   (a real compiled graph, really invoked -- no model in it)
+def run(rid):
+    return build_graph().invoke({"request_id": rid, "summary": "", "notes": []})
+
+check("the graph compiles and runs end to end",
+      lambda: run("LV-5001")["summary"].startswith("Priya Nair"),
+      "both edges are needed: START -> summarise -> END")
+check("state you did not touch survives the run",
+      lambda: run("LV-5004")["request_id"] == "LV-5004",
+      "LangGraph merged request_id through for you -- that is what partial state buys")
+score()
 '''),
 
     md("""
-## Section 3 &mdash; Or: let a checkpointer do it
-
-Everything above is what you write when you are managing the message list yourself. Attach a
-**checkpointer** to `create_agent` and the history is stored for you, keyed by `thread_id` &mdash;
-across turns, across restarts, and separately per case.
-
-The two approaches are not rivals. The checkpointer decides *where the history lives*; trimming
-decides *how much of it you send*. Real systems do both.
+## Watch it run
 """),
+
     code('''
-from langchain_core.tools import tool
-from langchain.agents import create_agent
-from langgraph.checkpoint.memory import InMemorySaver
+app = guard(build_graph)
 
-@tool
-def lookup_payment(ref: str) -> str:
-    """Return the ledger record for one payment reference such as 'PMT-1005'."""
-    rec = LEDGER.get(ref)
-    return json.dumps({"ref": ref, **rec}) if rec else f"no payment found with reference {ref!r}"
-
-def remembering_agent():
-    """An agent whose history is kept for it, per thread."""
-    return create_agent(model=get_llm(), tools=[lookup_payment], system_prompt=SYSTEM,
-                        checkpointer=InMemorySaver())
-
-def thread(case_ref: str) -> dict:
-    """The config that selects which conversation this call belongs to."""
-    return {"configurable": {"thread_id": BLANK}}   # TODO: what separates one case from another?
-''', '''
-from langchain_core.tools import tool
-from langchain.agents import create_agent
-from langgraph.checkpoint.memory import InMemorySaver
-
-@tool
-def lookup_payment(ref: str) -> str:
-    """Return the ledger record for one payment reference such as 'PMT-1005'."""
-    rec = LEDGER.get(ref)
-    return json.dumps({"ref": ref, **rec}) if rec else f"no payment found with reference {ref!r}"
-
-def remembering_agent():
-    """An agent whose history is kept for it, per thread."""
-    return create_agent(model=get_llm(), tools=[lookup_payment], system_prompt=SYSTEM,
-                        checkpointer=InMemorySaver())
-
-def thread(case_ref: str) -> dict:
-    """The config that selects which conversation this call belongs to."""
-    return {"configurable": {"thread_id": case_ref}}
-'''),
-    code('''
-# --- Self-check: Section 3   (config shape only -- no model call)
-check("the thread config has the shape LangGraph expects",
-      lambda: set(thread("PMT-1005")) == {"configurable"})
-check("the thread is keyed by the case",
-      lambda: thread("PMT-1005")["configurable"]["thread_id"] == "PMT-1005")
-check("two cases get two threads",
-      lambda: thread("PMT-1005") != thread("PMT-1003"),
-      "one thread_id for everything is how one client sees another client's case")
+if app is not None:
+    for rid in ["LV-5001", "LV-5004"]:
+        out = app.invoke({"request_id": rid, "summary": "", "notes": []})
+        print(f"{rid} -> {out['summary']}   notes={out['notes']}")
+    g = app.get_graph()
+    print("\\nthe graph you just built:")
+    for e in g.edges:
+        print(f"   {e.source} -> {e.target}")
 '''),
 
-    md("""
-## Run it for real &mdash; forgetting, and not forgetting
-"""),
-    code('''
-if llm_ready():
-    def _forget():
-        session = long_session(14)
-        question = "Who is the client contact for this case?"
-
-        naive = bounded(session) + [HumanMessage(question)]
-        kept  = compact(session)  + [HumanMessage(question)]
-
-        print("--- trimmed only ---")
-        print(get_llm().invoke(naive).content[:220])
-        print("\\n--- trimmed, with a summary of what was dropped ---")
-        print(get_llm().invoke(kept).content[:220])
-        print("\\nsummary that was carried forward:")
-        print("  " + next(m.content for m in kept if "Earlier in this case" in str(m.content))[:300])
-    guard(_forget)
-'''),
-    md("""
-## Run it for real &mdash; the checkpointer
-"""),
-    code('''
-if llm_ready():
-    def _threads():
-        agent = remembering_agent()
-        agent.invoke({"messages": [HumanMessage("Open PMT-1005. The contact is Priya Raman.")]},
-                     thread("PMT-1005"))
-        agent.invoke({"messages": [HumanMessage("Open PMT-1003. The contact is Lee Wei.")]},
-                     thread("PMT-1003"))
-
-        for ref in ("PMT-1005", "PMT-1003"):
-            out = agent.invoke({"messages": [HumanMessage("Who is the contact for this case?")]},
-                               thread(ref))
-            print(f"{ref}: {out['messages'][-1].content[:120]}")
-            print(f"          {len(out['messages'])} messages on this thread")
-    guard(_threads)
-'''),
     md("""
 ### Read it
 
-**The first pair.** Trimming alone answers the contact question wrongly or not at all &mdash; Priya
-Raman fell out of the window twelve turns ago. Trimming *with a summary* still has her, in one
-line instead of twenty. That is the difference between compaction and amnesia, and it is why
-`summarise` is told to preserve proper nouns exactly: a summary that paraphrases names has thrown
-away the only part that mattered.
-
-**The second pair.** Two threads, two histories, no code of yours managing either. Each `thread_id`
-is a separate conversation, and the agent answered each from its own. Note what would happen if
-`thread()` returned a constant: every case would append to one history, and the second client's
-contact would be answered with the first client's name. That is not a hypothetical bug &mdash; it is
-the single commonest way agent memory leaks between users.
-
-Neither approach removes the need for the other. The checkpointer stores everything forever;
-`trim_messages` decides how much of it you pay to send on this turn.
+The state came back whole &mdash; your node returned two keys and `request_id` is still there, and
+you wrote no merge code. And the graph is deterministic: same input, same output, every time.
+Put it under a unit test and it will never flake.
 """),
 
     code('''
 score()
 '''),
+
     md("""
 ## Your turn
 
-1. Put the two together: trim the messages the checkpointed agent sends without deleting them
-   from the thread. (`create_agent` takes middleware for this; failing that, trim before you
-   pass them in.) Confirm the thread still has the full history afterwards.
-2. Change `summarise` to drop the "preserve every proper noun" instruction and re-run. Count how
-   many turns it takes before the contact's name is gone. That sentence is the whole safeguard.
-3. Swap `InMemorySaver` for `SqliteSaver` writing to a file under `WORK`, restart the kernel, and
-   ask the follow-up question again. Lab 3.4 is about what that buys you.
+1. Add a second node, `stamp_policy`, that appends `" -- needs manager"` to `summary` when `days`
+   exceeds `POLICY["manager_over_days"]`. Wire `START -> summarise -> stamp_policy -> END`.
+2. Delete the `add_edge(START, ...)` line and re-compile. Read the error once, deliberately,
+   rather than at 4pm on Day 3.
 """),
 ]
 
 
 # =========================================================================== #
-# Lab 3.2 -- perception: turning raw output into an observation
+# Lab 3.2 -- a multi-step workflow
 # =========================================================================== #
 LAB2 = [
-    header(2, "Perception: Raw Output Is Not an Observation", "Intermediate &rarr; Advanced", 35,
-           ["Turn an opaque upstream record into a typed observation with a schema",
-            "Distinguish the four kinds of &ldquo;nothing&rdquo; a tool can return",
-            "Stamp in what the agent cannot see &mdash; time, authority, provenance",
-            "Watch the same model answer well and badly on the same facts"],
-           "> **Builds on Lab 3.1.** Memory decides what the agent still knows. Perception decides\n"
-           "> what it ever knew in the first place."),
+    header(2, "A Multi-Step Workflow", "Intermediate", 20,
+           ["Chain three nodes so each reads what the last one wrote",
+            "Discover that the <i>order</i> of your edges is a real design decision",
+            "Watch a run with <code>stream()</code>, one node at a time"],
+           THREAD_NOTE),
     setup(2),
     code(DOMAIN),
 
     md("""
 ## Concept
 
-An agent does not see the world. It sees whatever your tool returned, rendered as text. Handing
-a model a raw upstream payload and hoping is the commonest reason a competent agent gives an
-incompetent answer.
+A node can read anything an earlier node wrote &mdash; the state is the channel between them.
 
-**Perception** is the step between: decode the record, resolve the codes, add what the model
-cannot know, and say plainly what is missing. `with_structured_output` gives you somewhere to put
-the result that is checkable.
+That gives you something a message list never did: a **dependency order**. `draft` cannot run
+before `check`, because it reads a field `check` creates. In a conversation that constraint lives
+in your head. In a graph it lives in the edges, and breaking it is a `KeyError` on the first run
+rather than a confident answer built on a field nobody set.
 """),
 
     md("""
-## Section 1 &mdash; Decode the opaque record
+## Section 1 &mdash; Three nodes
 
-This is what the upstream ledger actually returns. Every field is a code, an epoch, or a flag.
+`check` never looks at `REQUESTS`. It reads `days` and `balance` out of the **state**, because
+`summarise` put them there.
 """),
+
     code('''
-from pydantic import BaseModel, Field
-from typing import Literal, Optional
-
-RAW = {
-    "id": "PMT-1005",
-    "amt": 75000000,                  # minor units
-    "cur": 840,                       # ISO 4217 numeric
-    "st": 3,                          # 1 settled, 2 failed, 3 held
-    "rc": "SR",                       # abbreviated reason code
-    "vd": 1788393600,                 # value date, epoch seconds (2026-09-03)
-    "cp": "NORTHWIND",
-}
-
-CURRENCIES = {840: "USD", 978: "EUR", 826: "GBP"}
-STATUSES = {1: "settled", 2: "failed", 3: "held"}
-REASONS = {"IF": "INSUFFICIENT_FUNDS", "LB": "LIMIT_BREACH",
-           "II": "INVALID_IBAN", "SR": "SANCTIONS_REVIEW"}
+from typing_extensions import TypedDict
+from langgraph.graph import StateGraph, START, END
 
 
-class Observation(BaseModel):
-    """What the agent is actually told about one payment."""
-    ref: str
-    amount: float = Field(description="In major units, not minor")
-    currency: str = Field(description="Three-letter code, e.g. USD")
-    status: Literal["settled", "failed", "held"]
-    reason_code: Optional[str] = Field(description="Expanded reason code, or None")
-    value_date: str = Field(description="ISO date, e.g. 2026-09-03")
+class LeaveState(TypedDict):
+    request_id: str
+    days: int
+    balance: int
+    covered: bool        # created by check
+    needs_manager: bool  # created by check
+    decision: str        # created by draft
+    notes: list
 
 
-def perceive(raw: dict) -> Observation:
-    """Turn the upstream record into something a model can reason about."""
-    return Observation(
-        ref=raw["id"],
-        amount=BLANK,                 # TODO: minor units -> major units
-        currency=CURRENCIES.get(raw["cur"], f"UNKNOWN({raw['cur']})"),
-        status=STATUSES[raw["st"]],
-        reason_code=REASONS.get(raw["rc"]),
-        value_date=time.strftime("%Y-%m-%d", time.gmtime(raw["vd"])),
-    )
+def summarise(state: LeaveState) -> dict:
+    r = REQUESTS[state["request_id"]]
+    return {"days": r["days"], "balance": r["balance"],
+            "notes": state["notes"] + ["summarise"]}
+
+
+def check_request(state: LeaveState) -> dict:
+    return {"covered": state["balance"] >= state["days"],
+            "needs_manager": state["days"] > POLICY[BLANK],   # TODO: which handbook rule?
+            "notes": state["notes"] + ["check"]}
+
+
+def draft(state: LeaveState) -> dict:
+    if not state["covered"]:
+        text = "declined: not enough balance"
+    elif state["needs_manager"]:
+        text = f'pending: {state["days"]} days needs manager approval'
+    else:
+        text = "approved automatically"
+    return {"decision": text, "notes": state["notes"] + ["draft"]}
 ''', '''
-from pydantic import BaseModel, Field
-from typing import Literal, Optional
-
-RAW = {
-    "id": "PMT-1005",
-    "amt": 75000000,                  # minor units
-    "cur": 840,                       # ISO 4217 numeric
-    "st": 3,                          # 1 settled, 2 failed, 3 held
-    "rc": "SR",                       # abbreviated reason code
-    "vd": 1788393600,                 # value date, epoch seconds (2026-09-03)
-    "cp": "NORTHWIND",
-}
-
-CURRENCIES = {840: "USD", 978: "EUR", 826: "GBP"}
-STATUSES = {1: "settled", 2: "failed", 3: "held"}
-REASONS = {"IF": "INSUFFICIENT_FUNDS", "LB": "LIMIT_BREACH",
-           "II": "INVALID_IBAN", "SR": "SANCTIONS_REVIEW"}
+from typing_extensions import TypedDict
+from langgraph.graph import StateGraph, START, END
 
 
-class Observation(BaseModel):
-    """What the agent is actually told about one payment."""
-    ref: str
-    amount: float = Field(description="In major units, not minor")
-    currency: str = Field(description="Three-letter code, e.g. USD")
-    status: Literal["settled", "failed", "held"]
-    reason_code: Optional[str] = Field(description="Expanded reason code, or None")
-    value_date: str = Field(description="ISO date, e.g. 2026-09-03")
+class LeaveState(TypedDict):
+    request_id: str
+    days: int
+    balance: int
+    covered: bool        # created by check
+    needs_manager: bool  # created by check
+    decision: str        # created by draft
+    notes: list
 
 
-def perceive(raw: dict) -> Observation:
-    """Turn the upstream record into something a model can reason about."""
-    return Observation(
-        ref=raw["id"],
-        amount=raw["amt"] / 100,      # the ledger speaks in cents; the model does not
-        currency=CURRENCIES.get(raw["cur"], f"UNKNOWN({raw['cur']})"),
-        status=STATUSES[raw["st"]],
-        reason_code=REASONS.get(raw["rc"]),
-        value_date=time.strftime("%Y-%m-%d", time.gmtime(raw["vd"])),
-    )
-'''),
-    code('''
-# --- Self-check: Section 1   (pure decoding -- no model call)
-check("the amount is in major units",
-      lambda: perceive(RAW).amount == 750000.0,
-      "75000000 minor units is USD 750,000 -- a model told 75000000 will reason about the wrong number")
-check("the currency code is resolved",  lambda: perceive(RAW).currency == "USD")
-check("the status is resolved",         lambda: perceive(RAW).status == "held")
-check("the reason code is expanded",    lambda: perceive(RAW).reason_code == "SANCTIONS_REVIEW",
-      \'"SR" means nothing to a model; SANCTIONS_REVIEW appears in the policy catalogue\')
-check("the epoch is a readable date",   lambda: perceive(RAW).value_date.startswith("2026-09"))
-def _rejects_bad_status():
-    try:
-        Observation(ref="X", amount=1.0, currency="USD", status="pending",
-                    reason_code=None, value_date="2026-09-03")
-        return False
-    except Exception:
-        return True
+def summarise(state: LeaveState) -> dict:
+    r = REQUESTS[state["request_id"]]
+    return {"days": r["days"], "balance": r["balance"],
+            "notes": state["notes"] + ["summarise"]}
 
-check("an invalid status is rejected by the schema",
-      lambda: _rejects_bad_status(),
-      "Literal[...] means a decoding bug fails here, not three steps later in a policy lookup")
+
+def check_request(state: LeaveState) -> dict:
+    return {"covered": state["balance"] >= state["days"],
+            "needs_manager": state["days"] > POLICY["manager_over_days"],
+            "notes": state["notes"] + ["check"]}
+
+
+def draft(state: LeaveState) -> dict:
+    if not state["covered"]:
+        text = "declined: not enough balance"
+    elif state["needs_manager"]:
+        text = f'pending: {state["days"]} days needs manager approval'
+    else:
+        text = "approved automatically"
+    return {"decision": text, "notes": state["notes"] + ["draft"]}
 '''),
 
-    md("""
-## Section 2 &mdash; The four kinds of nothing
-
-An empty result is not one thing. "No such payment", "no permission to see it", "the upstream is
-down" and "it exists and has no reason code" all arrive as something falsy, and they require four
-different responses. Collapsing them is how an agent confidently reports that a payment does not
-exist when it simply could not read it.
-"""),
     code('''
-def describe_empty(result: dict) -> str:
-    """Say which kind of nothing this is."""
-    if result.get("error") == "not_found":
-        return "no such payment exists"
-    if result.get("error") == "forbidden":
-        return BLANK                  # TODO: the agent must NOT conclude the payment is absent
-    if result.get("error") in ("timeout", "unavailable"):
-        return "could not read the ledger; state unknown"
-    if result.get("record") is not None and not result["record"].get("rc"):
-        return "the payment exists and has no reason code"
-    return "unrecognised result shape"
-''', '''
-def describe_empty(result: dict) -> str:
-    """Say which kind of nothing this is."""
-    if result.get("error") == "not_found":
-        return "no such payment exists"
-    if result.get("error") == "forbidden":
-        return "not permitted to read this payment; existence unknown"
-    if result.get("error") in ("timeout", "unavailable"):
-        return "could not read the ledger; state unknown"
-    if result.get("record") is not None and not result["record"].get("rc"):
-        return "the payment exists and has no reason code"
-    return "unrecognised result shape"
-'''),
-    code('''
-# --- Self-check: Section 2
-check("a missing record says so",
-      lambda: "no such payment" in describe_empty({"error": "not_found"}))
-check("a permission failure does NOT claim the payment is missing",
-      lambda: "no such payment" not in describe_empty({"error": "forbidden"}),
-      "this is the dangerous one: 'I cannot see it' is not 'it is not there'")
-check("a permission failure says existence is unknown",
-      lambda: "unknown" in describe_empty({"error": "forbidden"}).lower())
-check("an outage says state unknown",
-      lambda: "unknown" in describe_empty({"error": "timeout"}).lower())
-check("a real record with no reason code is not an error",
-      lambda: "exists" in describe_empty({"record": {"id": "PMT-1001"}}))
-check("all four kinds give different answers",
-      lambda: len({describe_empty({"error": e}) for e in
-                   ("not_found", "forbidden", "timeout")}) == 3)
-'''),
-
-    md("""
-## Section 3 &mdash; Stamp in what the agent cannot see
-
-The model has no clock, no idea who is asking, and no memory of where a fact came from. If those
-matter to the decision &mdash; and here they do &mdash; they have to be in the observation.
-"""),
-    code('''
-NOW = 1788393600 + 7200               # pretend "now" is two hours after the value date
-
-class Context(BaseModel):
-    """Everything true of the situation rather than of the payment."""
-    observed_at: str = Field(description="ISO timestamp when this was read")
-    hours_since_value_date: float
-    source: str = Field(description="Which system this came from, for provenance")
-    caller_may_release: bool = Field(description="Whether the human asking has release authority")
-
-
-def contextualise(obs: Observation, raw: dict, caller_role: str) -> Context:
-    return Context(
-        observed_at=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(NOW)),
-        hours_since_value_date=round((NOW - raw["vd"]) / 3600, 1),
-        source="ledger-core",
-        caller_may_release=BLANK,     # TODO: which roles may release? see NEEDS_HUMAN and the policy
-    )
-''', '''
-NOW = 1788393600 + 7200               # pretend "now" is two hours after the value date
-
-class Context(BaseModel):
-    """Everything true of the situation rather than of the payment."""
-    observed_at: str = Field(description="ISO timestamp when this was read")
-    hours_since_value_date: float
-    source: str = Field(description="Which system this came from, for provenance")
-    caller_may_release: bool = Field(description="Whether the human asking has release authority")
-
-
-def contextualise(obs: Observation, raw: dict, caller_role: str) -> Context:
-    return Context(
-        observed_at=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(NOW)),
-        hours_since_value_date=round((NOW - raw["vd"]) / 3600, 1),
-        source="ledger-core",
-        # Operations may release ordinary holds but never one policy reserves for a human
-        # decision -- a sanctions review is Compliance's call whoever is asking.
-        caller_may_release=(caller_role == "compliance"
-                            or (caller_role == "operations"
-                                and obs.reason_code not in NEEDS_HUMAN)),
-    )
-'''),
-    code('''
-# --- Self-check: Section 3
-# built lazily: perceive() may still contain a blank, and a module-level call would
-# crash this cell instead of reporting [TODO]
-_obs   = lambda: perceive(RAW)                       # PMT-1005, SANCTIONS_REVIEW
-_clean = lambda: perceive({**RAW, "rc": "IF"})       # same payment, an ordinary failure
-
-check("the observation is stamped with a time",
-      lambda: contextualise(_obs(), RAW, "operations").observed_at.startswith("2026-"))
-check("elapsed time is computed, not left to the model",
-      lambda: contextualise(_obs(), RAW, "operations").hours_since_value_date == 2.0,
-      "a model asked to subtract two epochs will sometimes get it wrong; do it in Python")
-check("operations may NOT release a sanctions hold",
-      lambda: contextualise(_obs(), RAW, "operations").caller_may_release is False,
-      "policy reserves this decision for Compliance -- authority is context, not preference")
-check("operations MAY release an ordinary failure",
-      lambda: contextualise(_clean(), RAW, "operations").caller_may_release is True)
-check("compliance may release a sanctions hold",
-      lambda: contextualise(_obs(), RAW, "compliance").caller_may_release is True)
-check("an unknown role gets no authority",
-      lambda: contextualise(_clean(), RAW, "intern").caller_may_release is False,
-      "default deny -- an unrecognised role is not a permitted one")
-'''),
-
-    md("""
-## Run it for real
-
-The same model, the same underlying payment, asked the same question. Once from the raw record,
-once from the observation and its context.
-"""),
-    code('''
-if llm_ready():
-    def _compare():
-        question = ("Who must action this payment, and may the operations desk release it? "
-                    "Answer in two lines.")
-        obs = perceive(RAW)
-        ctx = contextualise(obs, RAW, "operations")
-        policy = POLICY.get(obs.reason_code, "no policy applies")
-
-        print("=== given the RAW record ===")
-        print(ask(f"RECORD: {json.dumps(RAW)}\\n\\n{question}")[:400])
-
-        print("\\n=== given the OBSERVATION and its context ===")
-        print(ask(f"OBSERVATION: {obs.model_dump_json()}\\n"
-                  f"CONTEXT: {ctx.model_dump_json()}\\n"
-                  f"POLICY: {policy}\\n\\n{question}")[:400])
-    guard(_compare)
-'''),
-    md("""
-### Read it
-
-The raw answer is the interesting one. The model has to guess that `st: 3` means held, that `rc`
-is a reason code at all, that `amt` is in cents, and that `cur: 840` is dollars. Most of the time
-it will guess several of those correctly and state the rest with complete confidence &mdash; which is
-exactly the failure you cannot detect downstream, because nothing looks wrong.
-
-The second answer is not smarter. It is the same model, given the same facts, in a form it does
-not have to decode. Note in particular that `caller_may_release` was decided by **your code**,
-against the policy, before the model saw anything. Asking a model to work out who is authorised
-is asking it to make a control decision; computing it in `contextualise` and telling it the answer
-is not.
-
-That is the general rule this lab is for: **anything you can determine in Python, determine in
-Python.** Leave the model the part that actually needs judgement.
-"""),
-
-    code('''
+# --- Self-check: Section 1   (the middle node on its own)
+check("2 days does not need a manager, 3 days does",
+      lambda: check_request({"days": 2, "balance": 9, "notes": []})["needs_manager"] is False
+          and check_request({"days": 3, "balance": 9, "notes": []})["needs_manager"] is True,
+      "POLICY['manager_over_days'] is 2, and the comparison is strictly greater than")
+check("a 5-day request against a 3-day balance is not covered",
+      lambda: check_request({"days": 5, "balance": 3, "notes": []})["covered"] is False)
 score()
 '''),
-    md("""
-## Your turn
-
-1. Add `cur: 392` (JPY) to `CURRENCIES` &mdash; but the yen has no minor units, so `amt` is already
-   in major units. Where does that belong: in `perceive`, in the schema, or in the tool that
-   produced the record? Defend your answer.
-2. Feed `describe_empty` into the run-it-for-real cell: ask the model what to do when the ledger
-   returns `{"error": "forbidden"}`, once with the raw error and once with your description. Watch
-   how often the raw version concludes the payment does not exist.
-3. `Observation` has no field for what is **missing**. Add `unknown: list[str]` and populate it
-   when a code fails to resolve. An agent that can say "I do not know the currency" is worth more
-   than one that quietly says `UNKNOWN(392)`.
-"""),
-]
-
-
-# =========================================================================== #
-# Lab 3.3 -- build a real StateGraph
-# =========================================================================== #
-GRAPH_TOOLS = '''
-# ------------------------------------------------- the case tools, carried through 3.3 - 3.5
-def read_ledger_record(ref: str) -> dict:
-    rec = LEDGER.get(ref)
-    return {"ref": ref, **rec} if rec else {"ref": ref, "error": "not_found"}
-
-def read_policy_text(reason_code: str | None) -> str:
-    return POLICY.get(reason_code, "no policy applies")
-
-print("case helpers loaded")
-'''
-
-LAB3 = [
-    header(3, "Build a Real StateGraph", "Advanced", 45,
-           ["Declare state as a <code>TypedDict</code> with <code>Annotated</code> reducers",
-            "Write nodes that return <i>partial</i> state, and let the reducers merge it",
-            "Wire edges, a conditional edge and a cycle, then <code>compile()</code>",
-            "Watch it run with <code>stream()</code>, one node at a time"],
-           "> **Builds on Lab 3.1.** A checkpointer gave you memory. A graph gives you a state you\n"
-           "> can declare, inspect and reason about &mdash; which is what Modules 5 and 9 build on."),
-    setup(3),
-    code(DOMAIN),
-    code(GRAPH_TOOLS),
 
     md("""
-## Concept
+## Section 2 &mdash; The edges that impose the order
 
-`create_agent` is one fixed loop: model, tools, repeat. When the control flow is yours &mdash; branch
-here, loop there, stop for a human &mdash; you need the graph underneath it.
-
-A LangGraph `StateGraph` has three parts and no more:
-
-| Part | What it is |
-|---|---|
-| **state** | a `TypedDict`; each field may carry a **reducer** saying how updates merge |
-| **nodes** | plain functions `state -> partial state` |
-| **edges** | fixed (`add_edge`) or chosen at runtime (`add_conditional_edges`) |
-
-Then `compile()` gives you a runnable with the same `.invoke()` / `.stream()` interface as
-everything else you have built today.
-
-The part people get wrong is the reducer, so start there.
+`draft` reads `covered` and `needs_manager` &mdash; fields that **do not exist** until `check` has
+run. The edges are what guarantee they are there.
 """),
 
-    md("""
-## Section 1 &mdash; State, and how updates merge
-
-By default a node's return value **overwrites** the field. That is right for `answer` and wrong
-for `findings` &mdash; you want those to accumulate. `Annotated[list, add]` says "append, do not
-replace".
-"""),
     code('''
-from typing import Annotated
-from typing_extensions import TypedDict
-from operator import add
-from langgraph.graph import StateGraph, START, END
+def build_chain():
+    builder = StateGraph(LeaveState)
+    builder.add_node("summarise", summarise)
+    builder.add_node("check", check_request)
+    builder.add_node("draft", draft)
 
-def accumulate(old: list, new: list) -> list:
-    """The reducer for `findings`: how one node's update merges with what is already there."""
-    return BLANK                                # TODO: combine them so BOTH nodes' findings survive
-
-
-class CaseState(TypedDict):
-    ref: str                                    # set once, overwritten if a node returns it
-    findings: Annotated[list, accumulate]       # merged by your reducer, not replaced
-    steps: int
-    needs_human: bool
-    answer: str | None
+    builder.add_edge(START, "summarise")
+    builder.add_edge("summarise", BLANK)   # TODO: which node must run second, and why?
+    builder.add_edge(BLANK, "draft")       # TODO: what must be finished before this one?
+    builder.add_edge("draft", END)
+    return builder.compile()
 ''', '''
-from typing import Annotated
-from typing_extensions import TypedDict
-from operator import add
-from langgraph.graph import StateGraph, START, END
+def build_chain():
+    builder = StateGraph(LeaveState)
+    builder.add_node("summarise", summarise)
+    builder.add_node("check", check_request)
+    builder.add_node("draft", draft)
 
-def accumulate(old: list, new: list) -> list:
-    """The reducer for `findings`: how one node's update merges with what is already there."""
-    return old + new                            # `operator.add` is exactly this, and is the idiom
-
-
-class CaseState(TypedDict):
-    ref: str                                    # set once, overwritten if a node returns it
-    findings: Annotated[list, accumulate]       # merged by your reducer, not replaced
-    steps: int
-    needs_human: bool
-    answer: str | None
-'''),
-    code('''
-# --- Self-check: Section 1   (the reducer, exercised through a real one-node graph -- no model)
-def _reducer_of(field):
-    """The reducer LangGraph will use for one field of CaseState."""
-    from typing import get_type_hints
-    hints = get_type_hints(CaseState, include_extras=True)
-    meta = getattr(hints[field], "__metadata__", ())
-    return meta[0] if meta else None
-
-def _two_appends():
-    """Two nodes, each returning one finding. Does the state end up with both?"""
-    g = StateGraph(CaseState)
-    g.add_node("a", lambda s: {"findings": ["from a"], "steps": 1})
-    g.add_node("b", lambda s: {"findings": ["from b"], "steps": 2})
-    g.add_edge(START, "a"); g.add_edge("a", "b"); g.add_edge("b", END)
-    return g.compile().invoke({"ref": "PMT-1005", "findings": [], "steps": 0,
-                               "needs_human": False, "answer": None})
-
-check("findings declares a reducer",
-      lambda: _reducer_of("findings") is not None,
-      "without one, the second node's findings replace the first node's")
-check("the reducer merges two updates instead of replacing",
-      lambda: accumulate(["a"], ["b"]) == ["a", "b"],
-      "returning just `new` is the bug this whole section exists to prevent")
-check("two nodes' findings both survive",
-      lambda: _two_appends()["findings"] == ["from a", "from b"],
-      "this is what the reducer is FOR -- run it and see")
-check("a field with no reducer is overwritten",
-      lambda: _two_appends()["steps"] == 2,
-      "steps has no reducer, so the last write wins -- that is the default, and it is fine here")
-check("the untouched fields are still there",
-      lambda: _two_appends()["ref"] == "PMT-1005")
+    builder.add_edge(START, "summarise")
+    builder.add_edge("summarise", "check")   # covered / needs_manager are created here
+    builder.add_edge("check", "draft")       # ...and read here
+    builder.add_edge("draft", END)
+    return builder.compile()
 '''),
 
-    md("""
-## Section 2 &mdash; Nodes return partial state
-
-A node receives the whole state and returns **only the keys it changed**. LangGraph merges the
-rest for you, using the reducers from Section 1. Returning the whole state is the other common
-beginner mistake: it works, until two nodes run and one silently undoes the other.
-"""),
     code('''
-def read_ledger(state: CaseState) -> dict:
-    """Look the payment up and record what we found."""
-    rec = read_ledger_record(state["ref"])
-    return {"findings": [f"ledger: status={rec.get('status')} rc={rec.get('reason_code')}"],
-            "steps": state["steps"] + 1,
-            "needs_human": rec.get("reason_code") in NEEDS_HUMAN}
+# --- Self-check: Section 2   (three real nodes in a real compiled graph)
+def run(rid):
+    return build_chain().invoke({"request_id": rid, "notes": []})
 
-
-def read_policy(state: CaseState) -> dict:
-    """Look up the policy for whatever reason code the ledger gave us."""
-    rec = read_ledger_record(state["ref"])
-    return {"findings": [f"policy: {read_policy_text(rec.get('reason_code'))}"],
-            "steps": state["steps"] + 1}
-
-
-def write_note(state: CaseState) -> dict:
-    """Compose the answer from what is in state -- and nothing else."""
-    who = "a human must decide" if state["needs_human"] else "operations may act"
-    return {"answer": BLANK}          # TODO: an answer built from the findings and `who`
-''', '''
-def read_ledger(state: CaseState) -> dict:
-    """Look the payment up and record what we found."""
-    rec = read_ledger_record(state["ref"])
-    return {"findings": [f"ledger: status={rec.get('status')} rc={rec.get('reason_code')}"],
-            "steps": state["steps"] + 1,
-            "needs_human": rec.get("reason_code") in NEEDS_HUMAN}
-
-
-def read_policy(state: CaseState) -> dict:
-    """Look up the policy for whatever reason code the ledger gave us."""
-    rec = read_ledger_record(state["ref"])
-    return {"findings": [f"policy: {read_policy_text(rec.get('reason_code'))}"],
-            "steps": state["steps"] + 1}
-
-
-def write_note(state: CaseState) -> dict:
-    """Compose the answer from what is in state -- and nothing else."""
-    who = "a human must decide" if state["needs_human"] else "operations may act"
-    return {"answer": f"{state['ref']}: {who}. " + " | ".join(state["findings"])}
-'''),
-    code('''
-# --- Self-check: Section 2   (nodes are plain functions -- call them directly, no model)
-_s = {"ref": "PMT-1005", "findings": [], "steps": 0, "needs_human": False, "answer": None}
-
-check("a node returns only what it changed",
-      lambda: set(read_ledger(_s)) == {"findings", "steps", "needs_human"},
-      "returning the whole state is how one node silently undoes another")
-check("the ledger node finds the reason code",
-      lambda: "SANCTIONS_REVIEW" in read_ledger(_s)["findings"][0])
-check("it sets needs_human for a sanctions hold",
-      lambda: read_ledger(_s)["needs_human"] is True)
-check("...and not for an ordinary failure",
-      lambda: read_ledger({**_s, "ref": "PMT-1002"})["needs_human"] is False)
-check("the policy node returns the policy text",
-      lambda: "Compliance" in read_policy(_s)["findings"][0])
-check("write_note uses the findings it was given",
-      lambda: "ledger:" in write_note({**_s, "findings": ["ledger: x"], "needs_human": True})["answer"])
-check("write_note says who decides",
-      lambda: "human" in write_note({**_s, "findings": ["x"], "needs_human": True})["answer"])
-'''),
-
-    md("""
-## Section 3 &mdash; Edges, a condition, and a cycle
-
-`add_edge(a, b)` always goes to `b`. `add_conditional_edges(a, fn, mapping)` calls `fn(state)` and
-goes wherever it says. A cycle is just an edge that points backwards &mdash; which is why the step
-budget is not optional.
-"""),
-    code('''
-MAX_STEPS = 6
-
-def enough(state: CaseState) -> str:
-    """Have we gathered enough to answer? Returns the KEY of the next branch."""
-    if state["steps"] >= MAX_STEPS:
-        return "write_note"
-    return "write_note" if len(state["findings"]) >= 2 else "read_ledger"
-
-
-def build_graph():
-    g = StateGraph(CaseState)
-    g.add_node("read_ledger", read_ledger)
-    g.add_node("read_policy", read_policy)
-    g.add_node("write_note", write_note)
-
-    g.add_edge(START, "read_ledger")
-    g.add_edge("read_ledger", "read_policy")
-    g.add_conditional_edges("read_policy", enough,
-                            {"write_note": "write_note",
-                             "read_ledger": BLANK})     # TODO: where does "not enough yet" go?
-    g.add_edge("write_note", END)
-    return g.compile()
-
-
-def fresh(ref: str) -> dict:
-    return {"ref": ref, "findings": [], "steps": 0, "needs_human": False, "answer": None}
-''', '''
-MAX_STEPS = 6
-
-def enough(state: CaseState) -> str:
-    """Have we gathered enough to answer? Returns the KEY of the next branch."""
-    if state["steps"] >= MAX_STEPS:
-        return "write_note"
-    return "write_note" if len(state["findings"]) >= 2 else "read_ledger"
-
-
-def build_graph():
-    g = StateGraph(CaseState)
-    g.add_node("read_ledger", read_ledger)
-    g.add_node("read_policy", read_policy)
-    g.add_node("write_note", write_note)
-
-    g.add_edge(START, "read_ledger")
-    g.add_edge("read_ledger", "read_policy")
-    g.add_conditional_edges("read_policy", enough,
-                            {"write_note": "write_note",
-                             "read_ledger": "read_ledger"})   # the backward edge -- the cycle
-    g.add_edge("write_note", END)
-    return g.compile()
-
-
-def fresh(ref: str) -> dict:
-    return {"ref": ref, "findings": [], "steps": 0, "needs_human": False, "answer": None}
-'''),
-    code('''
-# --- Self-check: Section 3   (a REAL compiled graph, running -- still no model)
-def _run(ref="PMT-1005"):
-    return build_graph().invoke(fresh(ref))
-
-check("the graph compiles",              lambda: build_graph() is not None)
-check("it runs to an answer",            lambda: _run()["answer"] is not None)
-check("both nodes contributed findings", lambda: len(_run()["findings"]) >= 2)
-check("the reducer accumulated them",    lambda: any("ledger:" in f for f in _run()["findings"])
-                                                 and any("policy:" in f for f in _run()["findings"]))
-check("the sanctions case needs a human",
-      lambda: _run("PMT-1005")["needs_human"] is True)
-check("an ordinary failure does not",
-      lambda: _run("PMT-1002")["needs_human"] is False)
-check("the cycle terminates",            lambda: _run()["steps"] <= MAX_STEPS,
-      "a backward edge with no budget is an infinite loop, and the graph will happily run it")
-check("the conditional edge can actually loop",
-      lambda: enough({"steps": 0, "findings": []}) == "read_ledger",
-      "if both branches go forward you have written a straight line, not a cycle")
+check("all three nodes ran, in dependency order",
+      lambda: run("LV-5001")["notes"] == ["summarise", "check", "draft"],
+      "notes is the run order -- a missing node means a missing edge")
+check("LV-5003 declined, LV-5005 auto-approved, LV-5004 pending",
+      lambda: (run("LV-5003")["decision"].startswith("declined")
+               and run("LV-5005")["decision"] == "approved automatically"
+               and run("LV-5004")["decision"].startswith("pending")))
+score()
 '''),
 
     md("""
 ## Watch it run
 
-`stream()` yields one entry per node as it completes, which is the cheapest debugger you will
-ever have for a graph.
+`stream()` gives you the run a node at a time instead of only the final state &mdash; the view you
+want when a workflow does something you did not expect.
 """),
+
     code('''
-def _trace():
-    for chunk in build_graph().stream(fresh("PMT-1005")):
-        for node, update in chunk.items():
-            print(f"  {node:14} -> {list(update)}")
-    print("\\nfinal answer:")
-    print("  " + str(build_graph().invoke(fresh("PMT-1005"))["answer"])[:300])
-guard(_trace)
+app = guard(build_chain)
+
+if app is not None:
+    for rid in ["LV-5001", "LV-5003", "LV-5004"]:
+        print(f"\\n=== {rid} ===")
+        for step in app.stream({"request_id": rid, "notes": []}):
+            for node, update in step.items():
+                print(f"  {node:10} wrote: {', '.join(k for k in update if k != 'notes')}")
 '''),
 
-    md("""
-## Run it for real &mdash; put the model in a node
-
-Nothing so far needed a model, which is the point: **the graph is deterministic scaffolding, and
-you can test all of it offline.** Now add one node that does need one. Note that it reads only
-from state, and returns only a partial update &mdash; exactly like the others.
-"""),
-    code('''
-if llm_ready():
-    def _with_model():
-        def draft_note(state: CaseState) -> dict:
-            who = "a human must decide" if state["needs_human"] else "operations may act"
-            text = ask("Write one line telling the operations desk what happens next. "
-                       "Use only these facts; do not add any.\\n"
-                       f"CASE: {state['ref']}\\nAUTHORITY: {who}\\n"
-                       f"FINDINGS: {state['findings']}")
-            return {"answer": text.strip()}
-
-        g = StateGraph(CaseState)
-        g.add_node("read_ledger", read_ledger)
-        g.add_node("read_policy", read_policy)
-        g.add_node("draft_note", draft_note)
-        g.add_edge(START, "read_ledger")
-        g.add_edge("read_ledger", "read_policy")
-        g.add_conditional_edges("read_policy", lambda s: "draft_note" if len(s["findings"]) >= 2
-                                else "read_ledger",
-                                {"draft_note": "draft_note", "read_ledger": "read_ledger"})
-        g.add_edge("draft_note", END)
-
-        app = g.compile()
-        for ref in ("PMT-1005", "PMT-1002"):
-            out = app.invoke(fresh(ref))
-            print(f"{ref}: needs_human={out['needs_human']}")
-            print(f"          {out['answer'][:200]}\\n")
-    guard(_with_model)
-'''),
     md("""
 ### Read it
 
-Three things worth taking away.
-
-1. **The graph is testable without a model.** Every self-check in this lab ran a real compiled
-   `StateGraph` and asserted on real merged state, offline and deterministically. That is not a
-   trick of the lab &mdash; it is how you should test agent control flow generally. Put the model in
-   one node, and everything around it stays ordinary software.
-2. **The reducer is the design.** `findings` accumulates because you said so; `steps` overwrites
-   because you did not. Get that wrong and the bug looks like "the second agent lost the first
-   agent's work", which is Lab 3.5's subject.
-3. **The cycle needs the budget.** `enough` checks `MAX_STEPS` before it checks anything else. A
-   backward edge with no ceiling is an infinite loop that LangGraph will run for you, cheerfully,
-   until something else stops it.
+`summarise` produced `days` and `balance`; `check` consumed them and produced `covered` and
+`needs_manager`; `draft` consumed those. The state is a pipeline and every arrow in it is one
+`add_edge` line &mdash; which is why swapping two edges gives you `KeyError: 'covered'` on the
+first run rather than a plausible answer later.
 """),
 
     code('''
 score()
 '''),
+
     md("""
 ## Your turn
 
-1. Add a `needs_escalation` node that runs only when `needs_human` is true, and route to it with
-   a second conditional edge. Confirm PMT-1002 never enters it.
-2. Give `steps` the reducer `add` instead of leaving it to overwrite, and change the nodes to
-   return `{"steps": 1}`. Which do you prefer, and what happens if two nodes ever run in
-   parallel?
-3. `read_policy` calls `read_ledger_record` again, because the reason code was never put in state.
-   Add a `reason_code` field, set it in `read_ledger`, and read it in `read_policy`. That is the
-   difference between passing state and re-fetching it &mdash; and it is exactly what Module 5's
-   multi-agent graphs depend on.
+1. Wire `summarise -> draft -> check` deliberately and run it. That crash is the design working.
+2. `LV-5002` has an empty `reason`. Add a `validate` node at the front writing `complete: bool`,
+   and have `draft` refuse when it is false. You have just invented Lab 3.5's loop.
 """),
 ]
 
 
 # =========================================================================== #
-# Lab 3.4 -- checkpointing: resume, approve, rewind, audit
+# Lab 3.3 -- conditional routing
 # =========================================================================== #
-CARRY_GRAPH = '''
-# ------------------------------------------------- carried forward from Lab 3.3
+LAB3 = [
+    header(3, "Conditional Routing", "Intermediate", 25,
+           ["Write a routing function &mdash; state in, the name of the next node out",
+            "Attach it with <code>add_conditional_edges</code> and a branch map",
+            "Send three requests down three paths through one graph"],
+           THREAD_NOTE),
+    setup(3),
+    code(DOMAIN),
+
+    md("""
+## Concept
+
+Every edge so far was unconditional: after A, always B. A **conditional edge** asks first.
+
+```python
+builder.add_conditional_edges("check", route, {"auto": "approve", "no": "decline"})
+```
+
+Three arguments: the node the decision happens **after**, a routing function, and a **branch map**
+from the strings the router returns to the nodes they mean.
+
+Two things to get right from the start:
+
+- The router **reads state and returns a string**. It does no work, calls no model, changes
+  nothing. Keep it that way and your routing stays unit-testable.
+- It hangs off **the node that produced the facts it reads**. Attach it earlier and it decides on
+  fields that do not exist yet.
+
+Module 5's supervisor is this function with a model choosing the string. You are writing one now.
+"""),
+
+    md("""
+## Section 1 &mdash; The router
+
+The `if`/`elif` is written for you. The decision is which branch each situation belongs to &mdash;
+and the order, because someone with no balance left should be declined *whether or not* the
+request is long enough to need a manager.
+"""),
+
+    code('''
+from typing_extensions import TypedDict
+from langgraph.graph import StateGraph, START, END
+
+
+class LeaveState(TypedDict):
+    request_id: str
+    days: int
+    balance: int
+    covered: bool
+    needs_manager: bool
+    decision: str
+    notes: list
+
+
+def route(state: LeaveState) -> str:
+    """Which node runs next? Returns a branch name and nothing else."""
+    if not state["covered"]:
+        return BLANK       # TODO: no balance to cover it -- which branch?
+    if state["needs_manager"]:
+        return BLANK       # TODO: covered, but too long to decide alone -- which branch?
+    return "auto"
+''', '''
+from typing_extensions import TypedDict
+from langgraph.graph import StateGraph, START, END
+
+
+class LeaveState(TypedDict):
+    request_id: str
+    days: int
+    balance: int
+    covered: bool
+    needs_manager: bool
+    decision: str
+    notes: list
+
+
+def route(state: LeaveState) -> str:
+    """Which node runs next? Returns a branch name and nothing else."""
+    if not state["covered"]:
+        return "decline"   # checked first: no balance beats every other consideration
+    if state["needs_manager"]:
+        return "manager"
+    return "auto"
+'''),
+
+    code('''
+# --- Self-check: Section 1   (a pure function, so this is four dicts)
+check("no balance -> decline, whatever else is true",
+      lambda: route({"covered": False, "needs_manager": False}) == "decline"
+          and route({"covered": False, "needs_manager": True}) == "decline",
+      "there is nothing for a manager to approve if the balance is not there")
+check("covered and long -> manager; covered and short -> auto",
+      lambda: route({"covered": True, "needs_manager": True}) == "manager"
+          and route({"covered": True, "needs_manager": False}) == "auto")
+score()
+'''),
+
+    md("""
+## Section 2 &mdash; Attaching it
+
+The branch map is why the router can return a short name like `"auto"` without knowing what the
+node is called &mdash; routing logic and graph layout stay separable.
+"""),
+
+    code('''
+def summarise(state):
+    r = REQUESTS[state["request_id"]]
+    return {"days": r["days"], "balance": r["balance"], "notes": state["notes"] + ["summarise"]}
+
+def check_request(state):
+    return {"covered": state["balance"] >= state["days"],
+            "needs_manager": state["days"] > POLICY["manager_over_days"],
+            "notes": state["notes"] + ["check"]}
+
+def approve(state):  return {"decision": "approved automatically",  "notes": state["notes"] + ["approve"]}
+def to_manager(s):   return {"decision": f'queued for {REQUESTS[s["request_id"]]["manager"]}',
+                             "notes": s["notes"] + ["to_manager"]}
+def decline(state):  return {"decision": "declined: not enough balance", "notes": state["notes"] + ["decline"]}
+
+
+def build_router_graph():
+    builder = StateGraph(LeaveState)
+    for name, fn in [("summarise", summarise), ("check", check_request), ("approve", approve),
+                     ("to_manager", to_manager), ("decline", decline)]:
+        builder.add_node(name, fn)
+
+    builder.add_edge(START, "summarise")
+    builder.add_edge("summarise", "check")
+
+    builder.add_conditional_edges(
+        BLANK,                                   # TODO: after WHICH node is the decision made?
+        route,
+        {"auto": "approve", "manager": "to_manager", "decline": "decline"},
+    )
+
+    for name in ["approve", "to_manager", "decline"]:
+        builder.add_edge(name, END)
+    return builder.compile()
+''', '''
+def summarise(state):
+    r = REQUESTS[state["request_id"]]
+    return {"days": r["days"], "balance": r["balance"], "notes": state["notes"] + ["summarise"]}
+
+def check_request(state):
+    return {"covered": state["balance"] >= state["days"],
+            "needs_manager": state["days"] > POLICY["manager_over_days"],
+            "notes": state["notes"] + ["check"]}
+
+def approve(state):  return {"decision": "approved automatically",  "notes": state["notes"] + ["approve"]}
+def to_manager(s):   return {"decision": f'queued for {REQUESTS[s["request_id"]]["manager"]}',
+                             "notes": s["notes"] + ["to_manager"]}
+def decline(state):  return {"decision": "declined: not enough balance", "notes": state["notes"] + ["decline"]}
+
+
+def build_router_graph():
+    builder = StateGraph(LeaveState)
+    for name, fn in [("summarise", summarise), ("check", check_request), ("approve", approve),
+                     ("to_manager", to_manager), ("decline", decline)]:
+        builder.add_node(name, fn)
+
+    builder.add_edge(START, "summarise")
+    builder.add_edge("summarise", "check")
+
+    builder.add_conditional_edges(
+        "check",                                 # covered / needs_manager are written here
+        route,
+        {"auto": "approve", "manager": "to_manager", "decline": "decline"},
+    )
+
+    for name in ["approve", "to_manager", "decline"]:
+        builder.add_edge(name, END)
+    return builder.compile()
+'''),
+
+    code('''
+# --- Self-check: Section 2   (one real graph, three real paths, no model)
+def run(rid):
+    return build_router_graph().invoke({"request_id": rid, "notes": []})
+
+check("three requests take three different branches",
+      lambda: (run("LV-5005")["notes"][-1], run("LV-5004")["notes"][-1],
+               run("LV-5003")["notes"][-1]) == ("approve", "to_manager", "decline"))
+check("only ONE branch runs per request",
+      lambda: len({"approve", "to_manager", "decline"} & set(run("LV-5004")["notes"])) == 1,
+      "a conditional edge chooses one target; it does not run them all")
+score()
+'''),
+
+    md("""
+## Watch it run
+"""),
+
+    code('''
+app = guard(build_router_graph)
+
+if app is not None:
+    print(f"{'request':10}{'days':>5}{'bal':>5}   {'path':38} decision")
+    print("-" * 100)
+    for rid in sorted(REQUESTS):
+        out = app.invoke({"request_id": rid, "notes": []})
+        print(f"{rid:10}{out['days']:5}{out['balance']:5}   "
+              f"{' -> '.join(out['notes']):38} {out['decision']}")
+'''),
+
+    md("""
+### Read it
+
+Every row went through `summarise` and `check`, then diverged. That divergence is the first thing
+in this module you could not have written as a chain.
+
+The router stayed a pure function, which is why the hardest logic in the workflow is also the
+cheapest thing to test &mdash; four dicts, no graph.
+"""),
+
+    code('''
+score()
+'''),
+
+    md("""
+## Your turn
+
+1. `POLICY["hr_over_days"]` is 10 and nothing uses it. Add an `hr_queue` node and a fourth branch.
+   Notice you change the router and the map, and touch no existing node.
+2. Make `route` return a name that is not in the branch map and read the error. That is the
+   failure mode of an LLM-routed supervisor in Module 5, met under controlled conditions.
+"""),
+]
+
+
+# =========================================================================== #
+# Lab 3.4 -- state reducers
+# =========================================================================== #
+LAB4 = [
+    header(4, "State Reducers", "Intermediate &rarr; Advanced", 25,
+           ["Declare <i>how</i> a field combines, once, instead of hand-merging in every node",
+            "Decide which fields need a reducer and which should simply be replaced",
+            "Run two nodes in the same step and see what happens without one"],
+           THREAD_NOTE),
+    setup(4),
+    code(DOMAIN),
+
+    md("""
+## Concept
+
+Look at what every node has been doing:
+
+```python
+return {"notes": state["notes"] + ["check"]}
+```
+
+Read, append, write the whole thing back. It works, and it puts the merge rule in every node.
+A **reducer** moves it into the schema, once:
+
+```python
+notes: Annotated[list, add]     # nodes return only their own line; LangGraph appends
+```
+
+The default, if you say nothing, is **replace**: last write wins. Right for `decision`, a bug for
+`notes` &mdash; and not a matter of taste at all once two nodes run in the same step.
+"""),
+
+    md("""
+## Section 1 &mdash; Which fields need one
+
+A reducer on every field is as wrong as a reducer on none.
+"""),
+
+    code('''
+from typing import Annotated
+from typing_extensions import TypedDict
+from langgraph.graph import StateGraph, START, END
+
+
+def merge_approvers(old: list, new: list) -> list:
+    """Two nodes may independently name the same approver."""
+    keep_all  = old + new
+    keep_once = old + [a for a in new if a not in old]
+    return BLANK        # TODO: which is right for a list of people who must sign off?
+
+
+def needs_a_reducer() -> set:
+    """Which of these combine across nodes, rather than being replaced?"""
+    # "notes"     -- every node adds its own line
+    # "approvers" -- different nodes may each require a sign-off
+    # "decision"  -- one sentence; whoever writes last is the answer
+    # "days"      -- written once and never again
+    return BLANK        # TODO: a set of the field names that need one
+''', '''
+from typing import Annotated
+from typing_extensions import TypedDict
+from langgraph.graph import StateGraph, START, END
+
+
+def merge_approvers(old: list, new: list) -> list:
+    """Two nodes may independently name the same approver."""
+    keep_all  = old + new
+    keep_once = old + [a for a in new if a not in old]
+    return keep_once    # each approver once, in the order first required
+
+
+def needs_a_reducer() -> set:
+    """Which of these combine across nodes, rather than being replaced?"""
+    # "notes"     -- every node adds its own line
+    # "approvers" -- different nodes may each require a sign-off
+    # "decision"  -- one sentence; whoever writes last is the answer
+    # "days"      -- written once and never again
+    return {"notes", "approvers"}
+'''),
+
+    code('''
+# --- Self-check: Section 1
+check("merge_approvers does not record the same person twice",
+      lambda: merge_approvers(["Devi R."], ["HR", "Devi R."]) == ["Devi R.", "HR"])
+check("notes and approvers accumulate; decision and days do not",
+      lambda: needs_a_reducer() == {"notes", "approvers"},
+      "appending decisions would leave you holding every answer the graph considered")
+score()
+'''),
+
+    md("""
+## Section 2 &mdash; Two nodes at the same time
+
+Both `check_balance` and `check_calendar` have an edge from `summarise`, so LangGraph runs them
+**in one step**. Both write `notes` and `approvers`.
+
+Notice how much simpler the nodes got: they return their own line, and nothing reads
+`state["notes"]` any more.
+"""),
+
+    code('''
+from operator import add
+
+class RunState(TypedDict):
+    request_id: str
+    days: int
+    notes: Annotated[list, add]                  # declared once, obeyed by every node
+    approvers: Annotated[list, merge_approvers]
+    decision: str                                # no reducer: replaced
+
+
+def summarise(state):
+    return {"days": REQUESTS[state["request_id"]]["days"], "notes": ["summarise"]}
+
+def check_balance(state):
+    out = {"notes": ["check_balance"]}
+    if state["days"] > POLICY["manager_over_days"]:
+        out["approvers"] = [REQUESTS[state["request_id"]]["manager"]]
+    return out
+
+def check_calendar(state):
+    out = {"notes": ["check_calendar"]}
+    if state["days"] > POLICY["manager_over_days"]:          # concludes the same thing
+        out["approvers"] = [REQUESTS[state["request_id"]]["manager"]]
+    if state["days"] > POLICY["hr_over_days"]:
+        out["approvers"] = out.get("approvers", []) + ["HR"]
+    return out
+
+def finalise(state):
+    return {"decision": f'sign-off from: {", ".join(state["approvers"]) or "nobody"}',
+            "notes": ["finalise"]}
+
+
+def build_parallel_graph():
+    builder = StateGraph(RunState)
+    for name, fn in [("summarise", summarise), ("check_balance", check_balance),
+                     ("check_calendar", check_calendar), ("finalise", finalise)]:
+        builder.add_node(name, fn)
+    builder.add_edge(START, "summarise")
+    builder.add_edge("summarise", "check_balance")     # two edges out of one node,
+    builder.add_edge("summarise", "check_calendar")    # so both run in the same step
+    builder.add_edge("check_balance", "finalise")
+    builder.add_edge("check_calendar", "finalise")
+    builder.add_edge("finalise", END)
+    return builder.compile()
+'''),
+
+    code('''
+# --- Self-check: Section 2   (a real fan-out, really executed)
+def run(rid):
+    return build_parallel_graph().invoke({"request_id": rid, "notes": [], "approvers": []})
+
+check("both parallel nodes' notes survive -- four nodes, four notes",
+      lambda: len(run("LV-5004")["notes"]) == 4
+          and {"check_balance", "check_calendar"} <= set(run("LV-5004")["notes"]),
+      "without a reducer on notes, one would have overwritten the other")
+check("LV-5004 needs the manager once, not twice, plus HR",
+      lambda: run("LV-5004")["approvers"] == ["Sam O.", "HR"],
+      "both nodes named the manager; merge_approvers is what stops the duplicate")
+score()
+'''),
+
+    md("""
+## Watch it run &mdash; and watch it fail without one
+
+The same fan-out, with `notes` declared as a plain `list`.
+"""),
+
+    code('''
+def with_reducers():
+    out = build_parallel_graph().invoke({"request_id": "LV-5004", "notes": [], "approvers": []})
+    print("with reducers:", out["notes"], "|", out["approvers"], "|", out["decision"])
+
+guard(with_reducers)          # a reducer raises at INVOKE time, not at build time
+
+class NoReducer(TypedDict):
+    request_id: str
+    days: int
+    notes: list            # plain list: nothing says how two writes combine
+    approvers: list
+    decision: str
+
+b = StateGraph(NoReducer)
+b.add_node("summarise", summarise)
+b.add_node("a", lambda s: {"notes": ["a"]})
+b.add_node("b", lambda s: {"notes": ["b"]})
+b.add_edge(START, "summarise")
+b.add_edge("summarise", "a"); b.add_edge("summarise", "b")
+b.add_edge("a", END); b.add_edge("b", END)
+
+try:
+    print("without   :", b.compile().invoke({"request_id": "LV-5004", "notes": [], "approvers": []})["notes"])
+except Exception as exc:
+    print(f"without   : {type(exc).__name__}: {str(exc)[:150]}")
+'''),
+
+    md("""
+### Read it
+
+LangGraph **refuses** rather than picking a winner: two nodes wrote the same key in one step and
+nothing said how to combine them.
+
+Remember that, because the sequential version of this bug is not loud. In a chain, a node
+returning `{"notes": ["mine"]}` on a field with no reducer silently throws away everything before
+it, and you find out when the audit trail has one line in it.
+
+**The habit:** decide the merge rule where you declare the field, not in each node that writes it.
+"""),
+
+    code('''
+score()
+'''),
+
+    md("""
+## Your turn
+
+1. Replace `merge_approvers` with `add` and re-run. Most LangGraph code you read uses
+   `Annotated[list, add]` &mdash; now you know what it means and when it is not enough.
+2. Add a third parallel node that also writes `days`. Predict what happens, then run it.
+"""),
+]
+
+
+# =========================================================================== #
+# Lab 3.5 -- cycles and retry
+# =========================================================================== #
+LAB5 = [
+    header(5, "Cycles and Retry", "Advanced", 30,
+           ["Build a loop &mdash; an edge that points backwards, and nothing more exotic",
+            "Give it a step budget, because the runaway loop is Module 2's failure mode",
+            "Put the model inside <i>one</i> node and leave the control flow deterministic"],
+           THREAD_NOTE),
+    setup(5),
+    code(DOMAIN),
+
+    md("""
+## Concept
+
+A cycle is an edge that points backwards. There is no loop construct in LangGraph &mdash;
+`add_edge("ask", "validate")` and you have one.
+
+So the interesting part is not building the loop, it is **stopping** it. In a graph you write that
+down as a field and a comparison.
+
+`LV-5002` has an empty `reason`. Go back to the employee, ask, try again &mdash; but not forever.
+
+```
+              +-----------------+
+              v                 |
+START -> validate -> (route) -> ask
+                       |
+                       +--> decide     (it is complete)
+                       +--> withdraw   (we asked enough times)
+```
+"""),
+
+    md("""
+## Section 1 &mdash; The router, and the budget
+
+Three ways out of `validate`. `POLICY` has three numbers in it; one is how many times we are
+willing to go back.
+"""),
+
+    code('''
 from typing import Annotated
 from typing_extensions import TypedDict
 from operator import add
 from langgraph.graph import StateGraph, START, END
 
-class CaseState(TypedDict):
-    ref: str
-    findings: Annotated[list, add]
-    steps: int
-    needs_human: bool
-    answer: str | None
 
-def read_ledger(state: CaseState) -> dict:
-    rec = read_ledger_record(state["ref"])
-    return {"findings": [f"ledger: status={rec.get('status')} rc={rec.get('reason_code')}"],
-            "steps": state["steps"] + 1,
-            "needs_human": rec.get("reason_code") in NEEDS_HUMAN}
-
-def read_policy(state: CaseState) -> dict:
-    rec = read_ledger_record(state["ref"])
-    return {"findings": [f"policy: {read_policy_text(rec.get('reason_code'))}"],
-            "steps": state["steps"] + 1}
-
-def write_note(state: CaseState) -> dict:
-    who = "a human must decide" if state["needs_human"] else "operations may act"
-    return {"answer": f"{state['ref']}: {who}. " + " | ".join(state["findings"])}
-
-def fresh(ref: str) -> dict:
-    return {"ref": ref, "findings": [], "steps": 0, "needs_human": False, "answer": None}
-
-print("Lab 3.3 graph pieces loaded")
-'''
-
-LAB4 = [
-    header(4, "Checkpointing: Resume, Approve, Rewind, Audit", "Advanced", 45,
-           ["Attach a checkpointer and watch state survive a crash",
-            "Stop the graph before an irreversible node with <code>interrupt_before</code>",
-            "Resume, and rewind to an earlier checkpoint to try a different decision",
-            "Read <code>get_state_history()</code> as the audit trail it is"],
-           "> **Builds on Lab 3.3.** Same graph. The difference is that every step is now written\n"
-           "> down, which is what makes approval, recovery and audit possible at all."),
-    setup(4),
-    code(DOMAIN),
-    code(GRAPH_TOOLS),
-    code(CARRY_GRAPH),
-
-    md("""
-## Concept
-
-A checkpointer saves the state after **every node**, under a `thread_id`. Four capabilities fall
-out of that one fact, and none of them is available without it:
-
-| Capability | How |
-|---|---|
-| **resume** | re-invoke the same thread; it carries on where it stopped |
-| **approve** | `interrupt_before` a node; the graph pauses, you decide, then resume |
-| **rewind** | invoke from an *older* checkpoint's config and take a different branch |
-| **audit** | `get_state_history()` &mdash; what was known, and when |
-
-This is the mechanism behind human-in-the-loop, which Module 8 turns into a control.
-"""),
-
-    md("""
-## Section 1 &mdash; A checkpointer and a thread
-
-`compile(checkpointer=...)` is the whole change. Everything else is the config you pass at
-call time.
-"""),
-    code('''
-from langgraph.checkpoint.memory import InMemorySaver
-
-def build(checkpointer=None, interrupt_before=None):
-    """The Lab 3.3 graph, now compilable with persistence and an approval gate."""
-    g = StateGraph(CaseState)
-    g.add_node("read_ledger", read_ledger)
-    g.add_node("read_policy", read_policy)
-    g.add_node("write_note", write_note)
-    g.add_edge(START, "read_ledger")
-    g.add_edge("read_ledger", "read_policy")
-    g.add_edge("read_policy", "write_note")
-    g.add_edge("write_note", END)
-    return g.compile(checkpointer=checkpointer, interrupt_before=interrupt_before)
+class ReviewState(TypedDict):
+    request_id: str
+    reason: str
+    complete: bool
+    attempts: int                   # replaced, not accumulated -- it is a counter
+    inbox: dict                     # what the employee replies, keyed by attempt number
+    decision: str
+    notes: Annotated[list, add]
 
 
-def cfg(thread_id: str) -> dict:
-    return {"configurable": {"thread_id": thread_id}}
-'''),
-    code('''
-# --- Self-check: Section 1   (a real checkpointed graph -- no model)
-def _saved():
-    saver = InMemorySaver()
-    app = build(checkpointer=saver)
-    app.invoke(fresh("PMT-1005"), cfg("t1"))
-    return app
+def route_after_validate(state: ReviewState) -> str:
+    """complete -> decide.  incomplete with budget left -> ask.  budget spent -> withdraw."""
+    if state["complete"]:
+        return BLANK                            # TODO: nothing more to ask for -- which branch?
 
-check("a checkpointed graph still runs",
-      lambda: _saved().get_state(cfg("t1")).values["answer"] is not None)
-check("the state is readable after the run",
-      lambda: _saved().get_state(cfg("t1")).values["ref"] == "PMT-1005")
-check("there is a checkpoint per step, not just one",
-      lambda: len(list(_saved().get_state_history(cfg("t1")))) >= 4,
-      "START, then one after each of the three nodes")
-check("a thread that was never run is empty",
-      lambda: _saved().get_state(cfg("never")).values in ({}, None),
-      "threads are independent -- that is what keeps two cases apart")
-'''),
+    if state["attempts"] >= POLICY[BLANK]:      # TODO: which handbook number is the budget?
+        return BLANK                            # TODO: we have asked enough -- which branch?
 
-    md("""
-## Section 2 &mdash; Pause before something irreversible
-
-`interrupt_before=["write_note"]` stops the graph *before* that node runs and returns. The state
-is saved; `get_state(...).next` tells you what it was about to do.
-
-Resume by invoking the same thread with `None` as the input &mdash; which means "carry on", not
-"start again".
-"""),
-    code('''
-def start_with_gate(ref: str, thread: str, saver):
-    """Run until the approval gate, then stop."""
-    app = build(checkpointer=saver, interrupt_before=["write_note"])
-    app.invoke(fresh(ref), cfg(thread))
-    return app
-
-
-def pending(app, thread: str) -> tuple:
-    """What is this thread waiting to do?"""
-    return app.get_state(cfg(thread)).next
-
-
-def approve(app, thread: str):
-    """Let it proceed. The input is None -- carry on, do not start again."""
-    return app.invoke(BLANK, cfg(thread))   # TODO: what does "resume" pass as the input?
+    return "ask"
 ''', '''
-def start_with_gate(ref: str, thread: str, saver):
-    """Run until the approval gate, then stop."""
-    app = build(checkpointer=saver, interrupt_before=["write_note"])
-    app.invoke(fresh(ref), cfg(thread))
-    return app
+from typing import Annotated
+from typing_extensions import TypedDict
+from operator import add
+from langgraph.graph import StateGraph, START, END
 
 
-def pending(app, thread: str) -> tuple:
-    """What is this thread waiting to do?"""
-    return app.get_state(cfg(thread)).next
+class ReviewState(TypedDict):
+    request_id: str
+    reason: str
+    complete: bool
+    attempts: int                   # replaced, not accumulated -- it is a counter
+    inbox: dict                     # what the employee replies, keyed by attempt number
+    decision: str
+    notes: Annotated[list, add]
 
 
-def approve(app, thread: str):
-    """Let it proceed. The input is None -- carry on, do not start again."""
-    return app.invoke(None, cfg(thread))
+def route_after_validate(state: ReviewState) -> str:
+    """complete -> decide.  incomplete with budget left -> ask.  budget spent -> withdraw."""
+    if state["complete"]:
+        return "decide"
+
+    if state["attempts"] >= POLICY["max_clarifications"]:
+        return "withdraw"                       # the budget is what makes the cycle terminate
+
+    return "ask"
 '''),
+
     code('''
-# --- Self-check: Section 2   (a real interrupt and resume -- no model)
-def _gated():
-    saver = InMemorySaver()
-    app = start_with_gate("PMT-1005", "gate1", saver)
-    return app
+# --- Self-check: Section 1
+def r(complete, attempts):
+    return route_after_validate({"complete": complete, "attempts": attempts})
 
-check("the graph stopped before the gated node",
-      lambda: pending(_gated(), "gate1") == ("write_note",))
-check("it stopped BEFORE doing the thing",
-      lambda: _gated().get_state(cfg("gate1")).values["answer"] is None,
-      "interrupt_before means the node has not run -- that is what makes it an approval gate")
-check("the work done so far was kept",
-      lambda: len(_gated().get_state(cfg("gate1")).values["findings"]) == 2,
-      "a pause is not a rollback")
-check("resuming finishes the run",
-      lambda: approve(_gated(), "gate1")["answer"] is not None)
-def _finished_has_no_next():
-    saver = InMemorySaver()
-    app = start_with_gate("PMT-1005", "gate2", saver)
-    approve(app, "gate2")
-    return app.get_state(cfg("gate2")).next == ()
-
-check("after resuming there is nothing pending",
-      lambda: _finished_has_no_next())
+check("the budget is 2, so a third pass withdraws instead of asking again",
+      lambda: r(False, 0) == "ask" and r(False, 1) == "ask" and r(False, 2) == "withdraw",
+      ">= is what makes it a budget rather than a suggestion")
+check("a complete request is never withdrawn, however long it took",
+      lambda: r(True, 0) == "decide" and r(True, 9) == "decide",
+      "check completeness first -- getting the answer late is still getting the answer")
+score()
 '''),
 
     md("""
-## Section 3 &mdash; Change your mind: update, and rewind
+## Section 2 &mdash; The backward edge
 
-Two different operations, and the difference matters.
-
-**`update_state`** writes into the *current* checkpoint &mdash; a human adding a fact before the graph
-continues. It goes through the reducers, so an `Annotated[list, add]` field appends.
-
-**Rewinding** means invoking from an *older* checkpoint's config. The graph replays from there,
-and anything after it is superseded.
+`ask` bumps the counter and reads whatever the employee sent back. Then one edge returns the run
+to `validate` &mdash; and that edge is the cycle.
 """),
+
     code('''
-def add_human_finding(app, thread: str, note: str):
-    """A person adds something the tools could not know."""
-    app.update_state(cfg(thread), {"findings": [f"human: {note}"]})
-    return app.get_state(cfg(thread)).values
+def validate(state: ReviewState) -> dict:
+    reason = state["reason"] or REQUESTS[state["request_id"]]["reason"]
+    return {"reason": reason, "complete": bool(reason.strip()),
+            "notes": [f'validate(attempt={state["attempts"]}, complete={bool(reason.strip())})']}
+
+def ask_employee(state: ReviewState) -> dict:
+    n = state["attempts"] + 1
+    return {"attempts": n, "reason": state["inbox"].get(n, ""),
+            "notes": [f'ask(attempt={n})']}
+
+def decide(state: ReviewState) -> dict:
+    return {"decision": f'accepted: {state["reason"]}', "notes": ["decide"]}
+
+def withdraw(state: ReviewState) -> dict:
+    return {"decision": f'withdrawn after {state["attempts"]} request(s)', "notes": ["withdraw"]}
 
 
-def checkpoint_before(app, thread: str, node: str):
-    """The config of the checkpoint at which `node` was the next thing to run."""
-    for snap in app.get_state_history(cfg(thread)):
-        if snap.next == (node,):
-            return BLANK              # TODO: what identifies that point in history?
-    return None
+def build_loop(ask_node=ask_employee):
+    builder = StateGraph(ReviewState)
+    builder.add_node("validate", validate)
+    builder.add_node("ask", ask_node)
+    builder.add_node("decide", decide)
+    builder.add_node("withdraw", withdraw)
+
+    builder.add_edge(START, "validate")
+    builder.add_conditional_edges("validate", route_after_validate,
+                                  {"ask": "ask", "decide": "decide", "withdraw": "withdraw"})
+
+    builder.add_edge("ask", BLANK)     # TODO: the cycle -- where does the run go after asking?
+
+    builder.add_edge("decide", END)
+    builder.add_edge("withdraw", END)
+    return builder.compile()
 ''', '''
-def add_human_finding(app, thread: str, note: str):
-    """A person adds something the tools could not know."""
-    app.update_state(cfg(thread), {"findings": [f"human: {note}"]})
-    return app.get_state(cfg(thread)).values
+def validate(state: ReviewState) -> dict:
+    reason = state["reason"] or REQUESTS[state["request_id"]]["reason"]
+    return {"reason": reason, "complete": bool(reason.strip()),
+            "notes": [f'validate(attempt={state["attempts"]}, complete={bool(reason.strip())})']}
+
+def ask_employee(state: ReviewState) -> dict:
+    n = state["attempts"] + 1
+    return {"attempts": n, "reason": state["inbox"].get(n, ""),
+            "notes": [f'ask(attempt={n})']}
+
+def decide(state: ReviewState) -> dict:
+    return {"decision": f'accepted: {state["reason"]}', "notes": ["decide"]}
+
+def withdraw(state: ReviewState) -> dict:
+    return {"decision": f'withdrawn after {state["attempts"]} request(s)', "notes": ["withdraw"]}
 
 
-def checkpoint_before(app, thread: str, node: str):
-    """The config of the checkpoint at which `node` was the next thing to run."""
-    for snap in app.get_state_history(cfg(thread)):
-        if snap.next == (node,):
-            return snap.config        # a config carrying that checkpoint_id, not just the thread
-    return None
+def build_loop(ask_node=ask_employee):
+    builder = StateGraph(ReviewState)
+    builder.add_node("validate", validate)
+    builder.add_node("ask", ask_node)
+    builder.add_node("decide", decide)
+    builder.add_node("withdraw", withdraw)
+
+    builder.add_edge(START, "validate")
+    builder.add_conditional_edges("validate", route_after_validate,
+                                  {"ask": "ask", "decide": "decide", "withdraw": "withdraw"})
+
+    builder.add_edge("ask", "validate")   # the cycle: go round and check again
+
+    builder.add_edge("decide", END)
+    builder.add_edge("withdraw", END)
+    return builder.compile()
 '''),
-    code('''
-# --- Self-check: Section 3   (real update_state and real history -- no model)
-def _updated():
-    saver = InMemorySaver()
-    app = start_with_gate("PMT-1005", "upd", saver)
-    values = add_human_finding(app, "upd", "Compliance confirmed the hold by phone.")
-    return app, values
 
-check("the human's note went into state",
-      lambda: any("human:" in f for f in _updated()[1]["findings"]))
-check("update_state APPENDS rather than replacing",
-      lambda: len(_updated()[1]["findings"]) == 3,
-      "it goes through the reducers -- Annotated[list, add] means the tool findings survive")
-check("the graph is still paused at the gate",
-      lambda: _updated()[0].get_state(cfg("upd")).next == ("write_note",),
-      "adding a fact is not the same as approving")
-check("the resumed answer contains the human's note",
-      lambda: "human:" in approve(_updated()[0], "upd")["answer"])
-check("checkpoint_before finds the right point in history",
-      lambda: checkpoint_before(_updated()[0], "upd", "read_policy") is not None)
-check("what it returns is a checkpoint, not just the thread",
-      lambda: "checkpoint_id" in checkpoint_before(_updated()[0], "upd",
-                                                   "read_policy")["configurable"],
-      "a config with only a thread_id points at NOW, which is not a rewind")
+    code('''
+# --- Self-check: Section 2   (a real cycle that really terminates -- no model)
+BASE = {"reason": "", "complete": False, "attempts": 0, "inbox": {}, "decision": "", "notes": []}
+
+def run(rid, inbox=None, ask_node=ask_employee):
+    return build_loop(ask_node).invoke({**BASE, "request_id": rid, "inbox": inbox or {}})
+
+check("LV-5001 already has a reason, so the loop never runs",
+      lambda: run("LV-5001")["decision"].startswith("accepted")
+          and not any("ask(" in n for n in run("LV-5001")["notes"]))
+check("LV-5002 gets asked, replies on attempt 2, and the loop ends",
+      lambda: run("LV-5002", {2: "conference in Berlin"})["decision"].startswith("accepted"),
+      "validate has to run again to notice the reply -- that is the backward edge")
+check("with no reply ever, the budget stops it rather than looping forever",
+      lambda: run("LV-5002")["decision"].startswith("withdrawn")
+          and run("LV-5002")["attempts"] == POLICY["max_clarifications"],
+      "this is the check that would hang if the budget were missing")
+score()
 '''),
 
     md("""
-## Section 4 &mdash; The audit trail
+## Watch it run
 
-`get_state_history()` returns every checkpoint, **newest first**. That is the record of what the
-system knew and when it knew it &mdash; which is the question an auditor actually asks.
+Both exits. The repeated `validate` lines are the cycle.
 """),
-    code('''
-def audit(app, thread: str) -> str:
-    """The thread's history, oldest first, as something a person can read."""
-    rows = []
-    for snap in reversed(list(app.get_state_history(cfg(thread)))):
-        rows.append(f"  next={str(snap.next):22} steps={snap.values.get('steps', 0)} "
-                    f"findings={len(snap.values.get('findings', []))} "
-                    f"answer={'set' if snap.values.get('answer') else '-'}")
-    return "\\n".join(rows)
-'''),
-    code('''
-# --- Self-check: Section 4
-def _history():
-    saver = InMemorySaver()
-    app = build(checkpointer=saver)
-    app.invoke(fresh("PMT-1005"), cfg("aud"))
-    return app, list(app.get_state_history(cfg("aud")))
 
-check("history has a checkpoint per node plus the start",
-      lambda: len(_history()[1]) >= 4)
-check("history is returned newest first",
-      lambda: _history()[1][0].values.get("answer") is not None
-              and _history()[1][-1].next == ("__start__",),
-      "reverse it before you show it to a person")
-check("the earliest checkpoint has no findings yet",
-      lambda: len(_history()[1][-1].values.get("findings", [])) == 0)
-check("the audit trail is readable",
-      lambda: "next=" in audit(_history()[0], "aud"))
-check("every checkpoint carries its own id",
-      lambda: len({s.config["configurable"]["checkpoint_id"] for s in _history()[1]})
-              == len(_history()[1]),
-      "identical ids would mean you cannot address a point in the past")
+    code('''
+if guard(build_loop) is not None:
+    for label, inbox in [("replies on attempt 2", {2: "conference in Berlin"}),
+                         ("never replies", {})]:
+        out = run("LV-5002", inbox)
+        print(f"=== LV-5002, {label} ===")
+        for n in out["notes"]:
+            print("   ", n)
+        print("    ->", out["decision"], "\\n")
 '''),
 
     md("""
-## Run it &mdash; crash, resume, approve, rewind
+## Run it for real &mdash; the model inside one node
+
+Same graph. `ask_llm` has the model write the message to the employee, and changes nothing else.
+That is the pattern to take away: **the model is a node, not the architecture.** The routing, the
+budget and the cycle stay ordinary code you can test offline.
 """),
+
     code('''
-def _demo():
-    saver = InMemorySaver()
+def ask_llm(state: ReviewState) -> dict:
+    n = state["attempts"] + 1
+    r = REQUESTS[state["request_id"]]
+    msg = ask(f'Ask {r["who"]} to give a reason for their {r["days"]}-day {r["kind"]} '
+                    f'leave request. One short polite sentence, no greeting, no sign-off.',
+                    system="You write brief internal HR messages. Plain text only.")
+    return {"attempts": n, "reason": state["inbox"].get(n, ""),
+            "notes": [f'ask({n}): {msg.strip()[:100]}']}
 
-    print("--- 1. approval gate ---")
-    app = start_with_gate("PMT-1005", "case", saver)
-    print("   paused before:", pending(app, "case"))
-    print("   answer so far:", app.get_state(cfg("case")).values["answer"])
 
-    print("\\n--- 2. a human adds what the tools could not know ---")
-    vals = add_human_finding(app, "case", "Compliance confirmed the hold by phone at 14:02.")
-    for f in vals["findings"]:
-        print("   " + f[:100])
+def live_run():
+    out = run("LV-5002", {2: "conference in Berlin"}, ask_node=ask_llm)
+    for n in out["notes"]:
+        print("   ", n)
+    print("    ->", out["decision"])
 
-    print("\\n--- 3. approve, and let it finish ---")
-    out = approve(app, "case")
-    print("   " + str(out["answer"])[:220])
-
-    print("\\n--- 4. rewind to before read_policy and replay ---")
-    back = checkpoint_before(app, "case", "read_policy")
-    if back:
-        replayed = app.invoke(None, back)
-        print("   replayed from an earlier checkpoint; next =",
-              app.get_state(cfg("case")).next)
-        print("   answer:", str(replayed.get("answer"))[:160])
-
-    print("\\n--- 5. the audit trail ---")
-    print(audit(app, "case"))
-guard(_demo)
+if llm_ready():
+    guard(live_run)
 '''),
+
     md("""
 ### Read it
 
-**Step 4 is the one to look at twice.** Rewinding replays the graph from an older checkpoint &mdash;
-and because this graph was compiled with `interrupt_before=["write_note"]`, the replay runs
-forward and then **stops at the gate again**. It does not sail through to a new answer. That is
-correct, and it surprises people: the interrupt is a property of the compiled graph, not of a
-particular run, so every path through it pauses. If you want the replay to finish, resume it
-again.
+The run went round the cycle exactly as many times as the deterministic one, and stopped for the
+same reason. The model wrote a sentence; it decided nothing.
 
-**Step 5 is what you show an auditor.** Not the answer &mdash; the sequence. Each row is a point at
-which the system had a definite set of findings and had not yet done the next thing. The question
-"what did it know when it decided?" has an exact answer, and the human's note appears in it as a
-finding like any other, tagged `human:` so provenance survives.
-
-And note what made all of this available: one keyword argument. Everything in this lab is a
-consequence of `compile(checkpointer=...)`. Without it, a crash loses the case, an approval gate
-is impossible, and the audit question has no answer at all.
+Nothing about the loop got less testable: the Section 2 checks still run offline and still cover
+the budget &mdash; the one behaviour you cannot afford to have flake. Lab 1.1 spun in a `while True`
+for want of exactly this, and here the same mistake is a missing `>=` in a four-line function.
 """),
 
     code('''
 score()
 '''),
+
     md("""
 ## Your turn
 
-1. Swap `InMemorySaver` for `SqliteSaver` pointed at a file under `WORK`. Run the graph to the
-   gate, restart the kernel, rebuild the app against the same file, and resume. That is recovery
-   after a crash, and it is why in-memory is a development convenience only.
-2. Gate on a **condition** rather than always: interrupt before `write_note` only when
-   `needs_human` is true. (`interrupt_before` is static, so this belongs in a conditional edge to
-   a node that interrupts.) Confirm PMT-1002 runs straight through.
-3. Rewind, then use `update_state` to change `needs_human` to `False` before resuming. You have
-   just overridden a control decision and left a record of doing so. Decide who in your
-   organisation is allowed to make that call, and how the audit trail would show it.
+1. Set `POLICY["max_clarifications"]` to 0 and re-run. Does it ask once, or not at all? Read the
+   router and decide before you run it.
+2. Remove your budget check and pass `{"recursion_limit": 4}` to `invoke`. Which error would you
+   rather explain &mdash; "withdrawn after 2 requests" or `GraphRecursionError`?
 """),
 ]
 
 
 # =========================================================================== #
-# Lab 3.5 -- challenge: shared state, private state, and context poisoning
+# Lab 3.6 -- checkpointing
 # =========================================================================== #
-LAB5 = [
-    header(5, "Challenge &mdash; Shared State and Context Poisoning", "Advanced", 45,
-           ["Build a graph where three agents write into one shared state",
-            "Introduce one wrong finding and watch it spread through the others",
-            "Give each agent private state, and measure how far the damage gets",
-            "Make every finding carry its source, so a wrong one can be traced and dropped"],
-           "> **The take-home artifact.** The state design that Module 5's multi-agent graphs are\n"
-           "> built on, and the failure it is designed to contain."),
-    setup(5),
+LAB6 = [
+    header(6, "Checkpointing", "Advanced", 30,
+           ["Get persistence from one keyword argument",
+            "Decide what a <code>thread_id</code> should be &mdash; it is an identity, not a token",
+            "Read one snapshot with <code>get_state</code>, the whole trail with <code>get_state_history</code>"],
+           THREAD_NOTE),
+    setup(6),
     code(DOMAIN),
-    code(GRAPH_TOOLS),
 
     md("""
 ## Concept
 
-When several agents share one state object, everything one writes is context for the next. That
-is the point &mdash; it is what stops the fragmentation Lab 1.4 measured. It is also the risk:
-**a wrong finding is indistinguishable from a right one**, and every agent downstream builds on it.
+Everything so far vanished the moment `invoke()` returned. A **checkpointer** writes the state
+after every node, so a run stops being an event and becomes a record.
 
-Two defences, and you need both:
+```python
+app = builder.compile(checkpointer=InMemorySaver())
+app.invoke(state, {"configurable": {"thread_id": "LV-5002"}})
+```
 
-- **provenance** &mdash; every finding records who produced it and from what, so a bad one can be
-  identified and removed rather than argued with;
-- **scope** &mdash; not everything an agent computes belongs in the shared state. Private working
-  notes stay private.
+One argument, and four things become possible: **resume** a run later or in another process,
+**inspect** it without re-running, **rewind** it, and **audit** it.
+
+The fourth is the one nobody builds deliberately &mdash; it falls out of the other three, and it is
+a stronger artefact than the model's own account of what it did, because it was recorded as it
+happened rather than reconstructed afterwards.
+
+`InMemorySaver` is the development one. `SqliteSaver` and `PostgresSaver` take the same argument;
+only the constructor changes.
 """),
 
     md("""
-## Section 1 &mdash; A finding you can check
+## Section 1 &mdash; Attach one, and choose the thread
 
-An unattributed string is not evidence. Make the shape carry its own provenance.
+`thread_id` names the thing being worked on. Runs that share one see each other's state; runs that
+do not are strangers. Too broad and unrelated requests contaminate each other; too narrow and
+"resume tomorrow" quietly starts from scratch.
 """),
+
     code('''
-from typing import Annotated, Optional
+import uuid
+from typing import Annotated
 from typing_extensions import TypedDict
 from operator import add
 from langgraph.graph import StateGraph, START, END
-from pydantic import BaseModel, Field
-
-class Finding(BaseModel):
-    """One claim, with enough attached to check it."""
-    claim: str = Field(description="What is asserted, in one line")
-    by: str = Field(description="Which agent produced it")
-    source: str = Field(description="Which system or document it came from")
-    ref: str = Field(description="The identifier within that source")
-
-    def __str__(self) -> str:
-        return f"[{self.by}/{self.source}:{self.ref}] {self.claim}"
+from langgraph.checkpoint.memory import InMemorySaver
 
 
-def trustworthy(f: Finding, known_sources=("ledger", "policy")) -> bool:
-    """A finding is checkable when we know where it came from and can go back to it."""
-    return BLANK                      # TODO: a known source, AND a ref that is not empty
+class CaseState(TypedDict):
+    request_id: str
+    days: int
+    decision: str
+    notes: Annotated[list, add]
+
+
+def summarise(state): return {"days": REQUESTS[state["request_id"]]["days"], "notes": ["summarise"]}
+def decide(state):    return {"decision": "auto" if state["days"] <= POLICY["manager_over_days"]
+                                          else "manager", "notes": ["decide"]}
+
+
+def build_persistent():
+    builder = StateGraph(CaseState)
+    builder.add_node("summarise", summarise)
+    builder.add_node("decide", decide)
+    builder.add_edge(START, "summarise")
+    builder.add_edge("summarise", "decide")
+    builder.add_edge("decide", END)
+    return builder.compile(checkpointer=BLANK)   # TODO: what makes this graph remember?
+
+
+def thread_for(request_id: str) -> dict:
+    """Two runs should share a thread when they are working the same ... what?"""
+    per_request  = {"configurable": {"thread_id": request_id}}
+    per_employee = {"configurable": {"thread_id": REQUESTS[request_id]["who"]}}
+    per_run      = {"configurable": {"thread_id": str(uuid.uuid4())}}
+    return BLANK        # TODO: which one lets you pick this request up again tomorrow?
 ''', '''
-from typing import Annotated, Optional
+import uuid
+from typing import Annotated
 from typing_extensions import TypedDict
 from operator import add
 from langgraph.graph import StateGraph, START, END
-from pydantic import BaseModel, Field
-
-class Finding(BaseModel):
-    """One claim, with enough attached to check it."""
-    claim: str = Field(description="What is asserted, in one line")
-    by: str = Field(description="Which agent produced it")
-    source: str = Field(description="Which system or document it came from")
-    ref: str = Field(description="The identifier within that source")
-
-    def __str__(self) -> str:
-        return f"[{self.by}/{self.source}:{self.ref}] {self.claim}"
+from langgraph.checkpoint.memory import InMemorySaver
 
 
-def trustworthy(f: Finding, known_sources=("ledger", "policy")) -> bool:
-    """A finding is checkable when we know where it came from and can go back to it."""
-    return f.source in known_sources and bool(f.ref.strip())
-'''),
-    code('''
-# --- Self-check: Section 1
-_good    = Finding(claim="status is held", by="ledger_agent", source="ledger", ref="PMT-1005")
-_no_ref  = Finding(claim="status is held", by="ledger_agent", source="ledger", ref="")
-_hearsay = Finding(claim="Compliance already cleared it", by="critic",
-                   source="recollection", ref="n/a")
+class CaseState(TypedDict):
+    request_id: str
+    days: int
+    decision: str
+    notes: Annotated[list, add]
 
-check("a sourced finding is trustworthy",     lambda: trustworthy(_good) is True)
-check("a finding with no ref is not",         lambda: trustworthy(_no_ref) is False,
-      "'the ledger says so' without saying WHERE cannot be checked")
-check("an unsourced claim is not",            lambda: trustworthy(_hearsay) is False,
-      "this is the shape a hallucination arrives in -- confident, fluent, unattributable")
-check("a finding prints its provenance",      lambda: "ledger:PMT-1005" in str(_good))
-def _rejects_partial_finding():
-    try:
-        Finding(claim="x", by="y")
-        return False
-    except Exception:
-        return True
 
-check("the schema forces all four fields",    lambda: _rejects_partial_finding())
+def summarise(state): return {"days": REQUESTS[state["request_id"]]["days"], "notes": ["summarise"]}
+def decide(state):    return {"decision": "auto" if state["days"] <= POLICY["manager_over_days"]
+                                          else "manager", "notes": ["decide"]}
+
+
+def build_persistent():
+    builder = StateGraph(CaseState)
+    builder.add_node("summarise", summarise)
+    builder.add_node("decide", decide)
+    builder.add_edge(START, "summarise")
+    builder.add_edge("summarise", "decide")
+    builder.add_edge("decide", END)
+    return builder.compile(checkpointer=InMemorySaver())
+
+
+def thread_for(request_id: str) -> dict:
+    """Two runs should share a thread when they are working the same ... what?"""
+    per_request  = {"configurable": {"thread_id": request_id}}
+    per_employee = {"configurable": {"thread_id": REQUESTS[request_id]["who"]}}
+    per_run      = {"configurable": {"thread_id": str(uuid.uuid4())}}
+    return per_request  # the request is the thing being worked on
 '''),
 
-    md("""
-## Section 2 &mdash; Watch the poison spread
-
-Three agents in one graph, all writing into one `findings` list. The ledger agent can be told to
-produce a wrong finding; the others read it and build on it.
-"""),
     code('''
-class SharedState(TypedDict):
-    ref: str
-    findings: Annotated[list, add]        # every agent appends here
-    verdict: Optional[str]
+# --- Self-check: Section 1   (a real checkpointer, really invoked -- no model)
+check("the same request twice lands on the same thread",
+      lambda: thread_for("LV-5001") == thread_for("LV-5001"),
+      "a fresh id per run would make 'resume tomorrow' impossible")
+check("LV-5001 and LV-5005 are the same person and still do not share a thread",
+      lambda: thread_for("LV-5001") != thread_for("LV-5005"),
+      "keying on the employee would let one request overwrite the other")
 
-FAULTY = {"ledger": False}                # flip this to inject one wrong finding
+def ran(rid):
+    app = build_persistent()
+    app.invoke({"request_id": rid, "notes": []}, thread_for(rid))
+    return app
 
-def ledger_agent(state: SharedState) -> dict:
-    rec = read_ledger_record(state["ref"])
-    if FAULTY["ledger"]:
-        # plausible, fluent, and wrong: the payment is held, not settled
-        return {"findings": [Finding(claim="the payment already settled normally",
-                                     by="ledger_agent", source="ledger", ref=state["ref"])]}
-    return {"findings": [Finding(claim=f"status={rec.get('status')}, "
-                                       f"reason_code={rec.get('reason_code')}",
-                                 by="ledger_agent", source="ledger", ref=state["ref"])]}
-
-
-def policy_agent(state: SharedState) -> dict:
-    """Reads the ledger agent's finding and looks up the matching policy."""
-    text = " ".join(str(f.claim) for f in state["findings"])
-    code_ = next((c for c in POLICY if c in text), None)
-    if code_ is None:
-        return {"findings": [Finding(claim="no reason code in evidence, so no policy applies",
-                                     by="policy_agent", source="policy", ref="none")]}
-    return {"findings": [Finding(claim=read_policy_text(code_),
-                                 by="policy_agent", source="policy", ref=code_)]}
-
-
-def critic_agent(state: SharedState) -> dict:
-    """Decides, from the findings and nothing else."""
-    text = " ".join(str(f.claim) for f in state["findings"]).lower()
-    if "settled" in text and "sanctions" not in text:
-        return {"verdict": "no action required"}
-    if "compliance decides" in text:
-        return {"verdict": "hold; escalate to Compliance"}
-    return {"verdict": "unclear; escalate"}
-
-
-def shared_graph():
-    g = StateGraph(SharedState)
-    g.add_node("ledger", ledger_agent)
-    g.add_node("policy", policy_agent)
-    g.add_node("critic", critic_agent)
-    g.add_edge(START, "ledger")
-    g.add_edge("ledger", "policy")
-    g.add_edge("policy", "critic")
-    g.add_edge("critic", END)
-    return g.compile()
-
-
-def run_shared(ref="PMT-1005", faulty=False) -> dict:
-    FAULTY["ledger"] = faulty
-    try:
-        return shared_graph().invoke({"ref": ref, "findings": [], "verdict": None})
-    finally:
-        FAULTY["ledger"] = False
-'''),
-    code('''
-# --- Self-check: Section 2   (a real three-node graph -- no model)
-check("a clean run reaches the right verdict",
-      lambda: "Compliance" in run_shared()["verdict"])
-check("all three agents contributed",
-      lambda: {f.by for f in run_shared()["findings"]}
-              == {"ledger_agent", "policy_agent"} and run_shared()["verdict"] is not None)
-check("ONE wrong finding changes the verdict",
-      lambda: run_shared(faulty=True)["verdict"] == "no action required",
-      "the ledger agent lied once; the critic never touched the ledger and believed it")
-check("the poison is visible in the shared findings",
-      lambda: any("already settled" in f.claim for f in run_shared(faulty=True)["findings"]))
-check("the policy agent was misled too",
-      lambda: any("no policy applies" in f.claim for f in run_shared(faulty=True)["findings"]),
-      "the damage is not one wrong answer -- it is every agent downstream")
-check("the wrong finding still LOOKS trustworthy",
-      lambda: all(trustworthy(f) for f in run_shared(faulty=True)["findings"]),
-      "provenance tells you where a claim came from, not whether it is true. Both matter.")
+check("state is still there after invoke() returned",
+      lambda: ran("LV-5005").get_state(thread_for("LV-5005")).values["decision"] == "auto")
+score()
 '''),
 
     md("""
-## Section 3 &mdash; Scope: not everything belongs in the shared state
+## Section 2 &mdash; Reading it back
 
-Give each agent a private scratch area and share only what it is prepared to stand behind. The
-poison still happens &mdash; but it happens to one agent's working notes instead of to the record
-every other agent reads.
+Two calls, and the difference between them is the difference between a status page and an audit
+trail. `get_state(config)` is one snapshot &mdash; where is this now? `get_state_history(config)`
+is every checkpoint, newest first &mdash; what did it know, and when?
 """),
-    code('''
-class ScopedState(TypedDict):
-    ref: str
-    findings: Annotated[list, add]        # shared: published, attributable claims
-    scratch: dict                         # private: each agent's own working notes
-    verdict: Optional[str]
 
-def publish(state: ScopedState, finding: Finding) -> dict:
-    """Put a finding into the SHARED record -- only if it is checkable."""
-    if not trustworthy(finding):
-        return {"scratch": {**state["scratch"],
-                            finding.by: f"withheld (unsourced): {finding.claim}"}}
-    return BLANK                      # TODO: publish it to the shared findings
+    code('''
+def audit_trail(app, config) -> list:
+    """What you hand someone who asks how this request reached its decision."""
+    latest = [app.get_state(config)]
+    every   = list(app.get_state_history(config))
+    return BLANK        # TODO: which one answers "what was known at each step?"
 ''', '''
-class ScopedState(TypedDict):
-    ref: str
-    findings: Annotated[list, add]        # shared: published, attributable claims
-    scratch: dict                         # private: each agent's own working notes
-    verdict: Optional[str]
-
-def publish(state: ScopedState, finding: Finding) -> dict:
-    """Put a finding into the SHARED record -- only if it is checkable."""
-    if not trustworthy(finding):
-        return {"scratch": {**state["scratch"],
-                            finding.by: f"withheld (unsourced): {finding.claim}"}}
-    return {"findings": [finding]}
+def audit_trail(app, config) -> list:
+    """What you hand someone who asks how this request reached its decision."""
+    latest = [app.get_state(config)]
+    every   = list(app.get_state_history(config))
+    return every        # a snapshot says where it ended; the trail says how it got there
 '''),
-    code('''
-# --- Self-check: Section 3
-_state = {"ref": "PMT-1005", "findings": [], "scratch": {}, "verdict": None}
 
-check("a checkable finding is published",
-      lambda: publish(_state, _good).get("findings") == [_good])
-check("an unsourced one is NOT published",
-      lambda: "findings" not in publish(_state, _hearsay),
-      "the shared record is the thing every other agent trusts -- keep hearsay out of it")
-check("the withheld claim is not silently discarded",
-      lambda: "critic" in publish(_state, _hearsay)["scratch"],
-      "it goes to the agent's own scratch, where it can be inspected but not believed")
-check("the withheld note says why",
-      lambda: "unsourced" in publish(_state, _hearsay)["scratch"]["critic"])
-check("scratch is not an accumulating channel",
-      lambda: "scratch" not in str(ScopedState.__annotations__["findings"]),
-      "findings accumulate across agents; scratch is overwritten, because it is nobody else's")
+    code('''
+# --- Self-check: Section 2   (real checkpoint history off a real run)
+def trail(rid="LV-5004"):
+    return audit_trail(ran(rid), thread_for(rid))
+
+check("the trail has a checkpoint per step, not just the final one",
+      lambda: len(trail()) > 1,
+      "get_state returns one snapshot; get_state_history returns all of them")
+check("an earlier checkpoint exists in which no decision had been made yet",
+      lambda: any(not s.values.get("decision") for s in trail()),
+      "that is the point of a trail: it shows what was NOT yet known")
+score()
 '''),
 
     md("""
-## Section 4 &mdash; Trace it back and drop it
-
-Provenance earns its keep at exactly one moment: when something is wrong and you have to find out
-what else is wrong because of it.
+## Watch it run &mdash; come back to it later
 """),
+
     code('''
-def quarantine(findings: list, bad_source: str, bad_ref: str) -> tuple[list, list]:
-    """Split findings into (kept, dropped) once one source is known to be unreliable."""
-    dropped = [f for f in findings if f.source == bad_source and f.ref == bad_ref]
-    kept = [f for f in findings if f not in dropped]
-    return kept, dropped
+app = guard(build_persistent)
+cfg = guard(lambda: thread_for("LV-5004"))
 
+if app is not None and cfg is not None:
+    app.invoke({"request_id": "LV-5004", "notes": []}, cfg)
 
-def recheck(kept: list) -> str:
-    """Re-run the critic's rule over only the findings that survived."""
-    text = " ".join(str(f.claim) for f in kept).lower()
-    if "compliance decides" in text:
-        return "hold; escalate to Compliance"
-    if not kept:
-        return "no evidence; escalate"
-    return "unclear; escalate"
-'''),
-    code('''
-# --- Self-check: Section 4
-def _poisoned():
-    return run_shared(faulty=True)["findings"]
+    snap = app.get_state(cfg)
+    print("where is it now?  decision =", snap.values["decision"],
+          " next =", snap.next or "(finished)")
 
-check("the bad finding can be found by its source and ref",
-      lambda: len(quarantine(_poisoned(), "ledger", "PMT-1005")[1]) == 1)
-check("everything else is kept",
-      lambda: len(quarantine(_poisoned(), "ledger", "PMT-1005")[0])
-              == len(_poisoned()) - 1)
-check("re-deciding on the survivors no longer says 'no action'",
-      lambda: recheck(quarantine(_poisoned(), "ledger", "PMT-1005")[0]) != "no action required",
-      "that is the recovery: drop the source, re-decide, do not argue with the conclusion")
-check("with no evidence left it escalates rather than guessing",
-      lambda: recheck([]) == "no evidence; escalate",
-      "an agent with nothing to go on must say so -- silence is not agreement")
+    print("\\nhow did it get there?")
+    for s in reversed(list(app.get_state_history(cfg))):
+        print(f"   next={str(s.next or ('END',)):22} notes={s.values.get('notes', [])}")
 '''),
 
     md("""
-## Run it &mdash; the comparison
+## Run it for real &mdash; the model's output lands in the record
+
+`explain` asks the model for the sentence the employee reads. Run it, then look at the trail: the
+output is *in* a checkpoint, at a known step, next to the state that produced it.
 """),
-    code('''
-def _compare():
-    print("=== clean run ===")
-    clean = run_shared()
-    for f in clean["findings"]:
-        print("  " + str(f)[:110])
-    print("  VERDICT:", clean["verdict"])
 
-    print("\\n=== one wrong finding from the ledger agent ===")
-    bad = run_shared(faulty=True)
-    for f in bad["findings"]:
-        print("  " + str(f)[:110])
-    print("  VERDICT:", bad["verdict"], "   <-- wrong, and nothing reported an error")
-
-    print("\\n=== after quarantining the bad source ===")
-    kept, dropped = quarantine(bad["findings"], "ledger", "PMT-1005")
-    for f in dropped:
-        print("  DROPPED " + str(f)[:100])
-    print("  VERDICT:", recheck(kept))
-guard(_compare)
-'''),
     code('''
 if llm_ready():
-    # The ONLY difference between these two is the last sentence of the first one.
-    LICENSED = ("You are a payments control reviewer. Decide what must happen next, using ONLY "
-                "the evidence below. If the evidence is inconsistent or insufficient, say so "
-                "instead of deciding.")
-    PLAIN    = ("You are a payments control reviewer. Decide what must happen next, using ONLY "
-                "the evidence below.")
+    def explain(state):
+        r = REQUESTS[state["request_id"]]
+        text = ask(f'Tell {r["who"]} in one short sentence that their {r["days"]}-day leave '
+                   f'request outcome is "{state["decision"]}". No greeting.',
+                   system="You write brief internal HR messages.")
+        return {"notes": [f"explain: {text.strip()[:100]}"]}
 
-    def _flags_a_problem(text: str) -> bool:
-        return any(w in text.lower() for w in ("inconsist", "insufficient", "cannot determine",
-                                               "not enough", "unclear", "contradict"))
+    b = StateGraph(CaseState)
+    b.add_node("summarise", summarise); b.add_node("decide", decide); b.add_node("explain", explain)
+    b.add_edge(START, "summarise"); b.add_edge("summarise", "decide")
+    b.add_edge("decide", "explain"); b.add_edge("explain", END)
+    live = b.compile(checkpointer=InMemorySaver())
 
-    def _model_critic():
-        out = run_shared(faulty=True)
-        evidence = "\\n".join(str(f) for f in out["findings"])
-        print("the poisoned evidence a model critic is given:")
-        for f in out["findings"]:
-            print("  " + str(f)[:110])
-        print()
-        for label, sysmsg in (("licensed to refuse", LICENSED), ("not licensed", PLAIN)):
-            flagged, first = 0, None
-            for i in range(3):
-                verdict = ask(evidence, system=sysmsg)
-                flagged += _flags_a_problem(verdict)
-                if i == 0:
-                    first = verdict
-            print(f"--- {label}: flagged a problem {flagged}/3 ---")
-            print("  " + first.strip()[:300] + "\\n")
-    guard(_model_critic)
+    live_cfg = {"configurable": {"thread_id": "LV-5002"}}
+    live.invoke({"request_id": "LV-5002", "notes": []}, live_cfg)
+
+    for s in reversed(list(live.get_state_history(live_cfg))):
+        print(f"   next={str(s.next or ('END',)):22} notes={s.values.get('notes', [])}")
 '''),
+
     md("""
 ### Read it
 
-**The rule-based critic was fooled.** It was handed a well-formed, correctly attributed finding
-that happened to be false, and it had no way to know. That is what makes context poisoning
-different from an ordinary bug: no exception, no anomaly in the trace, just a confident answer
-built on one bad input.
+**Nobody wrote a log.** The history exists because the state is explicit and the checkpointer
+saved it after every node &mdash; the return on the work done in Lab 3.1.
 
-**The model critic depends entirely on one sentence.** The two runs above differ only in whether
-the reviewer was told *"if the evidence is inconsistent or insufficient, say so instead of
-deciding."* With that licence it reliably notices that a settled payment needs no next action and
-says the evidence is inconsistent. Without it, it does what it was asked &mdash; decides &mdash; and
-closes the case.
-
-Sit with that for a moment, because it is the most portable thing in this module. The model was
-capable of catching the poisoning the whole time. What it lacked was **permission to refuse**. An
-agent given only "decide" will decide, on whatever it has, every time. If you have not written
-down what it should do when the evidence does not support an answer, you have written an agent
-that cannot do anything but answer.
-
-Three more things follow, and they are the take-home of Module 3.
-
-1. **Provenance is not verification.** Every finding in the poisoned run passed `trustworthy()`.
-   Knowing where a claim came from does not tell you it is right &mdash; it tells you *what else to
-   throw away* when you discover it is wrong. That is Section 4, and it is worth a great deal, but
-   it is a recovery mechanism, not a preventative one.
-2. **Scope limits the blast radius.** An agent's uncertain working notes belong in `scratch`,
-   where they can be inspected and not believed. The shared `findings` list is the thing every
-   other agent treats as fact, so the bar for entering it should be higher than "an agent said so".
-3. **Shared state is still the right answer.** Lab 1.4 measured what happens without it: agents
-   that cannot see each other's work produce worse answers than one agent that can. The fix for
-   poisoning is not to go back to isolation &mdash; it is provenance, scope, and a critic that is
-   allowed to say the evidence is inconsistent. You have now measured all three.
-
-**What you take from Module 3:** memory that survives a long session; observations the model does
-not have to decode; a `StateGraph` you can test without a model in it; checkpoints that make
-resume, approval, rewind and audit possible; and a state design that contains one agent's mistake
-instead of spreading it. Module 5 puts several agents into exactly this shape.
+**It beats asking the model.** An agent asked to explain itself produces a plausible
+reconstruction. The trail is what was actually true at each step, recorded before anyone knew the
+outcome would matter.
 """),
 
     code('''
 score()
 '''),
+
     md("""
 ## Your turn
 
-1. Give the *rule-based* critic the same licence the model one has: when the findings contain a
-   "settled" claim alongside a reason code, or no policy at all, return "evidence inconsistent;
-   escalate". Then poison the run and confirm it fires. Which is safer for your organisation: a
-   wrong answer or a refusal?
-2. Add a `confidence: float` field to `Finding` and have `publish` withhold anything below a
-   threshold. Then find the flaw in that idea &mdash; the poisoned finding in this lab would have
-   been published with confidence 1.0.
-3. Rebuild Section 2's graph with a checkpointer from Lab 3.4, poison it, then use
-   `get_state_history()` to find the exact checkpoint at which the bad finding entered. That is
-   the incident investigation, and it takes about four lines.
+1. Invoke the same thread again with a different `request_id` and read the state back. Did the
+   notes reset? Should they have? That is the contamination a bad `thread_id` produces.
+2. Fetch one old checkpoint with `app.get_state({"configurable": {"thread_id": ...,
+   "checkpoint_id": ...}})` using an id from the history. That lookup is where an incident review
+   starts &mdash; and where Lab 3.7's rewind starts.
+"""),
+]
+
+
+# =========================================================================== #
+# Lab 3.7 -- human-in-the-loop
+# =========================================================================== #
+LAB7 = [
+    header(7, "Human-in-the-Loop", "Advanced", 30,
+           ["Stop a graph before the step that cannot be taken back",
+            "Resume it with <code>None</code> &mdash; and know why it is not the original input",
+            "Let a person edit the state with <code>update_state</code>, then meet the rewind surprise"],
+           THREAD_NOTE),
+    setup(7),
+    code(DOMAIN),
+
+    md("""
+## Concept
+
+A checkpointer lets a run stop and start again. `interrupt_before` makes it stop on purpose.
+
+```python
+app = builder.compile(checkpointer=InMemorySaver(), interrupt_before=["notify"])
+...
+app.invoke(None, config)      # None means "carry on", not "start again"
+```
+
+`invoke()` runs up to `notify`, saves, and returns with `state.next == ("notify",)`. A person
+looks. Then you resume.
+
+**Where the gate goes is the design decision.** Not before the thinking &mdash; there is nothing to
+look at yet, and you will have annoyed the approver by the third request. Before the step with a
+consequence outside your process.
+
+> An approval gate does not always need a checkpointer: a node that refuses to act without a named
+> approver is already a gate, and the capstone uses exactly that. What a checkpointer buys is
+> *pause and resume* &mdash; stopping now and finishing tomorrow, from another process.
+"""),
+
+    md("""
+## Section 1 &mdash; Where the gate belongs, and how to resume
+
+Three nodes. One of them does something you cannot quietly undo.
+"""),
+
+    code('''
+from typing import Annotated
+from typing_extensions import TypedDict
+from operator import add
+from langgraph.graph import StateGraph, START, END
+from langgraph.checkpoint.memory import InMemorySaver
+
+SENT = []          # stands in for the outside world: emails sent, balances debited
+
+
+class ApprovalState(TypedDict):
+    request_id: str
+    recommendation: str
+    approved_by: str
+    notes: Annotated[list, add]
+
+
+def recommend(state):
+    """Works out what SHOULD happen. Nothing leaves the process."""
+    r = REQUESTS[state["request_id"]]
+    return {"recommendation": "granted" if r["balance"] >= r["days"] else "refused",
+            "notes": ["recommend"]}
+
+def notify(state):
+    """Emails the employee and debits the balance. There is no unsend button."""
+    SENT.append(f'{REQUESTS[state["request_id"]]["who"]}: leave {state["recommendation"]} '
+                f'by {state["approved_by"] or "NOBODY"}')
+    return {"notes": [f"notify -> {SENT[-1]}"]}
+
+
+def gate_nodes() -> list:
+    """Which node must not run until a person has said yes?"""
+    # "recommend" -- computes a recommendation. Nothing leaves the process.
+    # "notify"    -- emails the employee and debits their balance.
+    return BLANK        # TODO: a list of the node name(s) to interrupt before
+
+
+def resume_input():
+    """What do you hand invoke() to continue a paused run?"""
+    start_again = {"request_id": "LV-5004", "notes": []}
+    carry_on    = None
+    return BLANK        # TODO: which continues from the checkpoint instead of re-running?
+
+
+def build_gated():
+    builder = StateGraph(ApprovalState)
+    builder.add_node("recommend", recommend)
+    builder.add_node("notify", notify)
+    builder.add_edge(START, "recommend")
+    builder.add_edge("recommend", "notify")
+    builder.add_edge("notify", END)
+    return builder.compile(checkpointer=InMemorySaver(), interrupt_before=gate_nodes())
+''', '''
+from typing import Annotated
+from typing_extensions import TypedDict
+from operator import add
+from langgraph.graph import StateGraph, START, END
+from langgraph.checkpoint.memory import InMemorySaver
+
+SENT = []          # stands in for the outside world: emails sent, balances debited
+
+
+class ApprovalState(TypedDict):
+    request_id: str
+    recommendation: str
+    approved_by: str
+    notes: Annotated[list, add]
+
+
+def recommend(state):
+    """Works out what SHOULD happen. Nothing leaves the process."""
+    r = REQUESTS[state["request_id"]]
+    return {"recommendation": "granted" if r["balance"] >= r["days"] else "refused",
+            "notes": ["recommend"]}
+
+def notify(state):
+    """Emails the employee and debits the balance. There is no unsend button."""
+    SENT.append(f'{REQUESTS[state["request_id"]]["who"]}: leave {state["recommendation"]} '
+                f'by {state["approved_by"] or "NOBODY"}')
+    return {"notes": [f"notify -> {SENT[-1]}"]}
+
+
+def gate_nodes() -> list:
+    """Which node must not run until a person has said yes?"""
+    # "recommend" -- computes a recommendation. Nothing leaves the process.
+    # "notify"    -- emails the employee and debits their balance.
+    return ["notify"]   # gate the irreversible step, not the thinking
+
+
+def resume_input():
+    """What do you hand invoke() to continue a paused run?"""
+    start_again = {"request_id": "LV-5004", "notes": []}
+    carry_on    = None
+    return carry_on     # no new input -- resume from where you stopped
+
+
+def build_gated():
+    builder = StateGraph(ApprovalState)
+    builder.add_node("recommend", recommend)
+    builder.add_node("notify", notify)
+    builder.add_edge(START, "recommend")
+    builder.add_edge("recommend", "notify")
+    builder.add_edge("notify", END)
+    return builder.compile(checkpointer=InMemorySaver(), interrupt_before=gate_nodes())
+'''),
+
+    code('''
+# --- Self-check: Section 1   (a real interrupt on a real graph -- no model)
+BASE = {"recommendation": "", "approved_by": "", "notes": []}
+
+def paused(rid="LV-5004"):
+    SENT.clear()
+    app, cfg = build_gated(), {"configurable": {"thread_id": rid}}
+    app.invoke({**BASE, "request_id": rid}, cfg)
+    return app, cfg
+
+def paused_snapshot():
+    app, cfg = paused()
+    return app.get_state(cfg)
+
+check("the run stops before notify, with the thinking already done",
+      lambda: paused_snapshot().next == ("notify",)
+          and paused_snapshot().values["recommendation"] == "granted",
+      "state.next is what the graph would do if you let it carry on")
+check("nothing reached the outside world while it was paused",
+      lambda: (paused(), SENT == [])[1],
+      "gating recommend instead would stop the run before there was anything to approve")
+
+def resumed_values():
+    app, cfg = paused()
+    app.invoke(resume_input(), cfg)
+    return app.get_state(cfg).values
+
+check("resuming runs the gated node once, and does not re-run recommend",
+      lambda: resumed_values()["notes"].count("recommend") == 1 and len(SENT) == 1,
+      "passing the original input instead of None would run recommend a second time")
+score()
+'''),
+
+    md("""
+## Section 2 &mdash; The person changes something
+
+Approval is rarely just yes. `update_state` writes into the paused checkpoint before you resume,
+which is how the approver's decision gets **into the record** rather than living in an email.
+"""),
+
+    code('''
+def approver_writes(manager: str) -> dict:
+    """A manager overrules the recommendation and refuses. What must land in the state?"""
+    verdict_only    = {"recommendation": "refused"}
+    verdict_and_who = {"recommendation": "refused", "approved_by": manager}
+    return BLANK        # TODO: which one can you still defend six months from now?
+''', '''
+def approver_writes(manager: str) -> dict:
+    """A manager overrules the recommendation and refuses. What must land in the state?"""
+    verdict_only    = {"recommendation": "refused"}
+    verdict_and_who = {"recommendation": "refused", "approved_by": manager}
+    return verdict_and_who   # a decision with no decider is not an audit record
+'''),
+
+    code('''
+# --- Self-check: Section 2   (a human edit, then a real resume)
+def overridden_values():
+    app, cfg = paused()
+    app.update_state(cfg, approver_writes("Sam O."))
+    app.invoke(None, cfg)
+    return app.get_state(cfg).values
+
+check("the approver's verdict overrode the recommendation, and who decided is recorded",
+      lambda: overridden_values()["recommendation"] == "refused"
+          and overridden_values()["approved_by"] == "Sam O.",
+      "the graph recommended granted; a person said refused, and the person won")
+check("...and that is what reached the outside world",
+      lambda: (overridden_values(), "refused" in SENT[-1])[1])
+score()
+'''),
+
+    md("""
+## Watch it run
+
+Run, pause, look, decide, resume.
+"""),
+
+    code('''
+app = guard(build_gated)
+
+if app is not None:
+    SENT.clear()
+    cfg = {"configurable": {"thread_id": "LV-5004"}}
+
+    app.invoke({**BASE, "request_id": "LV-5004"}, cfg)
+    s = app.get_state(cfg)
+    print("1. paused before:", s.next, "  recommends:", s.values["recommendation"],
+          "  sent so far:", SENT)
+
+    app.update_state(cfg, {"approved_by": "Sam O.", "notes": ["Sam O. checked the team calendar"]})
+    app.invoke(None, cfg)
+    print("2. resumed, sent:", SENT)
+    print("3. the record  :", app.get_state(cfg).values["notes"])
+'''),
+
+    md("""
+## Run it for real &mdash; and the surprise
+
+The model drafts what the approver reads: a good use for it, because a person checks it before
+anything happens. Then rewind into the gate.
+"""),
+
+    code('''
+if llm_ready() and app is not None:
+    SENT.clear()
+    cfg2 = {"configurable": {"thread_id": "LV-5002-live"}}
+    app.invoke({**BASE, "request_id": "LV-5002"}, cfg2)
+
+    r = REQUESTS["LV-5002"]
+    print("for the approver:", ask(
+        f'Summarise for a manager deciding whether to approve: {r["who"]} asks for {r["days"]} '
+        f'days of {r["kind"]} leave, reason given: "{r["reason"] or "none"}", balance '
+        f'{r["balance"]} days. The system recommends '
+        f'{app.get_state(cfg2).values["recommendation"]}.',
+        system="You brief a busy manager. One sentence, no greeting.").strip()[:250])
+
+    earlier = [h for h in app.get_state_history(cfg2) if h.next == ("recommend",)]
+    if earlier:
+        print("\\nrewinding to before 'recommend' and running forward again...")
+        app.invoke(None, earlier[0].config)
+        print("   where did it stop?", app.get_state(cfg2).next, "  sent:", SENT)
+'''),
+
+    md("""
+### Read it
+
+**The rewind stopped at the gate again** rather than running through to a new answer. That
+surprises everyone once.
+
+`interrupt_before` is a property of the **compiled graph**, not of a run. Replaying from an older
+checkpoint runs forward through the same graph, so it meets the same gate &mdash; and rewinding
+past the approval un-does it, because approval was a state edit at one point in history.
+
+That is right for an approval workflow and wrong to discover in production. If you want a rewind
+that keeps an approval, the approval has to be a **fact in the state** the gate reads, not the
+fact that someone once resumed.
+
+And `SENT` stayed empty until you resumed. The gate did its job.
+"""),
+
+    code('''
+score()
+'''),
+
+    md("""
+## Your turn
+
+1. Move the gate to `["recommend"]` and run it. What is the approver looking at? That is the
+   argument for gating late.
+2. An approver never comes back. Write the check that finds threads whose `next` has been
+   non-empty for too long &mdash; timeout and escalation are policy on top of exactly this state.
+"""),
+]
+
+
+# =========================================================================== #
+# Lab 3.8 -- challenge
+# =========================================================================== #
+LAB8 = [
+    header(8, "Challenge &mdash; The Leave Request Workflow", "Advanced", 40,
+           ["Assemble everything: state, routing, a cycle, a budget, checkpoints and a gate",
+            "Gate <i>one branch</i> rather than the whole graph &mdash; routing, not a bigger interrupt",
+            "Run four requests down four different paths through one compiled graph"],
+           THREAD_NOTE),
+    setup(8),
+    code(DOMAIN),
+
+    md("""
+## The brief
+
+One graph that handles every request in the case file.
+
+```
+START -> validate --(incomplete, budget left)--> ask ---+
+            |                                            |   (cycle)
+            |  <-----------------------------------------+
+            |--(incomplete, budget spent)--> withdraw -> END
+            |
+            +--(complete)--> assess --(short, covered)------> notify -> END
+                                |
+                                +--(long or uncovered)--> manager_review -> notify -> END
+                                                          ^ paused here
+```
+
+Four requirements:
+
+1. **A cycle with a budget.** `LV-5002` has no reason. Ask, and give up after
+   `POLICY["max_clarifications"]`.
+2. **A checkpointer**, so a paused request can be picked up later.
+3. **A gate on one branch only.** `manager_review` pauses; the auto-approval branch must not.
+   You do this with *routing*, not with a bigger `interrupt_before`.
+4. **`notify` is irreversible** and must never run before its branch's approval.
+"""),
+
+    md("""
+## Section 1 &mdash; The two routers
+
+`validate` decides whether we can proceed at all. `assess` decides who has to say yes.
+"""),
+
+    code('''
+from typing import Annotated
+from typing_extensions import TypedDict
+from operator import add
+from langgraph.graph import StateGraph, START, END
+from langgraph.checkpoint.memory import InMemorySaver
+
+SENT = []
+
+
+class LeaveState(TypedDict):
+    request_id: str
+    reason: str
+    complete: bool
+    attempts: int
+    inbox: dict
+    verdict: str
+    approved_by: str
+    notes: Annotated[list, add]
+
+
+def after_validate(state: LeaveState) -> str:
+    if state["complete"]:
+        return "assess"
+    if state["attempts"] >= POLICY["max_clarifications"]:
+        return BLANK        # TODO: we have asked enough times -- which branch?
+    return BLANK            # TODO: still incomplete, budget left -- which branch?
+
+
+def after_assess(state: LeaveState) -> str:
+    """Short and covered goes straight out. Anything else needs a person."""
+    r = REQUESTS[state["request_id"]]
+    if r["days"] <= POLICY["manager_over_days"] and r["balance"] >= r["days"]:
+        return "auto"
+    return BLANK            # TODO: which branch ends up in front of the manager?
+''', '''
+from typing import Annotated
+from typing_extensions import TypedDict
+from operator import add
+from langgraph.graph import StateGraph, START, END
+from langgraph.checkpoint.memory import InMemorySaver
+
+SENT = []
+
+
+class LeaveState(TypedDict):
+    request_id: str
+    reason: str
+    complete: bool
+    attempts: int
+    inbox: dict
+    verdict: str
+    approved_by: str
+    notes: Annotated[list, add]
+
+
+def after_validate(state: LeaveState) -> str:
+    if state["complete"]:
+        return "assess"
+    if state["attempts"] >= POLICY["max_clarifications"]:
+        return "withdraw"
+    return "ask"
+
+
+def after_assess(state: LeaveState) -> str:
+    """Short and covered goes straight out. Anything else needs a person."""
+    r = REQUESTS[state["request_id"]]
+    if r["days"] <= POLICY["manager_over_days"] and r["balance"] >= r["days"]:
+        return "auto"
+    return "review"
+'''),
+
+    code('''
+# --- Self-check: Section 1   (two pure functions)
+check("validate routes: complete -> assess, budget left -> ask, budget spent -> withdraw",
+      lambda: (after_validate({"complete": True, "attempts": 0}),
+               after_validate({"complete": False, "attempts": 0}),
+               after_validate({"complete": False, "attempts": 2})) == ("assess", "ask", "withdraw"))
+check("assess routes LV-5005 to auto, LV-5004 and LV-5003 to review",
+      lambda: (after_assess({"request_id": "LV-5005"}),
+               after_assess({"request_id": "LV-5004"}),
+               after_assess({"request_id": "LV-5003"})) == ("auto", "review", "review"),
+      "LV-5003 is short but has no balance, so a person decides")
+score()
+'''),
+
+    md("""
+## Section 2 &mdash; The graph
+
+Nodes are given &mdash; you have written all of them before. Wire the cycle, and put the gate on the
+branch that needs it.
+"""),
+
+    code('''
+def validate(state):
+    reason = state["reason"] or REQUESTS[state["request_id"]]["reason"]
+    return {"reason": reason, "complete": bool(reason.strip()),
+            "notes": [f'validate(attempt={state["attempts"]})']}
+
+def ask_employee(state):
+    n = state["attempts"] + 1
+    return {"attempts": n, "reason": state["inbox"].get(n, ""), "notes": [f"ask({n})"]}
+
+def withdraw(state):
+    return {"verdict": "withdrawn", "notes": ["withdraw"]}
+
+def assess(state):
+    return {"notes": ["assess"]}
+
+def auto(state):
+    return {"verdict": "granted", "approved_by": "policy", "notes": ["auto"]}
+
+def manager_review(state):
+    """Paused before this node. The approver's edit lands in the checkpoint."""
+    return {"verdict": state["verdict"] or "granted",
+            "approved_by": state["approved_by"] or REQUESTS[state["request_id"]]["manager"],
+            "notes": ["manager_review"]}
+
+def notify(state):
+    """Irreversible."""
+    SENT.append(f'{REQUESTS[state["request_id"]]["who"]}: {state["verdict"]} '
+                f'by {state["approved_by"] or "NOBODY"}')
+    return {"notes": [f"notify -> {SENT[-1]}"]}
+
+
+def build_workflow():
+    b = StateGraph(LeaveState)
+    for name, fn in [("validate", validate), ("ask", ask_employee), ("withdraw", withdraw),
+                     ("assess", assess), ("auto", auto),
+                     ("manager_review", manager_review), ("notify", notify)]:
+        b.add_node(name, fn)
+
+    b.add_edge(START, "validate")
+    b.add_conditional_edges("validate", after_validate,
+                            {"ask": "ask", "withdraw": "withdraw", "assess": "assess"})
+    b.add_edge("ask", BLANK)              # TODO: the cycle
+
+    b.add_conditional_edges("assess", after_assess,
+                            {"auto": "auto", "review": "manager_review"})
+    b.add_edge("auto", "notify")
+    b.add_edge("manager_review", "notify")
+    b.add_edge("notify", END)
+    b.add_edge("withdraw", END)
+
+    return b.compile(checkpointer=InMemorySaver(),
+                     interrupt_before=BLANK)   # TODO: gate ONE branch, not the whole graph
+''', '''
+def validate(state):
+    reason = state["reason"] or REQUESTS[state["request_id"]]["reason"]
+    return {"reason": reason, "complete": bool(reason.strip()),
+            "notes": [f'validate(attempt={state["attempts"]})']}
+
+def ask_employee(state):
+    n = state["attempts"] + 1
+    return {"attempts": n, "reason": state["inbox"].get(n, ""), "notes": [f"ask({n})"]}
+
+def withdraw(state):
+    return {"verdict": "withdrawn", "notes": ["withdraw"]}
+
+def assess(state):
+    return {"notes": ["assess"]}
+
+def auto(state):
+    return {"verdict": "granted", "approved_by": "policy", "notes": ["auto"]}
+
+def manager_review(state):
+    """Paused before this node. The approver's edit lands in the checkpoint."""
+    return {"verdict": state["verdict"] or "granted",
+            "approved_by": state["approved_by"] or REQUESTS[state["request_id"]]["manager"],
+            "notes": ["manager_review"]}
+
+def notify(state):
+    """Irreversible."""
+    SENT.append(f'{REQUESTS[state["request_id"]]["who"]}: {state["verdict"]} '
+                f'by {state["approved_by"] or "NOBODY"}')
+    return {"notes": [f"notify -> {SENT[-1]}"]}
+
+
+def build_workflow():
+    b = StateGraph(LeaveState)
+    for name, fn in [("validate", validate), ("ask", ask_employee), ("withdraw", withdraw),
+                     ("assess", assess), ("auto", auto),
+                     ("manager_review", manager_review), ("notify", notify)]:
+        b.add_node(name, fn)
+
+    b.add_edge(START, "validate")
+    b.add_conditional_edges("validate", after_validate,
+                            {"ask": "ask", "withdraw": "withdraw", "assess": "assess"})
+    b.add_edge("ask", "validate")         # the cycle
+
+    b.add_conditional_edges("assess", after_assess,
+                            {"auto": "auto", "review": "manager_review"})
+    b.add_edge("auto", "notify")
+    b.add_edge("manager_review", "notify")
+    b.add_edge("notify", END)
+    b.add_edge("withdraw", END)
+
+    return b.compile(checkpointer=InMemorySaver(),
+                     interrupt_before=["manager_review"])   # only the branch that needs a person
+'''),
+
+    code('''
+# --- Self-check: Section 2   (four requests, four paths, one graph -- no model)
+BASE = {"reason": "", "complete": False, "attempts": 0, "inbox": {},
+        "verdict": "", "approved_by": "", "notes": []}
+
+def start(rid, inbox=None):
+    SENT.clear()
+    app, cfg = build_workflow(), {"configurable": {"thread_id": rid}}
+    app.invoke({**BASE, "request_id": rid, "inbox": inbox or {}}, cfg)
+    return app, cfg
+
+check("LV-5005 is short and covered: it runs straight through, no pause",
+      lambda: (start("LV-5005")[0].get_state(start("LV-5005")[1]).next == ()
+               and len(SENT) == 1))
+check("LV-5004 is long: it pauses before manager_review and sends nothing",
+      lambda: (start("LV-5004")[0].get_state(start("LV-5004")[1]).next == ("manager_review",)
+               and SENT == []),
+      "gate the branch, not the graph -- LV-5005 must not have paused")
+check("LV-5002 has no reason and never replies: it withdraws inside the budget",
+      lambda: start("LV-5002")[0].get_state(start("LV-5002")[1]).values["verdict"] == "withdrawn")
+check("LV-5002 replying on attempt 2 gets through validation and reaches the gate",
+      lambda: start("LV-5002", {2: "conference"})[0]
+              .get_state(start("LV-5002", {2: "conference"})[1]).next == ("manager_review",))
+score()
+'''),
+
+    md("""
+## Section 3 &mdash; Approve one, and resume
+"""),
+
+    code('''
+def approve(app, cfg, who: str, verdict: str):
+    app.update_state(cfg, {"verdict": verdict, "approved_by": who,
+                           "notes": [f"{who} decided {verdict}"]})
+    return app.invoke(BLANK, cfg)     # TODO: continue the paused run
+''', '''
+def approve(app, cfg, who: str, verdict: str):
+    app.update_state(cfg, {"verdict": verdict, "approved_by": who,
+                           "notes": [f"{who} decided {verdict}"]})
+    return app.invoke(None, cfg)      # None continues from the checkpoint
+'''),
+
+    code('''
+# --- Self-check: Section 3
+def approved(verdict="granted"):
+    app, cfg = start("LV-5004")
+    approve(app, cfg, "Sam O.", verdict)
+    return app.get_state(cfg).values
+
+check("approving resumes the run and notify finally fires",
+      lambda: (approved(), len(SENT) == 1)[1])
+check("a refusal is what goes out, and the approver is named",
+      lambda: (approved("refused"), "refused" in SENT[-1] and "Sam O." in SENT[-1])[1],
+      "the person overrides the graph, and the record says who")
+check("the trail contains the approver's own line",
+      lambda: any("Sam O. decided" in n for n in approved()["notes"]))
+score()
+'''),
+
+    md("""
+## Watch it run
+
+Every request in the case file through one compiled graph.
+"""),
+
+    code('''
+def walk_every_request():
+    for rid in sorted(REQUESTS):
+        app, cfg = start(rid)
+        s = app.get_state(cfg)
+        if s.next == ("manager_review",):
+            approve(app, cfg, REQUESTS[rid]["manager"], "granted")
+            s = app.get_state(cfg)
+            tag = "paused, then approved"
+        else:
+            tag = "no pause needed"
+        print(f"{rid}  {tag:22} {' -> '.join(s.values['notes'][-6:])}")
+        print(f"{'':10}verdict={s.values['verdict']!r} sent={SENT}")
+
+guard(walk_every_request)
+'''),
+
+    md("""
+## Run it for real &mdash; the model writes what the employee reads
+"""),
+
+    code('''
+def live_workflow():
+    app, cfg = start("LV-5004")
+    r = REQUESTS["LV-5004"]
+
+    print("brief for the manager:", ask(
+        f'One sentence for a manager deciding on leave: {r["who"]} ({r["days"]} days '
+        f'{r["kind"]}, reason "{r["reason"]}", balance {r["balance"]}).',
+        system="You brief a busy manager. One sentence, no greeting.").strip()[:220])
+
+    approve(app, cfg, r["manager"], "granted")
+    print("\\nmessage to the employee:", ask(
+        f'Tell {r["who"]} their {r["days"]}-day leave was granted by {r["manager"]}. '
+        f'One short sentence, no greeting.',
+        system="You write brief internal HR messages.").strip()[:220])
+
+    print("\\nthe record:")
+    for n in app.get_state(cfg).values["notes"]:
+        print("   ", n)
+
+if llm_ready():
+    guard(live_workflow)
+'''),
+
+    md("""
+### Read it
+
+**The gate is on a branch, not on the graph.** `interrupt_before=["manager_review"]` pauses only
+requests routed there. `LV-5005` never stopped. If you had gated `notify` instead, every
+auto-approval would sit waiting for a manager who has nothing to decide &mdash; the fastest way to
+make people ignore an approval queue.
+
+**Four behaviours, one state object.** The cycle, the budget, the conditional gate and the audit
+trail are all fields in `LeaveState` plus edges. Nothing here needed a framework feature you have
+not already used in this module.
+
+**What you take from Module 3:** state you can print and assert on; nodes and edges as ordinary
+testable code; conditional routing; reducers for the fields that accumulate; a cycle with a budget;
+checkpoints that make resume, approval, rewind and audit possible. Module 5 puts several agents
+into exactly this shape, and its supervisor is `after_assess` with a model choosing the string.
+"""),
+
+    code('''
+score()
+'''),
+
+    md("""
+## Your turn
+
+1. `POLICY["hr_over_days"]` is 10 and nothing uses it. Add an `hr_review` node so `LV-5004` needs
+   two approvals, in order. You will need a second gate and a second resume.
+2. Rewind an approved request to before `manager_review` and run it forward. It pauses again &mdash;
+   see Lab 3.7. Make the approval survive the rewind by having the gate read a fact in the state.
+3. Swap `InMemorySaver` for `SqliteSaver`, run `LV-5004`, restart the kernel, and resume the paused
+   request from a fresh process. That is the whole production migration.
 """),
 ]
 
@@ -2008,11 +2286,14 @@ score()
 # main
 # =========================================================================== #
 LABS = [
-    ("lab-3-01-memory-that-survives",              LAB1),
-    ("lab-3-02-perception-observations",           LAB2),
-    ("lab-3-03-stategraph-from-scratch",           LAB3),
-    ("lab-3-04-checkpointing",                     LAB4),
-    ("lab-3-05-challenge-shared-state-poisoning",  LAB5),
+    ("lab-3-01-your-first-graph",        LAB1),
+    ("lab-3-02-multi-step-workflow",     LAB2),
+    ("lab-3-03-conditional-routing",     LAB3),
+    ("lab-3-04-state-reducers",          LAB4),
+    ("lab-3-05-cycles-and-retry",        LAB5),
+    ("lab-3-06-checkpointing",           LAB6),
+    ("lab-3-07-human-in-the-loop",       LAB7),
+    ("lab-3-08-challenge-leave-workflow", LAB8),
 ]
 
 

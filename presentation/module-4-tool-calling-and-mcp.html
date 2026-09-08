@@ -214,7 +214,7 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
   </div>
 </div>
 
-<div class="slide" data-sec="Tools" data-notes="Name the four failure modes explicitly -- participants will hit all four in Lab 4.2 and 4.3, and having names for them makes the lab debuggable. The fourth is the one nobody instruments: the call succeeded, the model misread the result. Module 3's perception work is the fix for that one.">
+<div class="slide" data-sec="Tools" data-notes="Name the four failure modes explicitly -- participants will hit all four in Lab 4.2 and 4.3, and having names for them makes the lab debuggable. The fourth is the one nobody instruments: the call succeeded, the model misread the result. The fix is in what the tool returns -- a decoded, unambiguous result rather than a raw pass-through -- which is what Lab 4.1's failure envelope is for.">
   <h2>Four ways a tool call goes wrong &mdash; only one is the model's fault</h2>
   <div class="body">
     <svg width="1180" height="430" viewBox="0 0 1180 430" role="img" aria-label="Four tool-calling failure modes and their causes">
@@ -914,7 +914,7 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
   </div></div>
 </div>
 
-<div class="slide q" data-sec="Knowledge check" data-notes="Answer B. D is the sharp distractor and it is Module 3's four-kinds-of-nothing problem again: 'I could not look' is not 'it is not there'.">
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer B. D is the sharp distractor: 'I could not look' is not 'it is not there', and a tool that returns the same thing for both makes the agent confidently wrong.">
   <div class="qtag">Question 3 of 8</div>
   <h2>The ledger is down</h2>
   <div class="body"><div class="qbox">
@@ -926,7 +926,7 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
   </div></div>
 </div>
 
-<div class="slide q" data-sec="Knowledge check" data-notes="Answer B. D is the sharp distractor and it is Module 3's four-kinds-of-nothing problem again: 'I could not look' is not 'it is not there'.">
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer B. D is the sharp distractor: 'I could not look' is not 'it is not there', and a tool that returns the same thing for both makes the agent confidently wrong.">
   <div class="qtag">Answer 3 of 8</div>
   <h2>The ledger is down</h2>
   <div class="body"><div class="qbox">
@@ -935,7 +935,7 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
     <div class="opt hit"><span class="k">B</span><span><code>{ok: false, error: "unavailable", message: "&hellip;", retryable: true}</code></span></div>
     <div class="opt miss"><span class="k">C</span><span>An empty string, so the agent falls back to what it already knows</span></div>
     <div class="opt miss"><span class="k">D</span><span><code>{ok: false, error: "not_found"}</code> &mdash; there is no answer either way</span></div>
-    <div class="why"><b>Why:</b> D is the dangerous one: &ldquo;I could not look&rdquo; reported as &ldquo;it is not there&rdquo; makes the agent confidently wrong, and it is exactly Module 3's four-kinds-of-nothing failure. A ends the turn; C invites a hallucinated answer. Only B lets the agent decide between retrying, switching tool, and stopping.</div>
+    <div class="why"><b>Why:</b> D is the dangerous one: &ldquo;I could not look&rdquo; reported as &ldquo;it is not there&rdquo; makes the agent confidently wrong, and a tool that cannot tell the two apart guarantees it. A ends the turn; C invites a hallucinated answer. Only B lets the agent decide between retrying, switching tool, and stopping.</div>
   </div></div>
 </div>
 

@@ -1,5 +1,5 @@
 <meta charset="utf-8">
-<title>Module 3 Labs &mdash; Memory, State &amp; the LangGraph Substrate</title>
+<title>Module 3 Labs &mdash; LangGraph: Stateful Agent Workflows</title>
 <style>
 *{box-sizing:border-box}html,body{margin:0;padding:0}
 body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:#f5f5fb;color:#2d3748;font-size:14px;line-height:1.45}
@@ -31,9 +31,9 @@ footer a{color:#c7d2fe;text-decoration:none}
 
 <header>
   <a class="home" href="../../course-outline-agentic-workflows-multi-agent-systems.html" title="Course outline">Home</a>
-  <h1>Module 3 &mdash; Memory, State &amp; the LangGraph Substrate</h1>
-  <div class="tagline">Day 1 hands-on &middot; five labs, intermediate to advanced</div>
-  <div class="meta"><span>One case file throughout</span> &middot; <span>self-checked</span> &middot; <span>solutions provided</span></div>
+  <h1>Module 3 &mdash; LangGraph: Stateful Agent Workflows</h1>
+  <div class="tagline">Day 1 hands-on &middot; eight labs, one concept each, intermediate to advanced</div>
+  <div class="meta"><span>One case file throughout</span> &middot; <span>the first four need no model</span> &middot; <span>self-checked</span> &middot; <span>solutions provided</span></div>
 </header>
 
 <div class="container">
@@ -54,73 +54,107 @@ footer a{color:#c7d2fe;text-decoration:none}
   </div>
 
   <div class="lab">
-    <div class="tags">35 min<span class="lvl">Intermediate</span></div>
-    <h3><a href="lab-3-01-memory-that-survives.ipynb">Lab 3.1 &mdash; Memory That Survives a Long Session</a></h3>
-    <p>Watch an agent forget, bound the window, keep what you dropped, then let a checkpointer do it.</p>
+    <div class="tags">20 min<span class="lvl">Intermediate</span></div>
+    <h3><a href="lab-3-01-your-first-graph.ipynb">Lab 3.1 &mdash; Your First Graph</a></h3>
+    <p>State, one node, two edges, <code>compile()</code>. No model in it &mdash; and that is the point.</p>
     <ul>
-      <li>Watch an agent forget, by growing the history until the window bites</li>
-      <li>Bound it with <code>trim_messages</code> &mdash; including the counter that fails here</li>
-      <li>Summarise what you drop, so compaction is not amnesia</li>
-      <li>Hand the whole problem to a checkpointer and a <code>thread_id</code></li>
+      <li>Declare workflow state as a <code>TypedDict</code></li>
+      <li>Write a node &mdash; a plain function, state in, <i>partial</i> state out</li>
+      <li>Wire <code>START</code> and <code>END</code>, then <code>compile()</code> and <code>invoke()</code></li>
     </ul>
-    <div class="foot">2 blanks &middot; 15 checks &middot; solution:
-      <a href="solutions/lab-3-01-memory-that-survives.ipynb">solutions/lab-3-01-memory-that-survives.ipynb</a></div>
+    <div class="foot">3 blanks &middot; 5 checks &middot; solution:
+      <a href="solutions/lab-3-01-your-first-graph.ipynb">solutions/lab-3-01-your-first-graph.ipynb</a></div>
   </div>
 
   <div class="lab">
-    <div class="tags">35 min<span class="lvl">Intermediate &rarr; Advanced</span></div>
-    <h3><a href="lab-3-02-perception-observations.ipynb">Lab 3.2 &mdash; Perception: Raw Output Is Not an Observation</a></h3>
-    <p>The cheapest accuracy in the course: decide what the agent is allowed to see.</p>
+    <div class="tags">20 min<span class="lvl">Intermediate</span></div>
+    <h3><a href="lab-3-02-multi-step-workflow.ipynb">Lab 3.2 &mdash; A Multi-Step Workflow</a></h3>
+    <p>Three nodes in a row, and the discovery that your edges are a dependency order.</p>
     <ul>
-      <li>Turn an opaque upstream record into a typed observation with a schema</li>
-      <li>Distinguish the four kinds of &ldquo;nothing&rdquo; a tool can return</li>
-      <li>Stamp in what the agent cannot see &mdash; time, authority, provenance</li>
-      <li>Watch the same model answer well and badly on the same facts</li>
+      <li>Chain three nodes so each reads what the last one wrote</li>
+      <li>Discover that the <i>order</i> of your edges is a real design decision</li>
+      <li>Watch a run with <code>stream()</code>, one node at a time</li>
     </ul>
-    <div class="foot">3 blanks &middot; 19 checks &middot; solution:
-      <a href="solutions/lab-3-02-perception-observations.ipynb">solutions/lab-3-02-perception-observations.ipynb</a></div>
+    <div class="foot">3 blanks &middot; 5 checks &middot; solution:
+      <a href="solutions/lab-3-02-multi-step-workflow.ipynb">solutions/lab-3-02-multi-step-workflow.ipynb</a></div>
   </div>
 
   <div class="lab">
-    <div class="tags">45 min<span class="lvl">Advanced</span></div>
-    <h3><a href="lab-3-03-stategraph-from-scratch.ipynb">Lab 3.3 &mdash; Build a Real StateGraph</a></h3>
-    <p>Reducers, partial state, conditional edges and a cycle &mdash; testable without a model in it.</p>
+    <div class="tags">25 min<span class="lvl">Intermediate</span></div>
+    <h3><a href="lab-3-03-conditional-routing.ipynb">Lab 3.3 &mdash; Conditional Routing</a></h3>
+    <p>A routing function is a pure function returning a name. Module 5's supervisor, early.</p>
     <ul>
-      <li>Declare state as a <code>TypedDict</code> with <code>Annotated</code> reducers</li>
-      <li>Write nodes that return <i>partial</i> state, and let the reducers merge it</li>
-      <li>Wire edges, a conditional edge and a cycle, then <code>compile()</code></li>
-      <li>Watch it run with <code>stream()</code>, one node at a time</li>
+      <li>Write a routing function &mdash; state in, the name of the next node out</li>
+      <li>Attach it with <code>add_conditional_edges</code> and a branch map</li>
+      <li>Send three requests down three paths through one graph</li>
     </ul>
-    <div class="foot">3 blanks &middot; 21 checks &middot; solution:
-      <a href="solutions/lab-3-03-stategraph-from-scratch.ipynb">solutions/lab-3-03-stategraph-from-scratch.ipynb</a></div>
+    <div class="foot">3 blanks &middot; 5 checks &middot; solution:
+      <a href="solutions/lab-3-03-conditional-routing.ipynb">solutions/lab-3-03-conditional-routing.ipynb</a></div>
   </div>
 
   <div class="lab">
-    <div class="tags">45 min<span class="lvl">Advanced</span></div>
-    <h3><a href="lab-3-04-checkpointing.ipynb">Lab 3.4 &mdash; Checkpointing: Resume, Approve, Rewind, Audit</a></h3>
-    <p>One keyword argument, and suddenly resume, approval, rewind and audit are all possible.</p>
+    <div class="tags">25 min<span class="lvl">Intermediate &rarr; Advanced</span></div>
+    <h3><a href="lab-3-04-state-reducers.ipynb">Lab 3.4 &mdash; State Reducers</a></h3>
+    <p>Declare the merge rule once. Then run two nodes in one step and watch it matter.</p>
     <ul>
-      <li>Attach a checkpointer and watch state survive a crash</li>
-      <li>Stop the graph before an irreversible node with <code>interrupt_before</code></li>
-      <li>Resume, and rewind to an earlier checkpoint to try a different decision</li>
-      <li>Read <code>get_state_history()</code> as the audit trail it is</li>
+      <li>Declare <i>how</i> a field combines, once, instead of hand-merging in every node</li>
+      <li>Decide which fields need a reducer and which should simply be replaced</li>
+      <li>Run two nodes in the same step and see what happens without one</li>
     </ul>
-    <div class="foot">2 blanks &middot; 21 checks &middot; solution:
-      <a href="solutions/lab-3-04-checkpointing.ipynb">solutions/lab-3-04-checkpointing.ipynb</a></div>
+    <div class="foot">2 blanks &middot; 5 checks &middot; solution:
+      <a href="solutions/lab-3-04-state-reducers.ipynb">solutions/lab-3-04-state-reducers.ipynb</a></div>
   </div>
 
   <div class="lab">
-    <div class="tags">45 min<span class="lvl">Advanced</span></div>
-    <h3><a href="lab-3-05-challenge-shared-state-poisoning.ipynb">Lab 3.5 &mdash; Challenge &mdash; Shared State and Context Poisoning</a></h3>
-    <p>Three agents, one shared state, one wrong finding &mdash; and the sentence that catches it.</p>
+    <div class="tags">30 min<span class="lvl">Advanced</span></div>
+    <h3><a href="lab-3-05-cycles-and-retry.ipynb">Lab 3.5 &mdash; Cycles and Retry</a></h3>
+    <p>A cycle is an edge pointing backwards. One comparison is what stops it being a hang.</p>
     <ul>
-      <li>Build a graph where three agents write into one shared state</li>
-      <li>Introduce one wrong finding and watch it spread through the others</li>
-      <li>Give each agent private state, and measure how far the damage gets</li>
-      <li>Make every finding carry its source, so a wrong one can be traced and dropped</li>
+      <li>Build a loop &mdash; an edge that points backwards, and nothing more exotic</li>
+      <li>Give it a step budget, because the runaway loop is Module 2's failure mode</li>
+      <li>Put the model inside <i>one</i> node and leave the control flow deterministic</li>
     </ul>
-    <div class="foot">2 blanks &middot; 25 checks &middot; solution:
-      <a href="solutions/lab-3-05-challenge-shared-state-poisoning.ipynb">solutions/lab-3-05-challenge-shared-state-poisoning.ipynb</a></div>
+    <div class="foot">4 blanks &middot; 6 checks &middot; solution:
+      <a href="solutions/lab-3-05-cycles-and-retry.ipynb">solutions/lab-3-05-cycles-and-retry.ipynb</a></div>
+  </div>
+
+  <div class="lab">
+    <div class="tags">30 min<span class="lvl">Advanced</span></div>
+    <h3><a href="lab-3-06-checkpointing.ipynb">Lab 3.6 &mdash; Checkpointing</a></h3>
+    <p>One keyword argument, and resume, inspect, rewind and audit all become possible.</p>
+    <ul>
+      <li>Get persistence from one keyword argument</li>
+      <li>Decide what a <code>thread_id</code> should be &mdash; it is an identity, not a token</li>
+      <li>Read one snapshot with <code>get_state</code>, the whole trail with <code>get_state_history</code></li>
+    </ul>
+    <div class="foot">3 blanks &middot; 6 checks &middot; solution:
+      <a href="solutions/lab-3-06-checkpointing.ipynb">solutions/lab-3-06-checkpointing.ipynb</a></div>
+  </div>
+
+  <div class="lab">
+    <div class="tags">30 min<span class="lvl">Advanced</span></div>
+    <h3><a href="lab-3-07-human-in-the-loop.ipynb">Lab 3.7 &mdash; Human-in-the-Loop</a></h3>
+    <p>Pause before the irreversible step, let a person edit the state, then meet the rewind surprise.</p>
+    <ul>
+      <li>Stop a graph before the step that cannot be taken back</li>
+      <li>Resume it with <code>None</code> &mdash; and know why it is not the original input</li>
+      <li>Let a person edit the state with <code>update_state</code>, then meet the rewind surprise</li>
+    </ul>
+    <div class="foot">3 blanks &middot; 6 checks &middot; solution:
+      <a href="solutions/lab-3-07-human-in-the-loop.ipynb">solutions/lab-3-07-human-in-the-loop.ipynb</a></div>
+  </div>
+
+  <div class="lab">
+    <div class="tags">40 min<span class="lvl">Advanced</span></div>
+    <h3><a href="lab-3-08-challenge-leave-workflow.ipynb">Lab 3.8 &mdash; Challenge &mdash; The Leave Request Workflow</a></h3>
+    <p>Assemble all of it &mdash; and gate one branch rather than the whole graph.</p>
+    <ul>
+      <li>Assemble everything: state, routing, a cycle, a budget, checkpoints and a gate</li>
+      <li>Gate <i>one branch</i> rather than the whole graph &mdash; routing, not a bigger interrupt</li>
+      <li>Run four requests down four different paths through one compiled graph</li>
+    </ul>
+    <div class="foot">6 blanks &middot; 10 checks &middot; solution:
+      <a href="solutions/lab-3-08-challenge-leave-workflow.ipynb">solutions/lab-3-08-challenge-leave-workflow.ipynb</a></div>
   </div>
 
   <div class="note">

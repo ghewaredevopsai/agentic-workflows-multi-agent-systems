@@ -1,0 +1,977 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Module 3 &mdash; LangGraph: Stateful Agent Workflows | Agentic Workflows &amp; Multi-Agent Systems</title>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;height:100%}
+body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:#e8e9f5;color:#1e1b4b;overflow:hidden}
+
+/* ---------- chrome ---------- */
+#top{position:fixed;top:0;left:0;right:0;height:44px;background:#1e1b4b;color:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 16px;z-index:40;font-size:13px}
+#top .l{display:flex;align-items:center;gap:12px;min-width:0}
+#top .mod{font-weight:600;letter-spacing:.2px;white-space:nowrap}
+#top .sec{color:#a5b4fc;font-size:12px;border-left:1px solid #3730a3;padding-left:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#top .r{display:flex;align-items:center;gap:8px}
+#top a,#top button{color:#c7d2fe;text-decoration:none;background:#312e81;border:1px solid #4338ca;padding:5px 11px;border-radius:4px;font-size:12.5px;cursor:pointer;font-family:inherit}
+#top a:hover,#top button:hover{background:#4338ca;color:#fff}
+#bot{position:fixed;bottom:0;left:0;right:0;height:38px;background:#1e1b4b;color:#c7d2fe;display:flex;align-items:center;gap:12px;padding:0 16px;z-index:40;font-size:12px}
+#prog{flex:1;height:4px;background:#312e81;border-radius:2px;overflow:hidden}
+#progf{height:100%;width:2%;background:#fbbf24;transition:width .25s ease}
+.navbtn{background:#312e81;color:#fff;border:1px solid #4338ca;border-radius:4px;padding:4px 12px;cursor:pointer;font-size:14px;line-height:1.2;font-family:inherit}
+.navbtn:hover{background:#4338ca}
+#num{min-width:66px;text-align:right;font-variant-numeric:tabular-nums}
+#hint{color:#818cf8}
+#wrap{position:fixed;top:44px;bottom:38px;left:0;right:0;display:flex;align-items:center;justify-content:center}
+#stage{width:1280px;height:720px;background:#fff;box-shadow:0 8px 34px rgba(30,27,75,.28);position:relative;transform-origin:center center;overflow:hidden}
+
+/* ---------- index overlay ---------- */
+#toc{position:fixed;inset:44px 0 38px;background:rgba(23,21,60,.975);color:#fff;z-index:35;display:none;overflow:auto;padding:22px 46px}
+#toc.on{display:block}
+#toc h3{margin:0 0 14px;font-size:15px;color:#a5b4fc;letter-spacing:.6px;text-transform:uppercase;font-weight:600}
+#toc .cols{column-count:2;column-gap:38px}
+#toc .grp{margin-bottom:16px;break-inside:avoid}
+#toc .grph{font-size:12px;color:#fbbf24;font-weight:700;letter-spacing:.8px;margin-bottom:5px;text-transform:uppercase}
+#toc a{display:block;color:#dce0f7;text-decoration:none;padding:4px 10px;border-left:2px solid #4338ca;font-size:14px}
+#toc a:hover{background:#312e81;border-left-color:#818cf8}
+#toc a.cur{background:#4338ca;border-left-color:#fbbf24;color:#fff;font-weight:600}
+#toc a .n{display:inline-block;width:28px;color:#818cf8;font-size:12px}
+
+/* ---------- notes ---------- */
+#notes{position:fixed;left:0;right:0;bottom:38px;max-height:34%;overflow:auto;background:#171540;color:#dce0f7;border-top:3px solid #fbbf24;padding:12px 22px;z-index:36;display:none;font-size:14px;line-height:1.55}
+#notes.on{display:block}
+#notes .h{font-size:11px;letter-spacing:.8px;color:#a5b4fc;font-weight:700;margin-bottom:5px;text-transform:uppercase}
+
+/* ---------- slide shell ---------- */
+.slide{position:absolute;inset:0;padding:26px 40px 20px;display:none;flex-direction:column}
+.slide.active{display:flex}
+.slide h2{margin:0 0 14px;font-size:28px;line-height:1.14;color:#1e1b4b;border-bottom:2px solid #4338ca;padding-bottom:8px;font-weight:600}
+.slide .body{flex:1;display:flex;align-items:center;justify-content:center;min-height:0}
+.slide .body.col{flex-direction:column;justify-content:center;gap:10px}
+.take{margin-top:12px;background:#fffbeb;border-left:4px solid #fbbf24;padding:9px 14px;font-size:19px;color:#3f3009;border-radius:0 3px 3px 0;line-height:1.35}
+.take b{color:#92400e}
+
+/* title slide */
+.slide.title{justify-content:center;align-items:center;text-align:center;background:linear-gradient(135deg,#1e1b4b 0%,#4338ca 100%);color:#fff;padding:0}
+.slide.title h1{font-size:46px;margin:0 0 12px;font-weight:600;line-height:1.15}
+.slide.title .sub{font-size:21px;color:#c7d2fe;margin-bottom:26px}
+.slide.title .rule{width:120px;height:3px;background:#fbbf24;margin:0 auto 26px}
+.slide.title .meta{font-size:17px;color:#c7d2fe;line-height:1.9}
+
+/* section divider */
+.slide.div{justify-content:center;align-items:center;text-align:center;background:#f5f5fb}
+.slide.div .k{font-size:15px;letter-spacing:2px;color:#818cf8;font-weight:700;text-transform:uppercase;margin-bottom:14px}
+.slide.div h1{font-size:40px;margin:0;color:#1e1b4b;font-weight:600}
+
+/* svg text defaults */
+svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
+.lbl{font-size:15px;fill:#475569;letter-spacing:.7px;font-weight:700;text-transform:uppercase}
+.bx{font-size:20px;fill:#1e1b4b;font-weight:600}
+.bxs{font-size:18px;fill:#1e1b4b;font-weight:600}
+.bd{font-size:17px;fill:#334155}
+.bds{font-size:16px;fill:#475569}
+.big{font-size:25px;fill:#1e1b4b;font-weight:700}
+.num{font-size:28px;fill:#4338ca;font-weight:700}
+.ok{fill:#0d9488}
+.no{fill:#b91c1c}
+.am{fill:#92400e}
+
+/* quiz */
+.q .body{align-items:center}
+.qbox{width:100%}
+.qstem{font-size:25px;line-height:1.35;color:#1e1b4b;font-weight:600;margin-bottom:22px}
+.opt{display:flex;align-items:flex-start;gap:14px;padding:11px 16px;margin-bottom:10px;background:#f8f8fd;border-left:4px solid #c7d2fe;border-radius:0 4px 4px 0;font-size:20px;line-height:1.3}
+.opt .k{font-weight:700;color:#4338ca;min-width:22px}
+.opt.hit{background:#ecfdf5;border-left-color:#0d9488}
+.opt.hit .k{color:#0d9488}
+.opt.miss{opacity:.62}
+.why{margin-top:14px;background:#f5f3ff;border-left:4px solid #7c3aed;padding:10px 15px;font-size:18px;color:#332457;line-height:1.4;border-radius:0 3px 3px 0}
+.why b{color:#5b21b6}
+.qtag{position:absolute;top:26px;right:40px;font-size:13px;letter-spacing:1px;font-weight:700;color:#6366f1;text-transform:uppercase}
+</style>
+</head>
+<body>
+
+<div id="top">
+  <div class="l">
+    <span class="mod">Module 3 &middot; LangGraph: Stateful Agent Workflows</span>
+    <span class="sec" id="secname">&nbsp;</span>
+  </div>
+  <div class="r">
+    <a href="../course-outline-agentic-workflows-multi-agent-systems.html" title="Course outline">Home</a>
+    <button id="btoc" title="Slide index (T)">Index</button>
+    <button id="bnotes" title="Speaker notes (N)">Notes</button>
+    <a href="../resources/video-resources.html" title="Post-session video resources">Resources</a>
+  </div>
+</div>
+
+<div id="wrap"><div id="stage"></div></div>
+
+<div id="toc"><h3>Slide index</h3><div class="cols" id="toclist"></div></div>
+<div id="notes"><div class="h">Speaker notes</div><div id="notesbody"></div></div>
+
+<div id="bot">
+  <button class="navbtn" id="bprev">&#8592;</button>
+  <button class="navbtn" id="bnext">&#8594;</button>
+  <div id="prog"><div id="progf"></div></div>
+  <span id="hint">&#8592; &#8594; move &middot; T index &middot; N notes &middot; F fullscreen</span>
+  <span id="num">1 / 1</span>
+</div>
+
+<template id="deck">
+
+<svg width="0" height="0" style="position:absolute"><defs>
+<marker id="ai" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#4338ca"/></marker>
+<marker id="ag" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker>
+<marker id="aa" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#d97706"/></marker>
+<marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#b91c1c"/></marker>
+<marker id="at" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#0d9488"/></marker>
+</defs></svg>
+
+<div class="slide title" data-sec="Title" data-notes="Module 1 chose the shape, Module 2 chose the thinking. This module gives both somewhere to live. Frame it as the substrate module: everything on Days 2 and 3 -- orchestration, RAG, evaluation, approval gates -- is built on the machinery in this hour. Eight labs, one concept each, and the first four have no model in them at all.">
+  <h1>LangGraph:<br>Stateful Agent Workflows</h1>
+  <div class="sub">Day 1 &middot; Module 3</div>
+  <div class="rule"></div>
+  <div class="meta">State, nodes and edges &middot; routing &middot; cycles &middot; reducers<br>checkpoints &middot; human-in-the-loop</div>
+</div>
+
+<div class="slide" data-sec="Orientation" data-notes="Say what closes today. After this module the agent has a shape, a way of thinking, and a substrate to run on. Be explicit that the first four labs contain no model: that surprises people and it is the point -- the control flow is ordinary software, and keeping it that way is what makes an agent testable.">
+  <h2>The third piece</h2>
+  <div class="body">
+    <svg width="1180" height="410" viewBox="0 0 1180 410" role="img" aria-label="Modules 1, 2 and 3 and what each contributed">
+      <rect x="40" y="60" width="330" height="150" rx="8" fill="#f8f8fd" stroke="#c7d2fe" stroke-width="2"/>
+      <text x="205" y="96" text-anchor="middle" class="lbl">Module 1</text>
+      <text x="205" y="130" text-anchor="middle" class="bx">The shape</text>
+      <text x="205" y="162" text-anchor="middle" class="bds">one agent, or several?</text>
+      <text x="205" y="186" text-anchor="middle" class="bds">the coordination tax</text>
+
+      <rect x="425" y="60" width="330" height="150" rx="8" fill="#f8f8fd" stroke="#c7d2fe" stroke-width="2"/>
+      <text x="590" y="96" text-anchor="middle" class="lbl">Module 2</text>
+      <text x="590" y="130" text-anchor="middle" class="bx">The thinking</text>
+      <text x="590" y="162" text-anchor="middle" class="bds">CoT, ReAct, reflection</text>
+      <text x="590" y="186" text-anchor="middle" class="bds">stop conditions and budgets</text>
+
+      <rect x="810" y="60" width="330" height="150" rx="8" fill="#eef2ff" stroke="#4338ca" stroke-width="3"/>
+      <text x="975" y="96" text-anchor="middle" class="lbl">Module 3</text>
+      <text x="975" y="130" text-anchor="middle" class="bx">The substrate</text>
+      <text x="975" y="162" text-anchor="middle" class="bds">state you can print</text>
+      <text x="975" y="186" text-anchor="middle" class="bds">and pause and resume</text>
+
+      <line x1="370" y1="135" x2="418" y2="135" stroke="#94a3b8" stroke-width="2.5" marker-end="url(#ag)"/>
+      <line x1="755" y1="135" x2="803" y2="135" stroke="#4338ca" stroke-width="2.5" marker-end="url(#ai)"/>
+
+      <rect x="40" y="250" width="1100" height="120" rx="8" fill="#f5f5fb" stroke="#c7d2fe" stroke-width="2"/>
+      <text x="590" y="286" text-anchor="middle" class="bx">Everything on Days 2 and 3 assumes this exists</text>
+      <text x="590" y="320" text-anchor="middle" class="bd">supervisor orchestration &middot; agentic RAG loops &middot; evaluation traces &middot; approval gates</text>
+      <text x="590" y="350" text-anchor="middle" class="bds am">The first four labs of this module contain no model at all. That is deliberate.</text>
+    </svg>
+  </div>
+</div>
+
+<div class="slide div" data-sec="Why a graph" data-notes="Short divider. The question this section answers: you already have create_agent, so why learn anything else?">
+  <div class="k">Section 1</div>
+  <h1>Why a graph</h1>
+</div>
+
+<div class="slide" data-sec="Why a graph" data-notes="The honest framing. create_agent is not a lesser tool -- it is the right tool when the control flow IS that loop, and most of Day 2 uses it. You drop to LangGraph when the control flow belongs to you. Ask the room for a workflow of theirs that needs a branch or an approval; that is the moment they will need this.">
+  <h2>When one loop is not enough</h2>
+  <div class="body">
+    <svg width="1180" height="415" viewBox="0 0 1180 415" role="img" aria-label="A fixed agent loop compared with control flow you own">
+      <rect x="45" y="45" width="510" height="330" rx="8" fill="#f8f8fd" stroke="#4338ca" stroke-width="2.5"/>
+      <text x="300" y="82" text-anchor="middle" class="bx">create_agent</text>
+      <text x="300" y="108" text-anchor="middle" class="bds">one fixed loop, and a good one</text>
+
+      <rect x="150" y="132" width="140" height="48" rx="6" fill="#4338ca"/>
+      <text x="220" y="162" text-anchor="middle" font-size="16" font-weight="600" fill="#fff">model</text>
+      <rect x="320" y="132" width="140" height="48" rx="6" fill="#4338ca"/>
+      <text x="390" y="162" text-anchor="middle" font-size="16" font-weight="600" fill="#fff">tools</text>
+      <line x1="290" y1="156" x2="314" y2="156" stroke="#4338ca" stroke-width="2.5" marker-end="url(#ai)"/>
+      <path d="M390 180 Q390 218 305 218 Q220 218 220 184" fill="none" stroke="#4338ca" stroke-width="2.5" marker-end="url(#ai)"/>
+      <text x="305" y="240" text-anchor="middle" class="bds">repeat until done</text>
+
+      <text x="300" y="288" text-anchor="middle" class="bd">Right whenever the loop is the workflow</text>
+      <text x="300" y="316" text-anchor="middle" class="bds">Most of Day 2 uses it</text>
+      <text x="300" y="352" text-anchor="middle" class="bds no">You cannot branch, pause, or inspect inside it</text>
+
+      <rect x="625" y="45" width="510" height="330" rx="8" fill="#eef2ff" stroke="#4338ca" stroke-width="3"/>
+      <text x="880" y="82" text-anchor="middle" class="bx">StateGraph</text>
+      <text x="880" y="108" text-anchor="middle" class="bds">the control flow is yours</text>
+
+      <rect x="660" y="132" width="200" height="44" rx="6" fill="#fff" stroke="#818cf8" stroke-width="2"/>
+      <text x="760" y="160" text-anchor="middle" class="bds">branch on the state</text>
+      <rect x="900" y="132" width="200" height="44" rx="6" fill="#fff" stroke="#818cf8" stroke-width="2"/>
+      <text x="1000" y="160" text-anchor="middle" class="bds">go round again</text>
+      <rect x="660" y="188" width="200" height="44" rx="6" fill="#fff" stroke="#818cf8" stroke-width="2"/>
+      <text x="760" y="216" text-anchor="middle" class="bds">stop for a person</text>
+      <rect x="900" y="188" width="200" height="44" rx="6" fill="#fff" stroke="#818cf8" stroke-width="2"/>
+      <text x="1000" y="216" text-anchor="middle" class="bds">resume tomorrow</text>
+
+      <text x="880" y="288" text-anchor="middle" class="bd">Right when a person, a policy or a branch</text>
+      <text x="880" y="314" text-anchor="middle" class="bd">has to sit inside the flow</text>
+      <text x="880" y="352" text-anchor="middle" class="bxs ok">And all of it is testable without a model</text>
+    </svg>
+  </div>
+  <div class="take"><b>Not a replacement.</b> You drop to LangGraph when the control flow stops being &ldquo;model, tools, repeat&rdquo; and starts being yours.</div>
+</div>
+
+<div class="slide" data-sec="Why a graph" data-notes="The core contrast of the module, and the one slide to slow down on. On the left the fact 'this needs a manager' exists only as text inside a conversation -- you cannot assert on it, resume it, or show it to an auditor. On the right it is a field. Everything else in this module follows from that single move, and so does the audit trail two sections later.">
+  <h2>From a message list to an object you can inspect</h2>
+  <div class="body">
+    <svg width="1180" height="405" viewBox="0 0 1180 405" role="img" aria-label="Implicit conversational state compared with an explicit state object">
+      <rect x="45" y="42" width="500" height="300" rx="8" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
+      <text x="295" y="76" text-anchor="middle" class="bx no">State hidden in a conversation</text>
+      <rect x="75" y="96" width="440" height="26" rx="3" fill="#fff" stroke="#fecaca"/>
+      <text x="90" y="114" font-size="14" fill="#64748b">human: Vikram wants 15 days off</text>
+      <rect x="75" y="128" width="440" height="26" rx="3" fill="#fff" stroke="#fecaca"/>
+      <text x="90" y="146" font-size="14" fill="#64748b">ai: Action: lookup_request("LV-5004")</text>
+      <rect x="75" y="160" width="440" height="26" rx="3" fill="#fff" stroke="#fecaca"/>
+      <text x="90" y="178" font-size="14" fill="#64748b">tool: {"days":15,"balance":20, ...}</text>
+      <rect x="75" y="192" width="440" height="26" rx="3" fill="#fff" stroke="#fecaca"/>
+      <text x="90" y="210" font-size="14" fill="#64748b">ai: that will need manager approval</text>
+      <text x="295" y="252" text-anchor="middle" class="bd">Where is &ldquo;needs a manager&rdquo; stored?</text>
+      <text x="295" y="282" text-anchor="middle" class="bxs no">Nowhere. It is implied by text.</text>
+      <text x="295" y="312" text-anchor="middle" class="bds">You cannot assert on it, resume it,</text>
+      <text x="295" y="332" text-anchor="middle" class="bds">or show an auditor what was known when.</text>
+
+      <line x1="560" y1="192" x2="600" y2="192" stroke="#4338ca" stroke-width="2.5" marker-end="url(#ai)"/>
+
+      <rect x="625" y="42" width="510" height="300" rx="8" fill="#ecfdf5" stroke="#0d9488" stroke-width="2.5"/>
+      <text x="880" y="76" text-anchor="middle" class="bx ok">State as an explicit object</text>
+      <rect x="655" y="96" width="450" height="150" rx="4" fill="#fff" stroke="#99f6e4"/>
+      <text x="673" y="120" font-size="15" font-family="Consolas,monospace"><tspan fill="#0d9488">class LeaveState(TypedDict):</tspan></text>
+      <text x="673" y="144" font-size="15" font-family="Consolas,monospace"><tspan fill="#475569">    request_id: str</tspan></text>
+      <text x="673" y="168" font-size="15" font-family="Consolas,monospace"><tspan fill="#475569">    days: int</tspan></text>
+      <text x="673" y="192" font-size="15" font-family="Consolas,monospace"><tspan fill="#475569">    needs_manager: bool</tspan></text>
+      <text x="673" y="216" font-size="15" font-family="Consolas,monospace"><tspan fill="#475569">    notes: Annotated[list, add]</tspan></text>
+      <text x="673" y="238" font-size="15" font-family="Consolas,monospace"><tspan fill="#b91c1c">    # every node reads and writes THIS</tspan></text>
+      <text x="880" y="280" text-anchor="middle" class="bd">Printable. Assertable. Storable.</text>
+      <text x="880" y="310" text-anchor="middle" class="bxs ok">Everything else in this module</text>
+      <text x="880" y="332" text-anchor="middle" class="bxs ok">follows from that one move.</text>
+    </svg>
+  </div>
+  <div class="take"><b>This is why we drop to LangGraph.</b> Not for the graph &mdash; for the state the graph forces you to declare.</div>
+</div>
+
+<div class="slide div" data-sec="The three parts" data-notes="Divider. Three parts and no more: state, nodes, edges. Say that out loud -- people expect a framework and it is three ideas.">
+  <div class="k">Section 2</div>
+  <h1>State, nodes, edges</h1>
+</div>
+
+<div class="slide" data-sec="The three parts" data-notes="Part one of three. A TypedDict is a schema for a plain dict -- there is no new runtime type to learn, which is worth saying because people brace for one. The three properties on the right are what the rest of the module cashes in: assertable gives you Lab 3.1's offline self-checks, storable gives you checkpointing, printable gives you the audit trail.">
+  <h2>State &mdash; one object every node reads and writes</h2>
+  <div class="body">
+    <svg width="1180" height="400" viewBox="0 0 1180 400" role="img" aria-label="A TypedDict state schema and the three properties it buys">
+      <rect x="45" y="45" width="580" height="300" rx="8" fill="#fff" stroke="#4338ca" stroke-width="2.5"/>
+      <text x="335" y="82" text-anchor="middle" class="bx">A TypedDict, and nothing more</text>
+      <text x="75" y="128" font-size="17" font-family="Consolas,monospace"><tspan fill="#4338ca">class</tspan><tspan fill="#1e1b4b"> LeaveState(TypedDict):</tspan></text>
+      <text x="75" y="158" font-size="17" font-family="Consolas,monospace"><tspan fill="#475569">    request_id: str</tspan><tspan fill="#94a3b8">      # in at the start</tspan></text>
+      <text x="75" y="188" font-size="17" font-family="Consolas,monospace"><tspan fill="#475569">    days: int</tspan><tspan fill="#94a3b8">            # written by summarise</tspan></text>
+      <text x="75" y="218" font-size="17" font-family="Consolas,monospace"><tspan fill="#475569">    covered: bool</tspan><tspan fill="#94a3b8">        # written by check</tspan></text>
+      <text x="75" y="248" font-size="17" font-family="Consolas,monospace"><tspan fill="#475569">    decision: str</tspan><tspan fill="#94a3b8">        # written by draft</tspan></text>
+      <text x="335" y="296" text-anchor="middle" class="bds">At runtime it is a plain dict.</text>
+      <text x="335" y="322" text-anchor="middle" class="bds">There is no new object type to learn.</text>
+
+      <rect x="665" y="45" width="470" height="88" rx="6" fill="#f8f8fd" stroke="#c7d2fe" stroke-width="2"/>
+      <text x="700" y="80" class="bxs">Printable</text>
+      <text x="700" y="108" class="bds">you can look at what the agent knows</text>
+
+      <rect x="665" y="151" width="470" height="88" rx="6" fill="#f8f8fd" stroke="#c7d2fe" stroke-width="2"/>
+      <text x="700" y="186" class="bxs">Assertable</text>
+      <text x="700" y="214" class="bds">a workflow test needs no model in it</text>
+
+      <rect x="665" y="257" width="470" height="88" rx="6" fill="#f8f8fd" stroke="#c7d2fe" stroke-width="2"/>
+      <text x="700" y="292" class="bxs">Storable</text>
+      <text x="700" y="320" class="bds">which is what makes resume and audit possible</text>
+    </svg>
+  </div>
+  <div class="take"><b>Declaring the state is the whole move.</b> Checkpoints, approval gates and the audit trail are all consequences of it.</div>
+</div>
+
+<div class="slide" data-sec="The three parts" data-notes="Part two. The partial-state rule is the single most common first mistake and it is worth a beat. Returning the whole state WORKS in a chain -- which is why nobody notices -- and then two nodes run in the same step and one writes back a stale copy of what the other just changed. Lab 3.1 makes them choose between the two return values, and Lab 3.4 shows the failure.">
+  <h2>Nodes &mdash; state in, <i>partial</i> state out</h2>
+  <div class="body">
+    <svg width="1180" height="400" viewBox="0 0 1180 400" role="img" aria-label="A node function returning only the keys it changed">
+      <rect x="45" y="50" width="1090" height="130" rx="8" fill="#fff" stroke="#4338ca" stroke-width="2.5"/>
+      <text x="75" y="86" font-size="17" font-family="Consolas,monospace"><tspan fill="#4338ca">def</tspan><tspan fill="#1e1b4b"> check(state: LeaveState) -&gt; dict:</tspan></text>
+      <text x="75" y="114" font-size="17" font-family="Consolas,monospace"><tspan fill="#475569">    return {"covered": state["balance"] &gt;= state["days"],</tspan></text>
+      <text x="75" y="142" font-size="17" font-family="Consolas,monospace"><tspan fill="#475569">            "needs_manager": state["days"] &gt; 2}</tspan></text>
+      <text x="75" y="168" font-size="16" font-family="Consolas,monospace"><tspan fill="#0d9488">    # only the two keys it changed. LangGraph merges the rest.</tspan></text>
+
+      <rect x="45" y="210" width="530" height="150" rx="8" fill="#ecfdf5" stroke="#0d9488" stroke-width="2.5"/>
+      <text x="310" y="246" text-anchor="middle" class="bxs ok">Return only what you changed</text>
+      <text x="310" y="280" text-anchor="middle" class="bds">LangGraph merges it into the state</text>
+      <text x="310" y="308" text-anchor="middle" class="bds">Untouched fields survive on their own</text>
+      <text x="310" y="340" text-anchor="middle" class="bds ok">Two nodes can safely run at once</text>
+
+      <rect x="605" y="210" width="530" height="150" rx="8" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
+      <text x="870" y="246" text-anchor="middle" class="bxs no">Return the whole state</text>
+      <text x="870" y="280" text-anchor="middle" class="bds">Works fine &mdash; in a straight chain</text>
+      <text x="870" y="308" text-anchor="middle" class="bds">Then two nodes run in the same step</text>
+      <text x="870" y="340" text-anchor="middle" class="bds no">and one writes back a stale copy</text>
+    </svg>
+  </div>
+  <div class="take"><b>A node is a plain function.</b> No base class, no decorator &mdash; which is why you can unit-test one without a graph at all.</div>
+</div>
+
+<div class="slide" data-sec="The three parts" data-notes="Part three. Two things to land. First, START and END are ordinary edge endpoints, not settings -- people look for set_entry_point. Second, and this is the design point: the edges are what guarantee a field exists when a later node reads it. Swap two and you get KeyError on the first run, which is enormously better than a confident answer built on a field nobody set.">
+  <h2>Edges &mdash; what runs next</h2>
+  <div class="body">
+    <svg width="1180" height="400" viewBox="0 0 1180 400" role="img" aria-label="A three-node chain from START to END and the dependency it enforces">
+      <circle cx="80" cy="120" r="24" fill="#1e1b4b"/><text x="80" y="126" text-anchor="middle" font-size="13" fill="#fff">START</text>
+      <line x1="104" y1="120" x2="156" y2="120" stroke="#4338ca" stroke-width="2.5" marker-end="url(#ai)"/>
+
+      <rect x="163" y="90" width="205" height="60" rx="6" fill="#4338ca"/>
+      <text x="265" y="115" text-anchor="middle" font-size="16" font-weight="600" fill="#fff">summarise</text>
+      <text x="265" y="136" text-anchor="middle" font-size="14" fill="#c7d2fe">writes days, balance</text>
+      <line x1="368" y1="120" x2="420" y2="120" stroke="#4338ca" stroke-width="2.5" marker-end="url(#ai)"/>
+
+      <rect x="427" y="90" width="205" height="60" rx="6" fill="#4338ca"/>
+      <text x="529" y="115" text-anchor="middle" font-size="16" font-weight="600" fill="#fff">check</text>
+      <text x="529" y="136" text-anchor="middle" font-size="14" fill="#c7d2fe">writes covered</text>
+      <line x1="632" y1="120" x2="684" y2="120" stroke="#4338ca" stroke-width="2.5" marker-end="url(#ai)"/>
+
+      <rect x="691" y="90" width="205" height="60" rx="6" fill="#4338ca"/>
+      <text x="793" y="115" text-anchor="middle" font-size="16" font-weight="600" fill="#fff">draft</text>
+      <text x="793" y="136" text-anchor="middle" font-size="14" fill="#c7d2fe">reads covered</text>
+      <line x1="896" y1="120" x2="948" y2="120" stroke="#4338ca" stroke-width="2.5" marker-end="url(#ai)"/>
+      <circle cx="972" cy="120" r="24" fill="#1e1b4b"/><text x="972" y="126" text-anchor="middle" font-size="15" fill="#fff">END</text>
+
+      <path d="M529 156 Q529 196 660 196 Q793 196 793 158" fill="none" stroke="#0d9488" stroke-width="2.5" marker-end="url(#at)"/>
+      <text x="660" y="218" text-anchor="middle" class="bds ok">covered is created here, and read here</text>
+
+      <rect x="45" y="248" width="1090" height="110" rx="8" fill="#fffbeb" stroke="#fbbf24" stroke-width="2"/>
+      <text x="590" y="284" text-anchor="middle" class="bxs am">The edges are not decoration &mdash; they are the dependency order</text>
+      <text x="590" y="316" text-anchor="middle" class="bd">Wire draft before check and you get <tspan font-family="Consolas,monospace">KeyError: 'covered'</tspan> on the first run</text>
+      <text x="590" y="344" text-anchor="middle" class="bds">The conversational version of that mistake produces a confident answer instead</text>
+    </svg>
+  </div>
+  <div class="take"><b><code>START</code> and <code>END</code> are edges</b>, not settings. A graph is a set of edges and two of them touch the ends.</div>
+</div>
+
+<div class="slide" data-sec="The three parts" data-notes="Only now the API, after three slides of concept. Six calls, and they have already met every idea behind them. Emphasise the last line of the panel: nothing here needs an endpoint, so in Lab 3.1 through 3.4 every self-check builds and runs a real compiled graph with no model in it. Leave them with that: put the model in one node and the control flow around it stays code you can unit-test.">
+  <h2>The whole API, in six calls</h2>
+  <div class="body">
+    <svg width="1180" height="405" viewBox="0 0 1180 405" role="img" aria-label="The six LangGraph calls used in this module">
+      <rect x="45" y="40" width="700" height="325" rx="8" fill="#1e1b4b"/>
+      <text x="75" y="78" font-size="17" font-family="Consolas,monospace"><tspan fill="#818cf8">builder</tspan><tspan fill="#e2e8f0"> = </tspan><tspan fill="#fbbf24">StateGraph</tspan><tspan fill="#e2e8f0">(LeaveState)</tspan></text>
+      <text x="75" y="112" font-size="17" font-family="Consolas,monospace"><tspan fill="#818cf8">builder</tspan><tspan fill="#e2e8f0">.</tspan><tspan fill="#fbbf24">add_node</tspan><tspan fill="#e2e8f0">("check", check)</tspan></text>
+      <text x="75" y="146" font-size="17" font-family="Consolas,monospace"><tspan fill="#818cf8">builder</tspan><tspan fill="#e2e8f0">.</tspan><tspan fill="#fbbf24">add_edge</tspan><tspan fill="#e2e8f0">(START, "check")</tspan></text>
+      <text x="75" y="180" font-size="17" font-family="Consolas,monospace"><tspan fill="#818cf8">builder</tspan><tspan fill="#e2e8f0">.</tspan><tspan fill="#fbbf24">add_conditional_edges</tspan><tspan fill="#e2e8f0">("check", route, branches)</tspan></text>
+      <text x="75" y="214" font-size="17" font-family="Consolas,monospace"><tspan fill="#818cf8">app</tspan><tspan fill="#e2e8f0"> = builder.</tspan><tspan fill="#fbbf24">compile</tspan><tspan fill="#e2e8f0">(checkpointer=InMemorySaver())</tspan></text>
+      <text x="75" y="248" font-size="17" font-family="Consolas,monospace"><tspan fill="#818cf8">app</tspan><tspan fill="#e2e8f0">.</tspan><tspan fill="#fbbf24">invoke</tspan><tspan fill="#e2e8f0">(state, config)</tspan></text>
+      <text x="75" y="296" font-size="16" font-family="Consolas,monospace"><tspan fill="#94a3b8"># that is the entire surface used in all eight labs</tspan></text>
+      <text x="75" y="330" font-size="16" font-family="Consolas,monospace"><tspan fill="#5eead4"># none of it needs a model or a network</tspan></text>
+
+      <rect x="785" y="40" width="350" height="150" rx="8" fill="#ecfdf5" stroke="#0d9488" stroke-width="2.5"/>
+      <text x="960" y="80" text-anchor="middle" class="bxs ok">Building is free</text>
+      <text x="960" y="114" text-anchor="middle" class="bds">nodes, edges, reducers, a compiled</text>
+      <text x="960" y="138" text-anchor="middle" class="bds">graph &mdash; no endpoint involved</text>
+      <text x="960" y="170" text-anchor="middle" class="bds ok">so your tests never flake</text>
+
+      <rect x="785" y="215" width="350" height="150" rx="8" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
+      <text x="960" y="255" text-anchor="middle" class="bxs am">Only invoking costs</text>
+      <text x="960" y="289" text-anchor="middle" class="bds">and only in the nodes that</text>
+      <text x="960" y="313" text-anchor="middle" class="bds">actually call the model</text>
+      <text x="960" y="345" text-anchor="middle" class="bds am">usually one of them</text>
+    </svg>
+  </div>
+  <div class="take"><b>Put the model in one node.</b> Everything around it stays ordinary software you can unit-test.</div>
+</div>
+<div class="slide div" data-sec="Choosing at runtime" data-notes="Divider. Everything so far ran the same way every time. Now the state decides.">
+  <div class="k">Section 3</div>
+  <h1>Choosing at runtime</h1>
+</div>
+
+<div class="slide" data-sec="Choosing at runtime" data-notes="Two things to insist on. The router READS state and RETURNS A STRING -- it does no work, calls no model, changes nothing, and keeping it that way is why the hardest logic in the workflow is also the cheapest to test: four dicts, no graph. Second, it hangs off the node that produced the facts it reads. Then make the forward link explicitly: Module 5's supervisor is this function with a model choosing the string, so they are writing a supervisor right now without the vocabulary.">
+  <h2>Conditional edges &mdash; the state decides</h2>
+  <div class="body">
+    <svg width="1180" height="405" viewBox="0 0 1180 405" role="img" aria-label="A routing function and the three branches it selects between">
+      <rect x="45" y="38" width="480" height="180" rx="8" fill="#1e1b4b"/>
+      <text x="72" y="72" font-size="16" font-family="Consolas,monospace"><tspan fill="#4ade80">def</tspan><tspan fill="#e2e8f0"> route(state) -&gt; </tspan><tspan fill="#fbbf24">str</tspan><tspan fill="#e2e8f0">:</tspan></text>
+      <text x="72" y="100" font-size="16" font-family="Consolas,monospace"><tspan fill="#e2e8f0">    if not state["covered"]:</tspan></text>
+      <text x="72" y="126" font-size="16" font-family="Consolas,monospace"><tspan fill="#e2e8f0">        return </tspan><tspan fill="#fca5a5">"decline"</tspan></text>
+      <text x="72" y="152" font-size="16" font-family="Consolas,monospace"><tspan fill="#e2e8f0">    if state["needs_manager"]:</tspan></text>
+      <text x="72" y="178" font-size="16" font-family="Consolas,monospace"><tspan fill="#e2e8f0">        return </tspan><tspan fill="#fcd34d">"manager"</tspan></text>
+      <text x="72" y="204" font-size="16" font-family="Consolas,monospace"><tspan fill="#e2e8f0">    return </tspan><tspan fill="#5eead4">"auto"</tspan></text>
+
+      <rect x="45" y="234" width="480" height="128" rx="8" fill="#ecfdf5" stroke="#0d9488" stroke-width="2.5"/>
+      <text x="285" y="268" text-anchor="middle" class="bxs ok">Reads state. Returns a string.</text>
+      <text x="285" y="298" text-anchor="middle" class="bds">Does no work. Calls no model. Changes nothing.</text>
+      <text x="285" y="330" text-anchor="middle" class="bds">So the hardest logic in the workflow is</text>
+      <text x="285" y="352" text-anchor="middle" class="bds ok">also the cheapest thing to test</text>
+
+      <rect x="580" y="120" width="180" height="56" rx="6" fill="#4338ca"/>
+      <text x="670" y="154" text-anchor="middle" font-size="16" font-weight="600" fill="#fff">check</text>
+      <text x="670" y="102" text-anchor="middle" class="bds">the node that wrote the facts</text>
+
+      <polygon points="855,148 925,182 855,216 785,182" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
+      <text x="855" y="180" text-anchor="middle" font-size="14" font-weight="700" fill="#92400e">route</text>
+      <text x="855" y="198" text-anchor="middle" font-size="12" fill="#92400e">branch map</text>
+      <line x1="670" y1="176" x2="670" y2="182" stroke="#4338ca" stroke-width="2.5"/>
+      <line x1="670" y1="182" x2="781" y2="182" stroke="#4338ca" stroke-width="2.5" marker-end="url(#ai)"/>
+
+      <line x1="925" y1="170" x2="985" y2="118" stroke="#0d9488" stroke-width="2.5" marker-end="url(#at)"/>
+      <rect x="992" y="92" width="145" height="50" rx="6" fill="#0d9488"/>
+      <text x="1064" y="123" text-anchor="middle" font-size="15" font-weight="600" fill="#fff">approve</text>
+
+      <line x1="928" y1="182" x2="985" y2="182" stroke="#d97706" stroke-width="2.5" marker-end="url(#aa)"/>
+      <rect x="992" y="157" width="145" height="50" rx="6" fill="#d97706"/>
+      <text x="1064" y="188" text-anchor="middle" font-size="15" font-weight="600" fill="#fff">to_manager</text>
+
+      <line x1="925" y1="194" x2="985" y2="246" stroke="#b91c1c" stroke-width="2.5" marker-end="url(#ar)"/>
+      <rect x="992" y="222" width="145" height="50" rx="6" fill="#b91c1c"/>
+      <text x="1064" y="253" text-anchor="middle" font-size="15" font-weight="600" fill="#fff">decline</text>
+
+      <text x="860" y="310" text-anchor="middle" class="bds">One target runs. Not all three.</text>
+      <text x="860" y="344" text-anchor="middle" class="bxs am">Module 5's supervisor is this function,</text>
+      <text x="860" y="366" text-anchor="middle" class="bxs am">with a model choosing the string.</text>
+    </svg>
+  </div>
+</div>
+
+<div class="slide" data-sec="Choosing at runtime" data-notes="A cycle is not a feature -- there is no loop construct, just an edge that points backwards. So the interesting part is stopping, which is Module 2's most common production failure written down as a field and a comparison. Point at the amber box: >= is what makes it a budget rather than a suggestion, and Lab 1.1 spun in a while True for want of exactly this. Mention recursion_limit as the framework's backstop and ask which error they would rather explain to an auditor.">
+  <h2>Cycles &mdash; and the budget that stops them</h2>
+  <div class="body">
+    <svg width="1180" height="400" viewBox="0 0 1180 400" role="img" aria-label="A cycle in the leave workflow with a clarification budget">
+      <circle cx="78" cy="112" r="24" fill="#1e1b4b"/><text x="78" y="118" text-anchor="middle" font-size="13" fill="#fff">START</text>
+      <line x1="102" y1="112" x2="152" y2="112" stroke="#4338ca" stroke-width="2.5" marker-end="url(#ai)"/>
+
+      <rect x="159" y="84" width="185" height="56" rx="6" fill="#4338ca"/>
+      <text x="251" y="118" text-anchor="middle" font-size="16" font-weight="600" fill="#fff">validate</text>
+
+      <polygon points="440,78 515,112 440,146 365,112" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
+      <text x="440" y="110" text-anchor="middle" font-size="14" font-weight="700" fill="#92400e">complete?</text>
+      <text x="440" y="128" text-anchor="middle" font-size="12" fill="#92400e">budget left?</text>
+      <line x1="344" y1="112" x2="361" y2="112" stroke="#4338ca" stroke-width="2.5" marker-end="url(#ai)"/>
+
+      <line x1="515" y1="100" x2="576" y2="66" stroke="#0d9488" stroke-width="2.5" marker-end="url(#at)"/>
+      <rect x="583" y="40" width="170" height="50" rx="6" fill="#0d9488"/>
+      <text x="668" y="71" text-anchor="middle" font-size="15" font-weight="600" fill="#fff">decide</text>
+      <text x="668" y="26" text-anchor="middle" class="bds ok">complete</text>
+
+      <line x1="515" y1="124" x2="576" y2="158" stroke="#b91c1c" stroke-width="2.5" marker-end="url(#ar)"/>
+      <rect x="583" y="134" width="170" height="50" rx="6" fill="#b91c1c"/>
+      <text x="668" y="165" text-anchor="middle" font-size="15" font-weight="600" fill="#fff">withdraw</text>
+      <text x="790" y="165" class="bds no">budget spent</text>
+
+      <rect x="159" y="196" width="185" height="56" rx="6" fill="#d97706"/>
+      <text x="251" y="230" text-anchor="middle" font-size="16" font-weight="600" fill="#fff">ask</text>
+      <path d="M420 146 Q420 224 355 224" fill="none" stroke="#d97706" stroke-width="2.5" marker-end="url(#aa)"/>
+      <text x="470" y="228" class="bds am">incomplete, budget left</text>
+      <path d="M159 210 Q108 210 108 140 Q108 112 152 112" fill="none" stroke="#d97706" stroke-width="2.5" marker-end="url(#aa)"/>
+      <text x="60" y="272" class="bds am">the cycle</text>
+
+      <rect x="45" y="292" width="1090" height="94" rx="8" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
+      <text x="590" y="326" text-anchor="middle" class="bxs am">if state["attempts"] &gt;= POLICY["max_clarifications"]: return "withdraw"</text>
+      <text x="590" y="356" text-anchor="middle" class="bd">One comparison. It is the difference between a cycle and a hang.</text>
+      <text x="590" y="378" text-anchor="middle" class="bds">Lab 1.1 spun in a <tspan font-family="Consolas,monospace">while True</tspan> for want of exactly this.</text>
+    </svg>
+  </div>
+</div>
+
+<div class="slide div" data-sec="Merging" data-notes="Divider. The piece people skip and then debug for a day.">
+  <div class="k">Section 4</div>
+  <h1>When two nodes write the same key</h1>
+</div>
+
+<div class="slide" data-sec="Merging" data-notes="Default is replace; for anything accumulating you must say so. The right-hand panel is where it stops being taste: two nodes writing one key in the same step, and LangGraph REFUSES rather than picking a winner. That is the behaviour to remember, because the sequential version of the same bug is silent -- a node that returns its own line on a field with no reducer throws away everything before it, and you find out when the audit trail has one entry in it.">
+  <h2>Reducers &mdash; declare the merge rule once</h2>
+  <div class="body">
+    <svg width="1180" height="405" viewBox="0 0 1180 405" role="img" aria-label="Default replace compared with an accumulating reducer, and the parallel write that forces one">
+      <rect x="45" y="40" width="540" height="150" rx="8" fill="#fff" stroke="#4338ca" stroke-width="2.5"/>
+      <text x="315" y="74" text-anchor="middle" class="bxs">In every node, forever</text>
+      <text x="75" y="112" font-size="16" font-family="Consolas,monospace"><tspan fill="#475569">return {"notes": state["notes"] + ["check"]}</tspan></text>
+      <text x="315" y="148" text-anchor="middle" class="bds">every node knows how notes combines</text>
+      <text x="315" y="174" text-anchor="middle" class="bds no">and they all have to agree</text>
+
+      <rect x="45" y="212" width="540" height="150" rx="8" fill="#ecfdf5" stroke="#0d9488" stroke-width="2.5"/>
+      <text x="315" y="246" text-anchor="middle" class="bxs ok">Once, in the schema</text>
+      <text x="75" y="284" font-size="16" font-family="Consolas,monospace"><tspan fill="#0d9488">notes: Annotated[list, add]</tspan></text>
+      <text x="75" y="312" font-size="16" font-family="Consolas,monospace"><tspan fill="#475569">return {"notes": ["check"]}</tspan></text>
+      <text x="315" y="346" text-anchor="middle" class="bds ok">nodes return their own line and nothing else</text>
+
+      <rect x="625" y="40" width="510" height="322" rx="8" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
+      <text x="880" y="76" text-anchor="middle" class="bx no">Two nodes, one step, no reducer</text>
+
+      <rect x="770" y="96" width="215" height="42" rx="6" fill="#4338ca"/>
+      <text x="877" y="123" text-anchor="middle" font-size="15" font-weight="600" fill="#fff">summarise</text>
+      <line x1="820" y1="138" x2="760" y2="168" stroke="#b91c1c" stroke-width="2.5" marker-end="url(#ar)"/>
+      <line x1="935" y1="138" x2="995" y2="168" stroke="#b91c1c" stroke-width="2.5" marker-end="url(#ar)"/>
+      <rect x="662" y="176" width="190" height="42" rx="6" fill="#4338ca"/>
+      <text x="757" y="203" text-anchor="middle" font-size="15" font-weight="600" fill="#fff">check_balance</text>
+      <rect x="905" y="176" width="190" height="42" rx="6" fill="#4338ca"/>
+      <text x="1000" y="203" text-anchor="middle" font-size="15" font-weight="600" fill="#fff">check_calendar</text>
+      <text x="757" y="240" text-anchor="middle" class="bds">writes notes</text>
+      <text x="1000" y="240" text-anchor="middle" class="bds">writes notes</text>
+
+      <text x="880" y="280" text-anchor="middle" class="bxs no">LangGraph raises. It does not pick a winner.</text>
+      <text x="880" y="314" text-anchor="middle" class="bds">The sequential version of this bug is silent:</text>
+      <text x="880" y="340" text-anchor="middle" class="bds">the audit trail just ends up with one line in it.</text>
+    </svg>
+  </div>
+  <div class="take"><b>Decide the merge rule where you declare the field</b> &mdash; not in each node that writes it.</div>
+</div>
+
+<div class="slide div" data-sec="Persistence" data-notes="Divider. The part that turns a demo into something operable, and the part a regulated organisation cares about most.">
+  <div class="k">Section 5</div>
+  <h1>Checkpoints, and stopping for a person</h1>
+</div>
+
+<div class="slide" data-sec="Persistence" data-notes="One keyword argument, four capabilities. Stress the fourth: nobody adds logging calls, the history exists because the state is explicit and the checkpointer saved it after every node. And it beats asking the model -- an agent asked to explain itself produces a plausible reconstruction, while the trail is what was actually true at each step, recorded before anyone knew the outcome would matter. Then the bottom strip: only the constructor changes in production.">
+  <h2>One argument, four things you get</h2>
+  <div class="body">
+    <svg width="1180" height="400" viewBox="0 0 1180 400" role="img" aria-label="The four capabilities a checkpointer provides">
+      <rect x="45" y="36" width="1090" height="56" rx="6" fill="#1e1b4b"/>
+      <text x="75" y="72" font-size="18" font-family="Consolas,monospace"><tspan fill="#e2e8f0">app = builder.compile(</tspan><tspan fill="#fbbf24">checkpointer=InMemorySaver()</tspan><tspan fill="#e2e8f0">)</tspan></text>
+
+      <rect x="45" y="112" width="262" height="120" rx="8" fill="#f8f8fd" stroke="#c7d2fe" stroke-width="2"/>
+      <text x="176" y="150" text-anchor="middle" class="bxs">Resume</text>
+      <text x="176" y="182" text-anchor="middle" class="bds">pick it up tomorrow,</text>
+      <text x="176" y="206" text-anchor="middle" class="bds">from another process</text>
+
+      <rect x="321" y="112" width="262" height="120" rx="8" fill="#f8f8fd" stroke="#c7d2fe" stroke-width="2"/>
+      <text x="452" y="150" text-anchor="middle" class="bxs">Inspect</text>
+      <text x="452" y="182" text-anchor="middle" class="bds">where is it now,</text>
+      <text x="452" y="206" text-anchor="middle" class="bds">without re-running it</text>
+
+      <rect x="597" y="112" width="262" height="120" rx="8" fill="#f8f8fd" stroke="#c7d2fe" stroke-width="2"/>
+      <text x="728" y="150" text-anchor="middle" class="bxs">Rewind</text>
+      <text x="728" y="182" text-anchor="middle" class="bds">run forward again from</text>
+      <text x="728" y="206" text-anchor="middle" class="bds">an earlier checkpoint</text>
+
+      <rect x="873" y="112" width="262" height="120" rx="8" fill="#ecfdf5" stroke="#0d9488" stroke-width="3"/>
+      <text x="1004" y="150" text-anchor="middle" class="bxs ok">Audit</text>
+      <text x="1004" y="182" text-anchor="middle" class="bds">what was known,</text>
+      <text x="1004" y="206" text-anchor="middle" class="bds">and when</text>
+
+      <rect x="45" y="252" width="1090" height="66" rx="8" fill="#ecfdf5" stroke="#0d9488" stroke-width="2"/>
+      <text x="590" y="282" text-anchor="middle" class="bd">Nobody writes the audit trail. It exists because the state is explicit</text>
+      <text x="590" y="306" text-anchor="middle" class="bds ok">and it beats asking the model, which reconstructs rather than records</text>
+
+      <rect x="45" y="332" width="1090" height="54" rx="8" fill="#f5f5fb" stroke="#c7d2fe" stroke-width="2"/>
+      <text x="590" y="364" text-anchor="middle" class="bds"><tspan font-family="Consolas,monospace">InMemorySaver</tspan> in development, <tspan font-family="Consolas,monospace">SqliteSaver</tspan> or <tspan font-family="Consolas,monospace">PostgresSaver</tspan> in production &mdash; only the constructor changes</text>
+    </svg>
+  </div>
+</div>
+
+<div class="slide" data-sec="Persistence" data-notes="Walk the sequence top to bottom; it is exactly Lab 3.7. Two things to say out loud. First, resuming passes None -- that means carry on rather than start again, and passing the original input instead re-runs the earlier nodes. Second, the amber box, which surprises everyone: interrupt_before is a property of the COMPILED GRAPH, not of a run, so replaying from an older checkpoint runs forward into the same gate and stops there again. If you want a rewind that keeps an approval, the approval has to be a fact in the state the gate reads.">
+  <h2>The interrupt sequence</h2>
+  <div class="body">
+    <svg width="1180" height="400" viewBox="0 0 1180 400" role="img" aria-label="Pause, inspect, edit and resume a gated graph">
+      <rect x="45" y="34" width="640" height="46" rx="5" fill="#1e1b4b"/>
+      <text x="70" y="64" font-size="16" font-family="Consolas,monospace"><tspan fill="#e2e8f0">compile(checkpointer=..., </tspan><tspan fill="#fbbf24">interrupt_before=["notify"]</tspan><tspan fill="#e2e8f0">)</tspan></text>
+
+      <rect x="45" y="94" width="640" height="42" rx="5" fill="#f8f8fd" stroke="#c7d2fe" stroke-width="2"/>
+      <text x="70" y="121" font-size="16" font-family="Consolas,monospace"><tspan fill="#475569">app.invoke(state, config)</tspan><tspan fill="#94a3b8">   # runs, then stops</tspan></text>
+
+      <rect x="45" y="150" width="640" height="42" rx="5" fill="#f8f8fd" stroke="#c7d2fe" stroke-width="2"/>
+      <text x="70" y="177" font-size="16" font-family="Consolas,monospace"><tspan fill="#475569">app.get_state(config).next</tspan><tspan fill="#0d9488">  -&gt; ("notify",)</tspan></text>
+
+      <rect x="45" y="206" width="640" height="42" rx="5" fill="#f8f8fd" stroke="#c7d2fe" stroke-width="2"/>
+      <text x="70" y="233" font-size="16" font-family="Consolas,monospace"><tspan fill="#475569">app.update_state(config, {"approved_by": ...})</tspan></text>
+
+      <rect x="45" y="262" width="640" height="42" rx="5" fill="#ecfdf5" stroke="#0d9488" stroke-width="2.5"/>
+      <text x="70" y="289" font-size="16" font-family="Consolas,monospace"><tspan fill="#0d9488">app.invoke(None, config)</tspan><tspan fill="#94a3b8">    # None means carry on</tspan></text>
+
+      <text x="365" y="336" text-anchor="middle" class="bds">Passing the original input instead would re-run</text>
+      <text x="365" y="360" text-anchor="middle" class="bds">every node before the gate</text>
+
+      <rect x="715" y="34" width="420" height="330" rx="8" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
+      <text x="925" y="72" text-anchor="middle" class="bx am">The surprise</text>
+      <text x="925" y="112" text-anchor="middle" class="bd">Rewind past the gate,</text>
+      <text x="925" y="138" text-anchor="middle" class="bd">run forward again &mdash;</text>
+      <text x="925" y="174" text-anchor="middle" class="bxs am">and it pauses at the gate again.</text>
+      <text x="925" y="220" text-anchor="middle" class="bds"><tspan font-family="Consolas,monospace">interrupt_before</tspan> belongs to the</text>
+      <text x="925" y="244" text-anchor="middle" class="bds">compiled graph, not to a run.</text>
+      <text x="925" y="286" text-anchor="middle" class="bds">Approval was a state edit at one point</text>
+      <text x="925" y="310" text-anchor="middle" class="bds">in history, so rewinding un-does it.</text>
+      <text x="925" y="348" text-anchor="middle" class="bds am">Right for approvals. Wrong to discover in production.</text>
+    </svg>
+  </div>
+</div>
+
+<div class="slide" data-sec="Persistence" data-notes="The design point of the challenge lab, and the thing most people get wrong first. Gate notify and every auto-approval sits waiting for a manager who has nothing to decide -- the fastest way to make people ignore an approval queue. The gate goes on a node only one branch routes through, so conditional gating is a ROUTING problem, not a bigger interrupt_before. Ask the room where the gate belongs in their own workflow before you advance.">
+  <h2>Gate the branch, not the graph</h2>
+  <div class="body">
+    <svg width="1180" height="405" viewBox="0 0 1180 405" role="img" aria-label="An approval gate placed on one branch rather than on the shared final node">
+      <rect x="45" y="36" width="540" height="330" rx="8" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
+      <text x="315" y="72" text-anchor="middle" class="bx no">Gate on notify</text>
+      <rect x="90" y="100" width="150" height="46" rx="6" fill="#0d9488"/>
+      <text x="165" y="129" text-anchor="middle" font-size="15" font-weight="600" fill="#fff">auto</text>
+      <rect x="330" y="100" width="180" height="46" rx="6" fill="#d97706"/>
+      <text x="420" y="129" text-anchor="middle" font-size="15" font-weight="600" fill="#fff">manager_review</text>
+      <line x1="180" y1="146" x2="255" y2="192" stroke="#b91c1c" stroke-width="2.5" marker-end="url(#ar)"/>
+      <line x1="410" y1="146" x2="325" y2="192" stroke="#4338ca" stroke-width="2.5" marker-end="url(#ai)"/>
+      <rect x="215" y="200" width="180" height="46" rx="6" fill="#b91c1c"/>
+      <text x="305" y="229" text-anchor="middle" font-size="15" font-weight="600" fill="#fff">notify</text>
+      <text x="305" y="272" text-anchor="middle" class="bds no">every request waits here</text>
+      <text x="315" y="312" text-anchor="middle" class="bd">including the ones a manager</text>
+      <text x="315" y="336" text-anchor="middle" class="bd">has nothing to decide about</text>
+
+      <rect x="625" y="36" width="510" height="330" rx="8" fill="#ecfdf5" stroke="#0d9488" stroke-width="2.5"/>
+      <text x="880" y="72" text-anchor="middle" class="bx ok">Gate on manager_review</text>
+      <rect x="655" y="100" width="150" height="46" rx="6" fill="#0d9488"/>
+      <text x="730" y="129" text-anchor="middle" font-size="15" font-weight="600" fill="#fff">auto</text>
+      <rect x="895" y="100" width="200" height="46" rx="6" fill="#d97706"/>
+      <text x="995" y="129" text-anchor="middle" font-size="15" font-weight="600" fill="#fff">manager_review</text>
+      <text x="995" y="90" text-anchor="middle" class="bds am">paused here</text>
+      <line x1="740" y1="146" x2="830" y2="192" stroke="#0d9488" stroke-width="2.5" marker-end="url(#at)"/>
+      <line x1="985" y1="146" x2="905" y2="192" stroke="#d97706" stroke-width="2.5" marker-end="url(#aa)"/>
+      <rect x="790" y="200" width="180" height="46" rx="6" fill="#4338ca"/>
+      <text x="880" y="229" text-anchor="middle" font-size="15" font-weight="600" fill="#fff">notify</text>
+      <text x="880" y="272" text-anchor="middle" class="bds ok">only one branch pauses</text>
+      <text x="880" y="312" text-anchor="middle" class="bd">A conditional gate is a</text>
+      <text x="880" y="336" text-anchor="middle" class="bxs ok">routing problem, not a bigger interrupt</text>
+    </svg>
+  </div>
+  <div class="take"><b>An approval queue people ignore is worse than no gate.</b> Pause only what a person actually has to decide.</div>
+</div>
+
+<div class="slide" data-sec="Recap" data-notes="Ninety seconds, then eight labs. Day 1 is done after this: shape, thinking, substrate. Say the forward links explicitly -- Module 5's supervisor is a routing function, Module 6's agentic RAG loop is a cycle with an adequacy check, Module 7 reads traces off this state, Module 8 treats the gate as a safety control. None of those are new machinery.">
+  <h2>What you take from Module 3</h2>
+  <div class="body">
+    <svg width="1180" height="400" viewBox="0 0 1180 400" role="img" aria-label="Recap of the six ideas in Module 3">
+      <rect x="45" y="34" width="352" height="104" rx="8" fill="#f8f8fd" stroke="#c7d2fe" stroke-width="2"/>
+      <text x="70" y="68" class="bxs">State you can print</text>
+      <text x="70" y="98" class="bds">a TypedDict, not implied text</text>
+      <text x="70" y="122" class="bds">and so: assertable, storable</text>
+
+      <rect x="413" y="34" width="352" height="104" rx="8" fill="#f8f8fd" stroke="#c7d2fe" stroke-width="2"/>
+      <text x="438" y="68" class="bxs">Nodes and edges</text>
+      <text x="438" y="98" class="bds">plain functions, partial state out</text>
+      <text x="438" y="122" class="bds">edges impose the dependency order</text>
+
+      <rect x="781" y="34" width="354" height="104" rx="8" fill="#f8f8fd" stroke="#c7d2fe" stroke-width="2"/>
+      <text x="806" y="68" class="bxs">Routing</text>
+      <text x="806" y="98" class="bds">a pure function returning a name</text>
+      <text x="806" y="122" class="bds">Module 5's supervisor, early</text>
+
+      <rect x="45" y="152" width="352" height="104" rx="8" fill="#f8f8fd" stroke="#c7d2fe" stroke-width="2"/>
+      <text x="70" y="186" class="bxs">Reducers</text>
+      <text x="70" y="216" class="bds">declare the merge rule once</text>
+      <text x="70" y="240" class="bds">required the moment two nodes write</text>
+
+      <rect x="413" y="152" width="352" height="104" rx="8" fill="#f8f8fd" stroke="#c7d2fe" stroke-width="2"/>
+      <text x="438" y="186" class="bxs">Cycles with a budget</text>
+      <text x="438" y="216" class="bds">an edge pointing backwards</text>
+      <text x="438" y="240" class="bds">and one comparison that ends it</text>
+
+      <rect x="781" y="152" width="354" height="104" rx="8" fill="#ecfdf5" stroke="#0d9488" stroke-width="2.5"/>
+      <text x="806" y="186" class="bxs ok">Checkpoints</text>
+      <text x="806" y="216" class="bds">resume, inspect, rewind, audit</text>
+      <text x="806" y="240" class="bds">and a gate on the branch that needs it</text>
+
+      <rect x="45" y="272" width="1090" height="104" rx="8" fill="#eef2ff" stroke="#4338ca" stroke-width="2.5"/>
+      <text x="590" y="308" text-anchor="middle" class="bx">Everything after today is built on this</text>
+      <text x="590" y="342" text-anchor="middle" class="bd">M5 orchestration is routing &middot; M6 agentic RAG is a cycle &middot; M7 reads traces off this state</text>
+      <text x="590" y="366" text-anchor="middle" class="bds">M8 treats the gate as a safety control &mdash; none of it is new machinery</text>
+    </svg>
+  </div>
+</div>
+<div class="slide div" data-sec="Knowledge check" data-notes="Eight questions. Question 3 is the one worth pausing on -- if the room expects a silent last-write-wins on the concurrent write, that expectation is the sequential bug. Question 7 is the one nobody gets.">
+  <div class="k">Knowledge check</div>
+  <h1>Eight questions</h1>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer B. The commonest first mistake, and it is invisible until something runs in parallel.">
+  <div class="qtag">Question 1 of 8</div>
+  <h2>What does a node return?</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">A LangGraph node receives the whole state. What should it return?</div>
+    <div class="opt"><span class="k">A</span><span>The whole state, with its changes applied</span></div>
+    <div class="opt"><span class="k">B</span><span>Only the keys it changed</span></div>
+    <div class="opt"><span class="k">C</span><span>Nothing &mdash; it mutates the state in place</span></div>
+    <div class="opt"><span class="k">D</span><span>The name of the next node to run</span></div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer B. The commonest first mistake, and it is invisible until something runs in parallel.">
+  <div class="qtag">Answer 1 of 8</div>
+  <h2>What does a node return?</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">A LangGraph node receives the whole state. What should it return?</div>
+    <div class="opt miss"><span class="k">A</span><span>The whole state, with its changes applied</span></div>
+    <div class="opt hit"><span class="k">B</span><span>Only the keys it changed</span></div>
+    <div class="opt miss"><span class="k">C</span><span>Nothing &mdash; it mutates the state in place</span></div>
+    <div class="opt miss"><span class="k">D</span><span>The name of the next node to run</span></div>
+    <div class="why"><b>Why:</b> LangGraph merges a partial return into the state for you. Returning the whole state works in a straight chain, which is why nobody notices &mdash; and then two nodes run in the same step and one writes back a stale copy of what the other just changed. D is a routing function, not a node.</div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer C. Push on why it is a string and not the function: the branch map is the seam.">
+  <div class="qtag">Question 2 of 8</div>
+  <h2>What does a router return?</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">A function passed to <code>add_conditional_edges</code> returns what?</div>
+    <div class="opt"><span class="k">A</span><span>A boolean</span></div>
+    <div class="opt"><span class="k">B</span><span>The updated state</span></div>
+    <div class="opt"><span class="k">C</span><span>A string naming the branch to take</span></div>
+    <div class="opt"><span class="k">D</span><span>The node function to run next</span></div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer C. Push on why it is a string and not the function: the branch map is the seam.">
+  <div class="qtag">Answer 2 of 8</div>
+  <h2>What does a router return?</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">A function passed to <code>add_conditional_edges</code> returns what?</div>
+    <div class="opt miss"><span class="k">A</span><span>A boolean</span></div>
+    <div class="opt miss"><span class="k">B</span><span>The updated state</span></div>
+    <div class="opt hit"><span class="k">C</span><span>A string naming the branch to take</span></div>
+    <div class="opt miss"><span class="k">D</span><span>The node function to run next</span></div>
+    <div class="why"><b>Why:</b> A string, which the branch map turns into a node name. That indirection is why routing logic and graph layout stay separable &mdash; and why the hardest logic in a workflow is also the cheapest to test: you call it with a dict, no graph involved.</div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer C. If the room expects a silent last-write-wins, that expectation is exactly the sequential bug.">
+  <div class="qtag">Question 3 of 8</div>
+  <h2>Two nodes, one key</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">Two nodes run in the same step and both write <code>notes</code>, which has no reducer. What happens?</div>
+    <div class="opt"><span class="k">A</span><span>The second write silently wins</span></div>
+    <div class="opt"><span class="k">B</span><span>The writes are appended in node order</span></div>
+    <div class="opt"><span class="k">C</span><span>LangGraph raises rather than choosing</span></div>
+    <div class="opt"><span class="k">D</span><span>The graph deadlocks</span></div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer C. If the room expects a silent last-write-wins, that expectation is exactly the sequential bug.">
+  <div class="qtag">Answer 3 of 8</div>
+  <h2>Two nodes, one key</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">Two nodes run in the same step and both write <code>notes</code>, which has no reducer. What happens?</div>
+    <div class="opt miss"><span class="k">A</span><span>The second write silently wins</span></div>
+    <div class="opt miss"><span class="k">B</span><span>The writes are appended in node order</span></div>
+    <div class="opt hit"><span class="k">C</span><span>LangGraph raises rather than choosing</span></div>
+    <div class="opt miss"><span class="k">D</span><span>The graph deadlocks</span></div>
+    <div class="why"><b>Why:</b> LangGraph refuses: nothing told it how to combine two writes to one key. Watch for A &mdash; that <i>is</i> what happens in a straight chain, silently, and it is how an audit trail ends up with one line in it. The parallel case is the loud version of a quiet bug.</div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer B. Module 2's most common production failure, now written as a field and a comparison.">
+  <div class="qtag">Question 4 of 8</div>
+  <h2>What ends a cycle?</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">A graph loops back to <code>validate</code> to ask for missing information. What stops it running forever?</div>
+    <div class="opt"><span class="k">A</span><span>LangGraph detects the repeated node and halts</span></div>
+    <div class="opt"><span class="k">B</span><span>A counter in the state, compared against a budget in the router</span></div>
+    <div class="opt"><span class="k">C</span><span>The <code>END</code> node</span></div>
+    <div class="opt"><span class="k">D</span><span>A timeout on <code>invoke()</code></span></div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer B. Module 2's most common production failure, now written as a field and a comparison.">
+  <div class="qtag">Answer 4 of 8</div>
+  <h2>What ends a cycle?</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">A graph loops back to <code>validate</code> to ask for missing information. What stops it running forever?</div>
+    <div class="opt miss"><span class="k">A</span><span>LangGraph detects the repeated node and halts</span></div>
+    <div class="opt hit"><span class="k">B</span><span>A counter in the state, compared against a budget in the router</span></div>
+    <div class="opt miss"><span class="k">C</span><span>The <code>END</code> node</span></div>
+    <div class="opt miss"><span class="k">D</span><span>A timeout on <code>invoke()</code></span></div>
+    <div class="why"><b>Why:</b> You write it down: a field the loop increments and a comparison in the routing function. <code>recursion_limit</code> is the framework's backstop and it raises <code>GraphRecursionError</code> &mdash; which is a much worse thing to explain than &ldquo;withdrawn after 2 requests&rdquo;.</div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer B. Say the failure out loud: passing the original input re-runs everything before the gate.">
+  <div class="qtag">Question 5 of 8</div>
+  <h2>Resuming a paused run</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">A graph is paused at an <code>interrupt_before</code> gate. What does <code>app.invoke(None, config)</code> do?</div>
+    <div class="opt"><span class="k">A</span><span>Starts the run again from START</span></div>
+    <div class="opt"><span class="k">B</span><span>Continues from the checkpoint</span></div>
+    <div class="opt"><span class="k">C</span><span>Clears the state for that thread</span></div>
+    <div class="opt"><span class="k">D</span><span>Cancels the run</span></div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer B. Say the failure out loud: passing the original input re-runs everything before the gate.">
+  <div class="qtag">Answer 5 of 8</div>
+  <h2>Resuming a paused run</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">A graph is paused at an <code>interrupt_before</code> gate. What does <code>app.invoke(None, config)</code> do?</div>
+    <div class="opt miss"><span class="k">A</span><span>Starts the run again from START</span></div>
+    <div class="opt hit"><span class="k">B</span><span>Continues from the checkpoint</span></div>
+    <div class="opt miss"><span class="k">C</span><span>Clears the state for that thread</span></div>
+    <div class="opt miss"><span class="k">D</span><span>Cancels the run</span></div>
+    <div class="why"><b>Why:</b> <code>None</code> means &ldquo;no new input &mdash; carry on&rdquo;. Passing the original input instead would re-run every node before the gate, which is the mistake that quietly doubles your token bill and duplicates side effects.</div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer C. Ask where the gate belongs in their own workflow before advancing.">
+  <div class="qtag">Question 6 of 8</div>
+  <h2>Where does the gate go?</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">A workflow reads a record, recommends an outcome, then emails the employee and debits their balance. Which node should <code>interrupt_before</code> name?</div>
+    <div class="opt"><span class="k">A</span><span>The node that reads the record</span></div>
+    <div class="opt"><span class="k">B</span><span>The node that computes the recommendation</span></div>
+    <div class="opt"><span class="k">C</span><span>The node that emails and debits</span></div>
+    <div class="opt"><span class="k">D</span><span>Every node, to be safe</span></div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer C. Ask where the gate belongs in their own workflow before advancing.">
+  <div class="qtag">Answer 6 of 8</div>
+  <h2>Where does the gate go?</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">A workflow reads a record, recommends an outcome, then emails the employee and debits their balance. Which node should <code>interrupt_before</code> name?</div>
+    <div class="opt miss"><span class="k">A</span><span>The node that reads the record</span></div>
+    <div class="opt miss"><span class="k">B</span><span>The node that computes the recommendation</span></div>
+    <div class="opt hit"><span class="k">C</span><span>The node that emails and debits</span></div>
+    <div class="opt miss"><span class="k">D</span><span>Every node, to be safe</span></div>
+    <div class="why"><b>Why:</b> Gate the step with a consequence outside your process. Gate earlier and the approver is looking at nothing yet; gate everything and people stop reading the queue. B is the tempting one &mdash; it feels like approving the <i>decision</i>, but nothing has happened yet, so there is nothing to approve.</div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer B. This surprises everyone once. Right behaviour for approvals, wrong thing to discover in production.">
+  <div class="qtag">Question 7 of 8</div>
+  <h2>Rewinding past an approval</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">You approve a gated run, it completes, then you rewind to a checkpoint before the gate and run forward. What happens?</div>
+    <div class="opt"><span class="k">A</span><span>It runs through to the end &mdash; it was already approved</span></div>
+    <div class="opt"><span class="k">B</span><span>It pauses at the gate again</span></div>
+    <div class="opt"><span class="k">C</span><span>It raises, because the run is finished</span></div>
+    <div class="opt"><span class="k">D</span><span>It skips the gate and re-sends the notification</span></div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer B. This surprises everyone once. Right behaviour for approvals, wrong thing to discover in production.">
+  <div class="qtag">Answer 7 of 8</div>
+  <h2>Rewinding past an approval</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">You approve a gated run, it completes, then you rewind to a checkpoint before the gate and run forward. What happens?</div>
+    <div class="opt miss"><span class="k">A</span><span>It runs through to the end &mdash; it was already approved</span></div>
+    <div class="opt hit"><span class="k">B</span><span>It pauses at the gate again</span></div>
+    <div class="opt miss"><span class="k">C</span><span>It raises, because the run is finished</span></div>
+    <div class="opt miss"><span class="k">D</span><span>It skips the gate and re-sends the notification</span></div>
+    <div class="why"><b>Why:</b> <code>interrupt_before</code> is a property of the compiled graph, not of a run. Replaying meets the same gate. The approval was a state edit at one point in history, so rewinding past it un-does it. For a rewind that keeps an approval, the gate has to read a <i>fact in the state</i>.</div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer C. Close on this &mdash; the strongest artefact in the module is the one nobody had to build.">
+  <div class="qtag">Question 8 of 8</div>
+  <h2>Where the audit trail comes from</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">Who writes the record of what the workflow knew at each step?</div>
+    <div class="opt"><span class="k">A</span><span>You do, with logging calls in every node</span></div>
+    <div class="opt"><span class="k">B</span><span>The model, when asked to explain its reasoning</span></div>
+    <div class="opt"><span class="k">C</span><span>Nobody &mdash; it is the checkpoint history</span></div>
+    <div class="opt"><span class="k">D</span><span>The tracing backend, from the model calls</span></div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer C. Close on this &mdash; the strongest artefact in the module is the one nobody had to build.">
+  <div class="qtag">Answer 8 of 8</div>
+  <h2>Where the audit trail comes from</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">Who writes the record of what the workflow knew at each step?</div>
+    <div class="opt miss"><span class="k">A</span><span>You do, with logging calls in every node</span></div>
+    <div class="opt miss"><span class="k">B</span><span>The model, when asked to explain its reasoning</span></div>
+    <div class="opt hit"><span class="k">C</span><span>Nobody &mdash; it is the checkpoint history</span></div>
+    <div class="opt miss"><span class="k">D</span><span>The tracing backend, from the model calls</span></div>
+    <div class="why"><b>Why:</b> It falls out of explicit state plus a checkpointer saving after every node. And it beats B decisively: an agent asked to explain itself produces a plausible reconstruction, while the trail is what was actually true at each step, recorded before anyone knew the outcome would matter.</div>
+  </div></div>
+</div>
+
+<div class="slide div" data-sec="End" data-notes="Into the labs: eight of them, one concept each, and the first four have no model in them. Tell them to expect that -- a lab with no model is not a lesser lab, it is the half of an agent that can actually be tested.">
+  <div class="k">End of Module 3</div>
+  <h1>To the labs</h1>
+</div>
+</template>
+
+<script>
+(function(){
+  var stage = document.getElementById('stage');
+  stage.appendChild(document.getElementById('deck').content.cloneNode(true));
+  var slides = Array.prototype.slice.call(stage.querySelectorAll('.slide'));
+  var i = 0, total = slides.length;
+
+  var num = document.getElementById('num'),
+      progf = document.getElementById('progf'),
+      secname = document.getElementById('secname'),
+      toc = document.getElementById('toc'),
+      toclist = document.getElementById('toclist'),
+      notes = document.getElementById('notes'),
+      notesbody = document.getElementById('notesbody');
+
+  /* ---- build the index, grouped by section ---- */
+  var groups = [], last = null;
+  slides.forEach(function(s, n){
+    var sec = s.getAttribute('data-sec') || '';
+    if (sec !== last) { groups.push({sec: sec, items: []}); last = sec; }
+    var h = s.querySelector('h2, h1'), q = s.querySelector('.qtag');
+    var t = h ? h.textContent.trim() : sec;
+    if (q) t = q.textContent.trim() + ' \u2014 ' + t;
+    groups[groups.length-1].items.push({n: n, t: t});
+  });
+  groups.forEach(function(g){
+    var d = document.createElement('div'); d.className = 'grp';
+    var hd = document.createElement('div'); hd.className = 'grph'; hd.textContent = g.sec; d.appendChild(hd);
+    g.items.forEach(function(it){
+      var a = document.createElement('a');
+      a.href = '#'; a.dataset.n = it.n;
+      a.innerHTML = '<span class="n">' + (it.n + 1) + '</span>';
+      a.appendChild(document.createTextNode(it.t));
+      a.addEventListener('click', function(e){ e.preventDefault(); go(it.n); toc.classList.remove('on'); });
+      d.appendChild(a);
+    });
+    toclist.appendChild(d);
+  });
+  var tocLinks = Array.prototype.slice.call(toclist.querySelectorAll('a'));
+
+  function go(n){
+    if (n < 0) n = 0;
+    if (n > total - 1) n = total - 1;
+    slides[i].classList.remove('active');
+    i = n;
+    slides[i].classList.add('active');
+    num.textContent = (i + 1) + ' / ' + total;
+    progf.style.width = ((i + 1) / total * 100) + '%';
+    secname.textContent = slides[i].getAttribute('data-sec') || '';
+    notesbody.textContent = slides[i].getAttribute('data-notes') || 'No notes for this slide.';
+    tocLinks.forEach(function(a){ a.classList.toggle('cur', +a.dataset.n === i); });
+    if (location.hash !== '#' + (i + 1)) history.replaceState(null, '', '#' + (i + 1));
+  }
+
+  /* ---- scale the 1280x720 stage to the available space ---- */
+  function fit(){
+    var w = document.getElementById('wrap');
+    var s = Math.min(w.clientWidth / 1280, w.clientHeight / 720);
+    stage.style.transform = 'scale(' + s + ')';
+  }
+  window.addEventListener('resize', fit);
+  window.addEventListener('hashchange', function(){
+    var n = parseInt((location.hash || '').slice(1), 10);
+    if (!isNaN(n) && n - 1 !== i) go(n - 1);
+  });
+
+  document.getElementById('bnext').addEventListener('click', function(){ go(i + 1); });
+  document.getElementById('bprev').addEventListener('click', function(){ go(i - 1); });
+  document.getElementById('btoc').addEventListener('click', function(){ toc.classList.toggle('on'); });
+  document.getElementById('bnotes').addEventListener('click', function(){ notes.classList.toggle('on'); });
+
+  document.addEventListener('keydown', function(e){
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    var k = e.key;
+    if (k === 'ArrowRight' || k === 'PageDown' || k === ' ') { e.preventDefault(); go(i + 1); }
+    else if (k === 'ArrowLeft' || k === 'PageUp') { e.preventDefault(); go(i - 1); }
+    else if (k === 'Home') { e.preventDefault(); go(0); }
+    else if (k === 'End') { e.preventDefault(); go(total - 1); }
+    else if (k === 't' || k === 'T') { toc.classList.toggle('on'); }
+    else if (k === 'n' || k === 'N') { notes.classList.toggle('on'); }
+    else if (k === 'f' || k === 'F') {
+      if (document.fullscreenElement) document.exitFullscreen();
+      else document.documentElement.requestFullscreen();
+    }
+    else if (k === 'Escape') { toc.classList.remove('on'); notes.classList.remove('on'); }
+  });
+
+  fit();
+  var start = parseInt((location.hash || '').slice(1), 10);
+  go(isNaN(start) ? 0 : start - 1);
+})();
+</script>
+</body>
+</html>

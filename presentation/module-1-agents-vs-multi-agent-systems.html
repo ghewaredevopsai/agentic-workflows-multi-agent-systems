@@ -527,7 +527,7 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
   <div class="take"><b>Rule of thumb:</b> if a rule has a correct answer that never varies, the model is the worst place to keep it.</div>
 </div>
 
-<div class="slide" data-sec="Building blocks" data-notes="Memory in one picture. Flag the trap explicitly: unbounded buffer memory is the single most common cause of an agent that works in the demo and degrades in week two. Module 3 does compaction.">
+<div class="slide" data-sec="Building blocks" data-notes="Memory in one picture. Flag the trap explicitly: unbounded buffer memory is the single most common cause of an agent that works in the demo and degrades in week two. The fix is compaction and summary memory rather than a bigger window -- and note this is the one building block Day 1 does not give them a lab on, so say so rather than implying one is coming.">
   <h2>Block 2 &mdash; memory, and the trap inside it</h2>
   <div class="body">
     <svg width="1180" height="410" viewBox="0 0 1180 410" role="img" aria-label="Three kinds of memory and the context window trap">
@@ -553,7 +553,7 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
       <text x="590" y="268" text-anchor="middle" class="bx no">The trap: memory that only grows</text>
       <rect x="200" y="288" width="120" height="26" rx="3" fill="#fecaca"/><text x="340" y="307" class="bds">turn 5 &mdash; fits easily</text>
       <rect x="200" y="320" width="330" height="26" rx="3" fill="#fca5a5"/><text x="550" y="339" class="bds">turn 40 &mdash; early constraints pushed out, agent starts repeating itself</text>
-      <text x="590" y="368" text-anchor="middle" class="bds">Fix is compaction and summary memory, not a bigger window &mdash; Module 3.</text>
+      <text x="590" y="368" text-anchor="middle" class="bds">Fix is compaction and summary memory, not a bigger window.</text>
     </svg>
   </div>
   <div class="take"><b>Watch for it:</b> an agent that demos well and degrades in week two is almost always an unbounded buffer.</div>
