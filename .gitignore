@@ -7,7 +7,9 @@
 #   presentation/           delivery decks — self-contained slide runners
 #   hands-on/               lab notebooks, solutions and their generator
 #   resources/              post-session video resources for participants
-#   README.md               rationale, provenance and settled decisions
+#   README.md               repo-level overview for participants: layout, how the
+#                           labs work, runtime contract. NO provenance, no build
+#                           state, no delivery notes — those live in _local/.
 #
 # Everything tracked here is ANONYMOUS by design: no tracked file, and no tracked
 # FILENAME, names the client or the broker. Verified and scrubbed 2026-09-03 (the
