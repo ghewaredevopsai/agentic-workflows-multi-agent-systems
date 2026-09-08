@@ -518,9 +518,14 @@ def _strict_lookup(ref: str, ledger_down: bool = False) -> str:
 
 
 def describe_failure(exc: ToolException) -> str:
-    """What the model is told when the tool fails. It reads this as an observation."""
+    """What the model is told when the tool fails. It reads this as an observation.
+
+    `ok` is first and always present: the model should not have to infer failure from the
+    ABSENCE of a field. Everything else is what it needs to decide what to do next.
+    """
     kind = str(exc).split(":")[0]
-    return json.dumps({"error": kind, "message": str(exc), "retryable": is_retryable(kind)})
+    return json.dumps({"ok": False, "error": kind, "message": str(exc),
+                       "retryable": is_retryable(kind)})
 
 
 def safe_lookup() -> StructuredTool:
@@ -556,9 +561,14 @@ def _strict_lookup(ref: str, ledger_down: bool = False) -> str:
 
 
 def describe_failure(exc: ToolException) -> str:
-    """What the model is told when the tool fails. It reads this as an observation."""
+    """What the model is told when the tool fails. It reads this as an observation.
+
+    `ok` is first and always present: the model should not have to infer failure from the
+    ABSENCE of a field. Everything else is what it needs to decide what to do next.
+    """
     kind = str(exc).split(":")[0]
-    return json.dumps({"error": kind, "message": str(exc), "retryable": is_retryable(kind)})
+    return json.dumps({"ok": False, "error": kind, "message": str(exc),
+                       "retryable": is_retryable(kind)})
 
 
 def safe_lookup() -> StructuredTool:
@@ -587,6 +597,9 @@ check("a permission denial is not -- and retrying it is how you page a security 
 
 check("a known payment comes back as the record",
       lambda: _out(ref="PMT-1002")["reason_code"] == "INSUFFICIENT_FUNDS")
+check("every failure says so in a field, not by omitting one",
+      lambda: _out(ref="northwind")["ok"] is False,
+      "a model should not have to infer failure from a MISSING key")
 check("a malformed reference comes back as TEXT, not as an exception",
       lambda: _out(ref="northwind")["error"] == "invalid_input",
       "handle_tool_error is what turns the raise into something the agent can read")
