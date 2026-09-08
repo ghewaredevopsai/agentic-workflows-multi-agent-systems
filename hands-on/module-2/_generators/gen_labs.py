@@ -2033,9 +2033,11 @@ if llm_ready():
 
         accepted = [(n, r) for n, r in results.items() if accepts(r)[0]]
         if accepted:
-            winner = min(accepted, key=lambda p: p[1]["seconds_case"])
+            # Cheapest that cleared the bar -- but a tie on cost is broken by pass rate.
+            # Paying nothing extra for a better answer is not a reason to refuse it.
+            winner = min(accepted, key=lambda p: (round(p[1]["seconds_case"], 1), -p[1]["rate"]))
             print(f"\\nwinner: {winner[0]} -- the CHEAPEST arm that cleared the bar, "
-                  f"not the best-scoring one")
+                  f"not the best-scoring one (cost ties broken on pass rate)")
         else:
             print("\\nno arm cleared the bar. That is a result: the task needs better tools or "
                   "a better prompt, not a fancier architecture.")
@@ -2053,6 +2055,11 @@ if llm_ready():
 the code is the whole lab. Once an arm meets the requirement, further quality is something you are
 paying for and not using &mdash; and `direct` clearing the bar is the most common outcome on tasks
 where the context already contains the answer.
+
+Note the tie-break, though: when two arms cost the *same*, the higher pass rate wins. "Prefer the
+cheaper design" is an argument about what you are willing to pay for, not a reason to accept a
+worse answer that costs nothing extra. Those are different claims and it is worth being able to
+tell them apart in a design review.
 
 Then look at the last line. A case that **no** arm answers is telling you something no
 architecture can fix: the information is missing, the scorer is wrong, or the question is

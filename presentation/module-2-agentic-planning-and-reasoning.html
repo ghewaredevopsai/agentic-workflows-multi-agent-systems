@@ -720,43 +720,49 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
   <div class="take"><b>These are shapes to reason with, not numbers to quote.</b> In Lab 2.5 you measure your own, on your own eval set.</div>
 </div>
 
-<div class="slide" data-sec="What it costs" data-notes="Tie it back to Day 1's baseline. The bake-off is the same discipline as Module 1's scorecard, applied to reasoning instead of architecture. Emphasise the last line -- a cheaper architecture that ties is a win.">
+<div class="slide" data-sec="What it costs" data-notes="These are OUR numbers from Lab 2.5 on the sandbox model, not shapes. All four arms the lab runs are here. Two things to land, in this order. First: ReAct scored the same 80% as Direct and Reflection and was still rejected -- not on cost, but because it got PMT-1005 wrong, and the bar named that case as disqualifying before anything ran. Some failures are worth the whole decision, not 20% of it. Second: Chain-of-Thought scored highest and did not win. Direct cleared the bar more cheaply, so it wins; that is the rule, and it is the result people argue with. Add the tie-break honestly -- if the costs had been equal, CoT would have won on pass rate. Their own numbers will differ; the lab tells them so.">
   <h2>The bake-off, and how to read it</h2>
   <div class="body">
-    <svg width="1180" height="410" viewBox="0 0 1180 410" role="img" aria-label="How to read an architecture bake-off scorecard">
-      <rect x="60" y="46" width="1060" height="188" rx="8" fill="#f8f8fd" stroke="#4338ca" stroke-width="2"/>
-      <line x1="60" y1="98" x2="1120" y2="98" stroke="#4338ca" stroke-width="2"/>
-      <text x="100" y="80" class="lbl">Architecture</text>
-      <text x="520" y="80" text-anchor="middle" class="lbl">Pass rate</text>
-      <text x="720" y="80" text-anchor="middle" class="lbl">Tokens / case</text>
-      <text x="930" y="80" text-anchor="middle" class="lbl">Verdict</text>
+    <svg width="1180" height="410" viewBox="0 0 1180 410" role="img" aria-label="Bake-off scorecard for all four architectures, measured in lab 2.5">
+      <rect x="60" y="46" width="1060" height="216" rx="8" fill="#f8f8fd" stroke="#4338ca" stroke-width="2"/>
+      <line x1="60" y1="92" x2="1120" y2="92" stroke="#4338ca" stroke-width="2"/>
+      <text x="96" y="76" class="lbl">Architecture</text>
+      <text x="520" y="76" text-anchor="middle" class="lbl">Pass rate</text>
+      <text x="690" y="76" text-anchor="middle" class="lbl">Sec / case</text>
+      <text x="920" y="76" text-anchor="middle" class="lbl">Verdict</text>
 
-      <text x="100" y="132" class="bx">Direct</text>
-      <text x="520" y="132" text-anchor="middle" class="bd">0.55</text>
-      <text x="720" y="132" text-anchor="middle" class="bd">180</text>
-      <text x="930" y="132" text-anchor="middle" class="bds">baseline</text>
+      <text x="96" y="128" class="bx ok">Direct</text>
+      <text x="520" y="128" text-anchor="middle" class="bd">80%</text>
+      <text x="690" y="128" text-anchor="middle" class="bd ok">0.5</text>
+      <text x="920" y="128" text-anchor="middle" class="bds ok">accepted &mdash; and it wins</text>
 
-      <text x="100" y="172" class="bx ok">Chain-of-Thought</text>
-      <text x="520" y="172" text-anchor="middle" class="bd ok">0.80</text>
-      <text x="720" y="172" text-anchor="middle" class="bd">520</text>
-      <text x="930" y="172" text-anchor="middle" class="bds ok">+25 points for 3&times; &mdash; take it</text>
+      <text x="96" y="168" class="bx">Chain-of-Thought</text>
+      <text x="520" y="168" text-anchor="middle" class="bd ok">100%</text>
+      <text x="690" y="168" text-anchor="middle" class="bd">0.7</text>
+      <text x="920" y="168" text-anchor="middle" class="bds">accepted &mdash; but not the winner</text>
 
-      <text x="100" y="212" class="bx">Tree-of-Thought</text>
-      <text x="520" y="212" text-anchor="middle" class="bd">0.82</text>
-      <text x="720" y="212" text-anchor="middle" class="bd no">4900</text>
-      <text x="930" y="212" text-anchor="middle" class="bds no">+2 points for 27&times; &mdash; no</text>
+      <text x="96" y="208" class="bx">ReAct + tools</text>
+      <text x="520" y="208" text-anchor="middle" class="bd">80%</text>
+      <text x="690" y="208" text-anchor="middle" class="bd">2.4</text>
+      <text x="920" y="208" text-anchor="middle" class="bds no">REJECTED &mdash; lost PMT-1005</text>
 
-      <rect x="60" y="256" width="515" height="130" rx="7" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
-      <text x="317" y="288" text-anchor="middle" class="bx am">Name the threshold first</text>
-      <text x="317" y="318" text-anchor="middle" class="bd">&ldquo;+10 points, inside 5&times; tokens&rdquo; &mdash; written</text>
-      <text x="317" y="342" text-anchor="middle" class="bd">down before you run anything.</text>
-      <text x="317" y="370" text-anchor="middle" class="bds">Same discipline as the Module 1 scorecard.</text>
+      <text x="96" y="248" class="bx">Reflection</text>
+      <text x="520" y="248" text-anchor="middle" class="bd">80%</text>
+      <text x="690" y="248" text-anchor="middle" class="bd">1.4</text>
+      <text x="920" y="248" text-anchor="middle" class="bds">accepted</text>
 
-      <rect x="605" y="256" width="515" height="130" rx="7" fill="#ecfdf5" stroke="#0d9488" stroke-width="2.5"/>
-      <text x="862" y="288" text-anchor="middle" class="bx ok">A tie goes to the cheaper one</text>
-      <text x="862" y="318" text-anchor="middle" class="bd">If two architectures score the same,</text>
-      <text x="862" y="342" text-anchor="middle" class="bd">the cheaper one wins &mdash; every time.</text>
-      <text x="862" y="370" text-anchor="middle" class="bds">This is the result people argue with most.</text>
+      <rect x="60" y="282" width="515" height="112" rx="7" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
+      <text x="317" y="312" text-anchor="middle" class="bx no">Some failures are disqualifying</text>
+      <text x="317" y="340" text-anchor="middle" class="bd">ReAct tied on score and still lost &mdash; it got</text>
+      <text x="317" y="364" text-anchor="middle" class="bd">the sanctions hold wrong.</text>
+      <text x="317" y="386" text-anchor="middle" class="bds">Named in the bar before anything ran.</text>
+
+      <rect x="605" y="282" width="515" height="112" rx="7" fill="#ecfdf5" stroke="#0d9488" stroke-width="2.5"/>
+      <text x="862" y="312" text-anchor="middle" class="bx ok">The best score did not win</text>
+      <text x="862" y="340" text-anchor="middle" class="bd">Cheapest arm that clears the bar wins.</text>
+      <text x="862" y="364" text-anchor="middle" class="bd">A tie on cost breaks on pass rate.</text>
+      <text x="862" y="386" text-anchor="middle" class="bds">This is the result people argue with most.</text>
+
     </svg>
   </div>
 </div>
