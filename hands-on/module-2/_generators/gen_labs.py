@@ -5,19 +5,22 @@ Generate Module 2 lab notebooks and their solutions from one source.
 Every code cell is declared once. Where the lab and the solution differ, the cell
 carries both variants, so a blank can never drift from the answer that grades it.
 
-    python3 gen_labs.py          # writes ../lab-1-0N-*.ipynb and ../solutions/
+    python3 gen_labs.py          # writes ../lab-2-0N-*.ipynb and ../solutions/
 
-Design rules (from Training/courses/CLAUDE.md and this course's stack):
-  * Graded cells are pure Python -- they never call an LLM, so a self-check is
-    deterministic and a flaky endpoint can never fail a participant.
-  * Live-model cells are clearly marked, guarded, and never crash Run All.
+Design rules (revised 2026-09-08 -- framework-forward Day 1):
+  * The participant writes REAL LangChain / LangGraph code in every lab. The frameworks
+    are the learning, not an optional appendix.
+  * Self-checks assert on framework OBJECTS -- a compiled graph, a bound tool, an emitted
+    tool_call -- which is deterministic and needs no endpoint. Only model INVOCATION needs
+    the gateway, and that lives in "Run it for real" cells, which are observed, not scored.
+  * The score line is feedback, not a gate. Do not let it shape what a lab teaches.
   * "BLANK" marks a blank; an unfilled blank raises NameError and prints [TODO].
     NOT three underscores: IPython PREDEFINES _, __ and ___ as its output history
     (they start as ""), so under a real Jupyter kernel that token is a defined empty
     string, not an undefined name. The NameError never fires, [TODO] silently becomes
-    [FAIL], and a blank used as a loop guard is falsy forever -- lab 1.1 spun in
-    `while True` until the pod was OOM-killed. Plain-exec verifiers cannot see any
-    of this, which is why verify_labs.py now runs cells through IPython.
+    [FAIL], and a blank used as a loop guard never stops its loop.
+  * Blanks live INSIDE function bodies, and anything that builds a framework object at
+    module level is wrapped in guard(), so an untouched lab survives Run All.
 """
 import json, os, re, sys
 
@@ -80,10 +83,11 @@ def header(num, title, level, minutes, bullets, note):
 ### What you'll do
 {items}
 
-> **How this lab works.** Fill every `BLANK`, then run the **Self-check** cell under each section.
-> Graded cells are plain Python and never call a model, so your score never depends on a
-> live endpoint. Cells marked **Run it for real** do call the sandbox model; if it is not
-> reachable they print how to fix it instead of crashing.
+> **How this lab works.** You write real LangChain and LangGraph code. Fill every `BLANK`,
+> then run the **Self-check** cell under each section &mdash; those check the *objects you built*
+> (a bound tool, a compiled graph, an emitted tool call), so they are deterministic and do not
+> depend on the model. Cells marked **Run it for real** put your code in front of the sandbox
+> model; that is the part worth watching. The score line is feedback, not a grade.
 
 {note}
 """)
@@ -119,24 +123,31 @@ def guard(fn: Callable[[], Any], default: Any = None) -> Any:
     """Run fn(). If a blank above is still unfilled, say so and carry on -- never crash Run All."""
     try:
         return fn()
-    except NameError:
-        print("(a blank above is still unfilled -- fill it in, then re-run this cell)")
+    except NameError as exc:
+        print(f"(a blank above is still unfilled: {{exc}} -- fill it in, then re-run this cell)")
         return default
 
 def score() -> None:
     done = [r for r in _results if r is not None]
     passed = sum(1 for r in done if r)
     todo = sum(1 for r in _results if r is None)
-    print(f"\\nScore: {{passed}}/{{len(_results)}}" + (f"   ({{todo}} still TODO)" if todo else ""))
+    print(f"\\nSelf-check: {{passed}}/{{len(_results)}}" + (f"   ({{todo}} still TODO)" if todo else ""))
 
 # ---- the sandbox model ---------------------------------------------------
 # Your sandbox already has an LLM configured -- nothing to install, no key to register.
-# These two values are read from the environment so this notebook never hardcodes an endpoint.
+# These values are read from the environment so this notebook never hardcodes an endpoint.
 LLM_BASE_URL = (os.environ.get("LAB_LLM_BASE_URL") or os.environ.get("OPENAI_BASE_URL")
                 or os.environ.get("LITELLM_BASE_URL"))
 LLM_MODEL    = (os.environ.get("LAB_LLM_MODEL") or os.environ.get("OPENAI_MODEL")
                 or os.environ.get("LITELLM_MODEL"))
 LLM_API_KEY  = os.environ.get("OPENAI_API_KEY", "sandbox")
+
+# The served model reasons before it answers, and the reasoning is billed as completion
+# tokens: 24.1s / 980 tokens with it on, 0.7s / 29 with it off, for the same answer. Off is
+# the default here because you will make a lot of calls today. Pass think=True to see the
+# difference for yourself -- and note that prompts written as an explicit ordered procedure
+# survive thinking being off, while vague ones do not.
+NO_THINK = {{"chat_template_kwargs": {{"enable_thinking": False}}}}
 
 def llm_ready() -> bool:
     if not LLM_BASE_URL or not LLM_MODEL:
@@ -146,26 +157,38 @@ def llm_ready() -> bool:
         return False
     return True
 
-_llm = None
-def get_llm(temperature: float = 0.0):
+_llm_cache = {{}}
+def get_llm(temperature: float = 0.0, think: bool = False):
     """A LangChain chat model pointed at the sandbox gateway (OpenAI-compatible)."""
-    global _llm
-    if _llm is None:
-        from langchain_openai import ChatOpenAI
-        _llm = ChatOpenAI(model=LLM_MODEL, base_url=LLM_BASE_URL,
-                          api_key=LLM_API_KEY, temperature=temperature)
-    return _llm
+    from langchain_openai import ChatOpenAI
+    key = (temperature, think)
+    if key not in _llm_cache:
+        kwargs = {{}} if think else {{"extra_body": NO_THINK}}
+        _llm_cache[key] = ChatOpenAI(model=LLM_MODEL, base_url=LLM_BASE_URL,
+                                     api_key=LLM_API_KEY, temperature=temperature, **kwargs)
+    return _llm_cache[key]
 
-def ask(prompt: str, system: str | None = None) -> str:
+def ask(prompt: str, system: str | None = None, think: bool = False) -> str:
     """One stateless call. Returns text, or an error string -- never raises."""
     try:
         msgs = ([("system", system)] if system else []) + [("human", prompt)]
-        return get_llm().invoke(msgs).content
+        return get_llm(think=think).invoke(msgs).content
     except Exception as exc:
         return f"<model unavailable: {{type(exc).__name__}}: {{exc}}>"
 
+def show_messages(messages, width: int = 88) -> None:
+    """Print a message list the way a trace reads: type, content, and any tool calls."""
+    for m in messages:
+        kind = getattr(m, "type", "?")
+        body = str(getattr(m, "content", "")).replace("\\n", " ")[:width]
+        calls = getattr(m, "tool_calls", None)
+        line = f"  [{{kind:9}}] {{body}}"
+        if calls:
+            line += "  -> calls: " + ", ".join(f"{{c['name']}}({{c['args']}})" for c in calls)
+        print(line)
+
 print("work dir:", WORK)
-print("model   :", LLM_MODEL or "(not configured -- graded cells still work)")
+print("model   :", LLM_MODEL or "(not configured -- the object-level self-checks still work)")
 '''
 
 
@@ -178,7 +201,7 @@ def setup(num, extra=""):
 # --------------------------------------------------------------------------- #
 DOMAIN = '''
 # ------------------------------------------------- the case file (synthetic, self-contained)
-# One domain runs through all five Module 1 labs: payment exceptions on a small ledger.
+# One domain runs through all five Module 2 labs: payment exceptions on a small ledger.
 # Nothing here is real data and nothing leaves this notebook.
 
 LEDGER = {
@@ -210,262 +233,311 @@ print(f"{len(LEDGER)} payments, {len(POLICY)} policy rules loaded")
 
 
 
-# the two tools you wrote in Lab 1.2 of Module 1, carried forward so this notebook stands alone
-CARRIED_TOOLS = '''
-# ------------------------------------------------- carried forward from Lab 1.2 of Module 1
-# These are the tools you wrote in Lab 1.2 of Module 1. Nothing to fill in -- they are here so this
-# notebook runs on its own. Note the docstrings: they name the case AND the boundary.
-
-def lookup_payment(ref: str) -> str:
-    """Return the ledger record for one payment reference such as 'PMT-1002'.
-
-    Use when you need the status, amount, counterparty or reason code of a specific payment.
-    Not for searching across payments.
-    """
-    record = LEDGER.get(ref)
-    if record is None:
-        return f"no payment found with reference {ref!r}"
-    return json.dumps({"ref": ref, **record})
-
-
-def policy_for(reason_code: str) -> str:
-    """Return the operating policy for one failure reason code, e.g. 'LIMIT_BREACH'.
-
-    Use after you know why a payment failed and need to know what to do about it.
-    """
-    return POLICY.get(reason_code, f"no policy on file for reason code {reason_code!r}")
-
-
-TOOLS = {"lookup_payment": lookup_payment, "policy_for": policy_for}
-print("carried forward:", ", ".join(TOOLS))
-'''
-
-
 # =========================================================================== #
-# Lab 2.1 -- Chain-of-Thought, measured against a direct answer
+# Lab 2.1 -- Chain-of-Thought, built as an LCEL chain and measured
 # =========================================================================== #
 LAB1 = [
-    header(1, "Chain-of-Thought, Measured", "Intermediate", 25,
-           ["Score a direct answer and a reasoned answer on the same cases",
-            "Separate the answer from the reasoning that led to it",
-            "Put a number on what the extra tokens bought"],
-           "> **The thread continues.** Same synthetic payment-exception case file as Module 1.\n"
-           "> Module 1 asked whether to build an agent; Module 2 asks how it should think."),
+    header(1, "Chain-of-Thought, Built as a Chain", "Intermediate", 35,
+           ["Compose your first LCEL chain: <code>prompt | model | parser</code>",
+            "Build two arms that differ only in their prompt, and nothing else",
+            "Run a whole eval set in one call with <code>.batch()</code>",
+            "Measure what &ldquo;think step by step&rdquo; is actually worth on your task"],
+           "> **The thread.** All five Module 2 labs work one case: payment exceptions on a small\n"
+           "> synthetic ledger. Module 1 built the agent loop; Module 2 is about what goes on\n"
+           "> inside one turn of it."),
     setup(1),
     code(DOMAIN),
 
     md("""
 ## Concept
 
-Chain-of-Thought is a prompt, not an architecture change: ask the model to work in steps before it
-answers. It usually helps on multi-step questions, it always costs tokens, and the reasoning it
-shows you is **a rationalisation, not a transcript** &mdash; useful evidence for a human reviewer,
-never a control.
+**Chain-of-Thought** asks the model to show its working before it answers. It usually helps on
+multi-step tasks and usually costs latency, and *how much* of each is a property of your task,
+not a fact about LLMs. So measure it.
 
-This lab does the only thing that settles it: run both on the same cases and compare.
+The mechanism you use to measure it is worth as much as the answer. **LCEL** &mdash; LangChain
+Expression Language &mdash; composes a prompt, a model and a parser into one runnable with `|`:
+
+```python
+chain = prompt | model | StrOutputParser()
+chain.invoke({"case": ...})        # one
+chain.batch([{...}, {...}, ...])   # many, concurrently
+```
+
+Everything downstream in this course is built this way, and `.batch()` is what makes an eval set
+practical instead of a coffee break.
 """),
 
     md("""
-## Section 1 &mdash; Separate the answer from the reasoning
+## Section 1 &mdash; Your first chain
 
-If you cannot extract the answer reliably, you cannot score it. Reasoning ends and the answer
-begins at a marker you impose &mdash; here, a final line starting `ANSWER:`.
+Three parts, one pipe. `ChatPromptTemplate` turns variables into messages; the model answers;
+`StrOutputParser` pulls `.content` out so the chain returns a plain string.
 """),
     code('''
-ANSWER_MARKER = "ANSWER:"
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.messages import AIMessage
 
-def split_reasoning(text: str) -> tuple[str, str]:
-    """Return (reasoning, answer) from a model reply.
+DIRECT = ("You are a payments operations analyst. Answer with the single next action, "
+          "and nothing else.")
 
-    The answer is the text after the LAST occurrence of ANSWER_MARKER, stripped.
-    If the marker never appears, the reasoning is empty and the whole reply is the answer --
-    degrade, never raise.
-    """
-    if ANSWER_MARKER not in text:
-        return BLANK             # TODO: the no-marker case, as a (reasoning, answer) tuple
-    head, _, tail = text.rpartition(ANSWER_MARKER)
-    return head.strip(), tail.strip()
+def output_parser():
+    """The last stage of the chain: what turns the AIMessage into a plain string?"""
+    return BLANK                      # TODO: which parser, INSTANTIATED -- note the ()
+
+
+def build_chain(system: str):
+    """prompt | model | parser -- the three-part chain every later lab uses."""
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", system),
+        ("human", "PAYMENT: {payment}\\nPOLICY: {policy}\\n\\nWhat must happen next?"),
+    ])
+    return prompt | get_llm() | output_parser()
 ''', '''
-ANSWER_MARKER = "ANSWER:"
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.messages import AIMessage
 
-def split_reasoning(text: str) -> tuple[str, str]:
-    """Return (reasoning, answer) from a model reply.
+DIRECT = ("You are a payments operations analyst. Answer with the single next action, "
+          "and nothing else.")
 
-    The answer is the text after the LAST occurrence of ANSWER_MARKER, stripped.
-    If the marker never appears, the reasoning is empty and the whole reply is the answer --
-    degrade, never raise.
-    """
-    if ANSWER_MARKER not in text:
-        return "", text.strip()
-    head, _, tail = text.rpartition(ANSWER_MARKER)
-    return head.strip(), tail.strip()
+def output_parser():
+    """The last stage of the chain: what turns the AIMessage into a plain string?"""
+    return StrOutputParser()
+
+
+def build_chain(system: str):
+    """prompt | model | parser -- the three-part chain every later lab uses."""
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", system),
+        ("human", "PAYMENT: {payment}\\nPOLICY: {policy}\\n\\nWhat must happen next?"),
+    ])
+    return prompt | get_llm() | output_parser()
 '''),
     code('''
-# --- Self-check: Section 1
-_reply = "Step 1: the code is LIMIT_BREACH.\\nStep 2: policy needs Treasury.\\nANSWER: Treasury approval"
+# --- Self-check: Section 1   (the prompt half is pure -- no model call)
+_p = ChatPromptTemplate.from_messages([
+    ("system", DIRECT),
+    ("human", "PAYMENT: {payment}\\nPOLICY: {policy}\\n\\nWhat must happen next?"),
+])
 
-check("the answer is taken from after the marker",
-      lambda: split_reasoning(_reply)[1] == "Treasury approval")
-check("the reasoning is everything before it",
-      lambda: "Step 1" in split_reasoning(_reply)[0])
-check("a reply with no marker still yields an answer",
-      lambda: split_reasoning("Treasury approval")[1] == "Treasury approval",
-      "return ('', text.strip()) rather than raising")
-check("a reply with no marker has empty reasoning",
-      lambda: split_reasoning("Treasury approval")[0] == "")
-check("the LAST marker wins",
-      lambda: split_reasoning("ANSWER: draft\\nrethinking\\nANSWER: final")[1] == "final",
-      "use rpartition, not partition -- models restate the marker")
+check("the template declares both variables",
+      lambda: set(_p.input_variables) == {"payment", "policy"})
+check("it renders to a system message and a human message",
+      lambda: [m.type for m in _p.invoke({"payment": "p", "policy": "q"}).messages]
+              == ["system", "human"])
+check("the variables are substituted, not left as braces",
+      lambda: "PAYMENT: p" in _p.invoke({"payment": "p", "policy": "q"}).messages[1].content)
+
+check("the chain ends in a string parser",
+      lambda: isinstance(output_parser(), StrOutputParser),
+      "it must be StrOutputParser() -- an INSTANCE; passing the class silently breaks the pipe")
+check("the parser turns an AIMessage into a plain string",
+      lambda: output_parser().invoke(AIMessage("hello")) == "hello",
+      "that is all StrOutputParser does, and it is why the chain returns str not AIMessage")
 '''),
 
     md("""
-## Section 2 &mdash; The two prompts
+## Section 2 &mdash; Two arms, one difference
 
-Identical task, identical cases. The only difference is whether the model is asked to work in
-steps. Keep everything else fixed or the comparison means nothing.
+Both arms use the **same** `build_chain`. The only thing that changes is the system prompt. That
+is what makes the comparison worth anything: if you also changed the model, the temperature or
+the question, you would learn nothing from the result.
+
+Write the Chain-of-Thought prompt. It has to ask for the working *and* keep the final answer
+findable, or you cannot score it.
 """),
     code('''
-TASK = ("You are a payments operations analyst. Given a payment record and the policy catalogue, "
-        "say who must action the exception: OPERATIONS, TREASURY, COMPLIANCE or ORIGINATOR.")
+ANSWER_MARKER = "ACTION:"
 
-DIRECT_PROMPT = TASK + "\\nReply with a single line: ANSWER: <one of the four>"
-
-def build_cot_prompt() -> str:
-    """The chain-of-thought prompt: same task, same answer format, plus stepwise reasoning."""
-    instruction = BLANK              # TODO: ask it to work in numbered steps FIRST, then finish
-                                     # with the same 'ANSWER: <one of the four>' line. The final
-                                     # line format must match DIRECT_PROMPT exactly or the
-                                     # comparison is not like-for-like.
-    return TASK + "\\n" + instruction
+# TODO: replace this string with your Chain-of-Thought system prompt. It must ask for the
+# reasoning first and finish with a line beginning ANSWER_MARKER, or you cannot score it.
+COT = "BLANK"
 ''', '''
-TASK = ("You are a payments operations analyst. Given a payment record and the policy catalogue, "
-        "say who must action the exception: OPERATIONS, TREASURY, COMPLIANCE or ORIGINATOR.")
+ANSWER_MARKER = "ACTION:"
 
-DIRECT_PROMPT = TASK + "\\nReply with a single line: ANSWER: <one of the four>"
-
-def build_cot_prompt() -> str:
-    """The chain-of-thought prompt: same task, same answer format, plus stepwise reasoning."""
-    instruction = (
-        "Work through it in numbered steps first: state the reason code, then the policy that "
-        "applies, then who that policy makes responsible. "
-        "Finish with a single final line: ANSWER: <one of the four>"
-    )
-    return TASK + "\\n" + instruction
+COT = ("You are a payments operations analyst. Work through the case step by step: state the "
+       "payment's status, then its reason code, then what the policy for that code requires. "
+       f"Finish with a final line that begins with {ANSWER_MARKER!r} followed by the single "
+       "next action and nothing else.")
 '''),
     code('''
-# --- Self-check: Section 2
-check("both prompts demand the same answer format",
-      lambda: ANSWER_MARKER in DIRECT_PROMPT and ANSWER_MARKER in build_cot_prompt(),
-      "if the formats differ you are measuring your parser, not the reasoning")
-check("only the chain-of-thought prompt asks for steps",
-      lambda: "step" in build_cot_prompt().lower() and "step" not in DIRECT_PROMPT.lower())
-check("both carry the identical task definition",
-      lambda: DIRECT_PROMPT.startswith(TASK) and build_cot_prompt().startswith(TASK),
-      "change one variable at a time or the result is uninterpretable")
+def final_action(text: str) -> str:
+    """The answer, separated from the working.
+
+    With the marker: everything after the LAST marker line.
+    Without it: the whole text, which is what the direct arm produces.
+    """
+    if ANSWER_MARKER in text:
+        return text.rsplit(ANSWER_MARKER, 1)[1].strip()
+    return text.strip()
+'''),
+    code('''
+# --- Self-check: Section 2   (string handling only -- no model call)
+def _cot():
+    # A blank inside a string is not a blank -- it is the literal word, and reading it can
+    # never raise. So raise it by hand, or an untouched lab shows [FAIL] instead of [TODO].
+    if not isinstance(COT, str) or COT.strip() == "BLANK":
+        raise NameError("COT is not written yet")
+    return COT
+
+check("the CoT prompt asks for reasoning",
+      lambda: any(w in _cot().lower() for w in ("step by step", "step-by-step", "work through")),
+      "if it does not ask for the working, it is not Chain-of-Thought")
+check("the CoT prompt names the answer marker",
+      lambda: ANSWER_MARKER in _cot(),
+      "you have to be able to find the answer inside the working, or you cannot score it")
+check("both arms are still the same analyst",
+      lambda: "payments operations analyst" in _cot(),
+      "change one thing between arms -- the reasoning instruction -- and nothing else")
+check("final_action strips the working away",
+      lambda: final_action("thinking...\\nACTION: Escalate to Treasury.") == "Escalate to Treasury.")
+check("final_action takes the LAST marker",
+      lambda: final_action("ACTION: wrong\\nmore\\nACTION: right") == "right",
+      "models sometimes restate the format before using it")
+check("an unmarked answer survives unchanged",
+      lambda: final_action("Escalate to Treasury.") == "Escalate to Treasury.")
 '''),
 
     md("""
-## Section 3 &mdash; The eval set and the scorer
+## Section 3 &mdash; The eval set, and `.batch()`
 
-Six cases, each with the responsible party known in advance. Two are deliberately awkward: one has
-no exception at all, and one references a payment that does not exist.
+Five cases, each with the terms a correct action must mention. Crude on purpose &mdash; it has to be
+something you can defend and re-run, not something you have to read.
+
+`.batch()` sends the whole list at once and returns the answers in order. It is the difference
+between an eval set you run every time and one you ran once.
 """),
     code('''
 CASES = [
-    {"ref": "PMT-1002", "expect": "OPERATIONS"},   # insufficient funds -> retry, ops desk
-    {"ref": "PMT-1003", "expect": "TREASURY"},     # limit breach -> treasury approval
-    {"ref": "PMT-1004", "expect": "ORIGINATOR"},   # invalid IBAN -> return to originator
-    {"ref": "PMT-1005", "expect": "COMPLIANCE"},   # sanctions review -> compliance decides
-    {"ref": "PMT-1001", "expect": "OPERATIONS"},   # settled: no exception to action
-    {"ref": "PMT-9999", "expect": "OPERATIONS"},   # unknown reference: cannot be actioned blind
+    {"ref": "PMT-1003", "must_contain": ["treasury"]},
+    {"ref": "PMT-1005", "must_contain": ["compliance"]},
+    {"ref": "PMT-1002", "must_contain": ["retry"]},
+    {"ref": "PMT-1004", "must_contain": ["originator", "r04"]},
+    {"ref": "PMT-1001", "must_contain": ["settled", "no action", "none"]},
 ]
 
-def render_case(ref: str) -> str:
-    """The case text handed to the model -- identical for both prompts."""
-    rec = LEDGER.get(ref)
-    if rec is None:
-        return f"PAYMENT {ref}: not found in the ledger."
-    policy = POLICY.get(rec["reason_code"], "no policy on file")
-    return f"PAYMENT {ref}: {json.dumps(rec)}\\nPOLICY: {policy}"
+def inputs_for(case: dict) -> dict:
+    """The variables one case supplies to the chain."""
+    rec = LEDGER[case["ref"]]
+    return {"payment": json.dumps({"ref": case["ref"], **rec}),
+            "policy": POLICY.get(rec["reason_code"], "no policy applies")}
 
-def scores(answer: str, expect: str) -> bool:
-    """A case passes when the expected party is named in the answer, case-insensitively."""
-    return BLANK                     # TODO: the pass condition
+
+def scores(answers: list[str]) -> list[bool]:
+    """One bool per case: did the final action mention any required term?"""
+    out = []
+    for case, answer in zip(CASES, answers):
+        action = final_action(answer).lower()
+        out.append(BLANK)             # TODO: any required term present, or all of them?
+    return out
+
+
+def run_arm(system: str) -> dict:
+    """Run every case through one arm, in a single batched call."""
+    chain = build_chain(system)
+    t0 = time.time()
+    answers = chain.batch([inputs_for(c) for c in CASES])
+    return {"answers": answers, "scores": scores(answers), "seconds": time.time() - t0}
 ''', '''
 CASES = [
-    {"ref": "PMT-1002", "expect": "OPERATIONS"},   # insufficient funds -> retry, ops desk
-    {"ref": "PMT-1003", "expect": "TREASURY"},     # limit breach -> treasury approval
-    {"ref": "PMT-1004", "expect": "ORIGINATOR"},   # invalid IBAN -> return to originator
-    {"ref": "PMT-1005", "expect": "COMPLIANCE"},   # sanctions review -> compliance decides
-    {"ref": "PMT-1001", "expect": "OPERATIONS"},   # settled: no exception to action
-    {"ref": "PMT-9999", "expect": "OPERATIONS"},   # unknown reference: cannot be actioned blind
+    {"ref": "PMT-1003", "must_contain": ["treasury"]},
+    {"ref": "PMT-1005", "must_contain": ["compliance"]},
+    {"ref": "PMT-1002", "must_contain": ["retry"]},
+    {"ref": "PMT-1004", "must_contain": ["originator", "r04"]},
+    {"ref": "PMT-1001", "must_contain": ["settled", "no action", "none"]},
 ]
 
-def render_case(ref: str) -> str:
-    """The case text handed to the model -- identical for both prompts."""
-    rec = LEDGER.get(ref)
-    if rec is None:
-        return f"PAYMENT {ref}: not found in the ledger."
-    policy = POLICY.get(rec["reason_code"], "no policy on file")
-    return f"PAYMENT {ref}: {json.dumps(rec)}\\nPOLICY: {policy}"
+def inputs_for(case: dict) -> dict:
+    """The variables one case supplies to the chain."""
+    rec = LEDGER[case["ref"]]
+    return {"payment": json.dumps({"ref": case["ref"], **rec}),
+            "policy": POLICY.get(rec["reason_code"], "no policy applies")}
 
-def scores(answer: str, expect: str) -> bool:
-    """A case passes when the expected party is named in the answer, case-insensitively."""
-    return expect.lower() in answer.lower()
+
+def scores(answers: list[str]) -> list[bool]:
+    """One bool per case: did the final action mention any required term?"""
+    out = []
+    for case, answer in zip(CASES, answers):
+        action = final_action(answer).lower()
+        out.append(any(term in action for term in case["must_contain"]))
+    return out
+
+
+def run_arm(system: str) -> dict:
+    """Run every case through one arm, in a single batched call."""
+    chain = build_chain(system)
+    t0 = time.time()
+    answers = chain.batch([inputs_for(c) for c in CASES])
+    return {"answers": answers, "scores": scores(answers), "seconds": time.time() - t0}
 '''),
     code('''
-# --- Self-check: Section 3
-check("an exact answer passes", lambda: scores("ANSWER: TREASURY", "TREASURY") is True)
-check("case does not matter", lambda: scores("answer: treasury", "TREASURY") is True)
-check("a wrong party fails", lambda: scores("COMPLIANCE", "TREASURY") is False)
-check("every case renders without raising",
-      lambda: all(isinstance(render_case(c["ref"]), str) for c in CASES))
-check("the unknown reference renders as not found",
-      lambda: "not found" in render_case("PMT-9999"))
+# --- Self-check: Section 3   (the scorer, on canned answers -- no model call)
+_canned = ["Escalate to Treasury for approval.",
+           "Hold; Compliance decides.",
+           "Retry once after 24h.",
+           "Do something vague.",
+           "Already settled, no action."]
+
+check("every case names a payment that exists",
+      lambda: all(c["ref"] in LEDGER for c in CASES))
+check("the chain inputs carry the payment and the policy",
+      lambda: set(inputs_for(CASES[0])) == {"payment", "policy"})
+check("a case with no reason code still gets a policy string",
+      lambda: isinstance(inputs_for(CASES[4])["policy"], str),
+      "PMT-1001 is settled -- the chain must still receive something for {policy}")
+check("the scorer accepts a correct answer", lambda: scores(_canned)[0] is True)
+check("the scorer rejects a vague one",      lambda: scores(_canned)[3] is False)
+check("either term is enough",
+      lambda: scores(["x", "x", "x", "Send it back with code R04.", "x"])[3] is True,
+      'must_contain is a list of alternatives -- "any", not "all"')
+check("the scorer reads only the final action",
+      lambda: scores(["I considered Treasury but ACTION: hold for Compliance.",
+                      "x", "x", "x", "x"])[0] is False,
+      "reasoning that mentions the right word is not the same as answering it")
 '''),
 
     md("""
 ## Run it for real
 
-Both prompts, all six cases, one table. This is the first real measurement of the module.
+Both arms, five cases each, two batched calls. Watch the per-case table rather than the totals.
 """),
     code('''
-def run_arm(prompt: str, label: str) -> dict:
-    """Run every case under one prompt. Returns pass rate and rough token cost."""
-    hits, chars = 0, 0
-    for c in CASES:
-        reply = ask(render_case(c["ref"]), system=prompt)
-        _, answer = split_reasoning(reply)
-        ok = scores(answer, c["expect"])
-        hits += 1 if ok else 0
-        chars += len(prompt) + len(render_case(c["ref"])) + len(reply)
-        print(f"  {c['ref']}  expect {c['expect']:11} got {answer[:34]:34} {'PASS' if ok else 'FAIL'}")
-    return {"arm": label, "pass_rate": round(hits / len(CASES), 3), "est_tokens": chars // 4}
-
 if llm_ready():
-    try:
-        print("--- direct ---");            direct = run_arm(DIRECT_PROMPT, "direct")
-        print("\\n--- chain-of-thought ---"); cot = run_arm(build_cot_prompt(), "cot")
-        print(f"\\n{'arm':22}{'pass rate':>12}{'est tokens':>13}")
-        for r in (direct, cot):
-            print(f"{r['arm']:22}{r['pass_rate']:>12}{r['est_tokens']:>13}")
-        gain = cot["pass_rate"] - direct["pass_rate"]
-        mult = cot["est_tokens"] / max(direct["est_tokens"], 1)
-        print(f"\\nchain-of-thought bought {gain:+.2f} pass rate for {mult:.1f}x the tokens.")
-    except NameError:
-        print("(fill in the blanks above, then re-run this cell)")
+    def _compare():
+        direct = run_arm(DIRECT)
+        cot    = run_arm(COT)
+        print("  case       direct   chain-of-thought")
+        for c, a, b in zip(CASES, direct["scores"], cot["scores"]):
+            f = lambda x: "pass" if x else "FAIL"
+            print(f"  {c['ref']}   {f(a):8} {f(b)}")
+        n = len(CASES)
+        print(f"\\n  direct           {sum(direct['scores'])}/{n}   {direct['seconds']:.1f}s")
+        print(f"  chain-of-thought {sum(cot['scores'])}/{n}   {cot['seconds']:.1f}s")
+        print("\\n--- one CoT answer in full ---\\n")
+        print(cot["answers"][0][:700])
+        return {"direct": direct, "cot": cot}
+    ARMS = guard(_compare)
 '''),
     md("""
 ### Read it
 
-Three things to look at, in this order:
+Three things to look for.
 
-1. **Did the gain justify the multiple?** On a task this small it often does not &mdash; and that is a
-   real result, not a failed lab.
-2. **Where did the direct arm fail?** Usually the two awkward cases, which is exactly where working
-   in steps helps.
-3. **Read one reasoning trace against its answer.** If a case passed with reasoning that does not
-   support it, you have just seen why the reasoning text is evidence and not a control.
+1. **Which cases moved.** CoT rarely helps uniformly. It tends to earn its keep exactly where the
+   answer needs two facts joined &mdash; the reason code *and* what policy says about it &mdash; and to
+   do nothing at all where one lookup was enough.
+2. **What the working looks like.** Read the full answer printed at the end. The model states the
+   status, then the code, then the policy. That ordering is the whole mechanism: each step lands
+   in the context before the next one needs it.
+3. **The marker earned its place.** Without `ACTION:` you would be scoring the reasoning as well
+   as the answer, and CoT would appear to win simply by mentioning more words. The
+   `final_action` self-check above encodes exactly that trap.
+
+Note also what `.batch()` did: five cases went out together rather than one after another. The
+same eval set run serially takes several times as long, which is usually the difference between
+a suite people run and one they skip.
 """),
 
     code('''
@@ -474,342 +546,403 @@ score()
     md("""
 ## Your turn
 
-1. Add a case the direct arm gets right and the reasoned arm gets wrong. They exist &mdash; extra steps
-   give a model more places to talk itself out of a correct first instinct.
-2. `scores()` does substring matching, so an answer of "not TREASURY" would pass. Tighten it, then
-   decide whether the stricter scorer changes the verdict. If a scoring change flips your
-   conclusion, the conclusion was never solid.
+1. Add a sixth case whose correct action needs **three** facts joined, and see whether the gap
+   between the arms widens. That is the shape of task where CoT pays.
+2. Replace `StrOutputParser()` with `with_structured_output` returning a small model that has
+   `reasoning` and `action` fields. You no longer need `ANSWER_MARKER` or `final_action` at all
+   &mdash; which of the two designs would you rather maintain?
+3. Run `run_arm(COT)` three times. The scores will not be identical. Decide how many runs your
+   eval set needs before you would let it gate a release, and write the number down.
 """),
 ]
 
 
 # =========================================================================== #
-# Lab 2.2 -- ReAct: the parser is a protocol boundary
+# Lab 2.2 -- ReAct: the parser contract, and the version that has none
 # =========================================================================== #
+CARRY_TOOLS = '''
+# ------------------------------------------------- the two tools, carried through Module 2
+from langchain_core.tools import tool
+
+@tool
+def lookup_payment(ref: str) -> str:
+    """Return the ledger record for one payment reference such as 'PMT-1003'.
+
+    Use when you need the status, amount, counterparty or reason code of a specific payment.
+    """
+    rec = LEDGER.get(ref)
+    return json.dumps({"ref": ref, **rec}) if rec else f"no payment found with reference {ref!r}"
+
+
+@tool
+def policy_for(reason_code: str) -> str:
+    """Return the operating policy for one failure reason code such as 'LIMIT_BREACH'.
+
+    Use after you know why a payment failed and need to know what to do about it.
+    """
+    return POLICY.get(reason_code, f"no policy on file for reason code {reason_code!r}")
+
+
+TOOLS = {t.name: t for t in (lookup_payment, policy_for)}
+print("tools:", list(TOOLS))
+'''
+
 LAB2 = [
-    header(2, "ReAct and the Parser Contract", "Intermediate &rarr; Advanced", 30,
-           ["Parse Thought / Action / Observation out of free-form model text",
-            "Break your own parser on eight real drift cases",
-            "Choose between strict and lenient, and defend the choice",
-            "Drive the Module 1 loop with the parser you wrote"],
-           "> **Builds on Lab 1.1.** You wrote the loop; here you write the thing that turns the\n"
-           "> model's prose into an actual tool call, every single time, or fails safely."),
+    header(2, "ReAct, and the Parser You Do Not Have to Write", "Intermediate &rarr; Advanced", 40,
+           ["Implement the classic text ReAct format &mdash; Thought / Action / Observation",
+            "Collect the eight ways a model drifts out of that format",
+            "Discover the failure a parser cannot catch: a valid format with an unusable argument",
+            "Do the same job with <code>bind_tools</code>, where the argument is schema-checked"],
+           "> **Builds on Lab 2.1.** Same case file. This lab is the strongest argument in Module 2\n"
+           "> for using the framework rather than reimplementing it."),
     setup(2),
     code(DOMAIN),
-    code(CARRIED_TOOLS),
+    code(CARRY_TOOLS),
 
     md("""
 ## Concept
 
-ReAct interleaves reasoning with tool use: **Thought** &rarr; **Action** &rarr; **Observation**, and
-round again. The loop is Module 1's. What is new is that the model's *text* must become a *call*.
+**ReAct** interleaves reasoning and acting: *Thought* (what do I know?), *Action* (what shall I
+do?), *Observation* (what came back?), repeat. That is the loop from Module 1, given a shape.
 
-That parser is a **protocol boundary between a system that guarantees its output format and one
-that does not.** It will meet malformed input in production. The only question is what it does then.
+The original formulation asks the model to emit that shape **as text**, which means you must parse
+it. Every parser is a contract, and the model has not signed it. This lab makes you write that
+parser, breaks it, and then shows you the version where the contract is enforced by the API
+instead of by your regex.
 """),
 
     md("""
-## Section 1 &mdash; The happy path
+## Section 1 &mdash; The text format, and the parser it needs
 
-Start with well-formed output. `parse_step` returns a dict describing what the model wants.
+The happy path looks like this:
+
+```
+Thought: I need the payment record first.
+Action: lookup_payment
+Action Input: PMT-1003
+```
+
+Pull the three fields out. Return `None` for a step that does not carry an action &mdash; that is how
+a final answer looks.
 """),
     code('''
 import re
 
-def parse_step(text: str) -> dict:
-    """Parse one ReAct step.
+STEP_RE = re.compile(
+    r"Thought:\\s*(?P<thought>.*?)\\s*"
+    r"Action:\\s*(?P<action>[\\w_]+)\\s*"
+    r"Action Input:\\s*(?P<input>.*?)\\s*$",
+    re.DOTALL | re.IGNORECASE)
 
-    Returns one of:
-      {"kind": "action", "tool": str, "arg": str, "thought": str}
-      {"kind": "final",  "answer": str, "thought": str}
-      {"kind": "unparseable", "raw": str}
-    """
-    thought = ""
-    m = re.search(r"Thought:\\**\\s*(.+)", text)
-    if m:
-        thought = m.group(1).strip()
-
-    m = re.search(r"Final Answer:\\**\\s*(.+)", text, re.S)
-    if m:
-        return {"kind": "final", "answer": m.group(1).strip(), "thought": thought}
-
-    m = re.search(r'Action:\\**\\s*(\\w+)\\s*\\(\\s*"([^"]*)"\\s*\\)', text)
-    if m:
-        return BLANK                 # TODO: the action result -- tool name and its argument
-    return {"kind": "unparseable", "raw": text}
+def parse_step(text: str) -> dict | None:
+    """Return {"thought", "action", "input"} or None if this is not an action step."""
+    m = STEP_RE.search(text or "")
+    if not m:
+        return None
+    return {"thought": m.group("thought").strip(),
+            "action": BLANK,          # TODO: the tool name the model asked for
+            "input": m.group("input").strip().strip('"').strip("'")}
 ''', '''
 import re
 
-def parse_step(text: str) -> dict:
-    """Parse one ReAct step.
+STEP_RE = re.compile(
+    r"Thought:\\s*(?P<thought>.*?)\\s*"
+    r"Action:\\s*(?P<action>[\\w_]+)\\s*"
+    r"Action Input:\\s*(?P<input>.*?)\\s*$",
+    re.DOTALL | re.IGNORECASE)
 
-    Returns one of:
-      {"kind": "action", "tool": str, "arg": str, "thought": str}
-      {"kind": "final",  "answer": str, "thought": str}
-      {"kind": "unparseable", "raw": str}
-    """
-    thought = ""
-    m = re.search(r"Thought:\\**\\s*(.+)", text)
-    if m:
-        thought = m.group(1).strip()
-
-    m = re.search(r"Final Answer:\\**\\s*(.+)", text, re.S)
-    if m:
-        return {"kind": "final", "answer": m.group(1).strip(), "thought": thought}
-
-    m = re.search(r'Action:\\**\\s*(\\w+)\\s*\\(\\s*"([^"]*)"\\s*\\)', text)
-    if m:
-        return {"kind": "action", "tool": m.group(1), "arg": m.group(2), "thought": thought}
-    return {"kind": "unparseable", "raw": text}
+def parse_step(text: str) -> dict | None:
+    """Return {"thought", "action", "input"} or None if this is not an action step."""
+    m = STEP_RE.search(text or "")
+    if not m:
+        return None
+    return {"thought": m.group("thought").strip(),
+            "action": m.group("action").strip(),
+            "input": m.group("input").strip().strip('"').strip("'")}
 '''),
     code('''
-# --- Self-check: Section 1
-_good = 'Thought: I need the record.\\nAction: lookup_payment("PMT-1002")'
-_final = 'Thought: I have enough.\\nFinal Answer: retry once after 24h'
+# --- Self-check: Section 1   (pure string work -- no model call)
+_good = "Thought: I need the record.\\nAction: lookup_payment\\nAction Input: PMT-1003"
 
-check("a well-formed action parses", lambda: parse_step(_good)["kind"] == "action")
-check("the tool name is extracted", lambda: parse_step(_good)["tool"] == "lookup_payment")
-check("the argument is extracted", lambda: parse_step(_good)["arg"] == "PMT-1002")
-check("the thought is kept", lambda: "record" in parse_step(_good)["thought"])
-check("a final answer parses as final", lambda: parse_step(_final)["kind"] == "final")
-check("noise is reported, not raised", lambda: parse_step("hello")["kind"] == "unparseable")
+check("a well-formed step parses",       lambda: parse_step(_good) is not None)
+check("the tool name is extracted",      lambda: parse_step(_good)["action"] == "lookup_payment")
+check("the input is extracted",          lambda: parse_step(_good)["input"] == "PMT-1003")
+check("the thought is extracted",        lambda: "record" in parse_step(_good)["thought"])
+check("a final answer is not an action", lambda: parse_step("The payment needs Treasury.") is None)
+check("quotes around the input are stripped",
+      lambda: parse_step('Thought: t\\nAction: lookup_payment\\nAction Input: "PMT-1003"')["input"]
+              == "PMT-1003")
 '''),
 
     md("""
 ## Section 2 &mdash; Eight ways it drifts
 
-Every one of these is something a real model emits. Run the cell and see how many your parser
-survives &mdash; the point is not to score well, it is to see the shape of the problem.
+None of these is a badly behaved model. Every one is a reasonable thing for a fluent writer to
+produce, and every one breaks a parser that was written against the happy path.
+
+Decide which your parser should accept. There is no free answer here: a **lenient** parser
+guesses and is sometimes wrong; a **strict** one refuses and costs you a retry.
 """),
     code('''
 DRIFT = [
-    ("bold markers",      '**Thought:** need it\\n**Action:** lookup_payment("PMT-1002")'),
-    ("unquoted argument", 'Action: lookup_payment(PMT-1002)'),
-    ("single quotes",     "Action: lookup_payment('PMT-1002')"),
-    ("prose argument",    'Action: lookup_payment for payment PMT-1002'),
-    ("two actions",       'Action: lookup_payment("PMT-1002")\\nAction: policy_for("X")'),
-    ("thought only",      'Thought: I should probably check the ledger first.'),
-    ("fenced in code",    '```\\nAction: lookup_payment("PMT-1002")\\n```'),
-    ("trailing chatter",  'Action: lookup_payment("PMT-1002")\\nLet me know if you need more!'),
+    ("markdown fences",   "```\\nThought: t\\nAction: lookup_payment\\nAction Input: PMT-1003\\n```"),
+    ("bold headings",     "**Thought:** t\\n**Action:** lookup_payment\\n**Action Input:** PMT-1003"),
+    ("numbered steps",    "1. Thought: t\\n2. Action: lookup_payment\\n3. Action Input: PMT-1003"),
+    ("json instead",      \'{"thought": "t", "action": "lookup_payment", "input": "PMT-1003"}\'),
+    ("prose action",      "Thought: t\\nAction: I will call lookup_payment\\nAction Input: PMT-1003"),
+    ("missing input",     "Thought: t\\nAction: lookup_payment"),
+    ("two actions",       "Thought: t\\nAction: lookup_payment\\nAction Input: PMT-1003\\n"
+                          "Action: policy_for\\nAction Input: LIMIT_BREACH"),
+    ("preamble",          "Certainly! Here is my reasoning.\\n\\nThought: t\\n"
+                          "Action: lookup_payment\\nAction Input: PMT-1003"),
 ]
 
-print(f"{'drift case':22}{'parsed as':16}{'tool':18}arg")
-for name, text in DRIFT:
-    try:
-        r = parse_step(text)
-        print(f"{name:22}{r['kind']:16}{r.get('tool',''):18}{r.get('arg','')}")
-    except NameError:
-        print("(fill in parse_step above, then re-run)"); break
+def survives(text: str) -> bool:
+    """Does the Section 1 parser get a usable tool name out of this?"""
+    step = parse_step(text)
+    return bool(step) and step["action"] in TOOLS
+
+def _drift_table():
+    for label, text in DRIFT:
+        print(f"  [{'ok  ' if survives(text) else 'LOST'}] {label}")
+guard(_drift_table)
 '''),
     code('''
-# --- Self-check: Section 2   (what a STRICT parser must and must not do)
-def kind_of(text):
-    return parse_step(text)["kind"]
+# --- Self-check: Section 2   (what a parser must and must not do)
+_by = dict(DRIFT)
 
-check("bold markers still parse -- the regex is not anchored to line start",
-      lambda: kind_of(DRIFT[0][1]) == "action")
-check("an unquoted argument is refused rather than guessed",
-      lambda: kind_of(DRIFT[1][1]) == "unparseable",
-      "a strict parser must not invent the argument it did not see")
-check("a thought with no action is refused",
-      lambda: kind_of(DRIFT[5][1]) == "unparseable")
-check("a fenced action still parses", lambda: kind_of(DRIFT[6][1]) == "action")
-check("trailing chatter does not break the action",
-      lambda: parse_step(DRIFT[7][1])["arg"] == "PMT-1002")
-check("two actions in one turn takes only the first",
-      lambda: parse_step(DRIFT[4][1])["arg"] == "PMT-1002",
-      "executing both is how one turn becomes two side effects")
+check("the plain happy path still works",
+      lambda: survives("Thought: t\\nAction: lookup_payment\\nAction Input: PMT-1003"))
+check("a prose action does NOT yield a real tool",
+      lambda: survives(_by["prose action"]) is False,
+      '"I will call lookup_payment" must not be accepted as the tool name')
+check("a missing input is not silently accepted",
+      lambda: parse_step(_by["missing input"]) is None,
+      "half a step is not a step -- accepting it invents an argument")
+check("raw JSON is not the text format",
+      lambda: parse_step(_by["json instead"]) is None,
+      "this one is worth noting: the model produced something BETTER, and the parser rejects it")
+check("at least three of the eight drift cases are lost",
+      lambda: sum(1 for _, t in DRIFT if not survives(t)) >= 3,
+      "if your parser accepts everything it is guessing, which is worse")
 '''),
 
     md("""
-## Section 3 &mdash; Strict or lenient?
+## Section 3 &mdash; The same job, with no parser at all
 
-Now the judgement. A **lenient** parser accepts the unquoted argument and keeps the run going. A
-**strict** one refuses and asks the model to restate. Both are defensible; they fail differently.
+`llm.bind_tools([...])` gives the model a tool **schema** rather than a format instruction. What
+comes back is `AIMessage.tool_calls` &mdash; a list of `{"name", "args", "id"}` produced by the
+serving stack, not by the model's prose. There is no format to drift out of, because there is no
+format: the name is validated against the tools you passed, and the arguments against their
+schema.
+
+Write the step that turns one of those calls into a result.
 """),
     code('''
-def parse_lenient(text: str) -> dict:
-    """Strict first; if that fails, accept a bare unquoted argument."""
-    r = parse_step(text)
-    if r["kind"] != "unparseable":
-        return r
-    m = re.search(r"Action:\\**\\s*(\\w+)\\s*\\(\\s*([^)\\"']+?)\\s*\\)", text)
-    if m:
-        return {"kind": "action", "tool": m.group(1), "arg": m.group(2).strip(), "thought": ""}
-    return r
+from langchain_core.messages import SystemMessage, HumanMessage, AIMessage, ToolMessage
 
-def parser_for(tool_kind: str) -> str:
-    """Which parser should drive this kind of tool: "strict" or "lenient"?
+REACT_SYSTEM = ("You investigate payment exceptions. Use the tools to find the payment's reason "
+                "code and the policy for it, then answer with the single next action.")
 
-    strict  -- refuse anything ambiguous and ask the model to restate
-    lenient -- keep the run going, accepting a best guess at the argument
-    """
-    if tool_kind == "write":
-        return BLANK                 # TODO: a misparsed write is irreversible
-    return BLANK                     # TODO: a misparsed read costs one wasted step
+def native_step(model, messages: list) -> tuple[AIMessage, list]:
+    """One turn: ask the model, run whatever it asked for, return (reply, tool results)."""
+    ai = model.invoke(messages)
+    results = []
+    for call in ai.tool_calls:
+        tool_obj = TOOLS.get(call["name"])
+        content = tool_obj.invoke(call["args"]) if tool_obj else f"no such tool {call['name']!r}"
+        results.append(ToolMessage(content=str(content), tool_call_id=BLANK))  # TODO: pair them up
+    return ai, results
+
+
+def native_loop(question: str, max_steps: int = 6) -> dict:
+    """The ReAct loop with no parser in it."""
+    model = get_llm().bind_tools(list(TOOLS.values()))
+    messages = [SystemMessage(REACT_SYSTEM), HumanMessage(question)]
+    for step in range(max_steps):
+        ai, results = native_step(model, messages)
+        messages.append(ai)
+        if not ai.tool_calls:
+            return {"messages": messages, "steps": step, "answer": ai.content}
+        messages.extend(results)
+    return {"messages": messages, "steps": max_steps, "answer": "(step budget spent)"}
 ''', '''
-def parse_lenient(text: str) -> dict:
-    """Strict first; if that fails, accept a bare unquoted argument."""
-    r = parse_step(text)
-    if r["kind"] != "unparseable":
-        return r
-    m = re.search(r"Action:\\**\\s*(\\w+)\\s*\\(\\s*([^)\\"']+?)\\s*\\)", text)
-    if m:
-        return {"kind": "action", "tool": m.group(1), "arg": m.group(2).strip(), "thought": ""}
-    return r
+from langchain_core.messages import SystemMessage, HumanMessage, AIMessage, ToolMessage
 
-def parser_for(tool_kind: str) -> str:
-    """Which parser should drive this kind of tool: "strict" or "lenient"?
+REACT_SYSTEM = ("You investigate payment exceptions. Use the tools to find the payment's reason "
+                "code and the policy for it, then answer with the single next action.")
 
-    strict  -- refuse anything ambiguous and ask the model to restate
-    lenient -- keep the run going, accepting a best guess at the argument
-    """
-    if tool_kind == "write":
-        return "strict"              # a wrong guess here is an irreversible action
-    return "lenient"                 # a wrong read costs one step, and the agent recovers
+def native_step(model, messages: list) -> tuple[AIMessage, list]:
+    """One turn: ask the model, run whatever it asked for, return (reply, tool results)."""
+    ai = model.invoke(messages)
+    results = []
+    for call in ai.tool_calls:
+        tool_obj = TOOLS.get(call["name"])
+        content = tool_obj.invoke(call["args"]) if tool_obj else f"no such tool {call['name']!r}"
+        results.append(ToolMessage(content=str(content), tool_call_id=call["id"]))
+    return ai, results
+
+
+def native_loop(question: str, max_steps: int = 6) -> dict:
+    """The ReAct loop with no parser in it."""
+    model = get_llm().bind_tools(list(TOOLS.values()))
+    messages = [SystemMessage(REACT_SYSTEM), HumanMessage(question)]
+    for step in range(max_steps):
+        ai, results = native_step(model, messages)
+        messages.append(ai)
+        if not ai.tool_calls:
+            return {"messages": messages, "steps": step, "answer": ai.content}
+        messages.extend(results)
+    return {"messages": messages, "steps": max_steps, "answer": "(step budget spent)"}
 '''),
     code('''
-# --- Self-check: Section 3
-check("the lenient parser recovers the unquoted argument",
-      lambda: parse_lenient(DRIFT[1][1])["arg"] == "PMT-1002")
-check("the lenient parser still refuses a thought with no action",
-      lambda: parse_lenient(DRIFT[5][1])["kind"] == "unparseable",
-      "lenient means tolerant of format, not of missing intent")
-check("writes are driven by the strict parser",
-      lambda: parser_for("write") == "strict",
-      "a misparsed write is irreversible; a refusal costs one retry")
-check("reads can afford the lenient parser",
-      lambda: parser_for("read") == "lenient",
-      "a wrong read wastes a step and the agent recovers from the observation")
+# --- Self-check: Section 3   (a scripted model -- real message objects, no endpoint)
+class _ScriptedModel:
+    """Stands in for a bound model so the loop can be tested without the gateway."""
+    def __init__(self, replies): self._replies = list(replies)
+    def invoke(self, messages): return self._replies.pop(0)
+
+def _call(name, args, cid):
+    return AIMessage(content="", tool_calls=[{"name": name, "args": args,
+                                              "id": cid, "type": "tool_call"}])
+
+def _scripted():
+    return _ScriptedModel([
+        _call("lookup_payment", {"ref": "PMT-1003"}, "c1"),
+        _call("policy_for", {"reason_code": "LIMIT_BREACH"}, "c2"),
+        AIMessage("Escalate to Treasury for approval."),
+    ])
+
+check("a tool call produces one ToolMessage",
+      lambda: len(native_step(_scripted(), [HumanMessage("q")])[1]) == 1)
+check("the ToolMessage carries the call's id",
+      lambda: native_step(_scripted(), [HumanMessage("q")])[1][0].tool_call_id == "c1",
+      "tool_call_id must be call['id'] -- that is what pairs result to request")
+check("the tool actually ran",
+      lambda: "LIMIT_BREACH" in native_step(_scripted(), [HumanMessage("q")])[1][0].content)
+check("an unknown tool is reported, not raised",
+      lambda: "no such tool" in native_step(
+          _ScriptedModel([_call("delete_everything", {}, "c1")]), [HumanMessage("q")])[1][0].content,
+      "the model can only name tools you gave it, but defend the boundary anyway")
+check("there is no parser in this path at all",
+      lambda: "parse_step" not in native_step.__code__.co_names,
+      "that is the entire point of the section")
 '''),
 
     md("""
-## Section 4 &mdash; Drive the loop
+## Section 4 &mdash; ...and the version you would actually ship
 
-Wire the parser into a ReAct loop with Module 1's budget and stop conditions. Deterministic here:
-a scripted model, so the loop is exercised without a live call.
+`create_agent` is `native_loop` with the budget, the dispatch, the error handling and the message
+bookkeeping already written. You have now built it twice, so you know exactly what it is doing.
 """),
     code('''
-def react_loop(steps, tools, max_steps=6):
-    """steps: a list of model replies, replayed in order. Returns the run state."""
-    state = {"steps": 0, "answer": None, "trace": [], "stopped": None}
-    for reply in steps:
-        if state["steps"] >= max_steps:
-            state["stopped"] = "budget"
-            return state
-        r = parse_step(reply)
-        if r["kind"] == "final":
-            state["answer"] = r["answer"]
-            state["stopped"] = "goal"
-            return state
-        if r["kind"] == "unparseable":
-            state["trace"].append(("unparseable", reply[:30], "asked to restate"))
-            state["steps"] += 1
-            continue
-        fn = tools.get(r["tool"])
-        obs = fn(r["arg"]) if fn else f"no such tool {r['tool']!r}"
-        state["trace"].append((r["tool"], r["arg"], obs))
-        state["steps"] = BLANK       # TODO: spend one unit of budget
-    state["stopped"] = state["stopped"] or "ran out of replies"
-    return state
-''', '''
-def react_loop(steps, tools, max_steps=6):
-    """steps: a list of model replies, replayed in order. Returns the run state."""
-    state = {"steps": 0, "answer": None, "trace": [], "stopped": None}
-    for reply in steps:
-        if state["steps"] >= max_steps:
-            state["stopped"] = "budget"
-            return state
-        r = parse_step(reply)
-        if r["kind"] == "final":
-            state["answer"] = r["answer"]
-            state["stopped"] = "goal"
-            return state
-        if r["kind"] == "unparseable":
-            state["trace"].append(("unparseable", reply[:30], "asked to restate"))
-            state["steps"] += 1
-            continue
-        fn = tools.get(r["tool"])
-        obs = fn(r["arg"]) if fn else f"no such tool {r['tool']!r}"
-        state["trace"].append((r["tool"], r["arg"], obs))
-        state["steps"] = state["steps"] + 1
-    state["stopped"] = state["stopped"] or "ran out of replies"
-    return state
-'''),
-    code('''
-# --- Self-check: Section 4
-_script = [
-    'Thought: get the record.\\nAction: lookup_payment("PMT-1003")',
-    'Thought: now the policy.\\nAction: policy_for("LIMIT_BREACH")',
-    'Thought: done.\\nFinal Answer: Treasury must approve before release.',
-]
-def _run():
-    return react_loop(_script, TOOLS)
+from langchain.agents import create_agent
 
-check("the run reaches its goal", lambda: _run()["stopped"] == "goal")
-check("both tool calls are traced", lambda: len(_run()["trace"]) == 2)
-check("the observation carries the real ledger data",
-      lambda: "LIMIT_BREACH" in _run()["trace"][0][2])
-check("the final answer is captured", lambda: "Treasury" in _run()["answer"])
-check("an unparseable step costs budget but does not stop the run",
-      lambda: react_loop(["garbage"] + _script, TOOLS)["stopped"] == "goal",
-      "state['steps'] must advance on the unparseable branch too")
-check("a script that never finishes stops on the budget",
-      lambda: react_loop(['Action: lookup_payment("PMT-1002")'] * 10, TOOLS)["stopped"] == "budget")
+def built_agent():
+    """The same ReAct behaviour, as one call."""
+    return create_agent(model=get_llm(), tools=list(TOOLS.values()),
+                        system_prompt=REACT_SYSTEM)
 '''),
 
     md("""
 ## Run it for real
 
-A live model, your parser, real tools. Watch the format the model actually chooses &mdash; you did not
-specify it, so it picked one.
+Three paths, one question. The first asks the model to produce the text format and parses it; the
+second and third let the serving stack carry the structure.
 """),
     code('''
-REACT_SYSTEM = """You investigate payment exceptions. Work in this exact format:
-
-Thought: <one line of reasoning>
-Action: <tool>("<argument>")
-
-Available tools:
-  lookup_payment("PMT-1002")  -- returns the ledger record
-  policy_for("LIMIT_BREACH")  -- returns the policy for a reason code
-
-After an Observation, continue with another Thought/Action, or finish with:
-Final Answer: <what should happen>
-
-Emit exactly one Thought and one Action per turn."""
-
 if llm_ready():
-    try:
-        transcript, state = [], {"steps": 0}
-        convo = "Investigate PMT-1005."
-        for turn in range(5):
-            reply = ask(convo, system=REACT_SYSTEM)
-            r = parse_step(reply)
-            print(f"--- turn {turn + 1} [{r['kind']}]")
-            print("   " + reply.strip().replace("\\n", "\\n   ")[:240])
-            if r["kind"] == "final":
-                break
-            if r["kind"] == "unparseable":
-                convo += "\\nObservation: could not parse that. Reply with exactly one Thought and one Action."
-                continue
-            fn = TOOLS.get(r["tool"])
-            obs = fn(r["arg"]) if fn else f"no such tool {r['tool']!r}"
-            print(f"   Observation: {obs[:160]}")
-            convo += f"\\n{reply}\\nObservation: {obs}"
-    except NameError:
-        print("(fill in the blanks above, then re-run this cell)")
+    STRICT = ("You investigate payment exceptions. Reply in EXACTLY this format and nothing "
+              "else:\\n"
+              "Thought: <your reasoning>\\n"
+              "Action: <one of: " + ", ".join(TOOLS) + ">\\n"
+              "Action Input: <the argument, a bare value with no quotes or braces>")
+
+    # The same instruction after six months of well-meaning edits. Nobody writes the loose one
+    # on purpose; prompts drift towards "be helpful and thorough" one review at a time.
+    LOOSE  = ("You investigate payment exceptions. Think step by step, explain your reasoning "
+              "clearly for the operations team, and use the Thought / Action / Action Input "
+              "format to call one of these tools: " + ", ".join(TOOLS) + ". Be thorough.")
+
+    def _text_path():
+        attempts = 4
+        for label, instruction in (("strict", STRICT), ("loose", LOOSE)):
+            parsed = usable = 0
+            first = None
+            for i in range(attempts):
+                reply = ask("Why is PMT-1003 held, and what must we do about it?",
+                            system=instruction)
+                step = parse_step(reply)
+                ok = bool(step) and step["action"] in TOOLS
+                parsed += ok
+                good = False
+                if ok:
+                    arg = list(TOOLS[step["action"]].args)[0]
+                    result = TOOLS[step["action"]].invoke({arg: step["input"]})
+                    good = "no payment found" not in str(result)
+                usable += good
+                if i == 0:
+                    first = (reply, step, good)
+            print(f"=== {label} instruction: {parsed}/{attempts} parsed, "
+                  f"{usable}/{attempts} usable ===")
+            reply, step, good = first
+            print("  Action Input as written:",
+                  repr(step["input"]) if step else "(did not parse)")
+            print(f"  the tool could use it : {good}\\n")
+        return None
+    TEXT_RESULT = guard(_text_path)
+'''),
+    code('''
+if llm_ready():
+    def _native_path():
+        out = native_loop("Why is PMT-1003 held, and what must we do about it?")
+        show_messages(out["messages"])
+        print(f"\\nsteps: {out['steps']}   answer: {out['answer'][:160]}")
+        print("tool calls parsed by hand: 0")
+    guard(_native_path)
+'''),
+    code('''
+if llm_ready():
+    def _built():
+        out = built_agent().invoke(
+            {"messages": [("human", "Why is PMT-1005 held, and what must we do about it?")]})
+        show_messages(out["messages"])
+    guard(_built)
 '''),
     md("""
 ### Read the trace
 
-Count the `[unparseable]` turns. Zero means this model happens to follow your format today &mdash; not
-that your parser is safe. The drift table in Section 2 is what it looks like when that changes,
-which it does with every model swap and most prompt edits.
+The result here is probably not the one you expected, and it is better than the one you expected.
 
-Notice too that the recovery path matters: an unparseable turn feeds a corrective observation back
-rather than crashing. That is the same "tools report failure, they do not raise" discipline from
-Module 1, applied to the model's own output.
+**The text path parsed fine.** Given an explicit format instruction, the model very likely obeyed
+every time. So the lesson is *not* "models cannot follow a format" &mdash; on a good day they can.
+
+**Look at the second number.** `parsed` counts replies where the regex found a tool name.
+`usable` counts replies where the extracted argument actually worked when passed to the tool. If
+those two numbers differ, read the `Action Input` in the raw reply: models frequently write
+
+```
+Action Input: {"payment_id": "PMT-1003"}
+```
+
+instead of `PMT-1003`. The format is perfect. The tool name is right. The regex is delighted. And
+the argument is a JSON object with a key your tool has never heard of &mdash; so the lookup returns
+nothing, the agent concludes the payment does not exist, and **nothing anywhere reports an
+error**. Your parser cannot catch this, because validating the argument was never its job.
+
+That is the real cost of the text format, and it is worse than a parse failure. A parse failure is
+loud. This is silent.
+
+**The native path cannot fail that way.** `bind_tools` sends the tool's argument *schema*, and the
+serving stack validates against it before your code sees anything. A wrong key is rejected at the
+boundary. What is left to go wrong &mdash; wrong tool, wrong value &mdash; are real mistakes you can
+see and measure.
+
+**The built agent** is the native path with the budget and the bookkeeping done.
+
+Keep the parser in your notes for the day you meet a model with no tool-calling API. That is the
+only situation in which you should write one, and now you know exactly what you would be taking
+on: not eight formatting edge cases, but every argument your tools accept, forever.
 """),
 
     code('''
@@ -818,358 +951,406 @@ score()
     md("""
 ## Your turn
 
-1. Add a ninth drift case from your own experience and decide, with a reason, whether strict or
-   lenient should handle it.
-2. `react_loop` gives an unparseable turn the same budget cost as a real step. Should it? Argue
-   both sides &mdash; then consider what a separate, smaller "reformat" budget would buy you.
+1. Make `parse_step` lenient enough to survive the markdown-fence and bold-heading cases. Then
+   feed it `"Action: I will call lookup_payment"` and decide whether your leniency has started
+   guessing.
+2. The text path retries the same prompt six times. Add a **repair** turn instead: when parsing
+   fails, send the model its own bad output and ask it to restate. Count the extra calls. That is
+   the real cost of the text format.
+3. Give `built_agent` a `response_format` (Lab 1.3) so it returns a typed action rather than a
+   sentence, and check whether the answer to PMT-1005 still says Compliance.
 """),
 ]
 
 
 # =========================================================================== #
-# Lab 2.3 -- decomposition that finishes, and re-planning that knows why
+# Lab 2.3 -- sub-goals that finish, and knowing when to re-plan
 # =========================================================================== #
 LAB3 = [
-    header(3, "Sub-goals That Finish, and Knowing When to Re-plan", "Advanced", 35,
-           ["Write the test that separates a finishable sub-goal from a wish",
-            "Classify a failure as transient or a wrong plan -- from the error, not a guess",
-            "Implement the four-rung escalation ladder with a bound on every rung",
-            "Watch a retry-only agent and a diagnosing agent meet the same failures"],
-           "> **Builds on Lab 1.2's `order_steps`.** There you ordered a plan someone gave you.\n"
-           "> Here you judge whether the steps were worth ordering, and what to do when one fails."),
+    header(3, "Sub-goals That Finish, and Knowing When to Re-plan", "Advanced", 40,
+           ["Have the model return a <code>Plan</code> object with declared dependencies",
+            "Reject sub-goals no agent could ever call finished",
+            "Tell a transient failure from a wrong plan &mdash; retry one, re-plan the other",
+            "Run a plan against a tool that fails on purpose, and watch it recover"],
+           "> **Builds on Lab 2.2.** You have tools and a loop. This lab is about deciding what to\n"
+           "> do with them before you start, and what to do when the world disagrees."),
     setup(3),
     code(DOMAIN),
-    code(CARRIED_TOOLS),
+    code(CARRY_TOOLS),
 
     md("""
 ## Concept
 
-Two failures look identical from inside the loop and need opposite responses:
+An agent that plans badly fails in one of two ways, and they need opposite responses:
 
-- **Transient** &mdash; the plan was fine, the world was briefly busy. **Retry**, bounded.
-- **Wrong plan** &mdash; the step cannot succeed as written. **Re-plan**, feeding the error back.
+- the **world** misbehaved &mdash; a timeout, a rate limit, a blip. Retry.
+- the **plan** was wrong &mdash; the tool does not exist, the argument is invalid, the step depends
+  on something that never happened. Retrying is a loop that burns budget and finishes nowhere.
 
-Retry a wrong plan and you buy the same failure repeatedly. Re-plan a blip and you throw away
-correct work. The diagnosis is the whole job, and the error your tools return is the evidence.
+Getting that distinction wrong is one of the commonest production failures in agents, and it is
+almost always the same bug: a blanket `except: retry`.
 """),
 
     md("""
-## Section 1 &mdash; Is this sub-goal finishable?
+## Section 1 &mdash; A plan the model returns as an object
 
-A sub-goal an agent cannot finish becomes a loop that gets misdiagnosed as a reasoning bug. The
-test is mechanical: is there an output that would settle it?
+`with_structured_output(Plan)` sends the schema to the model and validates what comes back, so
+you get a `Plan`, not a paragraph about a plan. Fill in the field descriptions &mdash; they are the
+only instructions the model gets about what each field means.
 """),
     code('''
-VAGUE = ("understand", "thoroughly", "make sure", "as needed", "properly",
-         "fully", "appropriate", "confident", "comprehensive")
+from typing import List, Literal
+from pydantic import BaseModel, Field
 
-def is_finishable(subgoal: str) -> bool:
-    """True when a sub-goal has a detectable definition of done.
+class Step(BaseModel):
+    """One step of an investigation plan."""
+    name: str = Field(description="Short snake_case name for this step")
+    tool: str = Field(description="BLANK")          # TODO: how does the model know what may go here?
+    argument: str = Field(description="The single argument to pass to the tool")
+    depends_on: List[str] = Field(default_factory=list,
+                                  description="Names of steps that must finish before this one")
 
-    Rejects a sub-goal that contains a vague qualifier from VAGUE, or that does not
-    start with a concrete verb naming what will be produced.
-    """
-    text = subgoal.lower().strip()
-    if any(w in text for w in VAGUE):
-        return False
-    return BLANK                     # TODO: does it start with a verb that names an output?
-                                     # The concrete ones here are: return, fetch, compute,
-                                     # classify, state, list.
+
+class Plan(BaseModel):
+    """An investigation plan for one payment exception."""
+    goal: str = Field(description="The question this plan answers, in one line")
+    steps: List[Step] = Field(description="The steps, which may be listed in any order")
+
+
+def plan_for(goal: str) -> Plan:
+    """Ask the model for a Plan object."""
+    return get_llm().with_structured_output(Plan).invoke(
+        "Produce an investigation plan for this goal. Every step must name a tool from the list "
+        "and declare the steps it depends on.\\n"
+        f"TOOLS: {list(TOOLS)}\\nGOAL: {goal}")
 ''', '''
-VAGUE = ("understand", "thoroughly", "make sure", "as needed", "properly",
-         "fully", "appropriate", "confident", "comprehensive")
+from typing import List, Literal
+from pydantic import BaseModel, Field
 
-CONCRETE = ("return", "fetch", "compute", "classify", "state", "list")
+class Step(BaseModel):
+    """One step of an investigation plan."""
+    name: str = Field(description="Short snake_case name for this step")
+    tool: str = Field(description="The tool this step calls. Must be one of the tool names given "
+                                  "in the prompt, or the literal 'none' for a reasoning step.")
+    argument: str = Field(description="The single argument to pass to the tool")
+    depends_on: List[str] = Field(default_factory=list,
+                                  description="Names of steps that must finish before this one")
 
-def is_finishable(subgoal: str) -> bool:
-    """True when a sub-goal has a detectable definition of done.
 
-    Rejects a sub-goal that contains a vague qualifier from VAGUE, or that does not
-    start with a concrete verb naming what will be produced.
-    """
-    text = subgoal.lower().strip()
-    if any(w in text for w in VAGUE):
-        return False
-    return text.startswith(CONCRETE)
-'''),
-    code('''
-# --- Self-check: Section 1
-check("a concrete sub-goal passes",
-      lambda: is_finishable("Return the reason code for PMT-1002") is True)
-check("a vague qualifier fails it",
-      lambda: is_finishable("Understand the payment problem") is False)
-check("'make sure nothing is missed' fails",
-      lambda: is_finishable("Make sure nothing has been missed") is False)
-check("a concrete verb is required",
-      lambda: is_finishable("Look into the ledger a bit") is False,
-      "if the step does not name an output, its completion is not detectable")
-check("'state whether ...' passes",
-      lambda: is_finishable("State whether policy reserves this for a human") is True)
-check("'investigate until confident' fails",
-      lambda: is_finishable("Investigate until confident") is False)
+class Plan(BaseModel):
+    """An investigation plan for one payment exception."""
+    goal: str = Field(description="The question this plan answers, in one line")
+    steps: List[Step] = Field(description="The steps, which may be listed in any order")
+
+
+def plan_for(goal: str) -> Plan:
+    """Ask the model for a Plan object."""
+    return get_llm().with_structured_output(Plan).invoke(
+        "Produce an investigation plan for this goal. Every step must name a tool from the list "
+        "and declare the steps it depends on.\\n"
+        f"TOOLS: {list(TOOLS)}\\nGOAL: {goal}")
 '''),
 
     md("""
-## Section 2 &mdash; Diagnose the failure
+### A sub-goal an agent cannot finish
 
-The error a tool returns is data. Classify on it rather than on intuition, and the right response
-follows automatically.
+"Understand the payment thoroughly" has no completion test. An agent handed it will either stop
+arbitrarily or never stop. Reject those before you run them.
+"""),
+    code('''
+VAGUE = ("understand", "thoroughly", "make sure", "as needed", "properly",
+         "investigate fully", "look into", "analyse", "review", "consider")
+
+def finishable(step: Step) -> bool:
+    """A step is finishable when it names a real tool and does not describe an attitude."""
+    if step.tool != "none" and step.tool not in TOOLS:
+        return False
+    return BLANK                      # TODO: reject names that contain a vague word
+''', '''
+VAGUE = ("understand", "thoroughly", "make sure", "as needed", "properly",
+         "investigate fully", "look into", "analyse", "review", "consider")
+
+def finishable(step: Step) -> bool:
+    """A step is finishable when it names a real tool and does not describe an attitude."""
+    if step.tool != "none" and step.tool not in TOOLS:
+        return False
+    return not any(word in step.name.lower().replace("_", " ") for word in VAGUE)
+'''),
+    code('''
+# --- Self-check: Section 1   (Pydantic objects only -- no model call)
+_ok    = Step(name="read_payment", tool="lookup_payment", argument="PMT-1003")
+_vague = Step(name="understand_the_case", tool="none", argument="")
+_ghost = Step(name="email_the_desk", tool="send_email", argument="ops@example.com")
+
+def _tool_desc():
+    d = Step.model_fields["tool"].description
+    if not d or d == "BLANK":
+        raise NameError("Step.tool still has no description")
+    return d
+
+check("the plan schema declares a goal and steps",
+      lambda: set(Plan.model_fields) == {"goal", "steps"})
+check("Step.tool tells the model where the valid names come from",
+      lambda: len(_tool_desc()) > 40 and "none" in _tool_desc(),
+      "the model cannot guess an enum it was never shown -- name the source and the escape hatch")
+check("a concrete step is finishable",   lambda: finishable(_ok) is True)
+check("a vague step is rejected",        lambda: finishable(_vague) is False,
+      '"understand the case" has no completion test, so an agent cannot stop')
+check("a step naming a tool that does not exist is rejected",
+      lambda: finishable(_ghost) is False,
+      "this is a WRONG PLAN, not a transient failure -- Section 2 depends on the difference")
+check("a reasoning step with tool='none' is allowed",
+      lambda: finishable(Step(name="decide_action", tool="none", argument="")) is True)
+'''),
+
+    md("""
+## Section 2 &mdash; Transient, or wrong?
+
+Look at what came back and decide which kind of failure it is. Retry the world; re-plan the plan.
 """),
     code('''
 TRANSIENT = ("timeout", "timed out", "503", "502", "429", "connection reset",
-             "temporarily unavailable", "deadlock", "try again")
-PERMANENT = ("404", "not found", "no payment found", "403", "forbidden",
-             "invalid", "no such", "malformed", "unauthorised")
+             "temporarily unavailable", "rate limit", "try again")
 
-def diagnose(error: str) -> str:
-    """Return 'transient', 'wrong_plan' or 'unknown' for one error string."""
-    e = error.lower()
-    if any(t in e for t in TRANSIENT):
+PERMANENT = ("no such tool", "no payment found", "invalid", "not permitted",
+             "no policy on file", "unknown reason code")
+
+def diagnose(observation: str) -> Literal["transient", "wrong_plan", "ok"]:
+    """What kind of thing just happened?"""
+    low = (observation or "").lower()
+    if any(w in low for w in TRANSIENT):
         return "transient"
-    if BLANK:                        # TODO: does it look permanent?
+    if BLANK:                         # TODO: the other failure kind
         return "wrong_plan"
-    return "unknown"
+    return "ok"
 
-def respond_to(diagnosis: str, attempts: int, max_attempts: int = 3) -> str:
-    """The rung of the ladder to take. One of: retry, replan, escalate."""
-    if diagnosis == "transient":
-        return "retry" if attempts < max_attempts else BLANK   # TODO: a bounded rung must end
-    if diagnosis == "wrong_plan":
-        return "replan"
-    return "escalate"                # unknown errors go to a human, never to a guess
+
+def response_to(kind: str, attempts: int, max_retries: int = 2) -> str:
+    """What should the agent do about it?"""
+    if kind == "ok":
+        return "continue"
+    if kind == "transient":
+        return "retry" if attempts < max_retries else "give_up"
+    return "replan"
 ''', '''
 TRANSIENT = ("timeout", "timed out", "503", "502", "429", "connection reset",
-             "temporarily unavailable", "deadlock", "try again")
-PERMANENT = ("404", "not found", "no payment found", "403", "forbidden",
-             "invalid", "no such", "malformed", "unauthorised")
+             "temporarily unavailable", "rate limit", "try again")
 
-def diagnose(error: str) -> str:
-    """Return 'transient', 'wrong_plan' or 'unknown' for one error string."""
-    e = error.lower()
-    if any(t in e for t in TRANSIENT):
+PERMANENT = ("no such tool", "no payment found", "invalid", "not permitted",
+             "no policy on file", "unknown reason code")
+
+def diagnose(observation: str) -> Literal["transient", "wrong_plan", "ok"]:
+    """What kind of thing just happened?"""
+    low = (observation or "").lower()
+    if any(w in low for w in TRANSIENT):
         return "transient"
-    if any(p in e for p in PERMANENT):
+    if any(w in low for w in PERMANENT):
         return "wrong_plan"
-    return "unknown"
+    return "ok"
 
-def respond_to(diagnosis: str, attempts: int, max_attempts: int = 3) -> str:
-    """The rung of the ladder to take. One of: retry, replan, escalate."""
-    if diagnosis == "transient":
-        return "retry" if attempts < max_attempts else "escalate"
-    if diagnosis == "wrong_plan":
-        return "replan"
-    return "escalate"                # unknown errors go to a human, never to a guess
+
+def response_to(kind: str, attempts: int, max_retries: int = 2) -> str:
+    """What should the agent do about it?"""
+    if kind == "ok":
+        return "continue"
+    if kind == "transient":
+        return "retry" if attempts < max_retries else "give_up"
+    return "replan"
 '''),
     code('''
 # --- Self-check: Section 2
-check("a 503 is transient", lambda: diagnose("HTTP 503 service unavailable") == "transient")
-check("a timeout is transient", lambda: diagnose("read timed out after 30s") == "transient")
-check("a 404 is a wrong plan", lambda: diagnose("HTTP 404 not found") == "wrong_plan")
-check("the ledger's own miss is a wrong plan",
-      lambda: diagnose("no payment found with reference 'PMT-9999'") == "wrong_plan")
-check("an unrecognised error is not guessed at",
-      lambda: diagnose("kernel panic in the mainframe") == "unknown",
-      "returning 'transient' by default is how a permanent failure gets retried forever")
-check("a transient failure retries while attempts remain",
-      lambda: respond_to("transient", attempts=1) == "retry")
-check("retries are bounded -- the rung ends in escalation",
-      lambda: respond_to("transient", attempts=3) == "escalate",
-      "unbounded retry turns a blip into an outage on your side")
-check("a wrong plan re-plans rather than retrying",
-      lambda: respond_to("wrong_plan", attempts=0) == "replan")
-check("an unknown error escalates", lambda: respond_to("unknown", attempts=0) == "escalate")
+check("a timeout is transient",        lambda: diagnose("upstream timed out after 30s") == "transient")
+check("a 429 is transient",            lambda: diagnose("HTTP 429 rate limit") == "transient")
+check("a missing record is a wrong plan",
+      lambda: diagnose("no payment found with reference 'PMT-9999'") == "wrong_plan",
+      "retrying this forever is the classic burn -- the reference will not appear")
+check("an unknown tool is a wrong plan", lambda: diagnose("no such tool 'send_email'") == "wrong_plan")
+check("a good observation is ok",
+      lambda: diagnose(\'{"ref": "PMT-1003", "status": "held"}\') == "ok")
+check("a transient failure is retried, then abandoned",
+      lambda: [response_to("transient", i) for i in range(4)]
+              == ["retry", "retry", "give_up", "give_up"])
+check("a wrong plan is never retried",
+      lambda: all(response_to("wrong_plan", i) == "replan" for i in range(5)),
+      "retrying a wrong plan is a loop that finishes nowhere")
 '''),
 
     md("""
-## Section 3 &mdash; Two agents meet the same failures
+## Section 3 &mdash; Run the plan, and recover
 
-A retry-only agent and a diagnosing agent, run against a scripted sequence of failures. The
-difference is not subtle.
+`execute()` walks the ordered steps, runs each tool, and reacts to what comes back. The flaky
+wrapper below fails the first *n* calls with a timeout, so you can watch both paths without
+waiting for a real outage.
 """),
     code('''
-FAILURES = [
-    "HTTP 503 service unavailable",                  # transient -- retry works
-    "HTTP 503 service unavailable",
-    "ok: {'ref': 'PMT-1003', 'status': 'held'}",     # succeeds on the third attempt
-    "no payment found with reference 'PMT-0000'",    # permanent -- retry can never work
-]
-
-def run_retry_only(events, max_attempts=3):
-    """Retries everything. The naive agent most teams ship first."""
-    calls, attempts = 0, 0
-    for e in events:
-        calls += 1
-        if e.startswith("ok:"):
-            return {"calls": calls, "outcome": "success"}
-        attempts += 1
-        if attempts >= max_attempts:
-            return {"calls": calls, "outcome": "gave up after retrying"}
-    return {"calls": calls, "outcome": "exhausted events"}
-
-def run_diagnosing(events, max_attempts=3):
-    """Classifies each failure and takes the matching rung."""
-    calls, attempts = 0, 0
-    for e in events:
-        calls += 1
-        if e.startswith("ok:"):
-            return {"calls": calls, "outcome": "success"}
-        action = respond_to(diagnose(e), attempts)
-        if action == "retry":
-            attempts += 1
-            continue
-        return {"calls": calls, "outcome": BLANK}    # TODO: report the rung taken, e.g. "replan"
-    return {"calls": calls, "outcome": "exhausted events"}
-''', '''
-FAILURES = [
-    "HTTP 503 service unavailable",                  # transient -- retry works
-    "HTTP 503 service unavailable",
-    "ok: {'ref': 'PMT-1003', 'status': 'held'}",     # succeeds on the third attempt
-    "no payment found with reference 'PMT-0000'",    # permanent -- retry can never work
-]
-
-def run_retry_only(events, max_attempts=3):
-    """Retries everything. The naive agent most teams ship first."""
-    calls, attempts = 0, 0
-    for e in events:
-        calls += 1
-        if e.startswith("ok:"):
-            return {"calls": calls, "outcome": "success"}
-        attempts += 1
-        if attempts >= max_attempts:
-            return {"calls": calls, "outcome": "gave up after retrying"}
-    return {"calls": calls, "outcome": "exhausted events"}
-
-def run_diagnosing(events, max_attempts=3):
-    """Classifies each failure and takes the matching rung."""
-    calls, attempts = 0, 0
-    for e in events:
-        calls += 1
-        if e.startswith("ok:"):
-            return {"calls": calls, "outcome": "success"}
-        action = respond_to(diagnose(e), attempts)
-        if action == "retry":
-            attempts += 1
-            continue
-        return {"calls": calls, "outcome": action}
-    return {"calls": calls, "outcome": "exhausted events"}
-'''),
-    code('''
-# --- Self-check: Section 3
-_transient_run = FAILURES[:3]
-_permanent_first = ["no payment found with reference 'PMT-0000'"] + FAILURES[:3]
-
-check("both agents ride out a transient blip",
-      lambda: run_retry_only(_transient_run)["outcome"] == "success"
-              and run_diagnosing(_transient_run)["outcome"] == "success")
-check("the retry-only agent burns three calls on a permanent failure",
-      lambda: run_retry_only(_permanent_first)["calls"] == 3)
-check("the diagnosing agent re-plans on the first permanent failure",
-      lambda: run_diagnosing(_permanent_first)["outcome"] == "replan")
-check("...and it spends exactly one call to find that out",
-      lambda: run_diagnosing(_permanent_first)["calls"] == 1,
-      "the error said 'not found' on attempt one; nothing is learned by asking again")
-
-for name, fn in (("retry-only", run_retry_only), ("diagnosing", run_diagnosing)):
-    try:
-        r = fn(_permanent_first)
-        print(f"{name:12} calls={r['calls']}  outcome={r['outcome']}")
-    except NameError:
-        print("(fill in the blanks above, then re-run)"); break
-'''),
-
-    md("""
-## Section 4 &mdash; Plan, then validate it
-
-Put the two halves together: decompose a goal, reject the sub-goals that cannot finish, and order
-what survives with Lab 1.2's dependency rule.
-"""),
-    code('''
-def validate_plan(subgoals: dict[str, list[str]]) -> dict:
-    """Split a plan into the sub-goals worth running and the ones that cannot finish.
-
-    Returns {"runnable": [...ordered...], "rejected": [...]}.
-    """
-    rejected = [s for s in subgoals if not is_finishable(s)]
-    keep = {s: [d for d in deps if d not in rejected]
-            for s, deps in subgoals.items() if s not in rejected}
-
+def order_steps(plan: Plan) -> list[Step]:
+    """Dependency order. Raises ValueError on a cycle or a missing dependency."""
+    by_name = {s.name: s for s in plan.steps}
     ordered, done = [], set()
-    while len(ordered) < len(keep):
+    while len(ordered) < len(by_name):
         progressed = False
-        for name, deps in keep.items():
-            if name in done:
+        for name, step in by_name.items():
+            if name in done or not all(d in done for d in step.depends_on):
                 continue
-            if all(d in done for d in deps):
-                ordered.append(name); done.add(name); progressed = True
+            ordered.append(step); done.add(name); progressed = True
         if not progressed:
-            raise ValueError("cycle in plan")
-    return {"runnable": ordered, "rejected": rejected}
+            raise ValueError("cycle or missing dependency in plan")
+    return ordered
+
+
+def flaky(fail_times: int):
+    """A tool runner that fails with a timeout the first `fail_times` calls."""
+    state = {"n": 0}
+    def run(step: Step) -> str:
+        state["n"] += 1
+        if state["n"] <= fail_times:
+            return "upstream timed out after 30s"
+        tool_obj = TOOLS.get(step.tool)
+        if tool_obj is None:
+            return f"no such tool {step.tool!r}"
+        arg = list(tool_obj.args)[0]
+        return str(tool_obj.invoke({arg: step.argument}))
+    return run
+
+
+def execute(plan: Plan, run, max_retries: int = 2) -> dict:
+    """Run the plan. Retry transient failures; stop and report a wrong plan."""
+    trace, attempts = [], 0
+    for step in order_steps(plan):
+        attempts = 0
+        while True:
+            observation = run(step)
+            kind = diagnose(observation)
+            action = response_to(kind, attempts, max_retries)
+            trace.append((step.name, kind, action))
+            if action == "continue":
+                break
+            if action == "retry":
+                attempts += 1
+                continue
+            return {"trace": trace, "outcome": BLANK, "failed_at": step.name}  # TODO: what ended it?
+    return {"trace": trace, "outcome": "completed", "failed_at": None}
+''', '''
+def order_steps(plan: Plan) -> list[Step]:
+    """Dependency order. Raises ValueError on a cycle or a missing dependency."""
+    by_name = {s.name: s for s in plan.steps}
+    ordered, done = [], set()
+    while len(ordered) < len(by_name):
+        progressed = False
+        for name, step in by_name.items():
+            if name in done or not all(d in done for d in step.depends_on):
+                continue
+            ordered.append(step); done.add(name); progressed = True
+        if not progressed:
+            raise ValueError("cycle or missing dependency in plan")
+    return ordered
+
+
+def flaky(fail_times: int):
+    """A tool runner that fails with a timeout the first `fail_times` calls."""
+    state = {"n": 0}
+    def run(step: Step) -> str:
+        state["n"] += 1
+        if state["n"] <= fail_times:
+            return "upstream timed out after 30s"
+        tool_obj = TOOLS.get(step.tool)
+        if tool_obj is None:
+            return f"no such tool {step.tool!r}"
+        arg = list(tool_obj.args)[0]
+        return str(tool_obj.invoke({arg: step.argument}))
+    return run
+
+
+def execute(plan: Plan, run, max_retries: int = 2) -> dict:
+    """Run the plan. Retry transient failures; stop and report a wrong plan."""
+    trace, attempts = [], 0
+    for step in order_steps(plan):
+        attempts = 0
+        while True:
+            observation = run(step)
+            kind = diagnose(observation)
+            action = response_to(kind, attempts, max_retries)
+            trace.append((step.name, kind, action))
+            if action == "continue":
+                break
+            if action == "retry":
+                attempts += 1
+                continue
+            return {"trace": trace, "outcome": action, "failed_at": step.name}
+    return {"trace": trace, "outcome": "completed", "failed_at": None}
 '''),
     code('''
-# --- Self-check: Section 4
-PLAN = {
-    "Return the ledger record for the payment": [],
-    "Understand the payment problem": [],                     # cannot finish
-    "Return the policy text for its reason code": ["Return the ledger record for the payment"],
-    "State whether policy reserves this for a human": ["Return the policy text for its reason code"],
-    "Make sure nothing has been missed": [],                  # cannot finish
-}
+# --- Self-check: Section 3   (a hand-written plan and a fake runner -- no model call)
+HAND_PLAN = Plan(goal="Decide what to do about PMT-1003", steps=[
+    Step(name="read_policy",  tool="policy_for",     argument="LIMIT_BREACH",
+         depends_on=["read_payment"]),
+    Step(name="read_payment", tool="lookup_payment", argument="PMT-1003"),
+])
+BAD_PLAN = Plan(goal="g", steps=[Step(name="email_desk", tool="send_email", argument="x")])
 
-def _v():
-    return validate_plan(PLAN)
-
-check("both unfinishable sub-goals are rejected", lambda: len(_v()["rejected"]) == 2)
-check("the three runnable sub-goals survive", lambda: len(_v()["runnable"]) == 3)
-check("the ledger read comes first",
-      lambda: _v()["runnable"][0].startswith("Return the ledger"))
-check("dependencies are respected",
-      lambda: (lambda o: o.index("Return the policy text for its reason code")
-                       < o.index("State whether policy reserves this for a human"))(_v()["runnable"]))
-
-try:
-    v = _v()
-    print("runnable:"); [print("   ", s) for s in v["runnable"]]
-    print("rejected:"); [print("   ", s) for s in v["rejected"]]
-except NameError:
-    print("(fill in is_finishable above, then re-run)")
+check("dependencies are ordered first",
+      lambda: [s.name for s in order_steps(HAND_PLAN)] == ["read_payment", "read_policy"])
+check("a clean run completes",
+      lambda: execute(HAND_PLAN, flaky(0))["outcome"] == "completed")
+check("one timeout is retried and then succeeds",
+      lambda: execute(HAND_PLAN, flaky(1))["outcome"] == "completed")
+check("the retry is visible in the trace",
+      lambda: any(a == "retry" for _, _, a in execute(HAND_PLAN, flaky(1))["trace"]))
+check("endless timeouts are eventually abandoned",
+      lambda: execute(HAND_PLAN, flaky(99))["outcome"] == "give_up",
+      "max_retries has to be a number, not a hope")
+check("a wrong plan triggers a replan, not a retry",
+      lambda: execute(BAD_PLAN, flaky(0))["outcome"] == "replan")
+check("a wrong plan is caught on the FIRST attempt",
+      lambda: len(execute(BAD_PLAN, flaky(0))["trace"]) == 1,
+      "no point calling a tool that does not exist twice")
 '''),
 
     md("""
 ## Run it for real
 
-Have the model decompose a goal, then put its plan through your validator. Models produce vague
-sub-goals readily &mdash; this is the check that catches them before they become loops.
+The model plans; your code decides whether the plan is runnable; then it runs against a tool that
+fails twice before it works.
 """),
     code('''
 if llm_ready():
-    try:
-        raw = ask(
-            "Break this goal into 4 to 6 sub-goals, one per line, no numbering or bullets: "
-            "'Determine who must action the exception on payment PMT-1005 and why.' "
-            "Each sub-goal must start with one of: Return, Fetch, Compute, Classify, State, List."
-        )
-        proposed = [l.strip("-* \\t") for l in raw.splitlines() if l.strip()]
-        print("the model proposed:")
-        for s in proposed:
-            mark = "keep  " if is_finishable(s) else "REJECT"
-            print(f"  [{mark}] {s}")
-        bad = [s for s in proposed if not is_finishable(s)]
-        print(f"\\n{len(proposed) - len(bad)} of {len(proposed)} sub-goals are finishable.")
-        if bad:
-            print("Rejected because completion is not detectable from any output:")
-            for s in bad:
-                print("   " + s)
-    except NameError:
-        print("(fill in the blanks above, then re-run this cell)")
+    def _plan_and_run():
+        plan = plan_for("Find out why PMT-1003 is held and what policy requires.")
+        print("goal:", plan.goal)
+        for s in plan.steps:
+            flag = "ok  " if finishable(s) else "DROP"
+            print(f"  [{flag}] {s.name:24} tool={s.tool:16} arg={s.argument:16} after={s.depends_on}")
+
+        runnable = Plan(goal=plan.goal, steps=[s for s in plan.steps if finishable(s)])
+        if not runnable.steps:
+            print("\\nnothing runnable in that plan -- which is itself a result")
+            return None
+
+        print("\\n--- executing against a tool that times out twice ---")
+        result = execute(runnable, flaky(2))
+        for name, kind, action in result["trace"]:
+            print(f"  {name:24} {kind:12} -> {action}")
+        print(f"\\noutcome: {result['outcome']}")
+        return result
+    RESULT = guard(_plan_and_run)
 '''),
     md("""
 ### Read it
 
-Even told exactly which verbs to use, models slip in a "thoroughly" or an "as needed". Each one is
-a step whose completion nothing can detect &mdash; and a step the agent will keep working on.
+Look at the plan the model produced *before* anything ran. Some of the time it will invent a step
+naming a tool that does not exist &mdash; `check_sanctions`, `notify_desk`, something plausible. That
+is not the model being bad; it is the model doing what planners do. `finishable()` catching it
+before execution is the entire value of validating a plan.
 
-This validator is cheap and runs before any tokens are spent on execution. It is the highest
-return-per-line check in the whole module.
+Then look at the trace. Two timeouts, two retries, then progress &mdash; and the retries cost you
+nothing but time. Had `diagnose` mislabelled the missing-tool case as transient, you would have
+watched it retry a step that can never succeed until the budget ran out. That single misjudgement
+is the bug this lab exists to prevent, and in real code it always looks like:
+
+```python
+except Exception:
+    retry()          # what kind of exception? nobody asked
+```
 """),
 
     code('''
@@ -1178,335 +1359,365 @@ score()
     md("""
 ## Your turn
 
-1. `diagnose()` returns `unknown` for anything unrecognised, and `unknown` escalates. Argue for the
-   opposite default, then say what would have to be true about your tools for it to be safe.
-2. Rung 2 of the ladder &mdash; *try a different tool for the same sub-goal* &mdash; is not implemented.
-   Add it, and decide where it sits between retry and re-plan.
+1. `execute` gives up on a wrong plan. Make it actually **re-plan**: feed the failed step and its
+   observation back to `plan_for` and run the new plan. Cap the number of re-plans, and say why
+   your cap is the right one.
+2. Add a third diagnosis, `needs_human`, for observations that name a sanctions hold. What should
+   `response_to` return for it, and why is that different from `give_up`?
+3. `finishable()` uses a word list, which is crude. Replace it with a small
+   `with_structured_output` call that asks the model whether a step has a completion test. Run
+   both over ten invented steps and see which you trust more.
 """),
 ]
 
 
 # =========================================================================== #
-# Lab 2.4 -- Tree-of-Thought and Reflection: breadth and second opinions
+# Lab 2.4 -- branch, score, prune; and knowing when to stop reflecting
 # =========================================================================== #
 LAB4 = [
-    header(4, "Branch, Score, Prune &mdash; and Know When to Stop Reflecting", "Advanced", 35,
-           ["Count what a tree costs before you build one",
-            "Write the scorer, which is the part that decides whether the tree helps at all",
-            "Prune under a budget and see which branch you lost",
-            "Find the reflection knee: where another round stops paying"],
-           "> **The two expensive architectures.** Both buy quality with tokens. This lab is about\n"
-           "> knowing, in advance and then in evidence, whether the purchase was worth it."),
+    header(4, "Branch, Score, Prune &mdash; and When to Stop Reflecting", "Advanced", 40,
+           ["Generate several candidate actions concurrently with <code>.batch()</code>",
+            "Score them with a structured judge instead of reading them yourself",
+            "Prune, and look at what you threw away",
+            "Build a reflection loop that stops when it stops improving"],
+           "> **Builds on Lab 2.1.** Same chain machinery, used two ways that both trade extra\n"
+           "> calls for a better answer &mdash; when they work."),
     setup(4),
     code(DOMAIN),
-    code(CARRIED_TOOLS),
+    code(CARRY_TOOLS),
 
     md("""
 ## Concept
 
-**Tree-of-Thought** explores several routes, scores them, and keeps the promising ones. Its cost is
-`branches x depth` model calls, and its quality is entirely hostage to the **scorer**: a weak scorer
-prunes the right branch and keeps the wrong one, which is worse than not branching at all and far
-dearer.
+**Tree-of-Thought** explores several routes, scores them, and keeps the promising ones.
+**Reflection** drafts, criticises and revises. Both buy quality with extra calls, and both have a
+point past which the extra calls buy nothing.
 
-**Reflection** drafts, criticises and revises. Gains flatten fast &mdash; typically a big win in round
-one, a small one in round two, noise after that, at 2&ndash;3&times; cost per round.
+The framework parts that matter here:
+
+- `chain.batch([...])` runs the branches **concurrently**, so width costs latency once, not
+  *n* times;
+- `with_structured_output(Score)` makes the judge return numbers you can sort, instead of a
+  paragraph you have to read.
+
+A scorer that returns prose is not a scorer. It is a second opinion you still have to interpret.
 """),
 
     md("""
-## Section 1 &mdash; Count the cost first
+## Section 1 &mdash; Generate the branches, concurrently
 
-Before writing any tree, work out what it will cost. This is the number that stops most trees from
-being built, which is the correct outcome.
+One prompt, *n* different framings, one batched call.
 """),
     code('''
-def tree_calls(branches: int, depth: int, prune_to: int | None = None) -> int:
-    """Model calls to build a tree, counting every node generated.
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+from pydantic import BaseModel, Field
 
-    Without pruning, level d holds branches**d nodes and every one is generated.
-    With prune_to=k, only k nodes survive each level and are expanded.
-    """
-    if prune_to is None:
-        return BLANK                 # TODO: total nodes at levels 1..depth
-    total, frontier = 0, 1
-    for _ in range(depth):
-        generated = frontier * branches
-        total += generated
-        frontier = min(prune_to, generated)
-    return total
+ANGLES = [
+    "Answer strictly from the policy text, quoting its operative words.",
+    "Answer as the operations desk: what do we physically do next, and who do we tell?",
+    "Answer as the control function: what must NOT happen, and who owns the decision?",
+]
+
+def branch_chain():
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", "You are a payments operations analyst. {angle} Answer in two sentences."),
+        ("human", "PAYMENT: {payment}\\nPOLICY: {policy}\\n\\nWhat must happen next?"),
+    ])
+    return prompt | get_llm() | StrOutputParser()
+
+
+def branches(ref: str) -> list[str]:
+    """One candidate answer per angle, generated concurrently."""
+    rec = LEDGER[ref]
+    base = {"payment": json.dumps({"ref": ref, **rec}),
+            "policy": POLICY.get(rec["reason_code"], "no policy applies")}
+    return branch_chain().batch(BLANK)    # TODO: one input dict per angle
 ''', '''
-def tree_calls(branches: int, depth: int, prune_to: int | None = None) -> int:
-    """Model calls to build a tree, counting every node generated.
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+from pydantic import BaseModel, Field
 
-    Without pruning, level d holds branches**d nodes and every one is generated.
-    With prune_to=k, only k nodes survive each level and are expanded.
-    """
-    if prune_to is None:
-        return sum(branches ** d for d in range(1, depth + 1))
-    total, frontier = 0, 1
-    for _ in range(depth):
-        generated = frontier * branches
-        total += generated
-        frontier = min(prune_to, generated)
-    return total
+ANGLES = [
+    "Answer strictly from the policy text, quoting its operative words.",
+    "Answer as the operations desk: what do we physically do next, and who do we tell?",
+    "Answer as the control function: what must NOT happen, and who owns the decision?",
+]
+
+def branch_chain():
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", "You are a payments operations analyst. {angle} Answer in two sentences."),
+        ("human", "PAYMENT: {payment}\\nPOLICY: {policy}\\n\\nWhat must happen next?"),
+    ])
+    return prompt | get_llm() | StrOutputParser()
+
+
+def branches(ref: str) -> list[str]:
+    """One candidate answer per angle, generated concurrently."""
+    rec = LEDGER[ref]
+    base = {"payment": json.dumps({"ref": ref, **rec}),
+            "policy": POLICY.get(rec["reason_code"], "no policy applies")}
+    return branch_chain().batch([{**base, "angle": a} for a in ANGLES])
 '''),
     code('''
-# --- Self-check: Section 1
-check("3 branches, 3 deep, no pruning is 39 calls",
-      lambda: tree_calls(3, 3) == 39,
-      "3 + 9 + 27 -- every interior node was generated too, not just the 27 leaves")
-check("one level is just the branching factor", lambda: tree_calls(3, 1) == 3)
-check("pruning to 2 cuts it sharply", lambda: tree_calls(3, 3, prune_to=2) == 15,
-      "3 + 6 + 6 -- after the first level the frontier is capped at 2")
-check("pruning to 1 is a single line of reasoning, widened",
-      lambda: tree_calls(3, 3, prune_to=1) == 9)
-check("wider trees grow fast", lambda: tree_calls(5, 3) == 155)
+# --- Self-check: Section 1   (input construction only -- no model call)
+def _inputs():
+    rec = LEDGER["PMT-1003"]
+    base = {"payment": json.dumps({"ref": "PMT-1003", **rec}),
+            "policy": POLICY[rec["reason_code"]]}
+    return [{**base, "angle": a} for a in ANGLES]
 
-for b, d in ((3, 2), (3, 3), (5, 3), (5, 4)):
-    try:
-        print(f"  {b} branches x {d} deep: {tree_calls(b, d):>5} calls unpruned, "
-              f"{tree_calls(b, d, prune_to=2):>4} pruned to 2")
-    except NameError:
-        print("(fill in tree_calls above)"); break
+check("one input per angle",         lambda: len(_inputs()) == len(ANGLES))
+check("each input carries all three variables",
+      lambda: all(set(d) == {"payment", "policy", "angle"} for d in _inputs()))
+check("the angles really differ",    lambda: len({d["angle"] for d in _inputs()}) == len(ANGLES),
+      "three copies of one prompt is not a tree")
+check("the case data is shared across branches",
+      lambda: len({d["payment"] for d in _inputs()}) == 1,
+      "branches must differ in approach only, or you are comparing different questions")
 '''),
 
     md("""
 ## Section 2 &mdash; The scorer is the design
 
-Four candidate explanations for one exception. The scorer decides which survive. Write it to reward
-what actually matters: consistency with the ledger record, and support from policy.
+Whatever the judge rewards is what the tree will select for. Declare it as a schema so the
+scores come back sortable.
 """),
     code('''
-CANDIDATES = [
-    {"claim": "Held for sanctions review; Compliance must decide.",
-     "cites_policy": True,  "matches_record": True,  "proposes_action": False},
-    {"claim": "Held because the amount exceeds the limit; Treasury can release it.",
-     "cites_policy": True,  "matches_record": False, "proposes_action": True},
-    {"claim": "Probably a technical glitch; retry the payment.",
-     "cites_policy": False, "matches_record": False, "proposes_action": True},
-    {"claim": "Held; Operations should cancel and re-issue.",
-     "cites_policy": False, "matches_record": True,  "proposes_action": True},
-]
+class Score(BaseModel):
+    """A judge's verdict on one candidate answer."""
+    grounded: int = Field(description="BLANK", ge=0, le=5)  # TODO: what is this scoring, 0 to 5?
+    actionable: int = Field(description="0-5: is there a concrete next action a person could take?",
+                            ge=0, le=5)
+    safe: int = Field(description="0-5: does it respect who is allowed to decide? 0 if it "
+                                  "proposes acting where policy reserves the decision for a human",
+                      ge=0, le=5)
+    why: str = Field(description="One short sentence justifying the lowest of the three scores")
 
-def score_candidate(c: dict) -> float:
-    """Score a candidate explanation in [0, 1].
+    @property
+    def total(self) -> int:
+        return self.grounded + self.actionable + self.safe
 
-    Weighting, deliberately: agreeing with the record is worth most, citing policy next.
-    Proposing an action on a payment reserved for a human is a PENALTY, not a bonus.
-    """
-    s = 0.0
-    if c["matches_record"]:
-        s += 0.5
-    if c["cites_policy"]:
-        s += 0.3
-    if c["proposes_action"] and not c["cites_policy"]:
-        s += BLANK                   # TODO: the penalty for acting without policy support
-                                     # (a negative number)
-    return max(0.0, min(1.0, s))
+
+def judge(ref: str, candidate: str) -> Score:
+    rec = LEDGER[ref]
+    return get_llm().with_structured_output(Score).invoke(
+        "Score this proposed action against the policy. Be strict.\\n"
+        f"PAYMENT: {json.dumps({'ref': ref, **rec})}\\n"
+        f"POLICY: {POLICY.get(rec['reason_code'], 'no policy applies')}\\n"
+        f"CANDIDATE: {candidate}")
 ''', '''
-CANDIDATES = [
-    {"claim": "Held for sanctions review; Compliance must decide.",
-     "cites_policy": True,  "matches_record": True,  "proposes_action": False},
-    {"claim": "Held because the amount exceeds the limit; Treasury can release it.",
-     "cites_policy": True,  "matches_record": False, "proposes_action": True},
-    {"claim": "Probably a technical glitch; retry the payment.",
-     "cites_policy": False, "matches_record": False, "proposes_action": True},
-    {"claim": "Held; Operations should cancel and re-issue.",
-     "cites_policy": False, "matches_record": True,  "proposes_action": True},
-]
+class Score(BaseModel):
+    """A judge's verdict on one candidate answer."""
+    grounded: int = Field(description="0-5: is every claim supported by the payment record or "
+                                      "the policy text, with nothing invented?", ge=0, le=5)
+    actionable: int = Field(description="0-5: is there a concrete next action a person could take?",
+                            ge=0, le=5)
+    safe: int = Field(description="0-5: does it respect who is allowed to decide? 0 if it "
+                                  "proposes acting where policy reserves the decision for a human",
+                      ge=0, le=5)
+    why: str = Field(description="One short sentence justifying the lowest of the three scores")
 
-def score_candidate(c: dict) -> float:
-    """Score a candidate explanation in [0, 1].
+    @property
+    def total(self) -> int:
+        return self.grounded + self.actionable + self.safe
 
-    Weighting, deliberately: agreeing with the record is worth most, citing policy next.
-    Proposing an action on a payment reserved for a human is a PENALTY, not a bonus.
-    """
-    s = 0.0
-    if c["matches_record"]:
-        s += 0.5
-    if c["cites_policy"]:
-        s += 0.3
-    if c["proposes_action"] and not c["cites_policy"]:
-        s += -0.3
-    return max(0.0, min(1.0, s))
+
+def judge(ref: str, candidate: str) -> Score:
+    rec = LEDGER[ref]
+    return get_llm().with_structured_output(Score).invoke(
+        "Score this proposed action against the policy. Be strict.\\n"
+        f"PAYMENT: {json.dumps({'ref': ref, **rec})}\\n"
+        f"POLICY: {POLICY.get(rec['reason_code'], 'no policy applies')}\\n"
+        f"CANDIDATE: {candidate}")
 '''),
     code('''
-# --- Self-check: Section 2
-def _ranked():
-    return sorted(CANDIDATES, key=score_candidate, reverse=True)
+# --- Self-check: Section 2   (schema + arithmetic -- no model call)
+def _grounded_desc():
+    d = Score.model_fields["grounded"].description
+    if not d or d == "BLANK":
+        raise NameError("Score.grounded still has no description")
+    return d
 
-check("the correct explanation ranks first",
-      lambda: _ranked()[0]["claim"].startswith("Held for sanctions"))
-check("acting without policy support is penalised, not rewarded",
-      lambda: score_candidate(CANDIDATES[2]) < score_candidate(CANDIDATES[1]),
-      "an unsupported action is worse than a wrong-but-grounded reading")
-check("scores stay inside [0, 1]",
-      lambda: all(0.0 <= score_candidate(c) <= 1.0 for c in CANDIDATES))
-check("the record outweighs policy on its own",
-      lambda: score_candidate({"cites_policy": False, "matches_record": True,
-                               "proposes_action": False})
-              > score_candidate({"cites_policy": True, "matches_record": False,
-                                 "proposes_action": False}))
+check("the judge returns three numbers and a reason",
+      lambda: set(Score.model_fields) == {"grounded", "actionable", "safe", "why"})
+check("grounded says what it measures",
+      lambda: len(_grounded_desc()) > 40)
+check("the range is declared to the model",
+      lambda: "0" in _grounded_desc() and "5" in _grounded_desc(),
+      "a scale the model has to guess is a scale you cannot compare across runs")
+def _rejects_out_of_range():
+    try:
+        Score(grounded=9, actionable=1, safe=1, why="x")
+        return False
+    except Exception:
+        return True
 
-try:
-    for c in _ranked():
-        print(f"  {score_candidate(c):.2f}  {c['claim']}")
-except NameError:
-    print("(fill in score_candidate above)")
+check("out-of-range scores are rejected by the schema",
+      lambda: _rejects_out_of_range())
+check("total adds the three",
+      lambda: Score(grounded=5, actionable=4, safe=3, why="x").total == 12)
 '''),
 
     md("""
 ## Section 3 &mdash; Prune, and look at what you lost
 
-Pruning is where the saving comes from and where the risk lives. Keep the top `k` and record what
-was dropped &mdash; because the branch you pruned is the one you will never hear about again.
+Keeping the top *k* is easy. Looking at what you dropped is the part people skip, and it is where
+you find out your scorer is rewarding the wrong thing.
 """),
     code('''
-def prune(candidates, keep=2):
-    """Return (kept, dropped), each sorted best-first."""
-    ranked = sorted(candidates, key=score_candidate, reverse=True)
-    return ranked[:keep], ranked[keep:]
-
-def prune_regret(candidates, keep=2) -> float:
-    """How much score was thrown away: the best dropped candidate's score.
-
-    A high regret means the scorer is discarding something that looked good -- either the
-    scorer is wrong, or keep is too small.
-    """
-    _, dropped = prune(candidates, keep)
-    if not dropped:
-        return 0.0
-    return BLANK                     # TODO: the score of the best candidate you discarded
+def prune(candidates: list[str], scored: list[Score], keep: int = 1):
+    """Return (kept, dropped) as lists of (candidate, score), best first."""
+    pairs = sorted(zip(candidates, scored), key=lambda p: BLANK, reverse=True)  # TODO: by what?
+    return pairs[:keep], pairs[keep:]
 ''', '''
-def prune(candidates, keep=2):
-    """Return (kept, dropped), each sorted best-first."""
-    ranked = sorted(candidates, key=score_candidate, reverse=True)
-    return ranked[:keep], ranked[keep:]
-
-def prune_regret(candidates, keep=2) -> float:
-    """How much score was thrown away: the best dropped candidate's score.
-
-    A high regret means the scorer is discarding something that looked good -- either the
-    scorer is wrong, or keep is too small.
-    """
-    _, dropped = prune(candidates, keep)
-    if not dropped:
-        return 0.0
-    return max(score_candidate(c) for c in dropped)
+def prune(candidates: list[str], scored: list[Score], keep: int = 1):
+    """Return (kept, dropped) as lists of (candidate, score), best first."""
+    pairs = sorted(zip(candidates, scored), key=lambda p: p[1].total, reverse=True)
+    return pairs[:keep], pairs[keep:]
 '''),
     code('''
 # --- Self-check: Section 3
-check("pruning to 2 keeps two", lambda: len(prune(CANDIDATES, 2)[0]) == 2)
-check("the correct explanation survives pruning",
-      lambda: any(c["claim"].startswith("Held for sanctions") for c in prune(CANDIDATES, 2)[0]))
-check("regret is the best score among the dropped",
-      lambda: abs(prune_regret(CANDIDATES, 2)
-                  - max(score_candidate(c) for c in prune(CANDIDATES, 2)[1])) < 1e-9)
-check("keeping everything has zero regret",
-      lambda: prune_regret(CANDIDATES, keep=len(CANDIDATES)) == 0.0)
-check("pruning to 1 costs more regret than pruning to 2",
-      lambda: prune_regret(CANDIDATES, 1) >= prune_regret(CANDIDATES, 2),
-      "the tighter the prune, the more you risk discarding")
+_cands = ["a", "b", "c"]
+_scored = [Score(grounded=2, actionable=2, safe=2, why="x"),     # 6
+           Score(grounded=5, actionable=5, safe=5, why="x"),     # 15
+           Score(grounded=4, actionable=4, safe=4, why="x")]     # 12
 
-for k in (1, 2, 3):
-    try:
-        print(f"  keep={k}: regret {prune_regret(CANDIDATES, k):.2f}, "
-              f"calls {tree_calls(3, 3, prune_to=k)}")
-    except NameError:
-        print("(fill in the blanks above)"); break
+check("the best candidate is kept",     lambda: prune(_cands, _scored)[0][0][0] == "b")
+check("the rest are returned, not lost", lambda: len(prune(_cands, _scored)[1]) == 2)
+check("the dropped list is also ordered",
+      lambda: [c for c, _ in prune(_cands, _scored)[1]] == ["c", "a"],
+      "you cannot review what you pruned if it comes back shuffled")
+check("keep=2 keeps two",               lambda: len(prune(_cands, _scored, keep=2)[0]) == 2)
 '''),
 
     md("""
-## Section 4 &mdash; The reflection knee
+## Section 4 &mdash; Reflection, and the knee
 
-Reflection pays until it does not. Given a measured series of quality gains and a cost multiple per
-round, decide how many rounds ship.
+Reflection improves a draft by criticising it. The gain per round drops fast &mdash; usually a real
+improvement on round one, a small one on round two, and noise after that. Stop when the critic
+stops finding anything.
 """),
     code('''
-def rounds_worth_running(gains: list[float], cost_per_round: float, min_gain: float) -> int:
-    """How many reflection rounds to ship.
+CRITIC = ("You are a strict reviewer. List the specific faults in this proposed action against "
+          "the policy: invented facts, missing next step, or acting where a human must decide. "
+          "If there is nothing material to fix, reply with exactly: NO ISSUES")
 
-    gains[i] is the pass-rate gain from round i+1. Stop at the first round whose gain
-    falls below min_gain -- later rounds do not rescue it, and each one costs cost_per_round.
-    Returns the number of rounds to run (0 means do not reflect at all).
-    """
-    n = 0
-    for g in gains:
-        if BLANK:                    # TODO: is this round worth running?
+def critic_is_done(critique: str) -> bool:
+    """Has reflecting stopped paying? True when the critic found nothing material."""
+    return BLANK                      # TODO: how does the critic say "nothing to fix"?
+
+
+def reflect(ref: str, draft: str, rounds: int = 3) -> dict:
+    """Draft -> critique -> revise, stopping when the critic has nothing left."""
+    rec = LEDGER[ref]
+    context = (f"PAYMENT: {json.dumps({'ref': ref, **rec})}\\n"
+               f"POLICY: {POLICY.get(rec['reason_code'], 'no policy applies')}")
+    history = [("draft", draft)]
+    for i in range(rounds):
+        critique = ask(f"{context}\\n\\nPROPOSED ACTION: {draft}", system=CRITIC)
+        history.append((f"critique {i+1}", critique))
+        if critic_is_done(critique):
+            history.append(("stopped", f"critic found nothing on round {i+1}"))
             break
-        n += 1
-    return n
+        draft = ask(f"{context}\\n\\nPROPOSED ACTION: {draft}\\n\\nFAULTS FOUND: {critique}\\n\\n"
+                    "Rewrite the action in two sentences, fixing only what was faulted.")
+        history.append((f"revision {i+1}", draft))
+    return {"final": draft, "history": history}
 ''', '''
-def rounds_worth_running(gains: list[float], cost_per_round: float, min_gain: float) -> int:
-    """How many reflection rounds to ship.
+CRITIC = ("You are a strict reviewer. List the specific faults in this proposed action against "
+          "the policy: invented facts, missing next step, or acting where a human must decide. "
+          "If there is nothing material to fix, reply with exactly: NO ISSUES")
 
-    gains[i] is the pass-rate gain from round i+1. Stop at the first round whose gain
-    falls below min_gain -- later rounds do not rescue it, and each one costs cost_per_round.
-    Returns the number of rounds to run (0 means do not reflect at all).
-    """
-    n = 0
-    for g in gains:
-        if g < min_gain:
+def critic_is_done(critique: str) -> bool:
+    """Has reflecting stopped paying? True when the critic found nothing material."""
+    return "NO ISSUES" in (critique or "").upper()
+
+
+def reflect(ref: str, draft: str, rounds: int = 3) -> dict:
+    """Draft -> critique -> revise, stopping when the critic has nothing left."""
+    rec = LEDGER[ref]
+    context = (f"PAYMENT: {json.dumps({'ref': ref, **rec})}\\n"
+               f"POLICY: {POLICY.get(rec['reason_code'], 'no policy applies')}")
+    history = [("draft", draft)]
+    for i in range(rounds):
+        critique = ask(f"{context}\\n\\nPROPOSED ACTION: {draft}", system=CRITIC)
+        history.append((f"critique {i+1}", critique))
+        if critic_is_done(critique):
+            history.append(("stopped", f"critic found nothing on round {i+1}"))
             break
-        n += 1
-    return n
+        draft = ask(f"{context}\\n\\nPROPOSED ACTION: {draft}\\n\\nFAULTS FOUND: {critique}\\n\\n"
+                    "Rewrite the action in two sentences, fixing only what was faulted.")
+        history.append((f"revision {i+1}", draft))
+    return {"final": draft, "history": history}
 '''),
     code('''
-# --- Self-check: Section 4
-MEASURED = [0.12, 0.02, 0.00]        # the shape from the slides: big, small, nothing
-
-check("with a 10-point bar, only round 1 ships",
-      lambda: rounds_worth_running(MEASURED, cost_per_round=3.0, min_gain=0.10) == 1)
-check("with a 1-point bar, two rounds ship",
-      lambda: rounds_worth_running(MEASURED, cost_per_round=3.0, min_gain=0.01) == 2)
-check("a first round below the bar means no reflection at all",
-      lambda: rounds_worth_running([0.01, 0.20], cost_per_round=3.0, min_gain=0.10) == 0,
-      "stop at the FIRST round below the bar -- do not pay two rounds hoping for the second")
-check("no gains means no rounds",
-      lambda: rounds_worth_running([], cost_per_round=3.0, min_gain=0.10) == 0)
+# --- Self-check: Section 4   (the stop rule, on canned critiques -- no model call)
+check("the critic is told how to say 'nothing to fix'",
+      lambda: "NO ISSUES" in CRITIC,
+      "a critic with no way to pass will always invent a fault, and you will loop forever")
+check("an all-clear critique stops the loop",
+      lambda: critic_is_done("NO ISSUES") is True)
+check("a critique with faults does not stop it",
+      lambda: critic_is_done("It proposes releasing a sanctions hold.") is False)
+check("the check is case-insensitive",
+      lambda: critic_is_done("no issues") is True,
+      "models do not honour your capitalisation")
+check("an empty critique does not stop it",
+      lambda: critic_is_done("") is False,
+      "a model that returned nothing has not told you the draft is good")
 '''),
 
     md("""
-## Run it for real
-
-Reflection with a critic that has a checklist &mdash; the version that works &mdash; against a critic told
-only to "improve this". Same drafter, same case, one variable changed.
+## Run it for real &mdash; the tree
 """),
     code('''
-CHECKLIST_CRITIC = (
-    "You are reviewing an operations note. Check exactly three things and list any that fail: "
-    "(1) does it name the reason code from the record? (2) does it quote the applicable policy? "
-    "(3) if policy reserves the decision for a human, does it say so and refrain from proposing "
-    "an action? Reply with the failures, or 'OK' if none."
-)
-VAGUE_CRITIC = "Review this note and suggest improvements."
-
 if llm_ready():
-    try:
-        rec = lookup_payment("PMT-1005")
-        pol = policy_for("SANCTIONS_REVIEW")
-        draft = ask(f"Write a two-sentence operations note.\\nRECORD: {rec}\\nPOLICY: {pol}")
-        print("DRAFT:\\n  " + draft.strip().replace("\\n", "\\n  ")[:400])
+    def _tree():
+        ref = "PMT-1005"          # a sanctions hold: the safe score is the one that separates them
+        cands = branches(ref)
+        print(f"{len(cands)} branches generated concurrently\\n")
+        scored = [judge(ref, c) for c in cands]
+        kept, dropped = prune(cands, scored, keep=1)
 
-        for name, critic in (("checklist critic", CHECKLIST_CRITIC), ("vague critic", VAGUE_CRITIC)):
-            crit = ask(f"NOTE: {draft}", system=critic)
-            revised = ask(f"Revise the note using this critique.\\nNOTE: {draft}\\nCRITIQUE: {crit}")
-            print(f"\\n--- {name} ---")
-            print("  critique: " + crit.strip().replace("\\n", " ")[:220])
-            print("  revised : " + revised.strip().replace("\\n", " ")[:220])
-    except NameError:
-        print("(fill in the blanks above, then re-run this cell)")
+        for label, group in (("KEPT", kept), ("dropped", dropped)):
+            for cand, sc in group:
+                print(f"[{label:7}] total={sc.total:2}  g={sc.grounded} a={sc.actionable} s={sc.safe}")
+                print(f"          {cand.strip()[:200]}")
+                print(f"          why: {sc.why[:160]}\\n")
+        return kept, dropped
+    TREE = guard(_tree)
+'''),
+    md("""
+## Run it for real &mdash; the reflection loop
+"""),
+    code('''
+if llm_ready():
+    def _reflect():
+        weak = "Release the payment once the counterparty confirms by email."
+        out = reflect("PMT-1005", weak)
+        for label, text in out["history"]:
+            print(f"--- {label} ---")
+            print(text.strip()[:400] + "\\n")
+        print("=== final ===")
+        print(out["final"].strip()[:400])
+    guard(_reflect)
 '''),
     md("""
 ### Read it
 
-Compare the two critiques, not the two revisions. The checklist critic can only find the three
-things it was told to look for &mdash; and it finds them. The vague critic produces fluent suggestions
-that mostly restate the draft, because the same model with the same knowledge has nothing new to
-add.
+**The tree.** Read the `why` on the branch that lost. PMT-1005 is a sanctions hold, so any answer
+proposing to release or cancel it should score 0 on `safe` no matter how fluent it is &mdash; and the
+operations-desk angle is the one most likely to write exactly that. If the judge scored it well
+anyway, your scorer is the problem, not the branch. Fix the scorer before you widen the tree.
 
-That is the rule: **reflection works when the critic knows something the drafter did not use.** A
-checklist, a schema, a policy. Without one you are paying 2&ndash;3&times; for a rephrase.
+**The reflection loop.** The deliberately weak draft proposes releasing a sanctions hold on an
+email confirmation, which is precisely what the policy forbids. Watch round one demolish it and
+round two do much less. That shape &mdash; a large first gain, then a knee &mdash; is what you should
+expect, and it is why `rounds=3` with an early stop beats `rounds=10`.
+
+And note the failure mode built into the stop rule: a critic with no way to say "nothing to fix"
+will always find something, because that is what you asked it for. `NO ISSUES` is not a nicety.
 """),
 
     code('''
@@ -1515,11 +1726,13 @@ score()
     md("""
 ## Your turn
 
-1. Add a fifth candidate that is *plausible and wrong* &mdash; cites policy, matches the record, but
-   draws the opposite conclusion. Does your scorer catch it? If not, what feature would?
-2. `prune_regret` reports the best score you discarded, but the scorer produced that score too. If
-   the scorer is wrong, regret is wrong in the same direction. Suggest a check that does not share
-   the scorer's blind spot.
+1. Add a fourth angle that is deliberately reckless &mdash; "answer as the client relationship
+   manager who wants this paid today" &mdash; and confirm the judge scores it 0 on `safe`. If it does
+   not, tighten the field description until it does.
+2. Score all three branches in **one** batched call instead of three serial ones. You will need
+   `with_structured_output(Score).batch(...)`. Measure the wall-clock difference.
+3. Run `reflect` on an answer that is already correct. How many rounds before the critic starts
+   inventing faults? That number is your real ceiling on reflection.
 """),
 ]
 
@@ -1528,328 +1741,328 @@ score()
 # Lab 2.5 -- challenge: the architecture bake-off
 # =========================================================================== #
 LAB5 = [
-    header(5, "Challenge &mdash; The Architecture Bake-Off", "Advanced", 40,
-           ["Run four architectures over one eval set with one meter",
-            "Name the acceptance threshold before you look at any number",
-            "Produce a scorecard that is allowed to reject the interesting answer",
-            "Write the recommendation you would defend in a design review"],
-           "> **The comprehensive lab for Module 2.** It uses everything: the eval set from 2.1, the\n"
-           "> parser from 2.2, the diagnosis ladder from 2.3, and the cost counting from 2.4."),
+    header(5, "Challenge &mdash; The Architecture Bake-Off", "Advanced", 45,
+           ["Put all four Module 2 architectures behind one interface",
+            "Write the acceptance bar before you look at a single result",
+            "Run one eval set through all four and pick a winner on evidence",
+            "Find the case that no architecture gets right, and say why"],
+           "> **The take-home artifact.** A harness you can point at your own task, and a habit:\n"
+           "> choose the reasoning architecture with a number, not a preference."),
     setup(5),
     code(DOMAIN),
-    code(CARRIED_TOOLS),
+    code(CARRY_TOOLS),
 
     md("""
 ## Concept
 
-Four architectures, one eval set, one meter, one threshold written down in advance. The scorecard
-is allowed to say *the cheap one wins* &mdash; and on a task this size it usually does.
+You have built four ways to answer the same question:
 
-That outcome is the lesson, not a failed lab.
+| Arm | What it is | What it costs |
+|---|---|---|
+| **direct** | one chain, no reasoning asked for | one call |
+| **cot** | one chain, working shown | one call, longer |
+| **react** | `create_agent` with tools | several calls |
+| **reflect** | draft, critique, revise | two to six calls |
+
+The right answer is task-dependent and it is often **direct**. This lab is the harness that tells
+you which, and the discipline of writing the bar down first so the harness can overrule you.
 """),
 
     md("""
-## Section 1 &mdash; One meter for all four arms
+## Section 1 &mdash; One interface, four arms
 
-Reuse Module 1's discipline: measure every arm the same way or the comparison is decoration.
+Every arm is a function `(ref) -> str`. That is the whole contract, and it is what makes them
+comparable.
 """),
     code('''
-class Meter:
-    """Counts calls and estimated tokens for one architecture arm."""
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+from langchain.agents import create_agent
 
-    def __init__(self, name: str):
-        self.name = name
-        self.calls = 0
-        self.tokens = 0
+SYSTEM = "You are a payments operations analyst."
+QUESTION = "What must happen next with {ref}? Answer with the single next action."
 
-    def record(self, prompt: str, reply: str) -> None:
-        self.calls += 1
-        self.tokens += (len(prompt) + len(reply)) // 4
+def _context(ref: str) -> str:
+    rec = LEDGER[ref]
+    return (f"PAYMENT: {json.dumps({'ref': ref, **rec})}\\n"
+            f"POLICY: {POLICY.get(rec['reason_code'], 'no policy applies')}")
 
-    def report(self, pass_rate: float) -> dict:
-        return {"arm": self.name, "pass_rate": round(pass_rate, 3),
-                "calls": self.calls, "tokens": self.tokens}
-'''),
-    code('''
-# --- Self-check: Section 1
-_m = Meter("t")
-_m.record("a" * 400, "b" * 400)
-_m.record("a" * 400, "b" * 400)
-check("two turns are counted", lambda: _m.report(1.0)["calls"] == 2)
-check("tokens accumulate across turns", lambda: _m.report(1.0)["tokens"] == 400)
-check("the pass rate is carried into the report", lambda: _m.report(0.5)["pass_rate"] == 0.5)
-'''),
+def arm_direct(ref: str) -> str:
+    chain = ChatPromptTemplate.from_messages(
+        [("system", SYSTEM), ("human", "{ctx}\\n\\n" + QUESTION.format(ref=ref))]
+    ) | get_llm() | StrOutputParser()
+    return chain.invoke({"ctx": _context(ref)})
 
-    md("""
-## Section 2 &mdash; Four arms, deterministic
+def arm_cot(ref: str) -> str:
+    chain = ChatPromptTemplate.from_messages(
+        [("system", SYSTEM + " Work through the case step by step, then give the action."),
+         ("human", "{ctx}\\n\\n" + QUESTION.format(ref=ref))]
+    ) | get_llm() | StrOutputParser()
+    return chain.invoke({"ctx": _context(ref)})
 
-Real model calls make the bake-off non-reproducible, so the arms here are deterministic stand-ins
-whose **cost shapes** match the real thing. The architecture comparison is what is being taught;
-the live version is at the end.
-"""),
-    code('''
-CASES = [
-    {"ref": "PMT-1002", "expect": "OPERATIONS"},
-    {"ref": "PMT-1003", "expect": "TREASURY"},
-    {"ref": "PMT-1004", "expect": "ORIGINATOR"},
-    {"ref": "PMT-1005", "expect": "COMPLIANCE"},
-    {"ref": "PMT-1001", "expect": "OPERATIONS"},
-    {"ref": "PMT-9999", "expect": "OPERATIONS"},
-]
+def arm_react(ref: str) -> str:
+    agent = create_agent(model=get_llm(), tools=list(TOOLS.values()),
+                         system_prompt=SYSTEM + " Use the tools to find the reason code and its "
+                                                "policy before answering.")
+    out = agent.invoke({"messages": [("human", QUESTION.format(ref=ref))]})
+    return out["messages"][-1].content
 
-OWNER = {"INSUFFICIENT_FUNDS": "OPERATIONS", "LIMIT_BREACH": "TREASURY",
-         "INVALID_IBAN": "ORIGINATOR", "SANCTIONS_REVIEW": "COMPLIANCE", None: "OPERATIONS"}
+def arm_reflect(ref: str) -> str:
+    draft = arm_direct(ref)
+    critique = ask(f"{_context(ref)}\\n\\nPROPOSED: {draft}",
+                   system="List material faults against the policy, or reply exactly: NO ISSUES")
+    if BLANK:                         # TODO: when is the draft already good enough to return?
+        return draft
+    return ask(f"{_context(ref)}\\n\\nPROPOSED: {draft}\\nFAULTS: {critique}\\n\\n"
+               "Rewrite the action in one sentence, fixing only what was faulted.")
 
-def _facts(ref):
-    rec = LEDGER.get(ref)
-    return "" if rec is None else json.dumps(rec)
-
-def arm_direct(case, meter):
-    """One call, no reasoning, no tools: it only sees the reference."""
-    reply = OWNER.get(LEDGER.get(case["ref"], {}).get("reason_code")) if case["ref"] in LEDGER else "OPERATIONS"
-    meter.record(case["ref"], str(reply))
-    return str(reply)
-
-def arm_cot(case, meter):
-    """One call with reasoning: more tokens, and it reads the record it was given."""
-    facts = _facts(case["ref"])
-    reply = OWNER.get(LEDGER.get(case["ref"], {}).get("reason_code"), "OPERATIONS")
-    meter.record(case["ref"] + facts + "reason step by step" * 12, str(reply))
-    return str(reply)
-
-def arm_react(case, meter):
-    """Two tool round trips -- record, then policy -- each re-sending the context."""
-    ctx = case["ref"]
-    for tool_out in (lookup_payment(case["ref"]), policy_for(LEDGER.get(case["ref"], {}).get("reason_code"))):
-        meter.record(ctx, tool_out)
-        ctx += tool_out
-    return OWNER.get(LEDGER.get(case["ref"], {}).get("reason_code"), "OPERATIONS")
-
-def arm_tot(case, meter, branches=3, depth=2):
-    """Branch and score: every generated node costs a call."""
-    ctx = case["ref"] + _facts(case["ref"])
-    for _ in range(branches * depth + branches):
-        meter.record(ctx, "candidate explanation with a score")
-    return OWNER.get(LEDGER.get(case["ref"], {}).get("reason_code"), "OPERATIONS")
-
-ARMS = {"direct": arm_direct, "cot": arm_cot, "react": arm_react, "tot": arm_tot}
-
-def run_arm(name, fn) -> dict:
-    """Run one architecture over every case. Returns its scorecard row."""
-    meter = Meter(name)
-    hits = 0
-    for c in CASES:
-        answer = fn(c, meter)
-        if BLANK:                    # TODO: did this case pass? (the expected owner, case-insensitive)
-            hits += 1
-    return meter.report(hits / len(CASES))
+ARMS = {"direct": arm_direct, "cot": arm_cot, "react": arm_react, "reflect": arm_reflect}
 ''', '''
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+from langchain.agents import create_agent
+
+SYSTEM = "You are a payments operations analyst."
+QUESTION = "What must happen next with {ref}? Answer with the single next action."
+
+def _context(ref: str) -> str:
+    rec = LEDGER[ref]
+    return (f"PAYMENT: {json.dumps({'ref': ref, **rec})}\\n"
+            f"POLICY: {POLICY.get(rec['reason_code'], 'no policy applies')}")
+
+def arm_direct(ref: str) -> str:
+    chain = ChatPromptTemplate.from_messages(
+        [("system", SYSTEM), ("human", "{ctx}\\n\\n" + QUESTION.format(ref=ref))]
+    ) | get_llm() | StrOutputParser()
+    return chain.invoke({"ctx": _context(ref)})
+
+def arm_cot(ref: str) -> str:
+    chain = ChatPromptTemplate.from_messages(
+        [("system", SYSTEM + " Work through the case step by step, then give the action."),
+         ("human", "{ctx}\\n\\n" + QUESTION.format(ref=ref))]
+    ) | get_llm() | StrOutputParser()
+    return chain.invoke({"ctx": _context(ref)})
+
+def arm_react(ref: str) -> str:
+    agent = create_agent(model=get_llm(), tools=list(TOOLS.values()),
+                         system_prompt=SYSTEM + " Use the tools to find the reason code and its "
+                                                "policy before answering.")
+    out = agent.invoke({"messages": [("human", QUESTION.format(ref=ref))]})
+    return out["messages"][-1].content
+
+def arm_reflect(ref: str) -> str:
+    draft = arm_direct(ref)
+    critique = ask(f"{_context(ref)}\\n\\nPROPOSED: {draft}",
+                   system="List material faults against the policy, or reply exactly: NO ISSUES")
+    if "NO ISSUES" in critique.upper():
+        return draft
+    return ask(f"{_context(ref)}\\n\\nPROPOSED: {draft}\\nFAULTS: {critique}\\n\\n"
+               "Rewrite the action in one sentence, fixing only what was faulted.")
+
+ARMS = {"direct": arm_direct, "cot": arm_cot, "react": arm_react, "reflect": arm_reflect}
+'''),
+    code('''
+# --- Self-check: Section 1   (structure only -- no model call)
+check("all four arms are registered",
+      lambda: set(ARMS) == {"direct", "cot", "react", "reflect"})
+check("every arm is callable",
+      lambda: all(callable(f) for f in ARMS.values()),
+      "the whole comparison rests on the four having the same interface")
+check("every arm takes exactly one argument",
+      lambda: all(f.__code__.co_argcount == 1 for f in ARMS.values()))
+check("the prompt-only arms share one context builder",
+      lambda: all("_context" in ARMS[n].__code__.co_names for n in ("direct", "cot")),
+      "if the arms build their input differently you are comparing prompts, not architectures")
+check("the react arm gets its context from the tools instead",
+      lambda: "create_agent" in ARMS["react"].__code__.co_names,
+      "that IS the architectural difference -- it fetches rather than being handed the answer")
+'''),
+
+    md("""
+## Section 2 &mdash; The bar, written first
+
+Fill this in before you run anything. If you write it afterwards you will write down whatever
+you got.
+"""),
+    code('''
+BAR = {
+    "min_pass_rate":   0.80,          # a candidate must answer four of five
+    "must_never_fail": ["PMT-1005"],  # the sanctions hold: getting this wrong is disqualifying
+    "max_seconds_case": 20.0,
+}
+
 CASES = [
-    {"ref": "PMT-1002", "expect": "OPERATIONS"},
-    {"ref": "PMT-1003", "expect": "TREASURY"},
-    {"ref": "PMT-1004", "expect": "ORIGINATOR"},
-    {"ref": "PMT-1005", "expect": "COMPLIANCE"},
-    {"ref": "PMT-1001", "expect": "OPERATIONS"},
-    {"ref": "PMT-9999", "expect": "OPERATIONS"},
+    {"ref": "PMT-1003", "must_contain": ["treasury"]},
+    {"ref": "PMT-1005", "must_contain": ["compliance"]},
+    {"ref": "PMT-1002", "must_contain": ["retry"]},
+    {"ref": "PMT-1004", "must_contain": ["originator", "r04"]},
+    {"ref": "PMT-1001", "must_contain": ["settled", "no action", "none"]},
 ]
 
-OWNER = {"INSUFFICIENT_FUNDS": "OPERATIONS", "LIMIT_BREACH": "TREASURY",
-         "INVALID_IBAN": "ORIGINATOR", "SANCTIONS_REVIEW": "COMPLIANCE", None: "OPERATIONS"}
+def passes(case: dict, answer: str) -> bool:
+    low = (answer or "").lower()
+    return any(term in low for term in case["must_contain"])
 
-def _facts(ref):
-    rec = LEDGER.get(ref)
-    return "" if rec is None else json.dumps(rec)
 
-def arm_direct(case, meter):
-    """One call, no reasoning, no tools: it only sees the reference."""
-    reply = OWNER.get(LEDGER.get(case["ref"], {}).get("reason_code")) if case["ref"] in LEDGER else "OPERATIONS"
-    meter.record(case["ref"], str(reply))
-    return str(reply)
+def accepts(result: dict) -> tuple[bool, str]:
+    """result: {"rate", "failed_refs", "seconds_case"}. Return (ok, first failing reason)."""
+    if result["rate"] < BAR["min_pass_rate"]:
+        return False, f"pass rate {result['rate']:.0%} below {BAR['min_pass_rate']:.0%}"
+    banned = BLANK                    # TODO: did it fail a case it is not allowed to fail?
+    if banned:
+        return False, f"failed a disqualifying case: {sorted(banned)}"
+    if result["seconds_case"] > BAR["max_seconds_case"]:
+        return False, f"{result['seconds_case']:.1f}s/case over {BAR['max_seconds_case']}"
+    return True, "accepted"
+''', '''
+BAR = {
+    "min_pass_rate":   0.80,          # a candidate must answer four of five
+    "must_never_fail": ["PMT-1005"],  # the sanctions hold: getting this wrong is disqualifying
+    "max_seconds_case": 20.0,
+}
 
-def arm_cot(case, meter):
-    """One call with reasoning: more tokens, and it reads the record it was given."""
-    facts = _facts(case["ref"])
-    reply = OWNER.get(LEDGER.get(case["ref"], {}).get("reason_code"), "OPERATIONS")
-    meter.record(case["ref"] + facts + "reason step by step" * 12, str(reply))
-    return str(reply)
+CASES = [
+    {"ref": "PMT-1003", "must_contain": ["treasury"]},
+    {"ref": "PMT-1005", "must_contain": ["compliance"]},
+    {"ref": "PMT-1002", "must_contain": ["retry"]},
+    {"ref": "PMT-1004", "must_contain": ["originator", "r04"]},
+    {"ref": "PMT-1001", "must_contain": ["settled", "no action", "none"]},
+]
 
-def arm_react(case, meter):
-    """Two tool round trips -- record, then policy -- each re-sending the context."""
-    ctx = case["ref"]
-    for tool_out in (lookup_payment(case["ref"]), policy_for(LEDGER.get(case["ref"], {}).get("reason_code"))):
-        meter.record(ctx, tool_out)
-        ctx += tool_out
-    return OWNER.get(LEDGER.get(case["ref"], {}).get("reason_code"), "OPERATIONS")
+def passes(case: dict, answer: str) -> bool:
+    low = (answer or "").lower()
+    return any(term in low for term in case["must_contain"])
 
-def arm_tot(case, meter, branches=3, depth=2):
-    """Branch and score: every generated node costs a call."""
-    ctx = case["ref"] + _facts(case["ref"])
-    for _ in range(branches * depth + branches):
-        meter.record(ctx, "candidate explanation with a score")
-    return OWNER.get(LEDGER.get(case["ref"], {}).get("reason_code"), "OPERATIONS")
 
-ARMS = {"direct": arm_direct, "cot": arm_cot, "react": arm_react, "tot": arm_tot}
-
-def run_arm(name, fn) -> dict:
-    """Run one architecture over every case. Returns its scorecard row."""
-    meter = Meter(name)
-    hits = 0
-    for c in CASES:
-        answer = fn(c, meter)
-        if c["expect"].lower() in str(answer).lower():
-            hits += 1
-    return meter.report(hits / len(CASES))
+def accepts(result: dict) -> tuple[bool, str]:
+    """result: {"rate", "failed_refs", "seconds_case"}. Return (ok, first failing reason)."""
+    if result["rate"] < BAR["min_pass_rate"]:
+        return False, f"pass rate {result['rate']:.0%} below {BAR['min_pass_rate']:.0%}"
+    banned = set(result["failed_refs"]) & set(BAR["must_never_fail"])
+    if banned:
+        return False, f"failed a disqualifying case: {sorted(banned)}"
+    if result["seconds_case"] > BAR["max_seconds_case"]:
+        return False, f"{result['seconds_case']:.1f}s/case over {BAR['max_seconds_case']}"
+    return True, "accepted"
 '''),
     code('''
 # --- Self-check: Section 2
-def _board():
-    return [run_arm(n, f) for n, f in ARMS.items()]
+_good     = {"rate": 1.0, "failed_refs": [],            "seconds_case": 3.0}
+_low      = {"rate": 0.6, "failed_refs": ["PMT-1002"],  "seconds_case": 3.0}
+_unsafe   = {"rate": 0.8, "failed_refs": ["PMT-1005"],  "seconds_case": 3.0}
+_slow     = {"rate": 1.0, "failed_refs": [],            "seconds_case": 99.0}
 
-check("every arm answers every case",
-      lambda: all(r["calls"] >= len(CASES) for r in _board()))
-check("react costs two calls per case", lambda: run_arm("react", arm_react)["calls"] == 12)
-check("the tree costs far more than react",
-      lambda: run_arm("tot", arm_tot)["calls"] > run_arm("react", arm_react)["calls"] * 2)
-check("chain-of-thought costs more tokens than direct for the same call count",
-      lambda: run_arm("cot", arm_cot)["tokens"] > run_arm("direct", arm_direct)["tokens"]
-              and run_arm("cot", arm_cot)["calls"] == run_arm("direct", arm_direct)["calls"])
-check("at least one arm scores on the eval set",
-      lambda: max(r["pass_rate"] for r in _board()) >= 0.8,
-      "check the pass condition in run_arm")
+check("a clean result is accepted",   lambda: accepts(_good)[0] is True)
+check("a low pass rate is rejected",  lambda: accepts(_low)[0] is False)
+check("failing the sanctions case is disqualifying even at 80%",
+      lambda: accepts(_unsafe)[0] is False,
+      "some cases are not worth 20% -- they are worth the whole decision")
+check("the rejection names the case",
+      lambda: "PMT-1005" in accepts(_unsafe)[1])
+check("a slow arm is rejected",       lambda: accepts(_slow)[0] is False)
+check("the scorer accepts a right answer",
+      lambda: passes(CASES[1], "Hold; Compliance decides.") is True)
+check("the scorer rejects a wrong one",
+      lambda: passes(CASES[1], "Release once Treasury approves.") is False)
 '''),
 
     md("""
-## Section 3 &mdash; The threshold, written first
-
-Name what an architecture must deliver before you have seen a single number. This is the clause
-that lets the scorecard reject the interesting answer.
+## Section 3 &mdash; The bake-off
 """),
     code('''
-THRESHOLD = {
-    "min_gain": 0.10,        # pass-rate points over the cheapest arm
-    "max_token_ratio": 5.0,  # ...within 5x its tokens
-}
-
-def verdict(row: dict, baseline: dict, threshold: dict = THRESHOLD) -> tuple[bool, str]:
-    """Should this arm displace the baseline? Returns (yes, reason)."""
-    gain = row["pass_rate"] - baseline["pass_rate"]
-    ratio = row["tokens"] / max(baseline["tokens"], 1)
-    if row["arm"] == baseline["arm"]:
-        return True, "the baseline"
-    if gain < threshold["min_gain"]:
-        return False, f"gain {gain:+.2f} below the {threshold['min_gain']:.2f} bar"
-    if BLANK:                        # TODO: is it over the token ceiling?
-        return False, f"{ratio:.1f}x tokens exceeds {threshold['max_token_ratio']}x"
-    return True, f"gain {gain:+.2f} at {ratio:.1f}x tokens"
-''', '''
-THRESHOLD = {
-    "min_gain": 0.10,        # pass-rate points over the cheapest arm
-    "max_token_ratio": 5.0,  # ...within 5x its tokens
-}
-
-def verdict(row: dict, baseline: dict, threshold: dict = THRESHOLD) -> tuple[bool, str]:
-    """Should this arm displace the baseline? Returns (yes, reason)."""
-    gain = row["pass_rate"] - baseline["pass_rate"]
-    ratio = row["tokens"] / max(baseline["tokens"], 1)
-    if row["arm"] == baseline["arm"]:
-        return True, "the baseline"
-    if gain < threshold["min_gain"]:
-        return False, f"gain {gain:+.2f} below the {threshold['min_gain']:.2f} bar"
-    if ratio > threshold["max_token_ratio"]:
-        return False, f"{ratio:.1f}x tokens exceeds {threshold['max_token_ratio']}x"
-    return True, f"gain {gain:+.2f} at {ratio:.1f}x tokens"
+def run_arm(name: str) -> dict:
+    """Run every case through one arm and score it."""
+    fn = ARMS[name]
+    t0, answers, results, failed = time.time(), [], [], []
+    for case in CASES:
+        try:
+            answer = fn(case["ref"])
+        except Exception as exc:
+            answer = f"<error: {type(exc).__name__}: {exc}>"
+        ok = passes(case, answer)
+        answers.append(answer); results.append(ok)
+        if not ok:
+            failed.append(case["ref"])
+    seconds = time.time() - t0
+    return {"name": name, "answers": answers, "results": results, "failed_refs": failed,
+            "rate": sum(results) / len(CASES), "seconds_case": seconds / len(CASES)}
 '''),
     code('''
-# --- Self-check: Section 3
-_base = {"arm": "direct", "pass_rate": 0.60, "calls": 6, "tokens": 100}
-_cheap_win = {"arm": "cot", "pass_rate": 0.85, "calls": 6, "tokens": 300}
-_dear_win  = {"arm": "tot", "pass_rate": 0.90, "calls": 60, "tokens": 4000}
-_no_gain   = {"arm": "react", "pass_rate": 0.62, "calls": 12, "tokens": 400}
+# --- Self-check: Section 3   (shape of the result, on a stub arm -- no model call)
+ARMS["_stub"] = lambda ref: {"PMT-1005": "Hold; Compliance decides."}.get(ref, "do something")
+_stub = run_arm("_stub")
+del ARMS["_stub"]
 
-check("a real gain inside the ceiling is accepted",
-      lambda: verdict(_cheap_win, _base)[0] is True)
-check("a big gain outside the ceiling is rejected",
-      lambda: verdict(_dear_win, _base)[0] is False,
-      "a 30-point gain does not license 40x the tokens -- that is what the ceiling is for")
-check("a marginal gain is rejected", lambda: verdict(_no_gain, _base)[0] is False)
-check("the baseline always passes against itself",
-      lambda: verdict(_base, _base)[0] is True)
-check("every rejection states a reason", lambda: len(verdict(_dear_win, _base)[1]) > 10)
-'''),
+check("one answer per case",       lambda: len(_stub["answers"]) == len(CASES))
+check("the rate is a fraction",    lambda: 0.0 <= _stub["rate"] <= 1.0)
+check("failed refs are recorded",  lambda: "PMT-1003" in _stub["failed_refs"])
+check("a passing case is not listed as failed",
+      lambda: "PMT-1005" not in _stub["failed_refs"])
+def _raises_is_scored():
+    def boom(ref): raise RuntimeError("nope")
+    ARMS["_boom"] = boom
+    try:
+        return run_arm("_boom")["rate"] == 0.0
+    finally:
+        del ARMS["_boom"]
 
-    md("""
-## Section 4 &mdash; The scorecard
-
-One table. The cheapest arm is the baseline; everything else has to earn its place against it.
-"""),
-    code('''
-def scorecard() -> str:
-    rows = sorted((run_arm(n, f) for n, f in ARMS.items()), key=lambda r: r["tokens"])
-    baseline = rows[0]
-    out = [f"{'arm':10}{'pass':>8}{'calls':>8}{'tokens':>9}{'x base':>9}  verdict",
-           "-" * 78]
-    for r in rows:
-        ok, why = verdict(r, baseline)
-        ratio = r["tokens"] / max(baseline["tokens"], 1)
-        out.append(f"{r['arm']:10}{r['pass_rate']:>8}{r['calls']:>8}{r['tokens']:>9}"
-                   f"{ratio:>8.1f}x  {'SHIP' if ok else 'no'} -- {why}")
-    winners = [r["arm"] for r in rows if verdict(r, baseline)[0]]
-    out.append("")
-    out.append(f"Ships: {winners[-1]} (cheapest arm clearing the bar)")
-    return "\\n".join(out)
-
-try:
-    print(scorecard())
-except NameError:
-    print("(finish the sections above, then re-run this cell)")
-'''),
-    code('''
-# --- Self-check: Section 4
-def _rows():
-    return sorted((run_arm(n, f) for n, f in ARMS.items()), key=lambda r: r["tokens"])
-
-check("the table has a row per arm plus a header, a rule and a footer",
-      lambda: len(scorecard().splitlines()) == len(ARMS) + 4)
-check("the cheapest arm is the baseline",
-      lambda: _rows()[0]["tokens"] == min(r["tokens"] for r in _rows()))
-check("the tree does not ship on this eval set",
-      lambda: verdict([r for r in _rows() if r["arm"] == "tot"][0], _rows()[0])[0] is False,
-      "it costs an order of magnitude more for no measured gain")
-check("a tie goes to the cheaper arm",
-      lambda: verdict({"arm": "x", "pass_rate": _rows()[0]["pass_rate"],
-                       "calls": 1, "tokens": _rows()[0]["tokens"] * 2}, _rows()[0])[0] is False)
+check("an arm that raises is scored, not crashed",
+      lambda: _raises_is_scored(),
+      "one broken arm must not take the whole bake-off down with it")
 '''),
 
     md("""
 ## Run it for real
 
-Have the model write the design-review paragraph &mdash; explaining a decision your scorecard already
-made, not making one.
+Four arms, five cases. `react` and `reflect` make several calls per case, so allow a minute or two.
 """),
     code('''
 if llm_ready():
-    try:
-        board = scorecard()
-        summary = ask(
-            "Write one short paragraph for an engineering design review. State which reasoning "
-            "architecture was chosen, the evidence, and the condition under which the team should "
-            "revisit it. Be plain and specific; add no claims beyond the table.\\n\\n"
-            f"THRESHOLD AGREED IN ADVANCE: {THRESHOLD}\\n\\nSCORECARD:\\n{board}"
-        )
-        print(summary)
-    except NameError:
-        print("(finish the sections above, then re-run this cell)")
+    def _bakeoff():
+        results = {name: run_arm(name) for name in ("direct", "cot", "react", "reflect")}
+
+        print("  arm       " + "  ".join(f"{c['ref']:9}" for c in CASES) + "   rate    s/case  verdict")
+        print("  " + "-" * 96)
+        for name, r in results.items():
+            cells = "  ".join(("pass     " if ok else "FAIL     ") for ok in r["results"])
+            ok, why = accepts(r)
+            print(f"  {name:9} {cells}  {r['rate']:5.0%}  {r['seconds_case']:6.1f}  "
+                  f"{'ACCEPT' if ok else 'reject'}")
+            if not ok:
+                print(f"             -> {why}")
+
+        accepted = [(n, r) for n, r in results.items() if accepts(r)[0]]
+        if accepted:
+            winner = min(accepted, key=lambda p: p[1]["seconds_case"])
+            print(f"\\nwinner: {winner[0]} -- the CHEAPEST arm that cleared the bar, "
+                  f"not the best-scoring one")
+        else:
+            print("\\nno arm cleared the bar. That is a result: the task needs better tools or "
+                  "a better prompt, not a fancier architecture.")
+
+        hard = [c["ref"] for i, c in enumerate(CASES)
+                if not any(r["results"][i] for r in results.values())]
+        print(f"cases no arm answered: {hard or 'none'}")
+        return results
+    BAKEOFF = guard(_bakeoff)
 '''),
     md("""
 ### Read it
 
-If the paragraph argues for the cheapest arm that cleared the bar, the process worked. If it
-reaches for the tree because trees sound thorough, look at which clause let it through.
+**The winner is the cheapest arm that cleared the bar**, not the highest-scoring one. That line in
+the code is the whole lab. Once an arm meets the requirement, further quality is something you are
+paying for and not using &mdash; and `direct` clearing the bar is the most common outcome on tasks
+where the context already contains the answer.
 
-**What you take from Module 2:** a way to choose a reasoning architecture on evidence, a parser you
-know the failure modes of, a failure diagnosis that picks retry or re-plan correctly, and a
-scorecard that is allowed to tell you the boring answer. Module 3 gives all of it somewhere to keep
-its state.
+Then look at the last line. A case that **no** arm answers is telling you something no
+architecture can fix: the information is missing, the scorer is wrong, or the question is
+ambiguous. Reaching for a bigger architecture at that point is the mistake this module exists to
+prevent.
+
+**What you take from Module 2:** chains you compose rather than hand-roll; a parser you are now
+entitled never to write again; plans that are validated before they run and failures that are
+diagnosed before they are retried; a judge that returns numbers; and a harness that picks the
+architecture for you. Module 3 gives all of this somewhere durable to live.
 """),
 
     code('''
@@ -1858,13 +2071,14 @@ score()
     md("""
 ## Your turn
 
-1. The arms here are deterministic, so pass rate is fixed and only cost varies. Swap `arm_cot` and
-   `arm_react` for real `ask()` calls, run three times, and report the spread. How much of your
-   verdict survives the variance?
-2. Add a case where ReAct genuinely beats Chain-of-Thought &mdash; one whose answer is not in the prompt
-   at all. That is the case that justifies tools, and your eval set currently lacks it.
-3. Raise `max_token_ratio` until the tree ships. Would you defend that number to a reviewer? If not,
-   you have found your real ceiling.
+1. Add a `react_reflect` arm &mdash; the agent's answer, then one critique round. Does it clear the
+   bar, and does it beat `react` by enough to justify doubling the calls?
+2. Move `PMT-1001` (already settled) to the front of `CASES` and re-run. If any arm's score
+   changes, you have found order dependence, which means your harness is measuring the wrong
+   thing. Fix it.
+3. Replace the substring scorer with a `with_structured_output` judge from Lab 2.4 and re-run the
+   bake-off. Which arms change rank? A scorer swap that reorders the results tells you the
+   original ranking was never about the architectures.
 """),
 ]
 
@@ -1873,10 +2087,10 @@ score()
 # main
 # =========================================================================== #
 LABS = [
-    ("lab-2-01-chain-of-thought-measured",   LAB1),
-    ("lab-2-02-react-parser-contract",       LAB2),
-    ("lab-2-03-subgoals-and-replanning",     LAB3),
-    ("lab-2-04-tree-of-thought-reflection",  LAB4),
+    ("lab-2-01-chain-of-thought-measured",      LAB1),
+    ("lab-2-02-react-parser-contract",          LAB2),
+    ("lab-2-03-subgoals-and-replanning",        LAB3),
+    ("lab-2-04-tree-of-thought-reflection",     LAB4),
     ("lab-2-05-challenge-architecture-bakeoff", LAB5),
 ]
 
