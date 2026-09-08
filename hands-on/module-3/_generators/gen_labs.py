@@ -5,19 +5,22 @@ Generate Module 3 lab notebooks and their solutions from one source.
 Every code cell is declared once. Where the lab and the solution differ, the cell
 carries both variants, so a blank can never drift from the answer that grades it.
 
-    python3 gen_labs.py          # writes ../lab-1-0N-*.ipynb and ../solutions/
+    python3 gen_labs.py          # writes ../lab-3-0N-*.ipynb and ../solutions/
 
-Design rules (from Training/courses/CLAUDE.md and this course's stack):
-  * Graded cells are pure Python -- they never call an LLM, so a self-check is
-    deterministic and a flaky endpoint can never fail a participant.
-  * Live-model cells are clearly marked, guarded, and never crash Run All.
+Design rules (revised 2026-09-08 -- framework-forward Day 1):
+  * The participant writes REAL LangChain / LangGraph code in every lab. The frameworks
+    are the learning, not an optional appendix.
+  * Self-checks assert on framework OBJECTS -- a compiled graph, a bound tool, an emitted
+    tool_call -- which is deterministic and needs no endpoint. Only model INVOCATION needs
+    the gateway, and that lives in "Run it for real" cells, which are observed, not scored.
+  * The score line is feedback, not a gate. Do not let it shape what a lab teaches.
   * "BLANK" marks a blank; an unfilled blank raises NameError and prints [TODO].
     NOT three underscores: IPython PREDEFINES _, __ and ___ as its output history
     (they start as ""), so under a real Jupyter kernel that token is a defined empty
     string, not an undefined name. The NameError never fires, [TODO] silently becomes
-    [FAIL], and a blank used as a loop guard is falsy forever -- lab 1.1 spun in
-    `while True` until the pod was OOM-killed. Plain-exec verifiers cannot see any
-    of this, which is why verify_labs.py now runs cells through IPython.
+    [FAIL], and a blank used as a loop guard never stops its loop.
+  * Blanks live INSIDE function bodies, and anything that builds a framework object at
+    module level is wrapped in guard(), so an untouched lab survives Run All.
 """
 import json, os, re, sys
 
@@ -80,10 +83,11 @@ def header(num, title, level, minutes, bullets, note):
 ### What you'll do
 {items}
 
-> **How this lab works.** Fill every `BLANK`, then run the **Self-check** cell under each section.
-> Graded cells are plain Python and never call a model, so your score never depends on a
-> live endpoint. Cells marked **Run it for real** do call the sandbox model; if it is not
-> reachable they print how to fix it instead of crashing.
+> **How this lab works.** You write real LangChain and LangGraph code. Fill every `BLANK`,
+> then run the **Self-check** cell under each section &mdash; those check the *objects you built*
+> (a bound tool, a compiled graph, an emitted tool call), so they are deterministic and do not
+> depend on the model. Cells marked **Run it for real** put your code in front of the sandbox
+> model; that is the part worth watching. The score line is feedback, not a grade.
 
 {note}
 """)
@@ -119,24 +123,31 @@ def guard(fn: Callable[[], Any], default: Any = None) -> Any:
     """Run fn(). If a blank above is still unfilled, say so and carry on -- never crash Run All."""
     try:
         return fn()
-    except NameError:
-        print("(a blank above is still unfilled -- fill it in, then re-run this cell)")
+    except NameError as exc:
+        print(f"(a blank above is still unfilled: {{exc}} -- fill it in, then re-run this cell)")
         return default
 
 def score() -> None:
     done = [r for r in _results if r is not None]
     passed = sum(1 for r in done if r)
     todo = sum(1 for r in _results if r is None)
-    print(f"\\nScore: {{passed}}/{{len(_results)}}" + (f"   ({{todo}} still TODO)" if todo else ""))
+    print(f"\\nSelf-check: {{passed}}/{{len(_results)}}" + (f"   ({{todo}} still TODO)" if todo else ""))
 
 # ---- the sandbox model ---------------------------------------------------
 # Your sandbox already has an LLM configured -- nothing to install, no key to register.
-# These two values are read from the environment so this notebook never hardcodes an endpoint.
+# These values are read from the environment so this notebook never hardcodes an endpoint.
 LLM_BASE_URL = (os.environ.get("LAB_LLM_BASE_URL") or os.environ.get("OPENAI_BASE_URL")
                 or os.environ.get("LITELLM_BASE_URL"))
 LLM_MODEL    = (os.environ.get("LAB_LLM_MODEL") or os.environ.get("OPENAI_MODEL")
                 or os.environ.get("LITELLM_MODEL"))
 LLM_API_KEY  = os.environ.get("OPENAI_API_KEY", "sandbox")
+
+# The served model reasons before it answers, and the reasoning is billed as completion
+# tokens: 24.1s / 980 tokens with it on, 0.7s / 29 with it off, for the same answer. Off is
+# the default here because you will make a lot of calls today. Pass think=True to see the
+# difference for yourself -- and note that prompts written as an explicit ordered procedure
+# survive thinking being off, while vague ones do not.
+NO_THINK = {{"chat_template_kwargs": {{"enable_thinking": False}}}}
 
 def llm_ready() -> bool:
     if not LLM_BASE_URL or not LLM_MODEL:
@@ -146,26 +157,38 @@ def llm_ready() -> bool:
         return False
     return True
 
-_llm = None
-def get_llm(temperature: float = 0.0):
+_llm_cache = {{}}
+def get_llm(temperature: float = 0.0, think: bool = False):
     """A LangChain chat model pointed at the sandbox gateway (OpenAI-compatible)."""
-    global _llm
-    if _llm is None:
-        from langchain_openai import ChatOpenAI
-        _llm = ChatOpenAI(model=LLM_MODEL, base_url=LLM_BASE_URL,
-                          api_key=LLM_API_KEY, temperature=temperature)
-    return _llm
+    from langchain_openai import ChatOpenAI
+    key = (temperature, think)
+    if key not in _llm_cache:
+        kwargs = {{}} if think else {{"extra_body": NO_THINK}}
+        _llm_cache[key] = ChatOpenAI(model=LLM_MODEL, base_url=LLM_BASE_URL,
+                                     api_key=LLM_API_KEY, temperature=temperature, **kwargs)
+    return _llm_cache[key]
 
-def ask(prompt: str, system: str | None = None) -> str:
+def ask(prompt: str, system: str | None = None, think: bool = False) -> str:
     """One stateless call. Returns text, or an error string -- never raises."""
     try:
         msgs = ([("system", system)] if system else []) + [("human", prompt)]
-        return get_llm().invoke(msgs).content
+        return get_llm(think=think).invoke(msgs).content
     except Exception as exc:
         return f"<model unavailable: {{type(exc).__name__}}: {{exc}}>"
 
+def show_messages(messages, width: int = 88) -> None:
+    """Print a message list the way a trace reads: type, content, and any tool calls."""
+    for m in messages:
+        kind = getattr(m, "type", "?")
+        body = str(getattr(m, "content", "")).replace("\\n", " ")[:width]
+        calls = getattr(m, "tool_calls", None)
+        line = f"  [{{kind:9}}] {{body}}"
+        if calls:
+            line += "  -> calls: " + ", ".join(f"{{c['name']}}({{c['args']}})" for c in calls)
+        print(line)
+
 print("work dir:", WORK)
-print("model   :", LLM_MODEL or "(not configured -- graded cells still work)")
+print("model   :", LLM_MODEL or "(not configured -- the object-level self-checks still work)")
 '''
 
 
@@ -178,7 +201,7 @@ def setup(num, extra=""):
 # --------------------------------------------------------------------------- #
 DOMAIN = '''
 # ------------------------------------------------- the case file (synthetic, self-contained)
-# One domain runs through all five Module 1 labs: payment exceptions on a small ledger.
+# One domain runs through all five Module 3 labs: payment exceptions on a small ledger.
 # Nothing here is real data and nothing leaves this notebook.
 
 LEDGER = {
@@ -210,303 +233,325 @@ print(f"{len(LEDGER)} payments, {len(POLICY)} policy rules loaded")
 
 
 
-# the two tools you wrote in Lab 1.2 of Module 1, carried forward so this notebook stands alone
-CARRIED_TOOLS = '''
-# ------------------------------------------------- carried forward from Lab 1.2 of Module 1
-# These are the tools you wrote in Lab 1.2 of Module 1. Nothing to fill in -- they are here so this
-# notebook runs on its own. Note the docstrings: they name the case AND the boundary.
-
-def lookup_payment(ref: str) -> str:
-    """Return the ledger record for one payment reference such as 'PMT-1002'.
-
-    Use when you need the status, amount, counterparty or reason code of a specific payment.
-    Not for searching across payments.
-    """
-    record = LEDGER.get(ref)
-    if record is None:
-        return f"no payment found with reference {ref!r}"
-    return json.dumps({"ref": ref, **record})
-
-
-def policy_for(reason_code: str) -> str:
-    """Return the operating policy for one failure reason code, e.g. 'LIMIT_BREACH'.
-
-    Use after you know why a payment failed and need to know what to do about it.
-    """
-    return POLICY.get(reason_code, f"no policy on file for reason code {reason_code!r}")
-
-
-TOOLS = {"lookup_payment": lookup_payment, "policy_for": policy_for}
-print("carried forward:", ", ".join(TOOLS))
-'''
-
-
 # =========================================================================== #
-# Lab 3.1 -- memory that survives, and what compaction throws away
+# Lab 3.1 -- memory that survives a long session
 # =========================================================================== #
 LAB1 = [
-    header(1, "Memory That Survives a Long Session", "Intermediate", 30,
-           ["Measure the turn at which buffer memory loses its standing instruction",
-            "Implement summary compaction that keeps the constraint, not just the recent text",
-            "Add episodic memory -- what happened last time, and whether that helps",
-            "Decide deliberately what gets forgotten"],
-           "> **Builds on Lab 1.2's `ShortTermMemory`.** There you kept the window bounded.\n"
-           "> Here you find out what bounding it cost you, and fix the part that mattered."),
+    header(1, "Memory That Survives a Long Session", "Intermediate", 35,
+           ["Watch an agent forget, by growing the history until the window bites",
+            "Bound it with <code>trim_messages</code> &mdash; including the counter that fails here",
+            "Summarise what you drop, so compaction is not amnesia",
+            "Hand the whole problem to a checkpointer and a <code>thread_id</code>"],
+           "> **The thread.** All five Module 3 labs work one case: payment exceptions on a small\n"
+           "> synthetic ledger. Modules 1 and 2 built the agent; Module 3 gives it a memory and a\n"
+           "> state you can inspect."),
     setup(1),
     code(DOMAIN),
 
     md("""
 ## Concept
 
-Buffer memory grows linearly and the context window is fixed, so there is always a turn **N** at
-which the earliest content falls out. Usually that content is the standing instruction, so the
-agent quietly stops obeying it. Nothing errors.
+Everything an agent "remembers" is something your code put back in front of it. That leaves three
+jobs, and LangChain has a piece for each:
 
-Compaction bounds the window, but it is **lossy by construction**. The engineering question is not
-whether to lose something &mdash; it is whether you chose what.
+| Job | The piece |
+|---|---|
+| keep the window bounded | `trim_messages` |
+| keep what you dropped | a summary chain |
+| keep it across turns and restarts | a checkpointer + `thread_id` |
+
+Do the first without the second and you have built amnesia with a token budget.
 """),
 
     md("""
-## Section 1 &mdash; Find the failure turn
+## Section 1 &mdash; Find the turn where it forgets
 
-Before fixing anything, measure it. Given a window budget and an average turn size, at what turn
-does the standing instruction fall out of a pure buffer?
+A long investigation, one important fact stated at the very beginning. Grow the history until
+the fact falls out of the window, and note which turn it happened on.
 """),
     code('''
-WINDOW_TOKENS = 800                  # a deliberately small window, so the effect is visible
-INSTRUCTION_TOKENS = 60              # the standing instruction, sent first
-TURN_TOKENS = 40                     # an average turn
+from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
+from langchain_core.messages.utils import count_tokens_approximately
 
-def failure_turn(window=WINDOW_TOKENS, instruction=INSTRUCTION_TOKENS, per_turn=TURN_TOKENS):
-    """The first turn number at which the instruction no longer fits alongside the turns.
+SYSTEM = ("You are a payments operations analyst working one case. Answer only from this "
+          "conversation.")
 
-    Buffer memory sends: instruction + every turn so far. Once that exceeds the window,
-    the oldest content -- the instruction -- is what gets dropped.
-    """
-    turn = 0
-    while True:
-        turn += 1
-        used = instruction + turn * per_turn
-        if BLANK:                    # TODO: has the buffer outgrown the window?
-            return turn
-''', '''
-WINDOW_TOKENS = 800                  # a deliberately small window, so the effect is visible
-INSTRUCTION_TOKENS = 60              # the standing instruction, sent first
-TURN_TOKENS = 40                     # an average turn
+THE_FACT = "The client contact for this case is Priya Raman on the Singapore desk."
 
-def failure_turn(window=WINDOW_TOKENS, instruction=INSTRUCTION_TOKENS, per_turn=TURN_TOKENS):
-    """The first turn number at which the instruction no longer fits alongside the turns.
-
-    Buffer memory sends: instruction + every turn so far. Once that exceeds the window,
-    the oldest content -- the instruction -- is what gets dropped.
-    """
-    turn = 0
-    while True:
-        turn += 1
-        used = instruction + turn * per_turn
-        if used > window:
-            return turn
-'''),
-    code('''
-# --- Self-check: Section 1
-check("the failure turn is computed, not guessed", lambda: failure_turn() == 19,
-      "60 + 19*40 = 820 > 800, while 60 + 18*40 = 780 still fits")
-check("a bigger window survives longer",
-      lambda: failure_turn(window=4000) > failure_turn(window=800))
-check("chattier turns fail sooner",
-      lambda: failure_turn(per_turn=200) < failure_turn(per_turn=40))
-check("the instruction's own size matters",
-      lambda: failure_turn(instruction=600) < failure_turn(instruction=60))
-
-for w in (800, 4000, 32000):
-    try:
-        print(f"  window {w:>6} tokens -> instruction drops out at turn {failure_turn(window=w)}")
-    except NameError:
-        print("(fill in failure_turn above)"); break
-'''),
-
-    md("""
-## Section 2 &mdash; Compaction that keeps what matters
-
-Lab 1.2 kept the recent half and folded the rest into a summary. That bounds the window but can
-still lose the standing instruction. Pin it instead.
-"""),
-    code('''
-class Memory:
-    """Recent turns verbatim, older ones summarised, and a pinned instruction that never ages out."""
-
-    def __init__(self, instruction: str, max_turns: int = 6):
-        self.instruction = instruction
-        self.max_turns = max_turns
-        self.turns: list[tuple[str, str]] = []
-        self.summary = ""
-
-    def add(self, role: str, text: str) -> None:
-        self.turns.append((role, text))
-        if len(self.turns) > self.max_turns:
-            self.compact()
-
-    def compact(self) -> None:
-        keep = max(1, self.max_turns // 2)
-        older, self.turns = self.turns[:-keep], self.turns[-keep:]
-        self.summary = (self.summary + " " + " ".join(t for _, t in older)).strip()
-
-    def render(self) -> list[tuple[str, str]]:
-        """The messages to send. The instruction is pinned FIRST and always present."""
-        out = BLANK                  # TODO: start with the pinned instruction as a system message
-        if self.summary:
-            out = out + [("system", "Earlier in this case: " + self.summary)]
-        return out + list(self.turns)
-''', '''
-class Memory:
-    """Recent turns verbatim, older ones summarised, and a pinned instruction that never ages out."""
-
-    def __init__(self, instruction: str, max_turns: int = 6):
-        self.instruction = instruction
-        self.max_turns = max_turns
-        self.turns: list[tuple[str, str]] = []
-        self.summary = ""
-
-    def add(self, role: str, text: str) -> None:
-        self.turns.append((role, text))
-        if len(self.turns) > self.max_turns:
-            self.compact()
-
-    def compact(self) -> None:
-        keep = max(1, self.max_turns // 2)
-        older, self.turns = self.turns[:-keep], self.turns[-keep:]
-        self.summary = (self.summary + " " + " ".join(t for _, t in older)).strip()
-
-    def render(self) -> list[tuple[str, str]]:
-        """The messages to send. The instruction is pinned FIRST and always present."""
-        out = [("system", self.instruction)]
-        if self.summary:
-            out = out + [("system", "Earlier in this case: " + self.summary)]
-        return out + list(self.turns)
-'''),
-    code('''
-# --- Self-check: Section 2
-INSTRUCTION = "Never propose releasing a payment that policy reserves for a human."
-
-def _aged(n=40):
-    m = Memory(INSTRUCTION, max_turns=6)
-    for i in range(n):
-        m.add("human" if i % 2 == 0 else "ai", f"turn {i}")
-    return m
-
-check("the window stays bounded after 40 turns", lambda: len(_aged().turns) <= 6)
-check("the instruction is still present at turn 40",
-      lambda: any(INSTRUCTION in t for _, t in _aged().render()),
-      "pin it in render() -- it must not be subject to compaction")
-check("the instruction comes first", lambda: _aged().render()[0][1] == INSTRUCTION)
-check("the summary sits between the instruction and the recent turns",
-      lambda: _aged().render()[1][0] == "system" and "Earlier" in _aged().render()[1][1])
-check("a short conversation carries no summary",
-      lambda: len(Memory(INSTRUCTION, 6).render()) == 1)
-'''),
-
-    md("""
-## Section 3 &mdash; What compaction threw away
-
-Bounded is not the same as harmless. Measure the loss: which specific facts from early turns can no
-longer be recovered from the rendered context?
-"""),
-    code('''
-def recoverable(memory: Memory, fact: str) -> bool:
-    """True when `fact` can still be found anywhere in what would be sent to the model."""
-    return any(fact.lower() in text.lower() for _, text in memory.render())
-
-def compaction_loss(facts: list[str], turns: int = 40) -> list[str]:
-    """Run a session of `turns` turns, stating each fact early, and return the facts lost."""
-    m = Memory(INSTRUCTION, max_turns=6)
-    for f in facts:
-        m.add("human", f)
+def long_session(turns: int = 14) -> list:
+    """A conversation whose first human turn carries the fact that matters."""
+    msgs = [SystemMessage(SYSTEM), HumanMessage(f"Open the case for PMT-1005. {THE_FACT}")]
     for i in range(turns):
-        m.add("ai", f"working, step {i}")
-    return BLANK                     # TODO: the facts that are no longer recoverable
-''', '''
-def recoverable(memory: Memory, fact: str) -> bool:
-    """True when `fact` can still be found anywhere in what would be sent to the model."""
-    return any(fact.lower() in text.lower() for _, text in memory.render())
+        msgs.append(AIMessage(f"Noted. Checking sanction screening batch {i}: "
+                              + "reviewing the counterparty records in detail. " * 6))
+        msgs.append(HumanMessage(f"And what about batch {i + 1}?"))
+    return msgs
 
-def compaction_loss(facts: list[str], turns: int = 40) -> list[str]:
-    """Run a session of `turns` turns, stating each fact early, and return the facts lost."""
-    m = Memory(INSTRUCTION, max_turns=6)
-    for f in facts:
-        m.add("human", f)
+
+def window_fits(messages: list, budget: int) -> bool:
+    """Does this conversation still fit the budget?"""
+    return BLANK                      # TODO: measure the messages, compare against the budget
+''', '''
+from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
+from langchain_core.messages.utils import count_tokens_approximately
+
+SYSTEM = ("You are a payments operations analyst working one case. Answer only from this "
+          "conversation.")
+
+THE_FACT = "The client contact for this case is Priya Raman on the Singapore desk."
+
+def long_session(turns: int = 14) -> list:
+    """A conversation whose first human turn carries the fact that matters."""
+    msgs = [SystemMessage(SYSTEM), HumanMessage(f"Open the case for PMT-1005. {THE_FACT}")]
     for i in range(turns):
-        m.add("ai", f"working, step {i}")
-    return [f for f in facts if not recoverable(m, f)]
+        msgs.append(AIMessage(f"Noted. Checking sanction screening batch {i}: "
+                              + "reviewing the counterparty records in detail. " * 6))
+        msgs.append(HumanMessage(f"And what about batch {i + 1}?"))
+    return msgs
+
+
+def window_fits(messages: list, budget: int) -> bool:
+    """Does this conversation still fit the budget?"""
+    return count_tokens_approximately(messages) <= budget
 '''),
     code('''
-# --- Self-check: Section 3
-FACTS = ["The case reference is PMT-1005.",
-         "The client contact is the Frankfurt desk.",
-         "Do not contact the counterparty directly."]
+# --- Self-check: Section 1   (counting only -- no model call)
+BUDGET = 400
 
-check("concatenating summaries keeps early facts recoverable",
-      lambda: compaction_loss(FACTS) == [],
-      "this compaction folds text rather than discarding it -- so nothing is lost YET")
-check("the instruction survives regardless",
-      lambda: recoverable(_aged(), "reserves for a human"))
+check("a short session fits",
+      lambda: window_fits(long_session(0), BUDGET) is True)
+check("a long session does not",
+      lambda: window_fits(long_session(14), BUDGET) is False)
+check("the count grows with the conversation",
+      lambda: count_tokens_approximately(long_session(10))
+              > count_tokens_approximately(long_session(2)))
+check("the fact is in the session to begin with",
+      lambda: any("Priya" in str(m.content) for m in long_session(14)),
+      "everything below is about whether it is still there LATER")
 
-# ...but a summariser that REWRITES rather than concatenates does lose things:
-class LossyMemory(Memory):
-    def compact(self):
-        keep = max(1, self.max_turns // 2)
-        older, self.turns = self.turns[:-keep], self.turns[-keep:]
-        self.summary = f"[{len(older)} earlier turns summarised]"   # a real summariser, abbreviating
-
-def _lossy():
-    m = LossyMemory(INSTRUCTION, max_turns=6)
-    for f in FACTS:
-        m.add("human", f)
-    for i in range(40):
-        m.add("ai", f"step {i}")
-    return m
-
-check("a rewriting summariser DOES lose the early facts",
-      lambda: not recoverable(_lossy(), "Frankfurt"),
-      "this is the real behaviour of an LLM summariser, and the reason to pin what matters")
-check("...but the pinned instruction still survives it",
-      lambda: recoverable(_lossy(), "reserves for a human"),
-      "pinning is what makes compaction safe to use")
+def _first_overflow():
+    for n in range(0, 20):
+        if not window_fits(long_session(n), BUDGET):
+            return n
+    return None
+guard(lambda: print(f"\\nthe window overflows at turn {_first_overflow()} "
+                    f"on a {BUDGET}-token budget"))
 '''),
 
     md("""
-## Run it for real
+## Section 2 &mdash; Bound it, and keep what you drop
 
-Ask the model to compact, which is what a production summariser does &mdash; then check whether your
-facts survived it.
+`trim_messages` bounds the window. On its own that is amnesia: the fact from turn one is simply
+gone. So summarise what you are about to drop and put the summary back as a system message.
+
+**The counter matters.** The obvious `token_counter=llm` raises `NotImplementedError` here &mdash;
+`langchain-openai` can only count for models `tiktoken` has an encoding for, and a
+gateway-served model is not one. Use `count_tokens_approximately`, a plain function over the text.
+"""),
+    code('''
+from langchain_core.messages import trim_messages
+
+def bounded(messages: list, budget: int = 400) -> list:
+    """Keep the system message and as many recent turns as fit."""
+    return trim_messages(
+        messages, max_tokens=budget,
+        token_counter=BLANK,          # TODO: which counter works for a gateway-served model?
+        strategy="last", include_system=True, start_on="human", allow_partial=False)
+
+
+def compact(messages: list, budget: int = 400) -> list:
+    """Trim, then put a summary of what was dropped back in front of what survived."""
+    kept = bounded(messages, budget)
+    kept_ids = {id(m) for m in kept}
+    dropped = [m for m in messages if id(m) not in kept_ids and m.type != "system"]
+    if not dropped:
+        return kept
+    summary = summarise(dropped)
+    head = [m for m in kept if m.type == "system"]
+    tail = [m for m in kept if m.type != "system"]
+    return head + [SystemMessage("Earlier in this case: " + summary)] + tail
+
+
+def summarise(dropped: list) -> str:
+    """One line covering the turns that are about to be discarded."""
+    if not llm_ready():
+        return " ".join(str(m.content) for m in dropped)[:300]
+    joined = "\\n".join(f"{m.type}: {m.content}" for m in dropped)[:4000]
+    return ask("Summarise these earlier turns in two sentences. Preserve every proper noun, "
+               "reference number and named person exactly.\\n\\n" + joined)
+''', '''
+from langchain_core.messages import trim_messages
+
+def bounded(messages: list, budget: int = 400) -> list:
+    """Keep the system message and as many recent turns as fit."""
+    return trim_messages(
+        messages, max_tokens=budget,
+        token_counter=count_tokens_approximately,   # a plain function over the message text
+        strategy="last", include_system=True, start_on="human", allow_partial=False)
+
+
+def compact(messages: list, budget: int = 400) -> list:
+    """Trim, then put a summary of what was dropped back in front of what survived."""
+    kept = bounded(messages, budget)
+    kept_ids = {id(m) for m in kept}
+    dropped = [m for m in messages if id(m) not in kept_ids and m.type != "system"]
+    if not dropped:
+        return kept
+    summary = summarise(dropped)
+    head = [m for m in kept if m.type == "system"]
+    tail = [m for m in kept if m.type != "system"]
+    return head + [SystemMessage("Earlier in this case: " + summary)] + tail
+
+
+def summarise(dropped: list) -> str:
+    """One line covering the turns that are about to be discarded."""
+    if not llm_ready():
+        return " ".join(str(m.content) for m in dropped)[:300]
+    joined = "\\n".join(f"{m.type}: {m.content}" for m in dropped)[:4000]
+    return ask("Summarise these earlier turns in two sentences. Preserve every proper noun, "
+               "reference number and named person exactly.\\n\\n" + joined)
+'''),
+    code('''
+# --- Self-check: Section 2   (trim_messages is pure; summarise degrades offline)
+_long = long_session(14)
+
+check("trimming bounds the window",
+      lambda: window_fits(bounded(_long), 420) is True,
+      "trim_messages needs a token_counter it can actually call on this model")
+check("trimming really dropped turns",
+      lambda: len(bounded(_long)) < len(_long))
+check("the system message survives",
+      lambda: bounded(_long)[0].type == "system",
+      "include_system=True -- dropping the instructions is the worst possible trim")
+check("what survives is the END of the conversation",
+      lambda: bounded(_long)[-1].content == _long[-1].content,
+      \'strategy="last" keeps recent turns; "first" would keep the stale ones\')
+check("plain trimming LOSES the fact from turn one",
+      lambda: not any("Priya" in str(m.content) for m in bounded(_long)),
+      "this is the point of the section -- a bounded window is amnesia unless you do more")
+check("compaction puts a summary back",
+      lambda: sum(1 for m in compact(_long) if m.type == "system") == 2,
+      "one system message for the instructions, one for what was dropped")
+check("a short session is left alone",
+      lambda: len(compact(long_session(0))) == len(long_session(0)))
+'''),
+
+    md("""
+## Section 3 &mdash; Or: let a checkpointer do it
+
+Everything above is what you write when you are managing the message list yourself. Attach a
+**checkpointer** to `create_agent` and the history is stored for you, keyed by `thread_id` &mdash;
+across turns, across restarts, and separately per case.
+
+The two approaches are not rivals. The checkpointer decides *where the history lives*; trimming
+decides *how much of it you send*. Real systems do both.
+"""),
+    code('''
+from langchain_core.tools import tool
+from langchain.agents import create_agent
+from langgraph.checkpoint.memory import InMemorySaver
+
+@tool
+def lookup_payment(ref: str) -> str:
+    """Return the ledger record for one payment reference such as 'PMT-1005'."""
+    rec = LEDGER.get(ref)
+    return json.dumps({"ref": ref, **rec}) if rec else f"no payment found with reference {ref!r}"
+
+def remembering_agent():
+    """An agent whose history is kept for it, per thread."""
+    return create_agent(model=get_llm(), tools=[lookup_payment], system_prompt=SYSTEM,
+                        checkpointer=InMemorySaver())
+
+def thread(case_ref: str) -> dict:
+    """The config that selects which conversation this call belongs to."""
+    return {"configurable": {"thread_id": BLANK}}   # TODO: what separates one case from another?
+''', '''
+from langchain_core.tools import tool
+from langchain.agents import create_agent
+from langgraph.checkpoint.memory import InMemorySaver
+
+@tool
+def lookup_payment(ref: str) -> str:
+    """Return the ledger record for one payment reference such as 'PMT-1005'."""
+    rec = LEDGER.get(ref)
+    return json.dumps({"ref": ref, **rec}) if rec else f"no payment found with reference {ref!r}"
+
+def remembering_agent():
+    """An agent whose history is kept for it, per thread."""
+    return create_agent(model=get_llm(), tools=[lookup_payment], system_prompt=SYSTEM,
+                        checkpointer=InMemorySaver())
+
+def thread(case_ref: str) -> dict:
+    """The config that selects which conversation this call belongs to."""
+    return {"configurable": {"thread_id": case_ref}}
+'''),
+    code('''
+# --- Self-check: Section 3   (config shape only -- no model call)
+check("the thread config has the shape LangGraph expects",
+      lambda: set(thread("PMT-1005")) == {"configurable"})
+check("the thread is keyed by the case",
+      lambda: thread("PMT-1005")["configurable"]["thread_id"] == "PMT-1005")
+check("two cases get two threads",
+      lambda: thread("PMT-1005") != thread("PMT-1003"),
+      "one thread_id for everything is how one client sees another client's case")
+'''),
+
+    md("""
+## Run it for real &mdash; forgetting, and not forgetting
 """),
     code('''
 if llm_ready():
-    try:
-        transcript = " ".join([
-            "The case reference is PMT-1005.",
-            "The client contact is the Frankfurt desk.",
-            "Do not contact the counterparty directly.",
-        ] + [f"Analyst checked step {i} and found nothing unusual." for i in range(20)])
+    def _forget():
+        session = long_session(14)
+        question = "Who is the client contact for this case?"
 
-        summary = ask(
-            "Summarise this case transcript in at most two sentences for an operations handover.\\n\\n"
-            + transcript)
-        print("SUMMARY:\\n  " + summary.strip().replace("\\n", "\\n  "))
-        print("\\nsurvived compaction?")
-        for f in ("PMT-1005", "Frankfurt", "counterparty"):
-            print(f"  {f:16} {'yes' if f.lower() in summary.lower() else 'NO -- lost'}")
-    except NameError:
-        print("(fill in the blanks above, then re-run this cell)")
+        naive = bounded(session) + [HumanMessage(question)]
+        kept  = compact(session)  + [HumanMessage(question)]
+
+        print("--- trimmed only ---")
+        print(get_llm().invoke(naive).content[:220])
+        print("\\n--- trimmed, with a summary of what was dropped ---")
+        print(get_llm().invoke(kept).content[:220])
+        print("\\nsummary that was carried forward:")
+        print("  " + next(m.content for m in kept if "Earlier in this case" in str(m.content))[:300])
+    guard(_forget)
+'''),
+    md("""
+## Run it for real &mdash; the checkpointer
+"""),
+    code('''
+if llm_ready():
+    def _threads():
+        agent = remembering_agent()
+        agent.invoke({"messages": [HumanMessage("Open PMT-1005. The contact is Priya Raman.")]},
+                     thread("PMT-1005"))
+        agent.invoke({"messages": [HumanMessage("Open PMT-1003. The contact is Lee Wei.")]},
+                     thread("PMT-1003"))
+
+        for ref in ("PMT-1005", "PMT-1003"):
+            out = agent.invoke({"messages": [HumanMessage("Who is the contact for this case?")]},
+                               thread(ref))
+            print(f"{ref}: {out['messages'][-1].content[:120]}")
+            print(f"          {len(out['messages'])} messages on this thread")
+    guard(_threads)
 '''),
     md("""
 ### Read it
 
-Whatever the model dropped, it dropped **silently and plausibly** &mdash; the summary reads fine. That is
-the whole risk: compaction failures are invisible at the point they happen and only surface later,
-as an agent that has stopped honouring something it was told.
+**The first pair.** Trimming alone answers the contact question wrongly or not at all &mdash; Priya
+Raman fell out of the window twelve turns ago. Trimming *with a summary* still has her, in one
+line instead of twenty. That is the difference between compaction and amnesia, and it is why
+`summarise` is told to preserve proper nouns exactly: a summary that paraphrases names has thrown
+away the only part that mattered.
 
-Two defences, in order: **pin** what must never be lost, and **test** what your summariser keeps
-against a list of facts you care about. This lab is that test.
+**The second pair.** Two threads, two histories, no code of yours managing either. Each `thread_id`
+is a separate conversation, and the agent answered each from its own. Note what would happen if
+`thread()` returned a constant: every case would append to one history, and the second client's
+contact would be answered with the first client's name. That is not a hypothetical bug &mdash; it is
+the single commonest way agent memory leaks between users.
+
+Neither approach removes the need for the other. The checkpointer stores everything forever;
+`trim_messages` decides how much of it you pay to send on this turn.
 """),
 
     code('''
@@ -515,269 +560,314 @@ score()
     md("""
 ## Your turn
 
-1. Add an `episodic` list to `Memory` holding one line per past case, and include the three most
-   recent in `render()`. Then ask: when would recalling a past case make the agent *worse*?
-2. Pinning costs tokens on every single turn. Work out the break-even: how long must a session be
-   before pinning a 60-token instruction is cheaper than the failure it prevents?
+1. Put the two together: trim the messages the checkpointed agent sends without deleting them
+   from the thread. (`create_agent` takes middleware for this; failing that, trim before you
+   pass them in.) Confirm the thread still has the full history afterwards.
+2. Change `summarise` to drop the "preserve every proper noun" instruction and re-run. Count how
+   many turns it takes before the contact's name is gone. That sentence is the whole safeguard.
+3. Swap `InMemorySaver` for `SqliteSaver` writing to a file under `WORK`, restart the kernel, and
+   ask the follow-up question again. Lab 3.4 is about what that buys you.
 """),
 ]
 
 
 # =========================================================================== #
-# Lab 3.2 -- perception: raw output into an observation
+# Lab 3.2 -- perception: turning raw output into an observation
 # =========================================================================== #
 LAB2 = [
-    header(2, "Perception &mdash; Turning Raw Output into an Observation", "Intermediate &rarr; Advanced", 30,
-           ["Turn an opaque record into something the model cannot misread",
-            "Distinguish the four kinds of nothing a tool can return",
-            "Stamp freshness, completeness and authority onto every observation",
-            "Measure the token cost of being clear -- it is usually negative"],
-           "> **The cheapest accuracy in the course.** No model change, no extra call: you are only\n"
-           "> deciding what the agent gets to see."),
+    header(2, "Perception &mdash; Raw Output Is Not an Observation", "Intermediate &rarr; Advanced", 35,
+           ["Turn an opaque upstream record into a typed observation with a schema",
+            "Distinguish the four kinds of &ldquo;nothing&rdquo; a tool can return",
+            "Stamp in what the agent cannot see &mdash; time, authority, provenance",
+            "Watch the same model answer well and badly on the same facts"],
+           "> **Builds on Lab 3.1.** Memory decides what the agent still knows. Perception decides\n"
+           "> what it ever knew in the first place."),
     setup(2),
     code(DOMAIN),
 
     md("""
 ## Concept
 
-A tool returns data. An **observation** is data plus the meaning the agent needs to act on it. Most
-agent failures blamed on reasoning are really the model guessing at a field it was never told how
-to read &mdash; and guessing the reassuring way.
+An agent does not see the world. It sees whatever your tool returned, rendered as text. Handing
+a model a raw upstream payload and hoping is the commonest reason a competent agent gives an
+incompetent answer.
+
+**Perception** is the step between: decode the record, resolve the codes, add what the model
+cannot know, and say plainly what is missing. `with_structured_output` gives you somewhere to put
+the result that is checkable.
 """),
 
     md("""
 ## Section 1 &mdash; Decode the opaque record
 
-The upstream system speaks in codes. The agent should never have to guess what they mean.
+This is what the upstream ledger actually returns. Every field is a code, an epoch, or a flag.
 """),
     code('''
-# what the upstream ledger actually returns
-RAW = {"i": 1003, "a": 990000.0, "c": "USD", "s": 2, "rc": 7,
-       "vd": "2026-09-02", "cp": 19, "f": None, "x": [], "ts": 1757030400}
+from pydantic import BaseModel, Field
+from typing import Literal, Optional
 
-STATUS_CODES = {0: "settled", 1: "failed", 2: "held"}
-REASON_CODES = {5: "INSUFFICIENT_FUNDS", 6: "INVALID_IBAN", 7: "LIMIT_BREACH", 8: "SANCTIONS_REVIEW"}
-LIMIT_USD = 500000.0
+RAW = {
+    "id": "PMT-1005",
+    "amt": 75000000,                  # minor units
+    "cur": 840,                       # ISO 4217 numeric
+    "st": 3,                          # 1 settled, 2 failed, 3 held
+    "rc": "SR",                       # abbreviated reason code
+    "vd": 1788393600,                 # value date, epoch seconds (2026-09-03)
+    "cp": "NORTHWIND",
+}
 
-def observe(raw: dict) -> str:
-    """Render one raw ledger record as an observation a model can act on.
+CURRENCIES = {840: "USD", 978: "EUR", 826: "GBP"}
+STATUSES = {1: "settled", 2: "failed", 3: "held"}
+REASONS = {"IF": "INSUFFICIENT_FUNDS", "LB": "LIMIT_BREACH",
+           "II": "INVALID_IBAN", "SR": "SANCTIONS_REVIEW"}
 
-    Must state: the reference, the decoded status, the decoded reason, and -- where the
-    reason is a limit breach -- the comparison that explains it.
-    """
-    status = STATUS_CODES.get(raw["s"], "unknown")
-    reason = REASON_CODES.get(raw["rc"], "unknown")
-    lines = [f"PMT-{raw['i']} is {status.upper()}.", f"Reason: {reason}"]
-    if reason == "LIMIT_BREACH":
-        lines.append(BLANK)          # TODO: the comparison that makes the reason self-evident,
-                                     # e.g. "USD 990,000.00 exceeds the 500,000.00 limit."
-    return " ".join(lines)
+
+class Observation(BaseModel):
+    """What the agent is actually told about one payment."""
+    ref: str
+    amount: float = Field(description="In major units, not minor")
+    currency: str = Field(description="Three-letter code, e.g. USD")
+    status: Literal["settled", "failed", "held"]
+    reason_code: Optional[str] = Field(description="Expanded reason code, or None")
+    value_date: str = Field(description="ISO date, e.g. 2026-09-03")
+
+
+def perceive(raw: dict) -> Observation:
+    """Turn the upstream record into something a model can reason about."""
+    return Observation(
+        ref=raw["id"],
+        amount=BLANK,                 # TODO: minor units -> major units
+        currency=CURRENCIES.get(raw["cur"], f"UNKNOWN({raw['cur']})"),
+        status=STATUSES[raw["st"]],
+        reason_code=REASONS.get(raw["rc"]),
+        value_date=time.strftime("%Y-%m-%d", time.gmtime(raw["vd"])),
+    )
 ''', '''
-# what the upstream ledger actually returns
-RAW = {"i": 1003, "a": 990000.0, "c": "USD", "s": 2, "rc": 7,
-       "vd": "2026-09-02", "cp": 19, "f": None, "x": [], "ts": 1757030400}
+from pydantic import BaseModel, Field
+from typing import Literal, Optional
 
-STATUS_CODES = {0: "settled", 1: "failed", 2: "held"}
-REASON_CODES = {5: "INSUFFICIENT_FUNDS", 6: "INVALID_IBAN", 7: "LIMIT_BREACH", 8: "SANCTIONS_REVIEW"}
-LIMIT_USD = 500000.0
+RAW = {
+    "id": "PMT-1005",
+    "amt": 75000000,                  # minor units
+    "cur": 840,                       # ISO 4217 numeric
+    "st": 3,                          # 1 settled, 2 failed, 3 held
+    "rc": "SR",                       # abbreviated reason code
+    "vd": 1788393600,                 # value date, epoch seconds (2026-09-03)
+    "cp": "NORTHWIND",
+}
 
-def observe(raw: dict) -> str:
-    """Render one raw ledger record as an observation a model can act on.
+CURRENCIES = {840: "USD", 978: "EUR", 826: "GBP"}
+STATUSES = {1: "settled", 2: "failed", 3: "held"}
+REASONS = {"IF": "INSUFFICIENT_FUNDS", "LB": "LIMIT_BREACH",
+           "II": "INVALID_IBAN", "SR": "SANCTIONS_REVIEW"}
 
-    Must state: the reference, the decoded status, the decoded reason, and -- where the
-    reason is a limit breach -- the comparison that explains it.
-    """
-    status = STATUS_CODES.get(raw["s"], "unknown")
-    reason = REASON_CODES.get(raw["rc"], "unknown")
-    lines = [f"PMT-{raw['i']} is {status.upper()}.", f"Reason: {reason}"]
-    if reason == "LIMIT_BREACH":
-        lines.append(f"{raw['c']} {raw['a']:,.2f} exceeds the {LIMIT_USD:,.2f} limit.")
-    return " ".join(lines)
+
+class Observation(BaseModel):
+    """What the agent is actually told about one payment."""
+    ref: str
+    amount: float = Field(description="In major units, not minor")
+    currency: str = Field(description="Three-letter code, e.g. USD")
+    status: Literal["settled", "failed", "held"]
+    reason_code: Optional[str] = Field(description="Expanded reason code, or None")
+    value_date: str = Field(description="ISO date, e.g. 2026-09-03")
+
+
+def perceive(raw: dict) -> Observation:
+    """Turn the upstream record into something a model can reason about."""
+    return Observation(
+        ref=raw["id"],
+        amount=raw["amt"] / 100,      # the ledger speaks in cents; the model does not
+        currency=CURRENCIES.get(raw["cur"], f"UNKNOWN({raw['cur']})"),
+        status=STATUSES[raw["st"]],
+        reason_code=REASONS.get(raw["rc"]),
+        value_date=time.strftime("%Y-%m-%d", time.gmtime(raw["vd"])),
+    )
 '''),
     code('''
-# --- Self-check: Section 1
-check("the reference is stated in the form the tools use",
-      lambda: "PMT-1003" in observe(RAW))
-check("the status code is decoded, not passed through",
-      lambda: "HELD" in observe(RAW) and '"s": 2' not in observe(RAW))
-check("the reason code is decoded", lambda: "LIMIT_BREACH" in observe(RAW))
-check("the limit comparison is spelled out",
-      lambda: "990,000.00" in observe(RAW) and "500,000.00" in observe(RAW),
-      "the model should not have to know the limit to understand the reason")
-check("a settled record needs no comparison",
-      lambda: "exceeds" not in observe({**RAW, "s": 0, "rc": 0}))
-check("the observation is far shorter than the raw record",
-      lambda: len(observe(RAW)) < len(json.dumps(RAW)) * 1.5)
+# --- Self-check: Section 1   (pure decoding -- no model call)
+check("the amount is in major units",
+      lambda: perceive(RAW).amount == 750000.0,
+      "75000000 minor units is USD 750,000 -- a model told 75000000 will reason about the wrong number")
+check("the currency code is resolved",  lambda: perceive(RAW).currency == "USD")
+check("the status is resolved",         lambda: perceive(RAW).status == "held")
+check("the reason code is expanded",    lambda: perceive(RAW).reason_code == "SANCTIONS_REVIEW",
+      \'"SR" means nothing to a model; SANCTIONS_REVIEW appears in the policy catalogue\')
+check("the epoch is a readable date",   lambda: perceive(RAW).value_date.startswith("2026-09"))
+def _rejects_bad_status():
+    try:
+        Observation(ref="X", amount=1.0, currency="USD", status="pending",
+                    reason_code=None, value_date="2026-09-03")
+        return False
+    except Exception:
+        return True
+
+check("an invalid status is rejected by the schema",
+      lambda: _rejects_bad_status(),
+      "Literal[...] means a decoding bug fails here, not three steps later in a policy lookup")
 '''),
 
     md("""
 ## Section 2 &mdash; The four kinds of nothing
 
-An empty result is the most dangerous thing a tool returns, because the reassuring reading and the
-alarming one look identical.
+An empty result is not one thing. "No such payment", "no permission to see it", "the upstream is
+down" and "it exists and has no reason code" all arrive as something falsy, and they require four
+different responses. Collapsing them is how an agent confidently reports that a payment does not
+exist when it simply could not read it.
 """),
     code('''
 def describe_empty(result: dict) -> str:
-    """Say which kind of nothing this is.
-
-    result carries: ran (bool), error (str|None), matches (list), total (int|None)
-    Returns one of: "checked_clear", "not_run", "partial", "unknown_total"
-    """
-    if result["error"] or not result["ran"]:
-        return BLANK                 # TODO: the check did not actually happen
-    if result["total"] is None:
-        return "unknown_total"
-    if len(result["matches"]) < result["total"]:
-        return "partial"
-    return "checked_clear"
-
-def render_screening(result: dict) -> str:
-    """The observation a screening tool should return -- never a bare empty list."""
-    kind = describe_empty(result)
-    return {
-        "checked_clear":  f"Sanctions screening ran and found 0 of {result['total']} records matching. Clear.",
-        "not_run":        f"Sanctions screening DID NOT RUN ({result['error'] or 'no reason given'}). Result unknown -- do not treat as clear.",
-        "partial":        f"Sanctions screening returned {len(result['matches'])} of {result['total']} records. Incomplete.",
-        "unknown_total":  "Sanctions screening returned results but the total is unknown. Completeness cannot be established.",
-    }[kind]
+    """Say which kind of nothing this is."""
+    if result.get("error") == "not_found":
+        return "no such payment exists"
+    if result.get("error") == "forbidden":
+        return BLANK                  # TODO: the agent must NOT conclude the payment is absent
+    if result.get("error") in ("timeout", "unavailable"):
+        return "could not read the ledger; state unknown"
+    if result.get("record") is not None and not result["record"].get("rc"):
+        return "the payment exists and has no reason code"
+    return "unrecognised result shape"
 ''', '''
 def describe_empty(result: dict) -> str:
-    """Say which kind of nothing this is.
-
-    result carries: ran (bool), error (str|None), matches (list), total (int|None)
-    Returns one of: "checked_clear", "not_run", "partial", "unknown_total"
-    """
-    if result["error"] or not result["ran"]:
-        return "not_run"
-    if result["total"] is None:
-        return "unknown_total"
-    if len(result["matches"]) < result["total"]:
-        return "partial"
-    return "checked_clear"
-
-def render_screening(result: dict) -> str:
-    """The observation a screening tool should return -- never a bare empty list."""
-    kind = describe_empty(result)
-    return {
-        "checked_clear":  f"Sanctions screening ran and found 0 of {result['total']} records matching. Clear.",
-        "not_run":        f"Sanctions screening DID NOT RUN ({result['error'] or 'no reason given'}). Result unknown -- do not treat as clear.",
-        "partial":        f"Sanctions screening returned {len(result['matches'])} of {result['total']} records. Incomplete.",
-        "unknown_total":  "Sanctions screening returned results but the total is unknown. Completeness cannot be established.",
-    }[kind]
+    """Say which kind of nothing this is."""
+    if result.get("error") == "not_found":
+        return "no such payment exists"
+    if result.get("error") == "forbidden":
+        return "not permitted to read this payment; existence unknown"
+    if result.get("error") in ("timeout", "unavailable"):
+        return "could not read the ledger; state unknown"
+    if result.get("record") is not None and not result["record"].get("rc"):
+        return "the payment exists and has no reason code"
+    return "unrecognised result shape"
 '''),
     code('''
 # --- Self-check: Section 2
-CLEAR   = {"ran": True,  "error": None,        "matches": [], "total": 0}
-TIMEOUT = {"ran": False, "error": "timeout",   "matches": [], "total": None}
-PARTIAL = {"ran": True,  "error": None,        "matches": [], "total": 47}
-NOTOTAL = {"ran": True,  "error": None,        "matches": [], "total": None}
-
-check("a genuine all-clear is reported as clear",
-      lambda: describe_empty(CLEAR) == "checked_clear")
-check("a check that did not run is NOT reported as clear",
-      lambda: describe_empty(TIMEOUT) == "not_run",
-      "this is the distinction the whole section exists for")
-check("an incomplete result is flagged", lambda: describe_empty(PARTIAL) == "partial")
-check("an unknown total is flagged", lambda: describe_empty(NOTOTAL) == "unknown_total")
-check("the not-run observation warns against the reassuring reading",
-      lambda: "do not treat as clear" in render_screening(TIMEOUT).lower())
-check("all four render to different text",
-      lambda: len({render_screening(r) for r in (CLEAR, TIMEOUT, PARTIAL, NOTOTAL)}) == 4)
-
-for name, r in (("clear", CLEAR), ("timeout", TIMEOUT), ("partial", PARTIAL), ("no total", NOTOTAL)):
-    try:
-        print(f"  {name:9} -> {render_screening(r)}")
-    except NameError:
-        print("(fill in describe_empty above)"); break
+check("a missing record says so",
+      lambda: "no such payment" in describe_empty({"error": "not_found"}))
+check("a permission failure does NOT claim the payment is missing",
+      lambda: "no such payment" not in describe_empty({"error": "forbidden"}),
+      "this is the dangerous one: 'I cannot see it' is not 'it is not there'")
+check("a permission failure says existence is unknown",
+      lambda: "unknown" in describe_empty({"error": "forbidden"}).lower())
+check("an outage says state unknown",
+      lambda: "unknown" in describe_empty({"error": "timeout"}).lower())
+check("a real record with no reason code is not an error",
+      lambda: "exists" in describe_empty({"record": {"id": "PMT-1001"}}))
+check("all four kinds give different answers",
+      lambda: len({describe_empty({"error": e}) for e in
+                   ("not_found", "forbidden", "timeout")}) == 3)
 '''),
 
     md("""
-## Section 3 &mdash; Stamp what the agent cannot see
+## Section 3 &mdash; Stamp in what the agent cannot see
 
-Freshness, completeness and authority are absent from most tool results, and the agent assumes the
-convenient value for each.
+The model has no clock, no idea who is asking, and no memory of where a fact came from. If those
+matter to the decision &mdash; and here they do &mdash; they have to be in the observation.
 """),
     code('''
-NOW = 1757030400 + 7200              # pretend "now" is two hours after the record's timestamp
+NOW = 1788393600 + 7200               # pretend "now" is two hours after the value date
 
-def stamp(observation: str, *, as_of: int, now: int = NOW,
-          shown: int = 1, total: int = 1, binding: bool = True) -> str:
-    """Append the three things a raw result never carries."""
-    age_min = (now - as_of) // 60
-    freshness = "live" if age_min < 5 else f"as of {age_min} minutes ago"
-    parts = [observation, f"[{freshness}"]
-    if shown < total:
-        parts.append(f"; showing {shown} of {total}")
-    if BLANK:                        # TODO: when should the observation warn it is not binding?
-        parts.append("; DRAFT policy, not binding")
-    return "".join(parts) + "]"
+class Context(BaseModel):
+    """Everything true of the situation rather than of the payment."""
+    observed_at: str = Field(description="ISO timestamp when this was read")
+    hours_since_value_date: float
+    source: str = Field(description="Which system this came from, for provenance")
+    caller_may_release: bool = Field(description="Whether the human asking has release authority")
+
+
+def contextualise(obs: Observation, raw: dict, caller_role: str) -> Context:
+    return Context(
+        observed_at=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(NOW)),
+        hours_since_value_date=round((NOW - raw["vd"]) / 3600, 1),
+        source="ledger-core",
+        caller_may_release=BLANK,     # TODO: which roles may release? see NEEDS_HUMAN and the policy
+    )
 ''', '''
-NOW = 1757030400 + 7200              # pretend "now" is two hours after the record's timestamp
+NOW = 1788393600 + 7200               # pretend "now" is two hours after the value date
 
-def stamp(observation: str, *, as_of: int, now: int = NOW,
-          shown: int = 1, total: int = 1, binding: bool = True) -> str:
-    """Append the three things a raw result never carries."""
-    age_min = (now - as_of) // 60
-    freshness = "live" if age_min < 5 else f"as of {age_min} minutes ago"
-    parts = [observation, f"[{freshness}"]
-    if shown < total:
-        parts.append(f"; showing {shown} of {total}")
-    if not binding:
-        parts.append("; DRAFT policy, not binding")
-    return "".join(parts) + "]"
+class Context(BaseModel):
+    """Everything true of the situation rather than of the payment."""
+    observed_at: str = Field(description="ISO timestamp when this was read")
+    hours_since_value_date: float
+    source: str = Field(description="Which system this came from, for provenance")
+    caller_may_release: bool = Field(description="Whether the human asking has release authority")
+
+
+def contextualise(obs: Observation, raw: dict, caller_role: str) -> Context:
+    return Context(
+        observed_at=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(NOW)),
+        hours_since_value_date=round((NOW - raw["vd"]) / 3600, 1),
+        source="ledger-core",
+        # Operations may release ordinary holds but never one policy reserves for a human
+        # decision -- a sanctions review is Compliance's call whoever is asking.
+        caller_may_release=(caller_role == "compliance"
+                            or (caller_role == "operations"
+                                and obs.reason_code not in NEEDS_HUMAN)),
+    )
 '''),
     code('''
 # --- Self-check: Section 3
-check("a stale record says how stale",
-      lambda: "120 minutes ago" in stamp("x", as_of=1757030400))
-check("a fresh record says live",
-      lambda: "live" in stamp("x", as_of=NOW))
-check("a truncated result says so",
-      lambda: "showing 3 of 47" in stamp("x", as_of=NOW, shown=3, total=47))
-check("a complete result does not add noise",
-      lambda: "showing" not in stamp("x", as_of=NOW, shown=1, total=1))
-check("a draft policy is marked as not binding",
-      lambda: "not binding" in stamp("x", as_of=NOW, binding=False),
-      "a draft and a ratified policy are both just text otherwise")
-check("a binding policy carries no draft warning",
-      lambda: "not binding" not in stamp("x", as_of=NOW, binding=True))
+# built lazily: perceive() may still contain a blank, and a module-level call would
+# crash this cell instead of reporting [TODO]
+_obs   = lambda: perceive(RAW)                       # PMT-1005, SANCTIONS_REVIEW
+_clean = lambda: perceive({**RAW, "rc": "IF"})       # same payment, an ordinary failure
 
-try:
-    print("  " + stamp(observe(RAW), as_of=1757030400, shown=3, total=47, binding=False))
-except NameError:
-    print("(fill in the blanks above)")
+check("the observation is stamped with a time",
+      lambda: contextualise(_obs(), RAW, "operations").observed_at.startswith("2026-"))
+check("elapsed time is computed, not left to the model",
+      lambda: contextualise(_obs(), RAW, "operations").hours_since_value_date == 2.0,
+      "a model asked to subtract two epochs will sometimes get it wrong; do it in Python")
+check("operations may NOT release a sanctions hold",
+      lambda: contextualise(_obs(), RAW, "operations").caller_may_release is False,
+      "policy reserves this decision for Compliance -- authority is context, not preference")
+check("operations MAY release an ordinary failure",
+      lambda: contextualise(_clean(), RAW, "operations").caller_may_release is True)
+check("compliance may release a sanctions hold",
+      lambda: contextualise(_obs(), RAW, "compliance").caller_may_release is True)
+check("an unknown role gets no authority",
+      lambda: contextualise(_clean(), RAW, "intern").caller_may_release is False,
+      "default deny -- an unrecognised role is not a permitted one")
 '''),
 
     md("""
 ## Run it for real
 
-The same question, twice: once with the raw record, once with your observation. Same model, same
-prompt &mdash; only what the agent can see has changed.
+The same model, the same underlying payment, asked the same question. Once from the raw record,
+once from the observation and its context.
 """),
     code('''
-QUESTION = ("Given the payment data below, say in one line who must action this and whether it may "
-            "be released. Answer only from the data given.")
-
 if llm_ready():
-    try:
-        print("--- with the raw record ---")
-        print("  " + ask(f"{QUESTION}\\n\\nDATA: {json.dumps(RAW)}").strip()[:300])
-        print("\\n--- with your observation ---")
-        obs = stamp(observe(RAW), as_of=1757030400, shown=1, total=1, binding=True)
-        print("  " + ask(f"{QUESTION}\\n\\nDATA: {obs}").strip()[:300])
-        print(f"\\nraw record: {len(json.dumps(RAW))} chars   observation: {len(obs)} chars")
-    except NameError:
-        print("(fill in the blanks above, then re-run this cell)")
+    def _compare():
+        question = ("Who must action this payment, and may the operations desk release it? "
+                    "Answer in two lines.")
+        obs = perceive(RAW)
+        ctx = contextualise(obs, RAW, "operations")
+        policy = POLICY.get(obs.reason_code, "no policy applies")
+
+        print("=== given the RAW record ===")
+        print(ask(f"RECORD: {json.dumps(RAW)}\\n\\n{question}")[:400])
+
+        print("\\n=== given the OBSERVATION and its context ===")
+        print(ask(f"OBSERVATION: {obs.model_dump_json()}\\n"
+                  f"CONTEXT: {ctx.model_dump_json()}\\n"
+                  f"POLICY: {policy}\\n\\n{question}")[:400])
+    guard(_compare)
 '''),
     md("""
 ### Read it
 
-Two things to check. First, whether the raw arm invented a meaning for `s: 2` or `rc: 7` &mdash; it has
-no way to know them, so anything it says about status is a guess dressed as an answer.
+The raw answer is the interesting one. The model has to guess that `st: 3` means held, that `rc`
+is a reason code at all, that `amt` is in cents, and that `cur: 840` is dollars. Most of the time
+it will guess several of those correctly and state the rest with complete confidence &mdash; which is
+exactly the failure you cannot detect downstream, because nothing looks wrong.
 
-Second, the character counts. The observation is usually **shorter** than the raw record as well as
-clearer, because you dropped the fields nobody needed. Perception is one of the few places where
-the cheap option and the accurate option are the same option.
+The second answer is not smarter. It is the same model, given the same facts, in a form it does
+not have to decode. Note in particular that `caller_may_release` was decided by **your code**,
+against the policy, before the model saw anything. Asking a model to work out who is authorised
+is asking it to make a control decision; computing it in `contextualise` and telling it the answer
+is not.
+
+That is the general rule this lab is for: **anything you can determine in Python, determine in
+Python.** Leave the model the part that actually needs judgement.
 """),
 
     code('''
@@ -786,359 +876,361 @@ score()
     md("""
 ## Your turn
 
-1. `observe()` hardcodes `LIMIT_USD`. What happens when the limit is per-currency or per-client?
-   Where should that number live so the observation stays truthful?
-2. Add a fifth kind of nothing: the check ran, matched, but the results were **suppressed** by
-   entitlements. How should that observation read so the agent neither ignores it nor over-reacts?
+1. Add `cur: 392` (JPY) to `CURRENCIES` &mdash; but the yen has no minor units, so `amt` is already
+   in major units. Where does that belong: in `perceive`, in the schema, or in the tool that
+   produced the record? Defend your answer.
+2. Feed `describe_empty` into the run-it-for-real cell: ask the model what to do when the ledger
+   returns `{"error": "forbidden"}`, once with the raw error and once with your description. Watch
+   how often the raw version concludes the payment does not exist.
+3. `Observation` has no field for what is **missing**. Add `unknown: list[str]` and populate it
+   when a code fails to resolve. An agent that can say "I do not know the currency" is worth more
+   than one that quietly says `UNKNOWN(392)`.
 """),
 ]
 
 
 # =========================================================================== #
-# Lab 3.3 -- build the StateGraph substrate by hand
+# Lab 3.3 -- build a real StateGraph
 # =========================================================================== #
+GRAPH_TOOLS = '''
+# ------------------------------------------------- the case tools, carried through 3.3 - 3.5
+def read_ledger_record(ref: str) -> dict:
+    rec = LEDGER.get(ref)
+    return {"ref": ref, **rec} if rec else {"ref": ref, "error": "not_found"}
+
+def read_policy_text(reason_code: str | None) -> str:
+    return POLICY.get(reason_code, "no policy applies")
+
+print("case helpers loaded")
+'''
+
 LAB3 = [
-    header(3, "Build a StateGraph From Scratch", "Advanced", 35,
-           ["Implement nodes, edges, conditional edges and cycles in ~40 lines",
-            "Make state an explicit object every node reads and writes",
-            "Add a step budget so a cycle terminates",
-            "Run the same graph on real LangGraph and compare"],
-           "> **The substrate, built before it is used.** You will understand LangGraph better for\n"
-           "> having written the 40 lines it is hiding, and every later module sits on this."),
+    header(3, "Build a Real StateGraph", "Advanced", 45,
+           ["Declare state as a <code>TypedDict</code> with <code>Annotated</code> reducers",
+            "Write nodes that return <i>partial</i> state, and let the reducers merge it",
+            "Wire edges, a conditional edge and a cycle, then <code>compile()</code>",
+            "Watch it run with <code>stream()</code>, one node at a time"],
+           "> **Builds on Lab 3.1.** A checkpointer gave you memory. A graph gives you a state you\n"
+           "> can declare, inspect and reason about &mdash; which is what Modules 5 and 9 build on."),
     setup(3),
     code(DOMAIN),
-    code(CARRIED_TOOLS),
+    code(GRAPH_TOOLS),
 
     md("""
 ## Concept
 
-A StateGraph is four things and no more:
+`create_agent` is one fixed loop: model, tools, repeat. When the control flow is yours &mdash; branch
+here, loop there, stop for a human &mdash; you need the graph underneath it.
 
-| Piece | What it is |
+A LangGraph `StateGraph` has three parts and no more:
+
+| Part | What it is |
 |---|---|
-| **State** | a dict with a declared shape, threaded through everything |
-| **Node** | a function: state in, *partial* state out |
-| **Edge** | what runs next, always |
-| **Conditional edge** | what runs next, given the state |
+| **state** | a `TypedDict`; each field may carry a **reducer** saying how updates merge |
+| **nodes** | plain functions `state -> partial state` |
+| **edges** | fixed (`add_edge`) or chosen at runtime (`add_conditional_edges`) |
 
-A **cycle** is just an edge that points backwards. Build all of it here, in plain Python.
+Then `compile()` gives you a runnable with the same `.invoke()` / `.stream()` interface as
+everything else you have built today.
+
+The part people get wrong is the reducer, so start there.
 """),
 
     md("""
-## Section 1 &mdash; Nodes return partial state
+## Section 1 &mdash; State, and how updates merge
 
-The single most important convention: a node returns **only the keys it changed**, and the engine
-merges. That is what makes nodes composable and independently testable.
+By default a node's return value **overwrites** the field. That is right for `answer` and wrong
+for `findings` &mdash; you want those to accumulate. `Annotated[list, add]` says "append, do not
+replace".
 """),
     code('''
-def read_ledger(state: dict) -> dict:
-    """Node: look up the payment. Returns ONLY the keys it changed."""
-    obs = lookup_payment(state["ref"])
-    return {"findings": [f"ledger: {obs}"], "steps": state["steps"] + 1}
+from typing import Annotated
+from typing_extensions import TypedDict
+from operator import add
+from langgraph.graph import StateGraph, START, END
 
-def read_policy(state: dict) -> dict:
-    """Node: look up the policy for whatever reason code the ledger gave."""
-    rec = LEDGER.get(state["ref"], {})
-    obs = policy_for(rec.get("reason_code")) if rec.get("reason_code") else "no reason code"
-    needs_human = rec.get("reason_code") in NEEDS_HUMAN
-    return BLANK                     # TODO: the three keys this node changes --
-                                     # findings (a one-item list), needs_human, and steps
+def accumulate(old: list, new: list) -> list:
+    """The reducer for `findings`: how one node's update merges with what is already there."""
+    return BLANK                                # TODO: combine them so BOTH nodes' findings survive
+
+
+class CaseState(TypedDict):
+    ref: str                                    # set once, overwritten if a node returns it
+    findings: Annotated[list, accumulate]       # merged by your reducer, not replaced
+    steps: int
+    needs_human: bool
+    answer: str | None
 ''', '''
-def read_ledger(state: dict) -> dict:
-    """Node: look up the payment. Returns ONLY the keys it changed."""
-    obs = lookup_payment(state["ref"])
-    return {"findings": [f"ledger: {obs}"], "steps": state["steps"] + 1}
+from typing import Annotated
+from typing_extensions import TypedDict
+from operator import add
+from langgraph.graph import StateGraph, START, END
 
-def read_policy(state: dict) -> dict:
-    """Node: look up the policy for whatever reason code the ledger gave."""
-    rec = LEDGER.get(state["ref"], {})
-    obs = policy_for(rec.get("reason_code")) if rec.get("reason_code") else "no reason code"
-    needs_human = rec.get("reason_code") in NEEDS_HUMAN
-    return {"findings": [f"policy: {obs}"],
-            "needs_human": needs_human,
-            "steps": state["steps"] + 1}
+def accumulate(old: list, new: list) -> list:
+    """The reducer for `findings`: how one node's update merges with what is already there."""
+    return old + new                            # `operator.add` is exactly this, and is the idiom
+
+
+class CaseState(TypedDict):
+    ref: str                                    # set once, overwritten if a node returns it
+    findings: Annotated[list, accumulate]       # merged by your reducer, not replaced
+    steps: int
+    needs_human: bool
+    answer: str | None
 '''),
     code('''
-# --- Self-check: Section 1
-_s0 = {"ref": "PMT-1005", "findings": [], "needs_human": False, "steps": 0, "answer": None}
+# --- Self-check: Section 1   (the reducer, exercised through a real one-node graph -- no model)
+def _reducer_of(field):
+    """The reducer LangGraph will use for one field of CaseState."""
+    from typing import get_type_hints
+    hints = get_type_hints(CaseState, include_extras=True)
+    meta = getattr(hints[field], "__metadata__", ())
+    return meta[0] if meta else None
+
+def _two_appends():
+    """Two nodes, each returning one finding. Does the state end up with both?"""
+    g = StateGraph(CaseState)
+    g.add_node("a", lambda s: {"findings": ["from a"], "steps": 1})
+    g.add_node("b", lambda s: {"findings": ["from b"], "steps": 2})
+    g.add_edge(START, "a"); g.add_edge("a", "b"); g.add_edge("b", END)
+    return g.compile().invoke({"ref": "PMT-1005", "findings": [], "steps": 0,
+                               "needs_human": False, "answer": None})
+
+check("findings declares a reducer",
+      lambda: _reducer_of("findings") is not None,
+      "without one, the second node's findings replace the first node's")
+check("the reducer merges two updates instead of replacing",
+      lambda: accumulate(["a"], ["b"]) == ["a", "b"],
+      "returning just `new` is the bug this whole section exists to prevent")
+check("two nodes' findings both survive",
+      lambda: _two_appends()["findings"] == ["from a", "from b"],
+      "this is what the reducer is FOR -- run it and see")
+check("a field with no reducer is overwritten",
+      lambda: _two_appends()["steps"] == 2,
+      "steps has no reducer, so the last write wins -- that is the default, and it is fine here")
+check("the untouched fields are still there",
+      lambda: _two_appends()["ref"] == "PMT-1005")
+'''),
+
+    md("""
+## Section 2 &mdash; Nodes return partial state
+
+A node receives the whole state and returns **only the keys it changed**. LangGraph merges the
+rest for you, using the reducers from Section 1. Returning the whole state is the other common
+beginner mistake: it works, until two nodes run and one silently undoes the other.
+"""),
+    code('''
+def read_ledger(state: CaseState) -> dict:
+    """Look the payment up and record what we found."""
+    rec = read_ledger_record(state["ref"])
+    return {"findings": [f"ledger: status={rec.get('status')} rc={rec.get('reason_code')}"],
+            "steps": state["steps"] + 1,
+            "needs_human": rec.get("reason_code") in NEEDS_HUMAN}
+
+
+def read_policy(state: CaseState) -> dict:
+    """Look up the policy for whatever reason code the ledger gave us."""
+    rec = read_ledger_record(state["ref"])
+    return {"findings": [f"policy: {read_policy_text(rec.get('reason_code'))}"],
+            "steps": state["steps"] + 1}
+
+
+def write_note(state: CaseState) -> dict:
+    """Compose the answer from what is in state -- and nothing else."""
+    who = "a human must decide" if state["needs_human"] else "operations may act"
+    return {"answer": BLANK}          # TODO: an answer built from the findings and `who`
+''', '''
+def read_ledger(state: CaseState) -> dict:
+    """Look the payment up and record what we found."""
+    rec = read_ledger_record(state["ref"])
+    return {"findings": [f"ledger: status={rec.get('status')} rc={rec.get('reason_code')}"],
+            "steps": state["steps"] + 1,
+            "needs_human": rec.get("reason_code") in NEEDS_HUMAN}
+
+
+def read_policy(state: CaseState) -> dict:
+    """Look up the policy for whatever reason code the ledger gave us."""
+    rec = read_ledger_record(state["ref"])
+    return {"findings": [f"policy: {read_policy_text(rec.get('reason_code'))}"],
+            "steps": state["steps"] + 1}
+
+
+def write_note(state: CaseState) -> dict:
+    """Compose the answer from what is in state -- and nothing else."""
+    who = "a human must decide" if state["needs_human"] else "operations may act"
+    return {"answer": f"{state['ref']}: {who}. " + " | ".join(state["findings"])}
+'''),
+    code('''
+# --- Self-check: Section 2   (nodes are plain functions -- call them directly, no model)
+_s = {"ref": "PMT-1005", "findings": [], "steps": 0, "needs_human": False, "answer": None}
 
 check("a node returns only what it changed",
-      lambda: set(read_ledger(_s0)) == {"findings", "steps"},
-      "returning the whole state makes nodes impossible to compose")
-check("read_ledger records its observation",
-      lambda: "SANCTIONS_REVIEW" in read_ledger(_s0)["findings"][0])
-check("read_policy returns its three keys",
-      lambda: set(read_policy(_s0)) == {"findings", "needs_human", "steps"})
-check("a sanctions hold is flagged for a human",
-      lambda: read_policy(_s0)["needs_human"] is True)
-check("an insufficient-funds case is not",
-      lambda: read_policy({**_s0, "ref": "PMT-1002"})["needs_human"] is False)
-check("nodes do not mutate the state they were given",
-      lambda: (read_ledger(_s0), _s0["steps"] == 0)[1],
-      "return a new dict; never edit state in place")
+      lambda: set(read_ledger(_s)) == {"findings", "steps", "needs_human"},
+      "returning the whole state is how one node silently undoes another")
+check("the ledger node finds the reason code",
+      lambda: "SANCTIONS_REVIEW" in read_ledger(_s)["findings"][0])
+check("it sets needs_human for a sanctions hold",
+      lambda: read_ledger(_s)["needs_human"] is True)
+check("...and not for an ordinary failure",
+      lambda: read_ledger({**_s, "ref": "PMT-1002"})["needs_human"] is False)
+check("the policy node returns the policy text",
+      lambda: "Compliance" in read_policy(_s)["findings"][0])
+check("write_note uses the findings it was given",
+      lambda: "ledger:" in write_note({**_s, "findings": ["ledger: x"], "needs_human": True})["answer"])
+check("write_note says who decides",
+      lambda: "human" in write_note({**_s, "findings": ["x"], "needs_human": True})["answer"])
 '''),
 
     md("""
-## Section 2 &mdash; Reducers: how partial updates merge
+## Section 3 &mdash; Edges, a condition, and a cycle
 
-`steps` should be replaced by the new value. `findings` should **accumulate**. That difference is
-the reducer, declared once per key rather than remembered in every node.
+`add_edge(a, b)` always goes to `b`. `add_conditional_edges(a, fn, mapping)` calls `fn(state)` and
+goes wherever it says. A cycle is just an edge that points backwards &mdash; which is why the step
+budget is not optional.
 """),
     code('''
-def replace(old, new):
-    return new
+MAX_STEPS = 6
 
-def append(old, new):
-    return list(old) + list(new)
-
-REDUCERS = {
-    "findings": append,              # every node's findings are kept, in order
-    "steps": replace,
-    "needs_human": replace,
-    "answer": replace,
-    "ref": replace,
-}
-
-def merge(state: dict, update: dict) -> dict:
-    """Apply a node's partial update using the declared reducer for each key."""
-    out = dict(state)
-    for key, value in update.items():
-        reducer = REDUCERS.get(key, replace)
-        out[key] = BLANK             # TODO: combine the old value with the new one
-    return out
-''', '''
-def replace(old, new):
-    return new
-
-def append(old, new):
-    return list(old) + list(new)
-
-REDUCERS = {
-    "findings": append,              # every node's findings are kept, in order
-    "steps": replace,
-    "needs_human": replace,
-    "answer": replace,
-    "ref": replace,
-}
-
-def merge(state: dict, update: dict) -> dict:
-    """Apply a node's partial update using the declared reducer for each key."""
-    out = dict(state)
-    for key, value in update.items():
-        reducer = REDUCERS.get(key, replace)
-        out[key] = reducer(state.get(key), value)
-    return out
-'''),
-    code('''
-# --- Self-check: Section 2   (fixtures built lazily -- a module-level call into an
-#                              unfilled function would crash the cell instead of printing [TODO])
-def _a():
-    return merge(_s0, {"findings": ["one"], "steps": 1})
-
-def _b():
-    return merge(_a(), {"findings": ["two"], "steps": 2})
-
-check("findings accumulate across nodes", lambda: _b()["findings"] == ["one", "two"],
-      "this is the append reducer doing its job")
-check("steps is replaced, not appended", lambda: _b()["steps"] == 2)
-check("untouched keys survive the merge", lambda: _b()["ref"] == "PMT-1005")
-check("the original state is not mutated", lambda: _s0["findings"] == [])
-check("an undeclared key defaults to replace",
-      lambda: merge(_s0, {"novel": 7})["novel"] == 7)
-check("two parallel writes to findings both survive",
-      lambda: merge(merge(_s0, {"findings": ["x"]}), {"findings": ["y"]})["findings"] == ["x", "y"],
-      "with the default replace reducer, one of these would silently vanish")
-'''),
-
-    md("""
-## Section 3 &mdash; The engine: edges, conditions and a cycle
-
-Forty lines. Nodes run, updates merge, and a conditional edge decides what comes next &mdash; including
-going backwards.
-"""),
-    code('''
-END = "__end__"
-
-class Graph:
-    def __init__(self, reducers):
-        self.nodes, self.edges, self.conditions = {}, {}, {}
-        self.entry = None
-        self.reducers = reducers
-
-    def add_node(self, name, fn):
-        self.nodes[name] = fn
-        return self
-
-    def add_edge(self, src, dst):
-        self.edges[src] = dst
-        return self
-
-    def add_conditional_edge(self, src, fn):
-        """fn(state) -> the name of the next node, or END."""
-        self.conditions[src] = fn
-        return self
-
-    def set_entry(self, name):
-        self.entry = name
-        return self
-
-    def run(self, state, max_steps=8):
-        """Execute until END or the budget is spent. Returns (final_state, path)."""
-        current, path = self.entry, []
-        while current != END:
-            if state["steps"] >= max_steps:
-                return merge(state, {"answer": "stopped: step budget"}), path
-            path.append(current)
-            update = self.nodes[current](state)
-            state = merge(state, update)
-            if current in self.conditions:
-                current = self.conditions[current](state)
-            else:
-                current = BLANK      # TODO: the plain edge out of this node, or END if there is none
-        return state, path
-''', '''
-END = "__end__"
-
-class Graph:
-    def __init__(self, reducers):
-        self.nodes, self.edges, self.conditions = {}, {}, {}
-        self.entry = None
-        self.reducers = reducers
-
-    def add_node(self, name, fn):
-        self.nodes[name] = fn
-        return self
-
-    def add_edge(self, src, dst):
-        self.edges[src] = dst
-        return self
-
-    def add_conditional_edge(self, src, fn):
-        """fn(state) -> the name of the next node, or END."""
-        self.conditions[src] = fn
-        return self
-
-    def set_entry(self, name):
-        self.entry = name
-        return self
-
-    def run(self, state, max_steps=8):
-        """Execute until END or the budget is spent. Returns (final_state, path)."""
-        current, path = self.entry, []
-        while current != END:
-            if state["steps"] >= max_steps:
-                return merge(state, {"answer": "stopped: step budget"}), path
-            path.append(current)
-            update = self.nodes[current](state)
-            state = merge(state, update)
-            if current in self.conditions:
-                current = self.conditions[current](state)
-            else:
-                current = self.edges.get(current, END)
-        return state, path
-'''),
-    code('''
-# --- Self-check: Section 3
-def write_note(state):
-    verdict = "human decision required" if state["needs_human"] else "operations may proceed"
-    return {"answer": f"{state['ref']}: {verdict}", "steps": state["steps"] + 1}
-
-def enough(state):
-    """Conditional edge: two findings is enough to conclude; otherwise go round again."""
+def enough(state: CaseState) -> str:
+    """Have we gathered enough to answer? Returns the KEY of the next branch."""
+    if state["steps"] >= MAX_STEPS:
+        return "write_note"
     return "write_note" if len(state["findings"]) >= 2 else "read_ledger"
 
-def build():
-    return (Graph(REDUCERS)
-            .add_node("read_ledger", read_ledger)
-            .add_node("read_policy", read_policy)
-            .add_node("write_note", write_note)
-            .add_edge("read_ledger", "read_policy")
-            .add_conditional_edge("read_policy", enough)
-            .add_edge("write_note", END)
-            .set_entry("read_ledger"))
 
-def _run(ref="PMT-1005"):
-    return build().run({"ref": ref, "findings": [], "needs_human": False,
-                        "steps": 0, "answer": None})
-
-check("the graph reaches an answer", lambda: _run()[0]["answer"] is not None)
-check("it visits the nodes in order",
-      lambda: _run()[1][:3] == ["read_ledger", "read_policy", "write_note"])
-check("findings accumulated from both reader nodes",
-      lambda: len(_run()[0]["findings"]) == 2)
-check("a sanctions hold ends with a human decision",
-      lambda: "human decision required" in _run("PMT-1005")[0]["answer"])
-check("an insufficient-funds case does not",
-      lambda: "operations may proceed" in _run("PMT-1002")[0]["answer"])
-check("a graph that never satisfies its condition stops on the budget",
-      lambda: "step budget" in (Graph(REDUCERS)
-              .add_node("read_ledger", read_ledger)
-              .add_conditional_edge("read_ledger", lambda s: "read_ledger")
-              .set_entry("read_ledger")
-              .run({"ref": "PMT-1002", "findings": [], "needs_human": False,
-                    "steps": 0, "answer": None})[0]["answer"]),
-      "a cycle without a budget is an infinite loop")
-
-try:
-    final, path = _run()
-    print("path:", " -> ".join(path))
-    print("state:", json.dumps({k: v for k, v in final.items() if k != "findings"}, indent=1))
-    for f in final["findings"]:
-        print("  -", f[:90])
-except NameError:
-    print("(fill in the blanks above, then re-run)")
-'''),
-
-    md("""
-## Run it for real
-
-The same graph on actual LangGraph. Note how little changes: `TypedDict` instead of a plain dict,
-`Annotated[list, add]` instead of your `REDUCERS` table, and `add_conditional_edges` instead of
-your dictionary of functions.
-"""),
-    code('''
-try:
-    from typing import Annotated
-    from typing_extensions import TypedDict
-    from operator import add
-    from langgraph.graph import StateGraph, START, END as LG_END
-
-    class CaseState(TypedDict):
-        ref: str
-        findings: Annotated[list, add]        # <- your `append` reducer, declared
-        needs_human: bool
-        steps: int
-        answer: str | None
-
+def build_graph():
     g = StateGraph(CaseState)
     g.add_node("read_ledger", read_ledger)
     g.add_node("read_policy", read_policy)
     g.add_node("write_note", write_note)
+
     g.add_edge(START, "read_ledger")
     g.add_edge("read_ledger", "read_policy")
     g.add_conditional_edges("read_policy", enough,
-                            {"write_note": "write_note", "read_ledger": "read_ledger"})
-    g.add_edge("write_note", LG_END)
-    app = g.compile()
+                            {"write_note": "write_note",
+                             "read_ledger": BLANK})     # TODO: where does "not enough yet" go?
+    g.add_edge("write_note", END)
+    return g.compile()
 
-    out = app.invoke({"ref": "PMT-1005", "findings": [], "needs_human": False,
-                      "steps": 0, "answer": None})
-    print("answer  :", out["answer"])
-    print("findings:", len(out["findings"]))
-    print("\\nSame nodes, same conditional edge, same reducer. The engine is the part you wrote.")
-except ImportError as exc:
-    print(f"LangGraph not importable here ({exc}). The graded cells above do not need it.")
-except NameError:
-    print("(fill in the blanks above, then re-run this cell)")
-except Exception as exc:
-    print(f"<graph run failed: {type(exc).__name__}: {exc}>")
+
+def fresh(ref: str) -> dict:
+    return {"ref": ref, "findings": [], "steps": 0, "needs_human": False, "answer": None}
+''', '''
+MAX_STEPS = 6
+
+def enough(state: CaseState) -> str:
+    """Have we gathered enough to answer? Returns the KEY of the next branch."""
+    if state["steps"] >= MAX_STEPS:
+        return "write_note"
+    return "write_note" if len(state["findings"]) >= 2 else "read_ledger"
+
+
+def build_graph():
+    g = StateGraph(CaseState)
+    g.add_node("read_ledger", read_ledger)
+    g.add_node("read_policy", read_policy)
+    g.add_node("write_note", write_note)
+
+    g.add_edge(START, "read_ledger")
+    g.add_edge("read_ledger", "read_policy")
+    g.add_conditional_edges("read_policy", enough,
+                            {"write_note": "write_note",
+                             "read_ledger": "read_ledger"})   # the backward edge -- the cycle
+    g.add_edge("write_note", END)
+    return g.compile()
+
+
+def fresh(ref: str) -> dict:
+    return {"ref": ref, "findings": [], "steps": 0, "needs_human": False, "answer": None}
+'''),
+    code('''
+# --- Self-check: Section 3   (a REAL compiled graph, running -- still no model)
+def _run(ref="PMT-1005"):
+    return build_graph().invoke(fresh(ref))
+
+check("the graph compiles",              lambda: build_graph() is not None)
+check("it runs to an answer",            lambda: _run()["answer"] is not None)
+check("both nodes contributed findings", lambda: len(_run()["findings"]) >= 2)
+check("the reducer accumulated them",    lambda: any("ledger:" in f for f in _run()["findings"])
+                                                 and any("policy:" in f for f in _run()["findings"]))
+check("the sanctions case needs a human",
+      lambda: _run("PMT-1005")["needs_human"] is True)
+check("an ordinary failure does not",
+      lambda: _run("PMT-1002")["needs_human"] is False)
+check("the cycle terminates",            lambda: _run()["steps"] <= MAX_STEPS,
+      "a backward edge with no budget is an infinite loop, and the graph will happily run it")
+check("the conditional edge can actually loop",
+      lambda: enough({"steps": 0, "findings": []}) == "read_ledger",
+      "if both branches go forward you have written a straight line, not a cycle")
+'''),
+
+    md("""
+## Watch it run
+
+`stream()` yields one entry per node as it completes, which is the cheapest debugger you will
+ever have for a graph.
+"""),
+    code('''
+def _trace():
+    for chunk in build_graph().stream(fresh("PMT-1005")):
+        for node, update in chunk.items():
+            print(f"  {node:14} -> {list(update)}")
+    print("\\nfinal answer:")
+    print("  " + str(build_graph().invoke(fresh("PMT-1005"))["answer"])[:300])
+guard(_trace)
+'''),
+
+    md("""
+## Run it for real &mdash; put the model in a node
+
+Nothing so far needed a model, which is the point: **the graph is deterministic scaffolding, and
+you can test all of it offline.** Now add one node that does need one. Note that it reads only
+from state, and returns only a partial update &mdash; exactly like the others.
+"""),
+    code('''
+if llm_ready():
+    def _with_model():
+        def draft_note(state: CaseState) -> dict:
+            who = "a human must decide" if state["needs_human"] else "operations may act"
+            text = ask("Write one line telling the operations desk what happens next. "
+                       "Use only these facts; do not add any.\\n"
+                       f"CASE: {state['ref']}\\nAUTHORITY: {who}\\n"
+                       f"FINDINGS: {state['findings']}")
+            return {"answer": text.strip()}
+
+        g = StateGraph(CaseState)
+        g.add_node("read_ledger", read_ledger)
+        g.add_node("read_policy", read_policy)
+        g.add_node("draft_note", draft_note)
+        g.add_edge(START, "read_ledger")
+        g.add_edge("read_ledger", "read_policy")
+        g.add_conditional_edges("read_policy", lambda s: "draft_note" if len(s["findings"]) >= 2
+                                else "read_ledger",
+                                {"draft_note": "draft_note", "read_ledger": "read_ledger"})
+        g.add_edge("draft_note", END)
+
+        app = g.compile()
+        for ref in ("PMT-1005", "PMT-1002"):
+            out = app.invoke(fresh(ref))
+            print(f"{ref}: needs_human={out['needs_human']}")
+            print(f"          {out['answer'][:200]}\\n")
+    guard(_with_model)
 '''),
     md("""
 ### Read it
 
-Your `merge` is LangGraph's reducer machinery. Your `conditions` dict is `add_conditional_edges`.
-Your `max_steps` guard is its recursion limit. What LangGraph adds on top is the part that is
-genuinely hard: **checkpointing** &mdash; and that is the next lab.
+Three things worth taking away.
+
+1. **The graph is testable without a model.** Every self-check in this lab ran a real compiled
+   `StateGraph` and asserted on real merged state, offline and deterministically. That is not a
+   trick of the lab &mdash; it is how you should test agent control flow generally. Put the model in
+   one node, and everything around it stays ordinary software.
+2. **The reducer is the design.** `findings` accumulates because you said so; `steps` overwrites
+   because you did not. Get that wrong and the bug looks like "the second agent lost the first
+   agent's work", which is Lab 3.5's subject.
+3. **The cycle needs the budget.** `enough` checks `MAX_STEPS` before it checks anything else. A
+   backward edge with no ceiling is an infinite loop that LangGraph will run for you, cheerfully,
+   until something else stops it.
 """),
 
     code('''
@@ -1147,11 +1239,15 @@ score()
     md("""
 ## Your turn
 
-1. Add a `read_counterparty` node and run it **in parallel** with `read_policy`. What must be true
-   of the `findings` reducer for both results to survive? You already know &mdash; now prove it.
-2. `run()` counts steps from the state, so a node that forgets to increment `steps` makes the
-   budget unenforceable. Move the counting into the engine. What does that cost you in node
-   independence?
+1. Add a `needs_escalation` node that runs only when `needs_human` is true, and route to it with
+   a second conditional edge. Confirm PMT-1002 never enters it.
+2. Give `steps` the reducer `add` instead of leaving it to overwrite, and change the nodes to
+   return `{"steps": 1}`. Which do you prefer, and what happens if two nodes ever run in
+   parallel?
+3. `read_policy` calls `read_ledger_record` again, because the reason code was never put in state.
+   Add a `reason_code` field, set it in `read_ledger`, and read it in `read_policy`. That is the
+   difference between passing state and re-fetching it &mdash; and it is exactly what Module 5's
+   multi-agent graphs depend on.
 """),
 ]
 
@@ -1159,390 +1255,339 @@ score()
 # =========================================================================== #
 # Lab 3.4 -- checkpointing: resume, approve, rewind, audit
 # =========================================================================== #
+CARRY_GRAPH = '''
+# ------------------------------------------------- carried forward from Lab 3.3
+from typing import Annotated
+from typing_extensions import TypedDict
+from operator import add
+from langgraph.graph import StateGraph, START, END
+
+class CaseState(TypedDict):
+    ref: str
+    findings: Annotated[list, add]
+    steps: int
+    needs_human: bool
+    answer: str | None
+
+def read_ledger(state: CaseState) -> dict:
+    rec = read_ledger_record(state["ref"])
+    return {"findings": [f"ledger: status={rec.get('status')} rc={rec.get('reason_code')}"],
+            "steps": state["steps"] + 1,
+            "needs_human": rec.get("reason_code") in NEEDS_HUMAN}
+
+def read_policy(state: CaseState) -> dict:
+    rec = read_ledger_record(state["ref"])
+    return {"findings": [f"policy: {read_policy_text(rec.get('reason_code'))}"],
+            "steps": state["steps"] + 1}
+
+def write_note(state: CaseState) -> dict:
+    who = "a human must decide" if state["needs_human"] else "operations may act"
+    return {"answer": f"{state['ref']}: {who}. " + " | ".join(state["findings"])}
+
+def fresh(ref: str) -> dict:
+    return {"ref": ref, "findings": [], "steps": 0, "needs_human": False, "answer": None}
+
+print("Lab 3.3 graph pieces loaded")
+'''
+
 LAB4 = [
-    header(4, "Checkpointing &mdash; Resume, Approve, Rewind, Audit", "Advanced", 35,
-           ["Write a checkpointer that persists state after every node",
-            "Kill a run mid-flight and resume it without repeating work",
-            "Pause before an irreversible step and wait for approval",
-            "Rewind to an earlier checkpoint, change one field, and re-run",
-            "Read the checkpoint history as an audit trail"],
-           "> **Builds directly on Lab 3.3's graph.** One mechanism -- state written after every\n"
-           "> node -- gives you all four capabilities."),
+    header(4, "Checkpointing &mdash; Resume, Approve, Rewind, Audit", "Advanced", 45,
+           ["Attach a checkpointer and watch state survive a crash",
+            "Stop the graph before an irreversible node with <code>interrupt_before</code>",
+            "Resume, and rewind to an earlier checkpoint to try a different decision",
+            "Read <code>get_state_history()</code> as the audit trail it is"],
+           "> **Builds on Lab 3.3.** Same graph. The difference is that every step is now written\n"
+           "> down, which is what makes approval, recovery and audit possible at all."),
     setup(4),
     code(DOMAIN),
-    code(CARRIED_TOOLS),
+    code(GRAPH_TOOLS),
+    code(CARRY_GRAPH),
 
     md("""
 ## Concept
 
-After every node, write the whole state under a **thread id**. That single mechanism gives you
-resume after a crash, human-in-the-loop approval, time travel, and an audit trail &mdash; the last one
-as a by-product rather than a feature anyone built.
+A checkpointer saves the state after **every node**, under a `thread_id`. Four capabilities fall
+out of that one fact, and none of them is available without it:
 
-It matters that the trail is **recorded**, not generated: it is what the system actually held, not
-the model's account of what it did.
+| Capability | How |
+|---|---|
+| **resume** | re-invoke the same thread; it carries on where it stopped |
+| **approve** | `interrupt_before` a node; the graph pauses, you decide, then resume |
+| **rewind** | invoke from an *older* checkpoint's config and take a different branch |
+| **audit** | `get_state_history()` &mdash; what was known, and when |
+
+This is the mechanism behind human-in-the-loop, which Module 8 turns into a control.
 """),
 
     md("""
-## Section 1 &mdash; A checkpointer
+## Section 1 &mdash; A checkpointer and a thread
 
-Append-only, keyed by thread. Simple enough to fit on a slide; the real one differs mainly in where
-it writes.
+`compile(checkpointer=...)` is the whole change. Everything else is the config you pass at
+call time.
 """),
     code('''
-class Checkpointer:
-    """Append-only state history per thread. A real one writes to Postgres or Redis."""
+from langgraph.checkpoint.memory import InMemorySaver
 
-    def __init__(self):
-        self.threads: dict[str, list[dict]] = {}
+def build(checkpointer=None, interrupt_before=None):
+    """The Lab 3.3 graph, now compilable with persistence and an approval gate."""
+    g = StateGraph(CaseState)
+    g.add_node("read_ledger", read_ledger)
+    g.add_node("read_policy", read_policy)
+    g.add_node("write_note", write_note)
+    g.add_edge(START, "read_ledger")
+    g.add_edge("read_ledger", "read_policy")
+    g.add_edge("read_policy", "write_note")
+    g.add_edge("write_note", END)
+    return g.compile(checkpointer=checkpointer, interrupt_before=interrupt_before)
 
-    def put(self, thread: str, node: str, state: dict) -> None:
-        """Record the state as it stands AFTER `node` ran."""
-        self.threads.setdefault(thread, []).append(
-            {"seq": len(self.threads.get(thread, [])), "after": node,
-             "state": json.loads(json.dumps(state))})     # a snapshot, not a reference
 
-    def latest(self, thread: str) -> dict | None:
-        """The most recent checkpoint, or None if the thread is new."""
-        history = self.threads.get(thread, [])
-        return BLANK                 # TODO: the last checkpoint, or None when there is none
-
-    def at(self, thread: str, seq: int) -> dict | None:
-        for cp in self.threads.get(thread, []):
-            if cp["seq"] == seq:
-                return cp
-        return None
-
-    def history(self, thread: str) -> list[dict]:
-        return list(self.threads.get(thread, []))
-''', '''
-class Checkpointer:
-    """Append-only state history per thread. A real one writes to Postgres or Redis."""
-
-    def __init__(self):
-        self.threads: dict[str, list[dict]] = {}
-
-    def put(self, thread: str, node: str, state: dict) -> None:
-        """Record the state as it stands AFTER `node` ran."""
-        self.threads.setdefault(thread, []).append(
-            {"seq": len(self.threads.get(thread, [])), "after": node,
-             "state": json.loads(json.dumps(state))})     # a snapshot, not a reference
-
-    def latest(self, thread: str) -> dict | None:
-        """The most recent checkpoint, or None if the thread is new."""
-        history = self.threads.get(thread, [])
-        return history[-1] if history else None
-
-    def at(self, thread: str, seq: int) -> dict | None:
-        for cp in self.threads.get(thread, []):
-            if cp["seq"] == seq:
-                return cp
-        return None
-
-    def history(self, thread: str) -> list[dict]:
-        return list(self.threads.get(thread, []))
+def cfg(thread_id: str) -> dict:
+    return {"configurable": {"thread_id": thread_id}}
 '''),
     code('''
-# --- Self-check: Section 1
-def _cp():
-    c = Checkpointer()
-    c.put("t1", "read_ledger", {"steps": 1, "findings": ["a"]})
-    c.put("t1", "read_policy", {"steps": 2, "findings": ["a", "b"]})
-    return c
+# --- Self-check: Section 1   (a real checkpointed graph -- no model)
+def _saved():
+    saver = InMemorySaver()
+    app = build(checkpointer=saver)
+    app.invoke(fresh("PMT-1005"), cfg("t1"))
+    return app
 
-check("a new thread has no checkpoint", lambda: Checkpointer().latest("nope") is None)
-check("latest returns the most recent", lambda: _cp().latest("t1")["after"] == "read_policy")
-check("history is ordered and complete", lambda: [c["seq"] for c in _cp().history("t1")] == [0, 1])
-check("an earlier checkpoint is still reachable",
-      lambda: _cp().at("t1", 0)["state"]["steps"] == 1)
-check("checkpoints are snapshots, not references",
-      lambda: (lambda c, s: (s["findings"].append("mutated"),
-                             c.latest("t1")["state"]["findings"] == ["a", "b"])[1])(
-              *(lambda: (lambda c: (c, c.threads["t1"][-1]["state"]))(_cp()))()) is not None)
+check("a checkpointed graph still runs",
+      lambda: _saved().get_state(cfg("t1")).values["answer"] is not None)
+check("the state is readable after the run",
+      lambda: _saved().get_state(cfg("t1")).values["ref"] == "PMT-1005")
+check("there is a checkpoint per step, not just one",
+      lambda: len(list(_saved().get_state_history(cfg("t1")))) >= 4,
+      "START, then one after each of the three nodes")
+check("a thread that was never run is empty",
+      lambda: _saved().get_state(cfg("never")).values in ({}, None),
+      "threads are independent -- that is what keeps two cases apart")
 '''),
 
     md("""
-## Section 2 &mdash; Resume after a crash
+## Section 2 &mdash; Pause before something irreversible
 
-A graph that checkpoints can be killed and restarted. The test is that it continues rather than
-repeating work already paid for.
+`interrupt_before=["write_note"]` stops the graph *before* that node runs and returns. The state
+is saved; `get_state(...).next` tells you what it was about to do.
+
+Resume by invoking the same thread with `None` as the input &mdash; which means "carry on", not
+"start again".
 """),
     code('''
-END = "__end__"
+def start_with_gate(ref: str, thread: str, saver):
+    """Run until the approval gate, then stop."""
+    app = build(checkpointer=saver, interrupt_before=["write_note"])
+    app.invoke(fresh(ref), cfg(thread))
+    return app
 
-def run_graph(nodes, edges, conditions, entry, state, thread, cp,
-              max_steps=8, stop_before=None, crash_after=None):
-    """Run a graph, checkpointing after each node.
 
-    stop_before  -- pause before this node and return, awaiting approval
-    crash_after  -- simulate a pod death immediately after this node
-    """
-    resumed = cp.latest(thread)
-    current = entry
-    if resumed:
-        state = resumed["state"]
-        current = resumed["state"].get("__next__", entry)
+def pending(app, thread: str) -> tuple:
+    """What is this thread waiting to do?"""
+    return app.get_state(cfg(thread)).next
 
-    path = []
-    while current != END:
-        if state["steps"] >= max_steps:
-            return merge(state, {"answer": "stopped: step budget"}), path, "budget"
-        if stop_before and current == stop_before:
-            cp.put(thread, "paused", {**state, "__next__": current})
-            return state, path, "awaiting_approval"
 
-        path.append(current)
-        state = merge(state, nodes[current](state))
-        nxt = conditions[current](state) if current in conditions else edges.get(current, END)
-        cp.put(thread, current, {**state, "__next__": nxt})
-
-        if crash_after and current == crash_after:
-            return state, path, "crashed"
-        current = nxt
-    return state, path, "done"
-
-def resume(nodes, edges, conditions, entry, thread, cp, **kw):
-    """Continue a thread from its last checkpoint. Returns the same triple as run_graph."""
-    last = cp.latest(thread)
-    if last is None:
-        raise ValueError("nothing to resume")
-    return run_graph(nodes, edges, conditions, entry, BLANK, thread, cp, **kw)
-                                     # TODO: which state should a resumed run start from?
+def approve(app, thread: str):
+    """Let it proceed. The input is None -- carry on, do not start again."""
+    return app.invoke(BLANK, cfg(thread))   # TODO: what does "resume" pass as the input?
 ''', '''
-END = "__end__"
+def start_with_gate(ref: str, thread: str, saver):
+    """Run until the approval gate, then stop."""
+    app = build(checkpointer=saver, interrupt_before=["write_note"])
+    app.invoke(fresh(ref), cfg(thread))
+    return app
 
-def run_graph(nodes, edges, conditions, entry, state, thread, cp,
-              max_steps=8, stop_before=None, crash_after=None):
-    """Run a graph, checkpointing after each node.
 
-    stop_before  -- pause before this node and return, awaiting approval
-    crash_after  -- simulate a pod death immediately after this node
-    """
-    resumed = cp.latest(thread)
-    current = entry
-    if resumed:
-        state = resumed["state"]
-        current = resumed["state"].get("__next__", entry)
+def pending(app, thread: str) -> tuple:
+    """What is this thread waiting to do?"""
+    return app.get_state(cfg(thread)).next
 
-    path = []
-    while current != END:
-        if state["steps"] >= max_steps:
-            return merge(state, {"answer": "stopped: step budget"}), path, "budget"
-        if stop_before and current == stop_before:
-            cp.put(thread, "paused", {**state, "__next__": current})
-            return state, path, "awaiting_approval"
 
-        path.append(current)
-        state = merge(state, nodes[current](state))
-        nxt = conditions[current](state) if current in conditions else edges.get(current, END)
-        cp.put(thread, current, {**state, "__next__": nxt})
-
-        if crash_after and current == crash_after:
-            return state, path, "crashed"
-        current = nxt
-    return state, path, "done"
-
-def resume(nodes, edges, conditions, entry, thread, cp, **kw):
-    """Continue a thread from its last checkpoint. Returns the same triple as run_graph."""
-    last = cp.latest(thread)
-    if last is None:
-        raise ValueError("nothing to resume")
-    return run_graph(nodes, edges, conditions, entry, last["state"], thread, cp, **kw)
+def approve(app, thread: str):
+    """Let it proceed. The input is None -- carry on, do not start again."""
+    return app.invoke(None, cfg(thread))
 '''),
     code('''
-# --- Self-check: Section 2
-def read_ledger(s):  return {"findings": [f"ledger: {lookup_payment(s['ref'])}"], "steps": s["steps"] + 1}
-def read_policy(s):
-    rec = LEDGER.get(s["ref"], {})
-    return {"findings": [f"policy: {policy_for(rec.get('reason_code'))}"],
-            "needs_human": rec.get("reason_code") in NEEDS_HUMAN, "steps": s["steps"] + 1}
-def write_note(s):
-    return {"answer": f"{s['ref']}: {'human decision required' if s['needs_human'] else 'operations may proceed'}",
-            "steps": s["steps"] + 1}
+# --- Self-check: Section 2   (a real interrupt and resume -- no model)
+def _gated():
+    saver = InMemorySaver()
+    app = start_with_gate("PMT-1005", "gate1", saver)
+    return app
 
-REDUCERS = {"findings": lambda o, n: list(o or []) + list(n)}
-def merge(state, update):
-    out = dict(state)
-    for k, v in update.items():
-        out[k] = REDUCERS.get(k, lambda o, n: n)(state.get(k), v)
-    return out
+check("the graph stopped before the gated node",
+      lambda: pending(_gated(), "gate1") == ("write_note",))
+check("it stopped BEFORE doing the thing",
+      lambda: _gated().get_state(cfg("gate1")).values["answer"] is None,
+      "interrupt_before means the node has not run -- that is what makes it an approval gate")
+check("the work done so far was kept",
+      lambda: len(_gated().get_state(cfg("gate1")).values["findings"]) == 2,
+      "a pause is not a rollback")
+check("resuming finishes the run",
+      lambda: approve(_gated(), "gate1")["answer"] is not None)
+def _finished_has_no_next():
+    saver = InMemorySaver()
+    app = start_with_gate("PMT-1005", "gate2", saver)
+    approve(app, "gate2")
+    return app.get_state(cfg("gate2")).next == ()
 
-NODES = {"read_ledger": read_ledger, "read_policy": read_policy, "write_note": write_note}
-EDGES = {"read_ledger": "read_policy", "read_policy": "write_note", "write_note": END}
-FRESH = lambda ref="PMT-1005": {"ref": ref, "findings": [], "needs_human": False,
-                                "steps": 0, "answer": None}
-
-def _crash_then_resume():
-    cp = Checkpointer()
-    s1, p1, why1 = run_graph(NODES, EDGES, {}, "read_ledger", FRESH(), "t", cp,
-                             crash_after="read_policy")
-    s2, p2, why2 = resume(NODES, EDGES, {}, "read_ledger", "t", cp)
-    return p1, why1, p2, why2, s2
-
-check("the run crashes where we told it to",
-      lambda: _crash_then_resume()[1] == "crashed")
-check("it had completed two nodes before dying",
-      lambda: _crash_then_resume()[0] == ["read_ledger", "read_policy"])
-check("the resumed run finishes", lambda: _crash_then_resume()[3] == "done")
-check("the resumed run does NOT repeat completed work",
-      lambda: _crash_then_resume()[2] == ["write_note"],
-      "start from the checkpointed state, not a fresh one")
-check("findings from before the crash survived",
-      lambda: len(_crash_then_resume()[4]["findings"]) == 2)
-check("the final answer is correct after resuming",
-      lambda: "human decision required" in _crash_then_resume()[4]["answer"])
+check("after resuming there is nothing pending",
+      lambda: _finished_has_no_next())
 '''),
 
     md("""
-## Section 3 &mdash; Pause for approval, and rewind
+## Section 3 &mdash; Change your mind: update, and rewind
 
-The same checkpoint mechanism, used two more ways. `write_note` is the irreversible step here, so
-it is the one that waits for a human.
+Two different operations, and the difference matters.
+
+**`update_state`** writes into the *current* checkpoint &mdash; a human adding a fact before the graph
+continues. It goes through the reducers, so an `Annotated[list, add]` field appends.
+
+**Rewinding** means invoking from an *older* checkpoint's config. The graph replays from there,
+and anything after it is superseded.
 """),
     code('''
-def approve_and_continue(thread, cp):
-    """A human approved the paused step. Continue from where it stopped."""
-    return resume(NODES, EDGES, {}, "read_ledger", thread, cp)
+def add_human_finding(app, thread: str, note: str):
+    """A person adds something the tools could not know."""
+    app.update_state(cfg(thread), {"findings": [f"human: {note}"]})
+    return app.get_state(cfg(thread)).values
 
-def rewind(thread, cp, seq, changes: dict):
-    """Rewind to checkpoint `seq`, apply `changes`, and re-run from there.
 
-    Returns the new final state. The original history is left intact -- rewinding
-    forks, it does not erase.
-    """
-    cp_at = cp.at(thread, seq)
-    if cp_at is None:
-        raise ValueError(f"no checkpoint {seq}")
-    forked = Checkpointer()
-    forked.threads[thread] = [c for c in cp.history(thread) if c["seq"] <= seq]
-    state = {**cp_at["state"], **changes}
-    forked.threads[thread][-1] = {**forked.threads[thread][-1], "state": state}
-    return BLANK                     # TODO: re-run from the forked checkpointer and return
-                                     # the final state only
+def checkpoint_before(app, thread: str, node: str):
+    """The config of the checkpoint at which `node` was the next thing to run."""
+    for snap in app.get_state_history(cfg(thread)):
+        if snap.next == (node,):
+            return BLANK              # TODO: what identifies that point in history?
+    return None
 ''', '''
-def approve_and_continue(thread, cp):
-    """A human approved the paused step. Continue from where it stopped."""
-    return resume(NODES, EDGES, {}, "read_ledger", thread, cp)
+def add_human_finding(app, thread: str, note: str):
+    """A person adds something the tools could not know."""
+    app.update_state(cfg(thread), {"findings": [f"human: {note}"]})
+    return app.get_state(cfg(thread)).values
 
-def rewind(thread, cp, seq, changes: dict):
-    """Rewind to checkpoint `seq`, apply `changes`, and re-run from there.
 
-    Returns the new final state. The original history is left intact -- rewinding
-    forks, it does not erase.
-    """
-    cp_at = cp.at(thread, seq)
-    if cp_at is None:
-        raise ValueError(f"no checkpoint {seq}")
-    forked = Checkpointer()
-    forked.threads[thread] = [c for c in cp.history(thread) if c["seq"] <= seq]
-    state = {**cp_at["state"], **changes}
-    forked.threads[thread][-1] = {**forked.threads[thread][-1], "state": state}
-    return resume(NODES, EDGES, {}, "read_ledger", thread, forked)[0]
+def checkpoint_before(app, thread: str, node: str):
+    """The config of the checkpoint at which `node` was the next thing to run."""
+    for snap in app.get_state_history(cfg(thread)):
+        if snap.next == (node,):
+            return snap.config        # a config carrying that checkpoint_id, not just the thread
+    return None
 '''),
     code('''
-# --- Self-check: Section 3
-def _paused():
-    cp = Checkpointer()
-    s, p, why = run_graph(NODES, EDGES, {}, "read_ledger", FRESH(), "t2", cp,
-                          stop_before="write_note")
-    return cp, s, p, why
+# --- Self-check: Section 3   (real update_state and real history -- no model)
+def _updated():
+    saver = InMemorySaver()
+    app = start_with_gate("PMT-1005", "upd", saver)
+    values = add_human_finding(app, "upd", "Compliance confirmed the hold by phone.")
+    return app, values
 
-check("the run pauses before the irreversible step",
-      lambda: _paused()[3] == "awaiting_approval")
-check("it paused with the reads already done", lambda: _paused()[2] == ["read_ledger", "read_policy"])
-check("no answer was written while awaiting approval",
-      lambda: _paused()[1]["answer"] is None,
-      "the whole point of the gate is that the write has not happened yet")
-check("approving continues to completion",
-      lambda: approve_and_continue("t2", _paused()[0])[2] == "done")
-
-def _rewound():
-    cp = Checkpointer()
-    run_graph(NODES, EDGES, {}, "read_ledger", FRESH(), "t3", cp)
-    # an analyst disputes the human-decision flag and re-runs from after the policy read
-    return cp, rewind("t3", cp, seq=1, changes={"needs_human": False})
-
-check("rewinding with a changed field changes the outcome",
-      lambda: "operations may proceed" in _rewound()[1]["answer"],
-      "the original run said human decision required")
-check("the original history is left intact",
-      lambda: len(_rewound()[0].history("t3")) == 3,
-      "rewinding forks; it must not erase what actually happened")
+check("the human's note went into state",
+      lambda: any("human:" in f for f in _updated()[1]["findings"]))
+check("update_state APPENDS rather than replacing",
+      lambda: len(_updated()[1]["findings"]) == 3,
+      "it goes through the reducers -- Annotated[list, add] means the tool findings survive")
+check("the graph is still paused at the gate",
+      lambda: _updated()[0].get_state(cfg("upd")).next == ("write_note",),
+      "adding a fact is not the same as approving")
+check("the resumed answer contains the human's note",
+      lambda: "human:" in approve(_updated()[0], "upd")["answer"])
+check("checkpoint_before finds the right point in history",
+      lambda: checkpoint_before(_updated()[0], "upd", "read_policy") is not None)
+check("what it returns is a checkpoint, not just the thread",
+      lambda: "checkpoint_id" in checkpoint_before(_updated()[0], "upd",
+                                                   "read_policy")["configurable"],
+      "a config with only a thread_id points at NOW, which is not a rewind")
 '''),
 
     md("""
 ## Section 4 &mdash; The audit trail
 
-The history is already the answer to *what did it know, and when?* Render it.
+`get_state_history()` returns every checkpoint, **newest first**. That is the record of what the
+system knew and when it knew it &mdash; which is the question an auditor actually asks.
 """),
     code('''
-def audit(thread, cp) -> str:
-    """A human-readable trail: after each node, what was known and what came next."""
-    rows = [f"{'seq':>4}  {'after':<14}{'steps':>6}{'findings':>10}  {'needs_human':<12}next"]
-    rows.append("-" * 74)
-    for c in cp.history(thread):
-        s = c["state"]
-        rows.append(f"{c['seq']:>4}  {c['after']:<14}{s.get('steps', 0):>6}"
-                    f"{len(s.get('findings', [])):>10}  {str(s.get('needs_human')):<12}"
-                    f"{s.get('__next__', '-')}")
+def audit(app, thread: str) -> str:
+    """The thread's history, oldest first, as something a person can read."""
+    rows = []
+    for snap in reversed(list(app.get_state_history(cfg(thread)))):
+        rows.append(f"  next={str(snap.next):22} steps={snap.values.get('steps', 0)} "
+                    f"findings={len(snap.values.get('findings', []))} "
+                    f"answer={'set' if snap.values.get('answer') else '-'}")
     return "\\n".join(rows)
-
-try:
-    _cpx = Checkpointer()
-    run_graph(NODES, EDGES, {}, "read_ledger", FRESH(), "audit-demo", _cpx)
-    print(audit("audit-demo", _cpx))
-except NameError:
-    print("(finish the sections above, then re-run this cell)")
 '''),
     code('''
 # --- Self-check: Section 4
-def _audited():
-    c = Checkpointer()
-    run_graph(NODES, EDGES, {}, "read_ledger", FRESH(), "a1", c)
-    return c
+def _history():
+    saver = InMemorySaver()
+    app = build(checkpointer=saver)
+    app.invoke(fresh("PMT-1005"), cfg("aud"))
+    return app, list(app.get_state_history(cfg("aud")))
 
-check("one checkpoint per node, plus a header and rule",
-      lambda: len(audit("a1", _audited()).splitlines()) == 3 + 2)
-check("the trail shows findings accumulating",
-      lambda: "         1" in audit("a1", _audited()) and "         2" in audit("a1", _audited()))
-check("the trail records when needs_human became true",
-      lambda: audit("a1", _audited()).count("True") >= 2)
-check("the trail is derived from recorded state, not regenerated",
-      lambda: all("state" in c for c in _audited().history("a1")),
-      "this is why it is stronger evidence than asking the model what it did")
+check("history has a checkpoint per node plus the start",
+      lambda: len(_history()[1]) >= 4)
+check("history is returned newest first",
+      lambda: _history()[1][0].values.get("answer") is not None
+              and _history()[1][-1].next == ("__start__",),
+      "reverse it before you show it to a person")
+check("the earliest checkpoint has no findings yet",
+      lambda: len(_history()[1][-1].values.get("findings", [])) == 0)
+check("the audit trail is readable",
+      lambda: "next=" in audit(_history()[0], "aud"))
+check("every checkpoint carries its own id",
+      lambda: len({s.config["configurable"]["checkpoint_id"] for s in _history()[1]})
+              == len(_history()[1]),
+      "identical ids would mean you cannot address a point in the past")
 '''),
 
     md("""
-## Run it for real
-
-Have the model read your audit trail and answer the auditor's question. Note what it is doing:
-reading a record, not recalling a run.
+## Run it &mdash; crash, resume, approve, rewind
 """),
     code('''
-if llm_ready():
-    try:
-        cp = Checkpointer()
-        run_graph(NODES, EDGES, {}, "read_ledger", FRESH("PMT-1005"), "real", cp)
-        trail = audit("real", cp)
-        answer = ask(
-            "You are answering an auditor. Using ONLY this execution trail, state what the system "
-            "knew at the point it decided, and whether a human decision was required. If the trail "
-            "does not support an answer, say so.\\n\\n" + trail
-        )
-        print(trail)
-        print("\\n--- the auditor's answer ---\\n" + answer.strip()[:500])
-    except NameError:
-        print("(finish the sections above, then re-run this cell)")
+def _demo():
+    saver = InMemorySaver()
+
+    print("--- 1. approval gate ---")
+    app = start_with_gate("PMT-1005", "case", saver)
+    print("   paused before:", pending(app, "case"))
+    print("   answer so far:", app.get_state(cfg("case")).values["answer"])
+
+    print("\\n--- 2. a human adds what the tools could not know ---")
+    vals = add_human_finding(app, "case", "Compliance confirmed the hold by phone at 14:02.")
+    for f in vals["findings"]:
+        print("   " + f[:100])
+
+    print("\\n--- 3. approve, and let it finish ---")
+    out = approve(app, "case")
+    print("   " + str(out["answer"])[:220])
+
+    print("\\n--- 4. rewind to before read_policy and replay ---")
+    back = checkpoint_before(app, "case", "read_policy")
+    if back:
+        replayed = app.invoke(None, back)
+        print("   replayed from an earlier checkpoint; next =",
+              app.get_state(cfg("case")).next)
+        print("   answer:", str(replayed.get("answer"))[:160])
+
+    print("\\n--- 5. the audit trail ---")
+    print(audit(app, "case"))
+guard(_demo)
 '''),
     md("""
 ### Read it
 
-The model is summarising a **recorded** artefact. Ask it the same question with no trail and it
-would produce something equally fluent and unfalsifiable &mdash; which is precisely the difference
-Module 2 drew between reasoning text and evidence.
+**Step 4 is the one to look at twice.** Rewinding replays the graph from an older checkpoint &mdash;
+and because this graph was compiled with `interrupt_before=["write_note"]`, the replay runs
+forward and then **stops at the gate again**. It does not sail through to a new answer. That is
+correct, and it surprises people: the interrupt is a property of the compiled graph, not of a
+particular run, so every path through it pauses. If you want the replay to finish, resume it
+again.
 
-This is also the honest answer to &ldquo;can we explain what the agent did?&rdquo;. Not from the model.
-From the checkpoints.
+**Step 5 is what you show an auditor.** Not the answer &mdash; the sequence. Each row is a point at
+which the system had a definite set of findings and had not yet done the next thing. The question
+"what did it know when it decided?" has an exact answer, and the human's note appears in it as a
+finding like any other, tagged `human:` so provenance survives.
+
+And note what made all of this available: one keyword argument. Everything in this lab is a
+consequence of `compile(checkpointer=...)`. Without it, a crash loses the case, an approval gate
+is impossible, and the audit question has no answer at all.
 """),
 
     code('''
@@ -1551,329 +1596,392 @@ score()
     md("""
 ## Your turn
 
-1. The checkpointer stores full state snapshots. On a long run that is a lot of duplication. Store
-   diffs instead &mdash; then say what you lose when a diff chain has a gap.
-2. State snapshots may contain the payment record. Which fields must never reach a checkpoint store
-   under your own retention rules, and where would you enforce that &mdash; in the node, the reducer, or
-   the checkpointer? Module 8 returns to this.
+1. Swap `InMemorySaver` for `SqliteSaver` pointed at a file under `WORK`. Run the graph to the
+   gate, restart the kernel, rebuild the app against the same file, and resume. That is recovery
+   after a crash, and it is why in-memory is a development convenience only.
+2. Gate on a **condition** rather than always: interrupt before `write_note` only when
+   `needs_human` is true. (`interrupt_before` is static, so this belongs in a conditional edge to
+   a node that interrupts.) Confirm PMT-1002 runs straight through.
+3. Rewind, then use `update_state` to change `needs_human` to `False` before resuming. You have
+   just overridden a control decision and left a record of doing so. Decide who in your
+   organisation is allowed to make that call, and how the audit trail would show it.
 """),
 ]
 
 
 # =========================================================================== #
-# Lab 3.5 -- challenge: shared state, and the poisoning it enables
+# Lab 3.5 -- challenge: shared state, private state, and context poisoning
 # =========================================================================== #
 LAB5 = [
-    header(5, "Challenge &mdash; Shared State and Context Poisoning", "Advanced", 40,
-           ["Run three agents over one shared state and watch a wrong finding spread",
-            "Attach provenance so a claim can be checked instead of the consensus",
-            "Build a critic that verifies against the source, not against agreement",
-            "Compare shared and private state on cost, containment and auditability"],
-           "> **The comprehensive lab for Module 3, and the bridge into Day 2.** Everything so far\n"
-           "> has been one agent. This is what memory does when there are several."),
+    header(5, "Challenge &mdash; Shared State and Context Poisoning", "Advanced", 45,
+           ["Build a graph where three agents write into one shared state",
+            "Introduce one wrong finding and watch it spread through the others",
+            "Give each agent private state, and measure how far the damage gets",
+            "Make every finding carry its source, so a wrong one can be traced and dropped"],
+           "> **The take-home artifact.** The state design that Module 5's multi-agent graphs are\n"
+           "> built on, and the failure it is designed to contain."),
     setup(5),
     code(DOMAIN),
-    code(CARRIED_TOOLS),
+    code(GRAPH_TOOLS),
 
     md("""
 ## Concept
 
-Shared state is cheap and consistent. It is also how one agent's error becomes every agent's
-premise &mdash; and because each later agent reasons correctly *from what it was told*, the system ends
-up confidently and unanimously wrong, with nothing erroring.
+When several agents share one state object, everything one writes is context for the next. That
+is the point &mdash; it is what stops the fragmentation Lab 1.4 measured. It is also the risk:
+**a wrong finding is indistinguishable from a right one**, and every agent downstream builds on it.
 
-Three agents agreeing is not corroboration. It is an echo. The defence is **provenance**.
+Two defences, and you need both:
+
+- **provenance** &mdash; every finding records who produced it and from what, so a bad one can be
+  identified and removed rather than argued with;
+- **scope** &mdash; not everything an agent computes belongs in the shared state. Private working
+  notes stay private.
 """),
 
     md("""
-## Section 1 &mdash; A finding that can be checked
+## Section 1 &mdash; A finding you can check
 
-A bare string cannot be verified. A finding that carries its author and its source can.
+An unattributed string is not evidence. Make the shape carry its own provenance.
 """),
     code('''
-def finding(claim: str, *, by: str, source: str, ref: str) -> dict:
-    """One finding, with enough provenance that a critic can re-derive it."""
-    return {"claim": claim, "by": by, "source": source, "ref": ref}
+from typing import Annotated, Optional
+from typing_extensions import TypedDict
+from operator import add
+from langgraph.graph import StateGraph, START, END
+from pydantic import BaseModel, Field
 
-def verifiable(f: dict) -> bool:
-    """True when a finding carries everything needed to check it independently."""
-    required = ("claim", "by", "source", "ref")
-    if not all(f.get(k) for k in required):
-        return False
-    return BLANK                     # TODO: the source must be one a critic can actually re-read.
-                                     # Accept only "ledger" or "policy".
+class Finding(BaseModel):
+    """One claim, with enough attached to check it."""
+    claim: str = Field(description="What is asserted, in one line")
+    by: str = Field(description="Which agent produced it")
+    source: str = Field(description="Which system or document it came from")
+    ref: str = Field(description="The identifier within that source")
+
+    def __str__(self) -> str:
+        return f"[{self.by}/{self.source}:{self.ref}] {self.claim}"
+
+
+def trustworthy(f: Finding, known_sources=("ledger", "policy")) -> bool:
+    """A finding is checkable when we know where it came from and can go back to it."""
+    return BLANK                      # TODO: a known source, AND a ref that is not empty
 ''', '''
-def finding(claim: str, *, by: str, source: str, ref: str) -> dict:
-    """One finding, with enough provenance that a critic can re-derive it."""
-    return {"claim": claim, "by": by, "source": source, "ref": ref}
+from typing import Annotated, Optional
+from typing_extensions import TypedDict
+from operator import add
+from langgraph.graph import StateGraph, START, END
+from pydantic import BaseModel, Field
 
-def verifiable(f: dict) -> bool:
-    """True when a finding carries everything needed to check it independently."""
-    required = ("claim", "by", "source", "ref")
-    if not all(f.get(k) for k in required):
-        return False
-    return f["source"] in ("ledger", "policy")
+class Finding(BaseModel):
+    """One claim, with enough attached to check it."""
+    claim: str = Field(description="What is asserted, in one line")
+    by: str = Field(description="Which agent produced it")
+    source: str = Field(description="Which system or document it came from")
+    ref: str = Field(description="The identifier within that source")
+
+    def __str__(self) -> str:
+        return f"[{self.by}/{self.source}:{self.ref}] {self.claim}"
+
+
+def trustworthy(f: Finding, known_sources=("ledger", "policy")) -> bool:
+    """A finding is checkable when we know where it came from and can go back to it."""
+    return f.source in known_sources and bool(f.ref.strip())
 '''),
     code('''
 # --- Self-check: Section 1
-_good = finding("PMT-1005 is held", by="ledger_agent", source="ledger", ref="PMT-1005")
-_hearsay = finding("PMT-1005 is held", by="critic", source="another agent said so", ref="PMT-1005")
+_good    = Finding(claim="status is held", by="ledger_agent", source="ledger", ref="PMT-1005")
+_no_ref  = Finding(claim="status is held", by="ledger_agent", source="ledger", ref="")
+_hearsay = Finding(claim="Compliance already cleared it", by="critic",
+                   source="recollection", ref="n/a")
 
-check("a sourced finding is verifiable", lambda: verifiable(_good) is True)
-check("a finding sourced from another agent is not",
-      lambda: verifiable(_hearsay) is False,
-      "if the source is hearsay, checking it only re-checks the echo")
-check("a finding missing its author is not verifiable",
-      lambda: verifiable({**_good, "by": ""}) is False)
-check("a finding missing its reference is not verifiable",
-      lambda: verifiable({**_good, "ref": ""}) is False)
+check("a sourced finding is trustworthy",     lambda: trustworthy(_good) is True)
+check("a finding with no ref is not",         lambda: trustworthy(_no_ref) is False,
+      "'the ledger says so' without saying WHERE cannot be checked")
+check("an unsourced claim is not",            lambda: trustworthy(_hearsay) is False,
+      "this is the shape a hallucination arrives in -- confident, fluent, unattributable")
+check("a finding prints its provenance",      lambda: "ledger:PMT-1005" in str(_good))
+def _rejects_partial_finding():
+    try:
+        Finding(claim="x", by="y")
+        return False
+    except Exception:
+        return True
+
+check("the schema forces all four fields",    lambda: _rejects_partial_finding())
 '''),
 
     md("""
 ## Section 2 &mdash; Watch the poison spread
 
-The ledger agent misreads one field. Everything downstream is correct given what it was told.
+Three agents in one graph, all writing into one `findings` list. The ledger agent can be told to
+produce a wrong finding; the others read it and build on it.
 """),
     code('''
-def ledger_agent(state, *, faulty=False):
-    """Reads the ledger. With faulty=True it misreads a held payment as failed."""
-    rec = LEDGER.get(state["ref"], {})
-    status = rec.get("status", "unknown")
-    if faulty and status == "held":
-        status = "failed"                              # the single wrong bit
-    return {"findings": [finding(f"{state['ref']} is {status}",
+class SharedState(TypedDict):
+    ref: str
+    findings: Annotated[list, add]        # every agent appends here
+    verdict: Optional[str]
+
+FAULTY = {"ledger": False}                # flip this to inject one wrong finding
+
+def ledger_agent(state: SharedState) -> dict:
+    rec = read_ledger_record(state["ref"])
+    if FAULTY["ledger"]:
+        # plausible, fluent, and wrong: the payment is held, not settled
+        return {"findings": [Finding(claim="the payment already settled normally",
+                                     by="ledger_agent", source="ledger", ref=state["ref"])]}
+    return {"findings": [Finding(claim=f"status={rec.get('status')}, "
+                                       f"reason_code={rec.get('reason_code')}",
                                  by="ledger_agent", source="ledger", ref=state["ref"])]}
 
-def policy_agent(state):
-    """Reads policy for whatever the ledger said. Correct, given its input."""
-    said = state["findings"][0]["claim"]
-    code_ = "INSUFFICIENT_FUNDS" if "failed" in said else LEDGER.get(state["ref"], {}).get("reason_code")
-    return {"findings": [finding(f"policy: {policy_for(code_)}",
-                                 by="policy_agent", source="policy", ref=state["ref"])]}
 
-def naive_critic(state):
-    """Checks that the findings agree with each other. This is the trap."""
-    claims = [f["claim"] for f in state["findings"]]
-    consistent = not ("held" in " ".join(claims) and "failed" in " ".join(claims))
-    return {"findings": [finding(f"consistency check: {'consistent' if consistent else 'conflict'}",
-                                 by="critic", source="other agents", ref=state["ref"])]}
+def policy_agent(state: SharedState) -> dict:
+    """Reads the ledger agent's finding and looks up the matching policy."""
+    text = " ".join(str(f.claim) for f in state["findings"])
+    code_ = next((c for c in POLICY if c in text), None)
+    if code_ is None:
+        return {"findings": [Finding(claim="no reason code in evidence, so no policy applies",
+                                     by="policy_agent", source="policy", ref="none")]}
+    return {"findings": [Finding(claim=read_policy_text(code_),
+                                 by="policy_agent", source="policy", ref=code_)]}
 
-def sourced_critic(state):
-    """Re-derives each verifiable finding from its named source. This is the fix."""
-    problems = []
-    for f in state["findings"]:
-        if not verifiable(f):
-            continue
-        if f["source"] == "ledger":
-            truth = LEDGER.get(f["ref"], {}).get("status", "unknown")
-            if BLANK:                # TODO: does the claim disagree with the ledger?
-                problems.append(f"{f['by']} claimed '{f['claim']}' but the ledger says '{truth}'")
-    return {"findings": [finding(f"source check: {problems or 'all findings match their sources'}",
-                                 by="sourced_critic", source="ledger", ref=state["ref"])],
-            "problems": problems}
-''', '''
-def ledger_agent(state, *, faulty=False):
-    """Reads the ledger. With faulty=True it misreads a held payment as failed."""
-    rec = LEDGER.get(state["ref"], {})
-    status = rec.get("status", "unknown")
-    if faulty and status == "held":
-        status = "failed"                              # the single wrong bit
-    return {"findings": [finding(f"{state['ref']} is {status}",
-                                 by="ledger_agent", source="ledger", ref=state["ref"])]}
 
-def policy_agent(state):
-    """Reads policy for whatever the ledger said. Correct, given its input."""
-    said = state["findings"][0]["claim"]
-    code_ = "INSUFFICIENT_FUNDS" if "failed" in said else LEDGER.get(state["ref"], {}).get("reason_code")
-    return {"findings": [finding(f"policy: {policy_for(code_)}",
-                                 by="policy_agent", source="policy", ref=state["ref"])]}
+def critic_agent(state: SharedState) -> dict:
+    """Decides, from the findings and nothing else."""
+    text = " ".join(str(f.claim) for f in state["findings"]).lower()
+    if "settled" in text and "sanctions" not in text:
+        return {"verdict": "no action required"}
+    if "compliance decides" in text:
+        return {"verdict": "hold; escalate to Compliance"}
+    return {"verdict": "unclear; escalate"}
 
-def naive_critic(state):
-    """Checks that the findings agree with each other. This is the trap."""
-    claims = [f["claim"] for f in state["findings"]]
-    consistent = not ("held" in " ".join(claims) and "failed" in " ".join(claims))
-    return {"findings": [finding(f"consistency check: {'consistent' if consistent else 'conflict'}",
-                                 by="critic", source="other agents", ref=state["ref"])]}
 
-def sourced_critic(state):
-    """Re-derives each verifiable finding from its named source. This is the fix."""
-    problems = []
-    for f in state["findings"]:
-        if not verifiable(f):
-            continue
-        if f["source"] == "ledger":
-            truth = LEDGER.get(f["ref"], {}).get("status", "unknown")
-            if truth not in f["claim"]:
-                problems.append(f"{f['by']} claimed '{f['claim']}' but the ledger says '{truth}'")
-    return {"findings": [finding(f"source check: {problems or 'all findings match their sources'}",
-                                 by="sourced_critic", source="ledger", ref=state["ref"])],
-            "problems": problems}
+def shared_graph():
+    g = StateGraph(SharedState)
+    g.add_node("ledger", ledger_agent)
+    g.add_node("policy", policy_agent)
+    g.add_node("critic", critic_agent)
+    g.add_edge(START, "ledger")
+    g.add_edge("ledger", "policy")
+    g.add_edge("policy", "critic")
+    g.add_edge("critic", END)
+    return g.compile()
+
+
+def run_shared(ref="PMT-1005", faulty=False) -> dict:
+    FAULTY["ledger"] = faulty
+    try:
+        return shared_graph().invoke({"ref": ref, "findings": [], "verdict": None})
+    finally:
+        FAULTY["ledger"] = False
 '''),
     code('''
-# --- Self-check: Section 2
-def run_shared(ref="PMT-1005", faulty=False, critic=naive_critic):
-    state = {"ref": ref, "findings": [], "problems": []}
-    for node in (lambda s: ledger_agent(s, faulty=faulty), policy_agent, critic):
-        upd = node(state)
-        state = {**state, **{k: v for k, v in upd.items() if k != "findings"},
-                 "findings": state["findings"] + upd["findings"]}
-    return state
-
-_clean = run_shared(faulty=False)
-_poisoned = run_shared(faulty=True)
-
-check("a clean run reads the payment as held",
-      lambda: "held" in _clean["findings"][0]["claim"])
-check("the faulty run reads it as failed", lambda: "failed" in _poisoned["findings"][0]["claim"])
-check("the policy agent proceeds correctly from the WRONG premise",
-      lambda: "Retry" in _poisoned["findings"][1]["claim"],
-      "it applied the retry policy -- correct, given what it was told")
-check("the naive critic sees no problem at all",
-      lambda: "consistent" in _poisoned["findings"][2]["claim"],
-      "it checked agreement, and the agents did agree")
-check("the sourced critic catches it",
-      lambda: len(run_shared(faulty=True, critic=sourced_critic)["problems"]) == 1,
-      "re-derive the claim from the ledger rather than comparing it with other agents")
-check("the sourced critic does not cry wolf on a clean run",
-      lambda: run_shared(faulty=False, critic=sourced_critic)["problems"] == [])
-
-for name, st in (("clean", _clean), ("poisoned", _poisoned)):
-    try:
-        print(f"--- {name} ---")
-        for f in st["findings"]:
-            print(f"   [{f['by']:16} src={f['source']:14}] {f['claim'][:70]}")
-    except NameError:
-        print("(fill in the blanks above)"); break
+# --- Self-check: Section 2   (a real three-node graph -- no model)
+check("a clean run reaches the right verdict",
+      lambda: "Compliance" in run_shared()["verdict"])
+check("all three agents contributed",
+      lambda: {f.by for f in run_shared()["findings"]}
+              == {"ledger_agent", "policy_agent"} and run_shared()["verdict"] is not None)
+check("ONE wrong finding changes the verdict",
+      lambda: run_shared(faulty=True)["verdict"] == "no action required",
+      "the ledger agent lied once; the critic never touched the ledger and believed it")
+check("the poison is visible in the shared findings",
+      lambda: any("already settled" in f.claim for f in run_shared(faulty=True)["findings"]))
+check("the policy agent was misled too",
+      lambda: any("no policy applies" in f.claim for f in run_shared(faulty=True)["findings"]),
+      "the damage is not one wrong answer -- it is every agent downstream")
+check("the wrong finding still LOOKS trustworthy",
+      lambda: all(trustworthy(f) for f in run_shared(faulty=True)["findings"]),
+      "provenance tells you where a claim came from, not whether it is true. Both matter.")
 '''),
 
     md("""
-## Section 3 &mdash; Private state contains it
+## Section 3 &mdash; Scope: not everything belongs in the shared state
 
-Give each agent its own state and an explicit handoff. The error stops travelling &mdash; and you pay
-for that in re-sent context.
+Give each agent a private scratch area and share only what it is prepared to stand behind. The
+poison still happens &mdash; but it happens to one agent's working notes instead of to the record
+every other agent reads.
 """),
     code('''
-def run_private(ref="PMT-1005", faulty=False):
-    """Each agent gets only what the previous one explicitly handed over."""
-    tokens = 0
-    ledger_state = {"ref": ref, "findings": []}
-    ledger_out = ledger_agent(ledger_state, faulty=faulty)
-    tokens += len(json.dumps(ledger_out)) // 4
+class ScopedState(TypedDict):
+    ref: str
+    findings: Annotated[list, add]        # shared: published, attributable claims
+    scratch: dict                         # private: each agent's own working notes
+    verdict: Optional[str]
 
-    # the handoff: the policy agent receives the CLAIM, and re-reads the ledger itself
-    policy_state = {"ref": ref, "findings": ledger_out["findings"]}
-    checked = sourced_critic(policy_state)
-    tokens += len(json.dumps(policy_state)) // 4       # context re-sent at the boundary
-
-    if checked["problems"]:
-        return {"outcome": "handoff rejected", "problems": checked["problems"], "tokens": tokens}
-    policy_out = policy_agent(policy_state)
-    tokens += len(json.dumps(policy_out)) // 4
-    return {"outcome": BLANK, "problems": [], "tokens": tokens}
-                                     # TODO: what should a clean private run report?
+def publish(state: ScopedState, finding: Finding) -> dict:
+    """Put a finding into the SHARED record -- only if it is checkable."""
+    if not trustworthy(finding):
+        return {"scratch": {**state["scratch"],
+                            finding.by: f"withheld (unsourced): {finding.claim}"}}
+    return BLANK                      # TODO: publish it to the shared findings
 ''', '''
-def run_private(ref="PMT-1005", faulty=False):
-    """Each agent gets only what the previous one explicitly handed over."""
-    tokens = 0
-    ledger_state = {"ref": ref, "findings": []}
-    ledger_out = ledger_agent(ledger_state, faulty=faulty)
-    tokens += len(json.dumps(ledger_out)) // 4
+class ScopedState(TypedDict):
+    ref: str
+    findings: Annotated[list, add]        # shared: published, attributable claims
+    scratch: dict                         # private: each agent's own working notes
+    verdict: Optional[str]
 
-    # the handoff: the policy agent receives the CLAIM, and re-reads the ledger itself
-    policy_state = {"ref": ref, "findings": ledger_out["findings"]}
-    checked = sourced_critic(policy_state)
-    tokens += len(json.dumps(policy_state)) // 4       # context re-sent at the boundary
-
-    if checked["problems"]:
-        return {"outcome": "handoff rejected", "problems": checked["problems"], "tokens": tokens}
-    policy_out = policy_agent(policy_state)
-    tokens += len(json.dumps(policy_out)) // 4
-    return {"outcome": "completed", "problems": [], "tokens": tokens}
+def publish(state: ScopedState, finding: Finding) -> dict:
+    """Put a finding into the SHARED record -- only if it is checkable."""
+    if not trustworthy(finding):
+        return {"scratch": {**state["scratch"],
+                            finding.by: f"withheld (unsourced): {finding.claim}"}}
+    return {"findings": [finding]}
 '''),
     code('''
 # --- Self-check: Section 3
-check("a clean private run completes",
-      lambda: run_private(faulty=False)["outcome"] == "completed")
-check("a poisoned private run is rejected at the handoff",
-      lambda: run_private(faulty=True)["outcome"] == "handoff rejected",
-      "checking at the boundary is what containment means")
-check("the rejection names the disagreement",
-      lambda: "ledger says" in run_private(faulty=True)["problems"][0])
-check("containment is not free",
-      lambda: run_private(faulty=False)["tokens"] > 0,
-      "context is re-sent at every boundary -- that is the coordination tax from Module 1")
+_state = {"ref": "PMT-1005", "findings": [], "scratch": {}, "verdict": None}
+
+check("a checkable finding is published",
+      lambda: publish(_state, _good).get("findings") == [_good])
+check("an unsourced one is NOT published",
+      lambda: "findings" not in publish(_state, _hearsay),
+      "the shared record is the thing every other agent trusts -- keep hearsay out of it")
+check("the withheld claim is not silently discarded",
+      lambda: "critic" in publish(_state, _hearsay)["scratch"],
+      "it goes to the agent's own scratch, where it can be inspected but not believed")
+check("the withheld note says why",
+      lambda: "unsourced" in publish(_state, _hearsay)["scratch"]["critic"])
+check("scratch is not an accumulating channel",
+      lambda: "scratch" not in str(ScopedState.__annotations__["findings"]),
+      "findings accumulate across agents; scratch is overwritten, because it is nobody else's")
 '''),
 
     md("""
-## Section 4 &mdash; The comparison, on four axes
+## Section 4 &mdash; Trace it back and drop it
 
-Cost, containment, auditability, and whether the wrong answer reached the end.
+Provenance earns its keep at exactly one moment: when something is wrong and you have to find out
+what else is wrong because of it.
 """),
     code('''
-def comparison() -> str:
-    rows = [f"{'design':22}{'poison contained':>18}{'tokens':>9}{'audit granularity':>20}",
-            "-" * 72]
-    shared_naive = run_shared(faulty=True, critic=naive_critic)
-    shared_sourced = run_shared(faulty=True, critic=sourced_critic)
-    private = run_private(faulty=True)
-    rows.append(f"{'shared + naive critic':22}{'no':>18}{'low':>9}{'one trace':>20}")
-    rows.append(f"{'shared + sourced critic':22}{'yes':>18}{'low':>9}{'one trace':>20}")
-    rows.append(f"{'private + handoff check':22}{'yes':>18}{private['tokens']:>9}{'per agent':>20}")
-    rows.append("")
-    rows.append(f"naive critic found {len(shared_naive.get('problems', []))} problems; "
-                f"sourced critic found {len(shared_sourced['problems'])}.")
-    return "\\n".join(rows)
+def quarantine(findings: list, bad_source: str, bad_ref: str) -> tuple[list, list]:
+    """Split findings into (kept, dropped) once one source is known to be unreliable."""
+    dropped = [f for f in findings if f.source == bad_source and f.ref == bad_ref]
+    kept = [f for f in findings if f not in dropped]
+    return kept, dropped
 
-try:
-    print(comparison())
-except NameError:
-    print("(finish the sections above, then re-run this cell)")
+
+def recheck(kept: list) -> str:
+    """Re-run the critic's rule over only the findings that survived."""
+    text = " ".join(str(f.claim) for f in kept).lower()
+    if "compliance decides" in text:
+        return "hold; escalate to Compliance"
+    if not kept:
+        return "no evidence; escalate"
+    return "unclear; escalate"
 '''),
     code('''
 # --- Self-check: Section 4
-check("the comparison covers all three designs",
-      lambda: len(comparison().splitlines()) == 7)
-check("the naive critic is recorded as catching nothing",
-      lambda: "found 0 problems" in comparison())
-check("the sourced critic is recorded as catching it",
-      lambda: "found 1" in comparison())
-check("shared state with a sourced critic is enough to contain the error",
-      lambda: len(run_shared(faulty=True, critic=sourced_critic)["problems"]) == 1,
-      "you do not need private state -- you need a critic that checks sources")
+def _poisoned():
+    return run_shared(faulty=True)["findings"]
+
+check("the bad finding can be found by its source and ref",
+      lambda: len(quarantine(_poisoned(), "ledger", "PMT-1005")[1]) == 1)
+check("everything else is kept",
+      lambda: len(quarantine(_poisoned(), "ledger", "PMT-1005")[0])
+              == len(_poisoned()) - 1)
+check("re-deciding on the survivors no longer says 'no action'",
+      lambda: recheck(quarantine(_poisoned(), "ledger", "PMT-1005")[0]) != "no action required",
+      "that is the recovery: drop the source, re-decide, do not argue with the conclusion")
+check("with no evidence left it escalates rather than guessing",
+      lambda: recheck([]) == "no evidence; escalate",
+      "an agent with nothing to go on must say so -- silence is not agreement")
 '''),
 
     md("""
-## Run it for real
-
-Give the model both sets of findings and ask which it trusts. Watch whether provenance changes its
-answer &mdash; and notice that you are testing your *design*, not the model.
+## Run it &mdash; the comparison
 """),
     code('''
+def _compare():
+    print("=== clean run ===")
+    clean = run_shared()
+    for f in clean["findings"]:
+        print("  " + str(f)[:110])
+    print("  VERDICT:", clean["verdict"])
+
+    print("\\n=== one wrong finding from the ledger agent ===")
+    bad = run_shared(faulty=True)
+    for f in bad["findings"]:
+        print("  " + str(f)[:110])
+    print("  VERDICT:", bad["verdict"], "   <-- wrong, and nothing reported an error")
+
+    print("\\n=== after quarantining the bad source ===")
+    kept, dropped = quarantine(bad["findings"], "ledger", "PMT-1005")
+    for f in dropped:
+        print("  DROPPED " + str(f)[:100])
+    print("  VERDICT:", recheck(kept))
+guard(_compare)
+'''),
+    code('''
 if llm_ready():
-    try:
-        poisoned = run_shared(faulty=True, critic=sourced_critic)
-        rendered = "\\n".join(
-            f"- [{f['by']}, source={f['source']}] {f['claim']}" for f in poisoned["findings"])
-        verdict = ask(
-            "These are the findings from three agents working one payment case. State whether the "
-            "case is safe to action, and if any finding should be distrusted, say which and why. "
-            "Judge each finding by its source, not by whether the others agree with it.\\n\\n"
-            + rendered)
-        print(rendered)
-        print("\\n--- verdict ---\\n" + verdict.strip()[:500])
-    except NameError:
-        print("(finish the sections above, then re-run this cell)")
+    # The ONLY difference between these two is the last sentence of the first one.
+    LICENSED = ("You are a payments control reviewer. Decide what must happen next, using ONLY "
+                "the evidence below. If the evidence is inconsistent or insufficient, say so "
+                "instead of deciding.")
+    PLAIN    = ("You are a payments control reviewer. Decide what must happen next, using ONLY "
+                "the evidence below.")
+
+    def _flags_a_problem(text: str) -> bool:
+        return any(w in text.lower() for w in ("inconsist", "insufficient", "cannot determine",
+                                               "not enough", "unclear", "contradict"))
+
+    def _model_critic():
+        out = run_shared(faulty=True)
+        evidence = "\\n".join(str(f) for f in out["findings"])
+        print("the poisoned evidence a model critic is given:")
+        for f in out["findings"]:
+            print("  " + str(f)[:110])
+        print()
+        for label, sysmsg in (("licensed to refuse", LICENSED), ("not licensed", PLAIN)):
+            flagged, first = 0, None
+            for i in range(3):
+                verdict = ask(evidence, system=sysmsg)
+                flagged += _flags_a_problem(verdict)
+                if i == 0:
+                    first = verdict
+            print(f"--- {label}: flagged a problem {flagged}/3 ---")
+            print("  " + first.strip()[:300] + "\\n")
+    guard(_model_critic)
 '''),
     md("""
 ### Read it
 
-If the model flags the ledger finding because the source check contradicts it, provenance did the
-work &mdash; not the model's judgement. Remove the `source=` labels and re-run: the same model, given the
-same claims without provenance, has nothing to reason from but agreement.
+**The rule-based critic was fooled.** It was handed a well-formed, correctly attributed finding
+that happened to be false, and it had no way to know. That is what makes context poisoning
+different from an ordinary bug: no exception, no anomaly in the trace, just a confident answer
+built on one bad input.
 
-**What you take from Module 3:** memory that survives a long session, observations the model cannot
-misread, state you can print and store, and the checkpoint history that answers an auditor.
-Day 2 puts several agents on top of this &mdash; and now you know what that does to a shared memory.
+**The model critic depends entirely on one sentence.** The two runs above differ only in whether
+the reviewer was told *"if the evidence is inconsistent or insufficient, say so instead of
+deciding."* With that licence it reliably notices that a settled payment needs no next action and
+says the evidence is inconsistent. Without it, it does what it was asked &mdash; decides &mdash; and
+closes the case.
+
+Sit with that for a moment, because it is the most portable thing in this module. The model was
+capable of catching the poisoning the whole time. What it lacked was **permission to refuse**. An
+agent given only "decide" will decide, on whatever it has, every time. If you have not written
+down what it should do when the evidence does not support an answer, you have written an agent
+that cannot do anything but answer.
+
+Three more things follow, and they are the take-home of Module 3.
+
+1. **Provenance is not verification.** Every finding in the poisoned run passed `trustworthy()`.
+   Knowing where a claim came from does not tell you it is right &mdash; it tells you *what else to
+   throw away* when you discover it is wrong. That is Section 4, and it is worth a great deal, but
+   it is a recovery mechanism, not a preventative one.
+2. **Scope limits the blast radius.** An agent's uncertain working notes belong in `scratch`,
+   where they can be inspected and not believed. The shared `findings` list is the thing every
+   other agent treats as fact, so the bar for entering it should be higher than "an agent said so".
+3. **Shared state is still the right answer.** Lab 1.4 measured what happens without it: agents
+   that cannot see each other's work produce worse answers than one agent that can. The fix for
+   poisoning is not to go back to isolation &mdash; it is provenance, scope, and a critic that is
+   allowed to say the evidence is inconsistent. You have now measured all three.
+
+**What you take from Module 3:** memory that survives a long session; observations the model does
+not have to decode; a `StateGraph` you can test without a model in it; checkpoints that make
+resume, approval, rewind and audit possible; and a state design that contains one agent's mistake
+instead of spreading it. Module 5 puts several agents into exactly this shape.
 """),
 
     code('''
@@ -1882,12 +1990,16 @@ score()
     md("""
 ## Your turn
 
-1. `sourced_critic` only re-checks findings sourced from the ledger. Extend it to policy findings.
-   What stops a critic from simply becoming a second, equally fallible agent?
-2. The poisoned run had exactly one wrong bit. Make the ledger agent wrong *intermittently* &mdash; a
-   third of the time &mdash; and decide how the design should respond to a source that is usually right.
-3. Combine this with Lab 3.4: at which checkpoint would an auditor first have been able to see the
-   contradiction? That answer is your detection latency, and it is a number worth knowing.
+1. Give the *rule-based* critic the same licence the model one has: when the findings contain a
+   "settled" claim alongside a reason code, or no policy at all, return "evidence inconsistent;
+   escalate". Then poison the run and confirm it fires. Which is safer for your organisation: a
+   wrong answer or a refusal?
+2. Add a `confidence: float` field to `Finding` and have `publish` withhold anything below a
+   threshold. Then find the flaw in that idea &mdash; the poisoned finding in this lab would have
+   been published with confidence 1.0.
+3. Rebuild Section 2's graph with a checkpointer from Lab 3.4, poison it, then use
+   `get_state_history()` to find the exact checkpoint at which the bad finding entered. That is
+   the incident investigation, and it takes about four lines.
 """),
 ]
 
@@ -1896,11 +2008,11 @@ score()
 # main
 # =========================================================================== #
 LABS = [
-    ("lab-3-01-memory-that-survives",        LAB1),
-    ("lab-3-02-perception-observations",     LAB2),
-    ("lab-3-03-stategraph-from-scratch",     LAB3),
-    ("lab-3-04-checkpointing",               LAB4),
-    ("lab-3-05-challenge-shared-state-poisoning", LAB5),
+    ("lab-3-01-memory-that-survives",              LAB1),
+    ("lab-3-02-perception-observations",           LAB2),
+    ("lab-3-03-stategraph-from-scratch",           LAB3),
+    ("lab-3-04-checkpointing",                     LAB4),
+    ("lab-3-05-challenge-shared-state-poisoning",  LAB5),
 ]
 
 

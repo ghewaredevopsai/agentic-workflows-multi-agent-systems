@@ -46,21 +46,6 @@ from nbclient import NotebookClient
 from nbclient.exceptions import CellTimeoutError, DeadKernelError
 
 
-def module_level_blanks(path):
-    """A blank at module level raises NameError when the CELL runs, so it crashes the cell
-    instead of printing [TODO]. Blanks must live inside a function or an expression."""
-    import re as _re
-    nb = json.load(open(path))
-    hits = []
-    for i, c in enumerate(nb["cells"]):
-        if c["cell_type"] != "code":
-            continue
-        for ln in "".join(c["source"]).split("\n"):
-            if _re.match(r"^[A-Za-z_][A-Za-z0-9_]*\s*=\s*BLANK", ln):
-                hits.append(f"cell {i}: {ln.strip()[:70]}")
-    return hits
-
-
 def tally(text):
     return (text.count("[TODO]"), text.count("[PASS]"), text.count("[FAIL]"))
 
@@ -108,7 +93,6 @@ for fn in sorted(f for f in os.listdir(LABDIR) if f.endswith(".ipynb")):
     (k_todo, k_pass, k_fail), k_crash = run_kernel(path)
 
     problems = [f"kernel  {c}" for c in k_crash] + [f"plain   {c}" for c in p_crash]
-    problems += [f"static  module-level blank -- {h}" for h in module_level_blanks(path)]
     if (p_todo, p_pass, p_fail) != (k_todo, k_pass, k_fail):
         problems.append(
             "MISMATCH plain vs kernel -- the notebook depends on IPython-only "
