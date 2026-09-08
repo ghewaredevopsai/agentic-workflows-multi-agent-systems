@@ -34,7 +34,7 @@ for fn in sorted(f for f in os.listdir(SOLDIR) if f.endswith(".ipynb")):
     n_fail = out.count("[FAIL]")
     n_todo = out.count("[TODO]")
     n_pass = out.count("[PASS]")
-    m = re.search(r"Score: (\d+)/(\d+)", out)
+    m = re.search(r"Self-check: (\d+)/(\d+)", out)
     # A solution that trips guard() has an unfilled name in it -- the cell is ungraded, so
     # nothing else here would notice. This is how a broken "Run it for real" cell hides.
     n_guard = out.count("a blank above is still unfilled")

@@ -8,24 +8,48 @@ the endpoint is read from the environment, so the admin can point it anywhere wi
 
 | Package | Needed by | Notes |
 |---|---|---|
-| *(stdlib only)* | every **graded** cell | `os`, `json`, `time`, `textwrap`, `typing` — nothing else |
-| `langchain` (1.x) | Lab 1.3 live cell | `langchain.agents.create_agent`, `langchain.tools.tool` |
-| `langchain-openai` | Labs 1.1, 1.2, 1.3, 1.5 live cells | `ChatOpenAI`, pointed at the in-cluster gateway |
+| `langchain` (1.x) | **every lab** | `langchain.agents.create_agent`, `langchain_core.tools.tool`, message types, `trim_messages` |
+| `langchain-openai` | **every lab** | `ChatOpenAI`, pointed at the in-cluster gateway |
+| `langgraph` (1.x) | Labs 1.1, 1.2 | `langgraph.checkpoint.memory.InMemorySaver` — `create_agent`'s thread memory |
+| `pydantic` (2.x) | Labs 1.2, 1.3, 1.4, 1.5 | `BaseModel` / `Field` for `with_structured_output` and `response_format` |
 
-⚠️ **Lab 1.4 makes no model call at all** — not one, in either the lab or the solution. Its
-workers are deterministic stand-ins and its "tokens" are `len(text)//4`, deliberately: the
-coordination-tax argument is architectural, and a real model would add variance without moving
-the ratio while making every participant's numbers different. So 1.4 runs with the gateway down
-and costs nothing against the daily cap. Say so when introducing it, or someone who expects to
-watch agents talk will report the lab as broken.
+Verified against the sandbox image on 2026-09-08: langchain **1.4.0**, langchain-core 1.6.2,
+langchain-openai 1.6.0, langgraph 1.2.11, pydantic 2.11.7, Python 3.12.11.
+
+⚠️ **This changed on 2026-09-08.** Module 1 was rebuilt so the participant writes real LangChain
+and LangGraph code in every lab, and every lab now makes live model calls. What used to be true —
+"graded cells are stdlib-only and never call a model" — is no longer the design. The invariant
+that replaced it:
+
+> **Self-checks assert on framework _objects_; only the "Run it for real" cells invoke the model.**
+
+Constructing a `@tool`, a Pydantic schema, a `bind_tools` list or a compiled graph needs no
+endpoint, so the self-checks stay deterministic and verify offline. Invoking any of them does.
+That is why `verify.py` still runs with the gateway down, and why `verify_live.py` exists.
+
+⚠️ **Lab 1.4 is the one lab in Module 1 that looks at tokens**, and it does so as one column among
+several — the lab's finding is about accuracy and context fragmentation, not cost. It is also the
+most expensive lab in the module: three architectures plus a handoff audit is roughly fifty agent
+runs, about 80 seconds and ~11k tokens per participant.
+
+⚠️ **`trim_messages(token_counter=llm)` raises `NotImplementedError` on this model.** `tiktoken`
+has no encoding for `qwen36-35b-a3b-lab`, so the model class cannot count. Lab 1.2 teaches the fix
+(`count_tokens_approximately`) deliberately, because it is what every self-hosted or
+gateway-served model does.
+
+⚠️ **`response_format` can return `None`.** `create_agent(..., response_format=X)` asks the model
+to finish by calling a tool that fills `X`; a model that replies in prose instead leaves
+`result["structured_response"]` as `None` and raises nothing. It is intermittent on this model.
+Labs 1.3 and 1.4 both handle it explicitly and 1.3 teaches it.
 
 ⚠️ **`create_agent` takes `system_prompt=`, not `prompt=`.** The sandbox ships **langchain
 1.4.0**; `prompt=` was the 1.0-preview name and now raises `TypeError: create_agent() got an
 unexpected keyword argument 'prompt'`. Pin-sensitive — re-check this signature after any
 langchain bump, because the graded cells will not catch it (they never call the model).
 
-Python **3.12** (the course stack). Every graded cell is stdlib-only and self-checks offline, so a
-participant whose LLM access is not yet wired can still complete and score all five labs.
+Python **3.12** (the course stack). A participant whose LLM access is not yet wired can still fill
+in every blank and pass every self-check — the object-level assertions do not need the gateway —
+but they will miss the "Run it for real" cells, which are the point of the module.
 
 ## 2. Environment variables
 
@@ -118,6 +142,19 @@ _generators/regenerate.sh
 Rebuilds all ten notebooks from the single source and checks both directions: every solution must
 score full marks, and every untouched lab must survive *Run All* without an uncaught exception.
 Runs offline — no cluster, no model, no network (it does start a local Jupyter kernel).
+
+**That is no longer sufficient on its own.** Since the labs became framework-forward, the offline
+pass proves only that the objects are built correctly. To prove the agents actually run:
+
+```bash
+_generators/verify_live.py            # all five solutions, real kernel, live model
+_generators/verify_live.py lab-1-04   # just one
+```
+
+Run it **on the cluster** (or anywhere `LAB_LLM_*` points at a live gateway). It fails on any
+`[FAIL]`, any `[TODO]`, any cell error, and — importantly — on any cell that *degraded* to
+"model unavailable" or "not importable here", which is how a broken live cell used to hide. A full
+Module 1 pass is about 130 seconds and roughly a cent.
 
 `verify_labs.py` executes each lab **twice — plain `exec()` and a real Jupyter kernel — and requires
 the two to agree** on (todo, pass, fail). Agreement is the actual check. A notebook must not depend
