@@ -209,7 +209,7 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
       <text x="590" y="324" text-anchor="middle" class="bxs am">Nothing in the pipeline can tell the difference &mdash; it made that choice at build time</text>
       <text x="590" y="356" text-anchor="middle" class="bd">And the failure is silent: the agent never reports that it was handed context it did not need,</text>
       <text x="590" y="382" text-anchor="middle" class="bd">only that it answered. You find out from the answers, which is Module 7's problem.</text>
-      <text x="590" y="402" text-anchor="middle" class="bds">Lab 6.2 measures the cost of retrieving on questions that never needed it.</text>
+      <text x="590" y="402" text-anchor="middle" class="bds">Lab 6.2 prices it over eight questions &mdash; four of them need no corpus at all.</text>
     </svg>
   </div>
 </div>
@@ -256,11 +256,11 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
   <h1>The half nobody demos</h1>
 </div>
 
-<div class="slide" data-sec="Mechanics" data-notes="The highest-leverage decision in the whole module, and it is made in an afternoon by whoever wrote the ingestion script. If the exception is split from the rule it qualifies, no retriever on earth can return them together -- because they are no longer one thing. Ask the room how their corpus is chunked; most will not know.">
+<div class="slide" data-sec="Mechanics" data-notes="The highest-leverage decision in the whole module, and it is made in an afternoon by whoever wrote the ingestion script. If the exception is split from the rule it qualifies, no retriever on earth can return them together -- because they are no longer one thing. Ask the room how their corpus is chunked; most will not know. Lab 6.1's live cell IS this slide: one question, one model, two chunkings -- and the 120-character context stops one clause short of 'this does not apply to intra-group transfers', so a correct-sounding answer is the wrong one. Note also that the section splitter keeps the heading in the embedded text, not just in the metadata: a query says 'limit breach', and a heading held only as a label cannot be matched.">
   <h2>Chunking decides what can ever be found together</h2>
   <div class="body">
     <svg width="1180" height="424" viewBox="0 0 1180 424" role="img" aria-label="A policy split across two chunks becomes unretrievable as a unit">
-      <text x="300" y="46" text-anchor="middle" class="lbl">Split at 200 characters</text>
+      <text x="300" y="46" text-anchor="middle" class="lbl">Split every 120 characters</text>
       <rect x="60" y="64" width="480" height="86" rx="6" fill="#f8f8fd" stroke="#94a3b8" stroke-width="2"/>
       <text x="82" y="94" class="bds">&ldquo;Payments above USD 500,000 require</text>
       <text x="82" y="118" class="bds">Treasury approval before release.&rdquo;</text>
@@ -275,10 +275,11 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
       <text x="300" y="314" text-anchor="middle" class="bd no">retrieves chunk 7 and answers</text>
       <text x="300" y="340" text-anchor="middle" class="bx no">exactly wrong</text>
       <text x="300" y="376" text-anchor="middle" class="bds">and confidently, with a citation</text>
+      <text x="300" y="404" text-anchor="middle" class="bds">a splitter that cuts on size, meaning be damned</text>
 
       <line x1="590" y1="56" x2="590" y2="392" stroke="#e2e8f0" stroke-width="2"/>
 
-      <text x="880" y="46" text-anchor="middle" class="lbl">Split on the rule</text>
+      <text x="880" y="46" text-anchor="middle" class="lbl">Split on the section heading</text>
       <rect x="640" y="64" width="480" height="186" rx="6" fill="#f0fdf9" stroke="#0d9488" stroke-width="2.5"/>
       <text x="662" y="98" class="bds">&ldquo;Payments above USD 500,000 require</text>
       <text x="662" y="122" class="bds">Treasury approval before release.</text>
@@ -290,11 +291,12 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
       <text x="880" y="314" text-anchor="middle" class="bd ok">so it cannot be retrieved without it</text>
       <text x="880" y="352" text-anchor="middle" class="bds am">Chunk on meaning, not on a character count.</text>
       <text x="880" y="376" text-anchor="middle" class="bds am">Overlap is a patch for having chunked wrongly.</text>
+      <text x="880" y="404" text-anchor="middle" class="bds">the heading goes into the text and into the metadata</text>
     </svg>
   </div>
 </div>
 
-<div class="slide" data-sec="Mechanics" data-notes="Metadata is the part that survives contact with production. Semantic search over the whole corpus is a demo; a real query is almost always scoped -- this jurisdiction, this product, this version, documents this user may see. Note the last row: retrieval is also an access-control surface, and a filter is how you enforce it.">
+<div class="slide" data-sec="Mechanics" data-notes="Metadata is the part that survives contact with production. Semantic search over the whole corpus is a demo; a real query is almost always scoped -- this jurisdiction, this product, this version, documents this user may see. Note the last row: retrieval is also an access-control surface, and a filter is how you enforce it. One more thing the lab makes them write: the chunk id. add_documents UPSERTS on the id, so an id built from source+section leaves six chunks on a re-run, while a uuid or a counter quietly doubles the corpus -- and every score measured after that is measured on a duplicated index.">
   <h2>Metadata is the filter you will actually use</h2>
   <div class="body">
     <svg width="1180" height="424" viewBox="0 0 1180 424" role="img" aria-label="Metadata fields on an indexed chunk and what each one is for">
@@ -306,6 +308,7 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
       <text x="86" y="230" class="bds">version&nbsp;&nbsp;&nbsp;"v4"</text>
       <text x="86" y="266" class="bds">effective&nbsp;"2026-07-01"</text>
       <text x="86" y="302" class="bds">audience&nbsp;&nbsp;"operations"</text>
+      <text x="86" y="330" class="bds">Lab 6.1 indexes the first three. The rest are production's.</text>
 
       <text x="850" y="84" text-anchor="middle" class="lbl">What each one buys you</text>
       <text x="600" y="122" class="bd"><tspan font-weight="600">source + section</tspan> &mdash; a citation a human can go and check</text>
@@ -322,32 +325,33 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
   </div>
 </div>
 
-<div class="slide" data-sec="Mechanics" data-notes="The slide that explains most RAG hallucinations. Top-k is a ranking, not a judgement -- ask for four and you get four, ranked, even from a corpus that contains nothing relevant. There is no empty result unless you create one with a score floor. Then note the awkward part: the floor is corpus-specific and has to be measured, not guessed.">
+<div class="slide" data-sec="Mechanics" data-notes="The slide that explains most RAG hallucinations. Top-k is a ranking, not a judgement -- ask for four and you get four, ranked, even from a corpus that contains nothing relevant. There is no empty result unless you create one with a score floor. Then note the awkward part: the floor is corpus-specific and has to be measured, not guessed. The zeroes are real and worth explaining: the lab's embedding is about twenty readable lines of hashed bag-of-words -- offline, nothing downloaded, because the sandbox has no egress -- so a question that shares no word with the corpus scores exactly nothing. A trained embedding would score that same question somewhere in the 0.3s instead, which NARROWS the gap and is exactly why the floor is measured on your corpus rather than copied off this slide.">
   <h2>Similarity is not relevance</h2>
   <div class="body">
     <svg width="1180" height="424" viewBox="0 0 1180 424" role="img" aria-label="Top-k always returns k results regardless of relevance">
-      <text x="590" y="46" text-anchor="middle" class="lbl">query: &ldquo;what is the FX hedging policy for JPY?&rdquo; &mdash; a corpus that contains nothing about it</text>
+      <text x="590" y="44" text-anchor="middle" class="lbl">query: &ldquo;what is the FX hedging policy for JPY?&rdquo; &mdash; a corpus that contains nothing about it</text>
 
-      <rect x="150" y="70" width="880" height="42" rx="5" fill="#eef2ff" stroke="#818cf8" stroke-width="1.6"/>
-      <text x="176" y="97" class="bds">0.41&nbsp;&nbsp; "Payments above USD 500,000 require Treasury approval &hellip;"</text>
-      <rect x="150" y="120" width="880" height="42" rx="5" fill="#eef2ff" stroke="#818cf8" stroke-width="1.6"/>
-      <text x="176" y="147" class="bds">0.38&nbsp;&nbsp; "Return to originator with code R04 &hellip;"</text>
-      <rect x="150" y="170" width="880" height="42" rx="5" fill="#eef2ff" stroke="#818cf8" stroke-width="1.6"/>
-      <text x="176" y="197" class="bds">0.36&nbsp;&nbsp; "Compliance decides. Operations must not release &hellip;"</text>
-      <rect x="150" y="220" width="880" height="42" rx="5" fill="#eef2ff" stroke="#818cf8" stroke-width="1.6"/>
-      <text x="176" y="247" class="bds">0.35&nbsp;&nbsp; "Retry once after 24h, then notify the client desk &hellip;"</text>
+      <rect x="150" y="62" width="880" height="40" rx="5" fill="#eef2ff" stroke="#818cf8" stroke-width="1.6"/>
+      <text x="176" y="88" class="bds">0.000&nbsp;&nbsp; "Payments above USD 500,000 require Treasury approval &hellip;"</text>
+      <rect x="150" y="108" width="880" height="40" rx="5" fill="#eef2ff" stroke="#818cf8" stroke-width="1.6"/>
+      <text x="176" y="134" class="bds">0.000&nbsp;&nbsp; "Return to originator with code R04 &hellip;"</text>
+      <rect x="150" y="154" width="880" height="40" rx="5" fill="#eef2ff" stroke="#818cf8" stroke-width="1.6"/>
+      <text x="176" y="180" class="bds">0.000&nbsp;&nbsp; "Compliance decides. Operations must not release &hellip;"</text>
+      <rect x="150" y="200" width="880" height="40" rx="5" fill="#eef2ff" stroke="#818cf8" stroke-width="1.6"/>
+      <text x="176" y="226" class="bds">0.000&nbsp;&nbsp; "Retry once after 24h, then notify the client desk &hellip;"</text>
 
-      <text x="590" y="292" text-anchor="middle" class="bx no">Four results. None of them about JPY. Nothing reported a problem.</text>
+      <text x="590" y="272" text-anchor="middle" class="bx no">Four results, none about JPY, and nothing reported a problem.</text>
+      <text x="590" y="302" text-anchor="middle" class="bds am">Measured in Lab 6.1: an answerable question's best chunk scores 0.37&ndash;0.62; this one scores 0.000 on every chunk.</text>
 
-      <rect x="60" y="316" width="500" height="96" rx="6" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
-      <text x="310" y="346" text-anchor="middle" class="bxs no">There is no &ldquo;no results&rdquo;</text>
-      <text x="310" y="376" text-anchor="middle" class="bds">top-k is a ranking. Ask for four and you get</text>
-      <text x="310" y="398" text-anchor="middle" class="bds">the four least-bad things in the corpus.</text>
+      <rect x="60" y="318" width="500" height="94" rx="6" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
+      <text x="310" y="348" text-anchor="middle" class="bxs no">There is no &ldquo;no results&rdquo;</text>
+      <text x="310" y="378" text-anchor="middle" class="bds">top-k is a ranking. Ask for four and you get</text>
+      <text x="310" y="400" text-anchor="middle" class="bds">four, however badly they score.</text>
 
-      <rect x="620" y="316" width="500" height="96" rx="6" fill="#f0fdf9" stroke="#0d9488" stroke-width="2.5"/>
-      <text x="870" y="346" text-anchor="middle" class="bxs ok">So you have to create one</text>
-      <text x="870" y="376" text-anchor="middle" class="bds">a score floor turns &ldquo;the best of a bad lot&rdquo;</text>
-      <text x="870" y="398" text-anchor="middle" class="bds">into an empty result &mdash; measure it, do not guess it</text>
+      <rect x="620" y="318" width="500" height="94" rx="6" fill="#f0fdf9" stroke="#0d9488" stroke-width="2.5"/>
+      <text x="870" y="348" text-anchor="middle" class="bxs ok">So you have to create one</text>
+      <text x="870" y="378" text-anchor="middle" class="bds">a score floor turns &ldquo;the best of a bad lot&rdquo; into</text>
+      <text x="870" y="400" text-anchor="middle" class="bds">an empty result &mdash; measured, not guessed (0.20 here)</text>
     </svg>
   </div>
 </div>
@@ -355,6 +359,36 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
 <div class="slide div" data-sec="The loop" data-notes="Part three: what the agent actually adds. Three run-time decisions, and the middle one is where most of the win is.">
   <div class="k">Part three</div>
   <h1>What the agent adds</h1>
+</div>
+
+<div class="slide" data-sec="The loop" data-notes="The first of the three run-time decisions, and the mechanism is not what people expect. Nobody writes 'if the question is about policy, retrieve' -- you hand the model a retrieval tool alongside the others and let it choose. Which means the description IS the routing logic. Spend a moment on the last line of the right-hand box: saying what a tool is NOT for is the half everyone skips, and two tools that both read as 'looks things up' is exactly how the wrong one gets called. Lab 6.2 wraps the Lab 6.1 retriever as a tool, then runs the same A/B on two tools.">
+  <h2>Whether to retrieve is a description, not a rule</h2>
+  <div class="body">
+    <svg width="1180" height="424" viewBox="0 0 1180 424" role="img" aria-label="A hand-written routing rule compared with a tool description the model chooses on">
+      <rect x="50" y="56" width="490" height="250" rx="8" fill="#fef2f2" stroke="#b91c1c" stroke-width="2"/>
+      <text x="295" y="88" text-anchor="middle" class="lbl no">A rule you write</text>
+      <text x="295" y="128" text-anchor="middle" class="bxs">a keyword list on the question</text>
+      <text x="295" y="168" text-anchor="middle" class="bd">&ldquo;calculate&rdquo; &middot; &ldquo;we just agreed&rdquo; &middot; &ldquo;a moment ago&rdquo;</text>
+      <text x="295" y="200" text-anchor="middle" class="bd">right on the eight phrasings you thought of</text>
+      <text x="295" y="238" text-anchor="middle" class="bds no">and silently retrieves for the ninth</text>
+      <text x="295" y="272" text-anchor="middle" class="bds">it is code, so it needs maintaining forever</text>
+
+      <line x1="546" y1="181" x2="634" y2="181" stroke="#4338ca" stroke-width="3" marker-end="url(#ai)"/>
+
+      <rect x="640" y="56" width="490" height="250" rx="8" fill="#eef2ff" stroke="#4338ca" stroke-width="2.5"/>
+      <text x="885" y="88" text-anchor="middle" class="lbl">A description the model reads</text>
+      <text x="885" y="128" text-anchor="middle" class="bxs">the tool's docstring, and nothing else</text>
+      <text x="885" y="168" text-anchor="middle" class="bd">name what is in the corpus</text>
+      <text x="885" y="200" text-anchor="middle" class="bd">show the words a good query is written in</text>
+      <text x="885" y="238" text-anchor="middle" class="bd am">and say what the tool is NOT for</text>
+      <text x="885" y="272" text-anchor="middle" class="bds">the model chooses; you wrote no rule at all</text>
+
+      <rect x="90" y="322" width="1000" height="90" rx="6" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
+      <text x="590" y="352" text-anchor="middle" class="bxs am">Two tools, two strings &mdash; and the strings are the whole of the decision</text>
+      <text x="590" y="380" text-anchor="middle" class="bds">Measured on this sandbox: descriptions alone moved first-tool accuracy from 2/5 to 5/5, with five tools.</text>
+      <text x="590" y="404" text-anchor="middle" class="bds">Lab 6.2 runs the same A/B on two, where the gap is smaller and the misses are the pair that sound alike.</text>
+    </svg>
+  </div>
 </div>
 
 <div class="slide" data-sec="The loop" data-notes="The cheapest improvement in this module. Users ask questions in their own context; corpora are written in the organisation's vocabulary. The agent's job is translation, and it is a job the pipeline never even attempted because it passed the question through verbatim.">
@@ -383,14 +417,15 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
       <line x1="536" y1="194" x2="644" y2="194" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
       <line x1="536" y1="282" x2="644" y2="282" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
 
-      <rect x="180" y="340" width="820" height="72" rx="6" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
-      <text x="590" y="370" text-anchor="middle" class="bxs am">The left column retrieves almost nothing. The right column retrieves the answer.</text>
-      <text x="590" y="396" text-anchor="middle" class="bds">Same corpus, same embedding model, same k &mdash; the only change is who wrote the query</text>
+      <rect x="150" y="330" width="880" height="90" rx="6" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
+      <text x="590" y="358" text-anchor="middle" class="bxs am">The left column retrieves almost nothing. The right column retrieves the answer.</text>
+      <text x="590" y="384" text-anchor="middle" class="bds">Same corpus, same embedding model, same k &mdash; the only change is who wrote the query</text>
+      <text x="590" y="408" text-anchor="middle" class="bds">Measured in Lab 6.2: 0 of 4 vague questions land on the right section; rewritten, 4 of 4 do.</text>
     </svg>
   </div>
 </div>
 
-<div class="slide" data-sec="The loop" data-notes="The loop that makes it agentic rather than a pipeline with extra steps. Emphasise the middle box: judging its own retrieval is a real capability and the one to be sceptical about -- an agent that always says 'good enough' has no loop at all. That is why Lab 6.3 tests the adequacy check on results you know are inadequate.">
+<div class="slide" data-sec="The loop" data-notes="The loop that makes it agentic rather than a pipeline with extra steps. Emphasise the middle box: judging its own retrieval is a real capability and the one to be sceptical about -- an agent that always says 'good enough' has no loop at all. That is why Lab 6.3 tests the adequacy check on results you know are inadequate. Mechanically this is Module 3's StateGraph again: four nodes -- retrieve, judge, requery, report -- one conditional edge after judge, and one backward edge that makes the cycle. Every stop in the red box is a line in that edge function, and the hop trace it appends is the log line you will want when someone asks why the agent said no.">
   <h2>Ask, judge, ask again</h2>
   <div class="body">
     <svg width="1180" height="424" viewBox="0 0 1180 424" role="img" aria-label="The retrieve, judge, re-query loop with a budget">
@@ -420,16 +455,46 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
       <text x="470" y="238" text-anchor="middle" class="bds am">no &mdash; and now you know a word you did not know before</text>
 
       <rect x="60" y="266" width="500" height="146" rx="6" fill="#f8f8fd" stroke="#94a3b8" stroke-width="2"/>
-      <text x="310" y="296" text-anchor="middle" class="bxs">Multi-hop, concretely</text>
-      <text x="86" y="330" class="bds">1&nbsp; &ldquo;why did PMT-1004 fail&rdquo; &rarr; returns the code INVALID_IBAN</text>
-      <text x="86" y="360" class="bds">2&nbsp; &ldquo;INVALID_IBAN return procedure&rdquo; &rarr; returns code R04</text>
-      <text x="86" y="390" class="bds">3&nbsp; &ldquo;R04 client notification&rdquo; &rarr; returns the letter template</text>
+      <text x="310" y="296" text-anchor="middle" class="bxs">Multi-hop, concretely &mdash; Lab 6.3's graph</text>
+      <text x="86" y="330" class="bds">1&nbsp; &ldquo;wrong beneficiary iban&rdquo; &rarr; 3.3, which names INVALID_IBAN</text>
+      <text x="86" y="360" class="bds">2&nbsp; hop two asks for that code &mdash; a word the question never had</text>
+      <text x="86" y="390" class="bds">3&nbsp; the corpus wrote that query; no rewrite of the question could</text>
 
       <rect x="620" y="266" width="500" height="146" rx="6" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
       <text x="870" y="296" text-anchor="middle" class="bxs no">The loop needs the same three stops as Module 5</text>
       <text x="646" y="330" class="bds">a hop budget &mdash; three retrievals, not thirty</text>
       <text x="646" y="360" class="bds">a repeat detector &mdash; the same query twice gives the same chunks</text>
       <text x="646" y="390" class="bds">and &ldquo;I could not find it&rdquo; as a real, reportable outcome</text>
+    </svg>
+  </div>
+</div>
+
+<div class="slide" data-sec="The loop" data-notes="The middle box of the previous slide, opened up. 'Is this enough?' is the decision the whole loop turns on, and it is the one people leave to a vibe. Make it a measurement: how much of what the question asked about actually appeared in what came back. The three cases on the left are the ones a judge has to be able to refuse -- and note the middle one, because a check on how MUCH came back passes it happily. Lab 6.3 builds this, and its live cell then asks the model the same question about the same three irrelevant chunks. Watch what it says.">
+  <h2>&ldquo;Enough&rdquo; has to be something you can say no to</h2>
+  <div class="body">
+    <svg width="1180" height="424" viewBox="0 0 1180 424" role="img" aria-label="Three retrievals an adequacy test must refuse, and the measurement that refuses them">
+      <rect x="50" y="56" width="520" height="250" rx="8" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
+      <text x="310" y="88" text-anchor="middle" class="lbl no">Three results a judge must refuse</text>
+      <text x="76" y="130" class="bd">nothing came back at all</text>
+      <text x="76" y="172" class="bd">three chunks came back, none on the topic</text>
+      <text x="96" y="194" class="bds">&mdash; a check on how much came back passes this</text>
+      <text x="76" y="236" class="bd">half of what was asked about appeared</text>
+      <text x="96" y="258" class="bds">&mdash; a partial retrieval is a wrong answer waiting</text>
+      <text x="310" y="292" text-anchor="middle" class="bds no">a test that cannot say no is not a test</text>
+
+      <rect x="630" y="56" width="500" height="250" rx="8" fill="#f0fdf9" stroke="#0d9488" stroke-width="2.5"/>
+      <text x="880" y="88" text-anchor="middle" class="lbl ok">What &ldquo;enough&rdquo; is measured as</text>
+      <text x="880" y="130" text-anchor="middle" class="bxs ok">coverage</text>
+      <text x="880" y="160" text-anchor="middle" class="bds">how much of what the question asked about</text>
+      <text x="880" y="182" text-anchor="middle" class="bds">actually appeared in what came back</text>
+      <text x="880" y="222" text-anchor="middle" class="bd ok">a number you can log, not just a verdict</text>
+      <text x="880" y="258" text-anchor="middle" class="bd ok">and it names what was missing &mdash;</text>
+      <text x="880" y="284" text-anchor="middle" class="bds">&ldquo;the corpus has nothing on hedging&rdquo; is an answer</text>
+
+      <rect x="90" y="322" width="1000" height="90" rx="6" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
+      <text x="590" y="352" text-anchor="middle" class="bxs am">The judge and the answer-writer are the same kind of thing</text>
+      <text x="590" y="380" text-anchor="middle" class="bds">A model asked &ldquo;was that enough?&rdquo; about three irrelevant chunks has every incentive to say yes.</text>
+      <text x="590" y="404" text-anchor="middle" class="bds">So the cheap mechanical check stays underneath it: crude, blunt, and impossible to talk round.</text>
     </svg>
   </div>
 </div>
@@ -456,20 +521,21 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
       <rect x="630" y="52" width="500" height="296" rx="8" fill="#f0fdf9" stroke="#0d9488" stroke-width="2.5"/>
       <text x="880" y="84" text-anchor="middle" class="lbl ok">Bound at generation</text>
       <text x="880" y="122" text-anchor="middle" class="bds">claim&nbsp;&nbsp;&ldquo;needs Treasury approval&rdquo;</text>
-      <text x="880" y="152" text-anchor="middle" class="bds ok">span&nbsp;&nbsp;&nbsp;chunk 7, chars 0&ndash;61</text>
+      <text x="880" y="152" text-anchor="middle" class="bds ok">span&nbsp;&nbsp;&nbsp;ops-runbook-v4.md#3.2 [start:end]</text>
       <line x1="660" y1="176" x2="1100" y2="176" stroke="#99f6e4" stroke-width="1.5"/>
       <text x="656" y="212" class="bd">&bull; every claim carries the span it came from</text>
-      <text x="656" y="246" class="bd">&bull; a claim with no span does not get written</text>
+      <text x="656" y="246" class="bd">&bull; a claim that cannot find its span is dropped</text>
       <text x="656" y="280" class="bd">&bull; checkable by string comparison, not by judgement</text>
       <text x="880" y="324" text-anchor="middle" class="bds ok">an auditor follows one link, not a bibliography</text>
 
-      <rect x="230" y="366" width="720" height="46" rx="6" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
-      <text x="590" y="396" text-anchor="middle" class="bxs am">If you cannot mechanically verify a citation, you have a bibliography, not grounding</text>
+      <rect x="200" y="358" width="780" height="58" rx="6" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
+      <text x="590" y="384" text-anchor="middle" class="bxs am">If you cannot mechanically verify a citation, you have a bibliography, not grounding</text>
+      <text x="590" y="406" text-anchor="middle" class="bds">and a schema you never validate against is only a suggestion &mdash; Lab 6.4 picks the parser that rejects</text>
     </svg>
   </div>
 </div>
 
-<div class="slide" data-sec="Grounding" data-notes="The hardest behaviour to get and the one that sells the system in a bank. Refusal has to be structurally cheap or it never happens: if the only way to say 'I do not know' is for the model to decide to, it will not. The floor and the span requirement are what make refusal the default rather than an act of virtue.">
+<div class="slide" data-sec="Grounding" data-notes="The hardest behaviour to get and the one that sells the system in a bank. Refusal has to be structurally cheap or it never happens: if the only way to say 'I do not know' is for the model to decide to, it will not. The floor and the span requirement are what make refusal the default rather than an act of virtue. Do NOT let the room hear 'so the prompt is useless'. Lab 6.4 runs three arms -- the floor applied so there is no context at all, the nearest chunks with no refusal clause, and the same chunks with the clause -- and the clause is the whole difference in the middle arm. It is necessary and not sufficient. Then make the refusal an exact token so it can be counted rather than judged by tone.">
   <h2>Refusing is a feature, and it needs a mechanism</h2>
   <div class="body">
     <svg width="1180" height="424" viewBox="0 0 1180 424" role="img" aria-label="Three mechanisms that make refusal structural rather than optional">
@@ -499,9 +565,9 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
 
       <rect x="120" y="300" width="940" height="112" rx="6" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
       <text x="590" y="330" text-anchor="middle" class="bx no">A model asked to be careful is not a control</text>
-      <text x="590" y="358" text-anchor="middle" class="bd">&ldquo;Only answer from the context provided&rdquo; is a request. It works most of the time,</text>
-      <text x="590" y="382" text-anchor="middle" class="bd">and most of the time is not a property you can put in a control document.</text>
-      <text x="590" y="406" text-anchor="middle" class="bds">The two mechanisms on the left hold when the request does not.</text>
+      <text x="590" y="360" text-anchor="middle" class="bd">Lab 6.4 measures it both ways: with the refusal clause the model refused 3/3, without it 0/3.</text>
+      <text x="590" y="384" text-anchor="middle" class="bd">So keep the clause. Just keep it out of the control document, because you cannot state its failure rate.</text>
+      <text x="590" y="406" text-anchor="middle" class="bds">The mechanisms on the left hold when it does not; and the token INSUFFICIENT_CONTEXT makes a refusal countable.</text>
     </svg>
   </div>
 </div>
@@ -511,7 +577,7 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
   <h1>Two systems, measured separately</h1>
 </div>
 
-<div class="slide" data-sec="Evaluation" data-notes="The most useful diagram in the module. A single end-to-end score cannot distinguish these four boxes, and they have four different fixes. Spend time on the top-right: a right answer built on the wrong evidence is the one that passes your demo and fails in production, because nothing about it looks wrong.">
+<div class="slide" data-sec="Evaluation" data-notes="The most useful diagram in the module. A single end-to-end score cannot distinguish these four boxes, and they have four different fixes. Spend time on the BOTTOM-LEFT: the answer quotes the text in front of it, and the text in front of it was the wrong section. It passes your demo and fails in production, because nothing about it looks wrong. These four names are the exact keys of the dict Lab 6.5 asks them to complete, and its last self-check is the point of the slide: two runs that an end-to-end score cannot tell apart land in different boxes.">
   <h2>One score cannot tell you which half broke</h2>
   <div class="body">
     <svg width="1180" height="424" viewBox="0 0 1180 424" role="img" aria-label="A two by two of retrieval quality against generation faithfulness">
@@ -535,10 +601,10 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
       <text x="800" y="198" text-anchor="middle" class="bds">or a model that follows context</text>
 
       <rect x="140" y="248" width="380" height="152" rx="8" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
-      <text x="330" y="282" text-anchor="middle" class="bxs am">Right answer, wrong evidence</text>
-      <text x="330" y="312" text-anchor="middle" class="bds am">it knew it already, or it guessed well</text>
-      <text x="330" y="342" text-anchor="middle" class="bds am">passes your demo</text>
-      <text x="330" y="372" text-anchor="middle" class="bds am">fix: retrieval &mdash; before it stops guessing right</text>
+      <text x="330" y="282" text-anchor="middle" class="bxs am">Faithful to the wrong text</text>
+      <text x="330" y="312" text-anchor="middle" class="bds am">every claim is supported by what came back</text>
+      <text x="330" y="342" text-anchor="middle" class="bds am">&mdash; and it passes your demo</text>
+      <text x="330" y="372" text-anchor="middle" class="bds am">fix: retrieval. Generation did its job.</text>
 
       <rect x="600" y="248" width="400" height="152" rx="8" fill="#f0fdf9" stroke="#0d9488" stroke-width="2.5"/>
       <text x="800" y="290" text-anchor="middle" class="bxs ok">Right, and for the right reason</text>
@@ -576,8 +642,9 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
       <text x="656" y="292" class="bd ok">you already have both.</text>
       <text x="880" y="322" text-anchor="middle" class="bds ok">So start here on Monday. It is nearly free.</text>
 
-      <rect x="180" y="360" width="820" height="52" rx="6" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
-      <text x="590" y="392" text-anchor="middle" class="bxs am">Faithful and irrelevant is a real state: a perfectly grounded answer to a question nobody asked</text>
+      <rect x="150" y="352" width="880" height="68" rx="6" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
+      <text x="590" y="378" text-anchor="middle" class="bxs am">Faithful and irrelevant is a real state: a perfectly grounded answer to a question nobody asked</text>
+      <text x="590" y="404" text-anchor="middle" class="bds">Lab 6.5 sweeps k over six labelled questions &mdash; recall 67% at k=1, 100% at k=3 &mdash; so k is read off, not preferred</text>
     </svg>
   </div>
 </div>
@@ -589,8 +656,8 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
       <rect x="60" y="56" width="510" height="146" rx="8" fill="#eef2ff" stroke="#4338ca" stroke-width="2.5"/>
       <text x="315" y="88" text-anchor="middle" class="lbl">The shift</text>
       <text x="315" y="126" text-anchor="middle" class="bx">Retrieval became a decision</text>
-      <text x="315" y="160" text-anchor="middle" class="bd">whether, what to ask, and whether to ask again</text>
-      <text x="315" y="184" text-anchor="middle" class="bd">&mdash; three things a pipeline never decided</text>
+      <text x="315" y="160" text-anchor="middle" class="bd">whether &mdash; a tool description, not a rule you maintain</text>
+      <text x="315" y="184" text-anchor="middle" class="bd">what to ask, and whether to ask again</text>
 
       <rect x="610" y="56" width="510" height="146" rx="8" fill="#f8f8fd" stroke="#c7d2fe" stroke-width="2"/>
       <text x="865" y="88" text-anchor="middle" class="lbl">The unglamorous half</text>
@@ -649,7 +716,7 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
   <div class="qtag">Question 2 of 8</div>
   <h2>The exception in the next chunk</h2>
   <div class="body"><div class="qbox">
-    <div class="qstem">Your runbook says payments over USD 500,000 need Treasury approval. The very next sentence exempts intra-group transfers. The chunker split them at 200 characters. Someone asks about a large intra-group transfer.</div>
+    <div class="qstem">Your runbook says payments over USD 500,000 need Treasury approval. The very next sentence exempts intra-group transfers. The chunker cut it every 120 characters. Someone asks about a large intra-group transfer.</div>
     <div class="opt"><span class="k">A</span><span>Both chunks come back &mdash; they are adjacent in the index</span></div>
     <div class="opt"><span class="k">B</span><span>The system refuses, because the two chunks conflict</span></div>
     <div class="opt"><span class="k">C</span><span>The exemption wins, being the more specific match</span></div>
@@ -661,7 +728,7 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
   <div class="qtag">Answer 2 of 8</div>
   <h2>The exception in the next chunk</h2>
   <div class="body"><div class="qbox">
-    <div class="qstem">Your runbook says payments over USD 500,000 need Treasury approval. The very next sentence exempts intra-group transfers. The chunker split them at 200 characters. Someone asks about a large intra-group transfer.</div>
+    <div class="qstem">Your runbook says payments over USD 500,000 need Treasury approval. The very next sentence exempts intra-group transfers. The chunker cut it every 120 characters. Someone asks about a large intra-group transfer.</div>
     <div class="opt miss"><span class="k">A</span><span>Both chunks come back &mdash; they are adjacent in the index</span></div>
     <div class="opt miss"><span class="k">B</span><span>The system refuses, because the two chunks conflict</span></div>
     <div class="opt miss"><span class="k">C</span><span>The exemption wins, being the more specific match</span></div>
@@ -691,7 +758,7 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
     <div class="opt miss"><span class="k">B</span><span>An empty result</span></div>
     <div class="opt miss"><span class="k">C</span><span>An error from the vector store</span></div>
     <div class="opt miss"><span class="k">D</span><span>Fewer than four &mdash; the store drops matches that score too low</span></div>
-    <div class="why"><b>Why:</b> Top-k is a ranking, not a judgement: ask for four and you get the four least-bad things in the corpus. There is no &ldquo;no results&rdquo; until you build one with a score floor &mdash; and the floor is corpus-specific, so it has to be measured rather than guessed.</div>
+    <div class="why"><b>Why:</b> Top-k is a ranking, not a judgement: ask for four and you get four, however badly they score &mdash; in Lab 6.1 every one of them scores 0.000. There is no &ldquo;no results&rdquo; until you build one with a score floor &mdash; and the floor is corpus-specific, so it has to be measured rather than guessed.</div>
   </div></div>
 </div>
 
@@ -775,7 +842,7 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
   <h2>Right answer, and you should still worry</h2>
   <div class="body"><div class="qbox">
     <div class="qstem">Your system answers a question correctly. You check the trace: the retrieved chunks did not contain the answer. What state are you actually in?</div>
-    <div class="opt"><span class="k">A</span><span>Right answer, wrong evidence &mdash; it knew or guessed, and retrieval needs fixing before it stops guessing right</span></div>
+    <div class="opt"><span class="k">A</span><span>Unsupported &mdash; it knew or guessed, nothing retrieved backs it, and retrieval needs fixing before it stops guessing right</span></div>
     <div class="opt"><span class="k">B</span><span>A faithful, well-grounded answer</span></div>
     <div class="opt"><span class="k">C</span><span>A retrieval success &mdash; the answer was right, which is what retrieval is for</span></div>
     <div class="opt"><span class="k">D</span><span>Nothing to fix; the output is correct</span></div>
@@ -787,11 +854,11 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
   <h2>Right answer, and you should still worry</h2>
   <div class="body"><div class="qbox">
     <div class="qstem">Your system answers a question correctly. You check the trace: the retrieved chunks did not contain the answer. What state are you actually in?</div>
-    <div class="opt hit"><span class="k">A</span><span>Right answer, wrong evidence &mdash; it knew or guessed, and retrieval needs fixing before it stops guessing right</span></div>
+    <div class="opt hit"><span class="k">A</span><span>Unsupported &mdash; it knew or guessed, nothing retrieved backs it, and retrieval needs fixing before it stops guessing right</span></div>
     <div class="opt miss"><span class="k">B</span><span>A faithful, well-grounded answer</span></div>
     <div class="opt miss"><span class="k">C</span><span>A retrieval success &mdash; the answer was right, which is what retrieval is for</span></div>
     <div class="opt miss"><span class="k">D</span><span>Nothing to fix; the output is correct</span></div>
-    <div class="why"><b>Why:</b> D is what an end-to-end score tells you, and it is why an end-to-end score is not enough. The answer came from the model's own weights, so it is unsupported, uncitable, and will change without warning when the model does. This box passes every demo you will ever run.</div>
+    <div class="why"><b>Why:</b> D is what an end-to-end score tells you, and it is why an end-to-end score is not enough. The answer came from the model's own weights, so it is unsupported, uncitable, and will change without warning when the model does. In the 2&times;2 that is the <em>unsupported</em> box &mdash; no right evidence, and no claim the retrieved text supports &mdash; and it passes every demo you will ever run.</div>
   </div></div>
 </div>
 

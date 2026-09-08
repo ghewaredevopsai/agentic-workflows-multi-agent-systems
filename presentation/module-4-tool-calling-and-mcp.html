@@ -173,7 +173,7 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
   <h1>Tools: the contract, not the code</h1>
 </div>
 
-<div class="slide" data-sec="Tools" data-notes="This is the slide to slow down on. Participants who have written tools before almost always over-invest in the function body and under-invest in the description and the schema. The model never sees the body. It sees a name, a sentence and a shape -- and it decides on those alone.">
+<div class="slide" data-sec="Tools" data-notes="This is the slide to slow down on. Participants who have written tools before almost always over-invest in the function body and under-invest in the description and the schema. The model never sees the body. It sees a name, a sentence and a shape -- and it decides on those alone. Lab 4.1 prints the right-hand column for real, straight out of convert_to_openai_tool, and then asks which of the three fields decides whether the tool is chosen at all.">
   <h2>What the model actually sees</h2>
   <div class="body">
     <svg width="1180" height="430" viewBox="0 0 1180 430" role="img" aria-label="What a tool author writes versus what the model receives">
@@ -254,12 +254,12 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
 
       <rect x="230" y="352" width="720" height="60" rx="6" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
       <text x="590" y="380" text-anchor="middle" class="bxs am">All four are fixed by editing text, not by changing model</text>
-      <text x="590" y="404" text-anchor="middle" class="bds">which is why Lab 4.2 measures accuracy against description quality alone</text>
+      <text x="590" y="404" text-anchor="middle" class="bds">which is why Lab 4.2 holds the model and the functions fixed and varies only the prose</text>
     </svg>
   </div>
 </div>
 
-<div class="slide" data-sec="Tools" data-notes="Frame each level by the ambiguity it removes, not by an accuracy number -- what each one closes is structural and always true; how much accuracy it buys depends entirely on the workload. Lab 4.2 tests that on the sandbox model and finds NO measurable movement, because the model is already at the ceiling on those asks. Say so before the lab rather than after: the point being made here is that Level 2 costs one sentence and closes a failure mode, and the point being made there is that you measure rather than assume.">
+<div class="slide" data-sec="Tools" data-notes="Frame each level by the ambiguity it removes, not by an accuracy number -- what each one closes is structural and always true; how much accuracy it buys depends on what the rest of the tool set already tells the model. Do not quote a figure on this slide; the next one carries the measured pair, and Lab 4.2 is where the room reproduces it. The point being made here is narrow and worth landing: Level 2 costs one sentence and closes a whole failure mode.">
   <h2>A tool description is a specification, not a comment</h2>
   <div class="body">
     <svg width="1180" height="430" viewBox="0 0 1180 430" role="img" aria-label="Three qualities of tool description and the failure each one closes">
@@ -294,7 +294,37 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
       <rect x="230" y="330" width="720" height="84" rx="6" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
       <text x="590" y="360" text-anchor="middle" class="bxs am">Write the description for a competent new joiner with no context</text>
       <text x="590" y="386" text-anchor="middle" class="bds">what it returns &middot; when to reach for it &middot; when <tspan font-style="italic">not</tspan> to &middot; what a valid argument looks like</text>
-      <text x="590" y="406" text-anchor="middle" class="bds">Lab 4.2 measures what that is worth on your workload &mdash; sometimes the answer is nothing</text>
+      <text x="590" y="406" text-anchor="middle" class="bds">Lab 4.2 puts a number on what that is worth &mdash; on this model, with your own tool set</text>
+    </svg>
+  </div>
+</div>
+
+<div class="slide" data-sec="Tools" data-notes="The number this deck used to leave to the trainer. Both runs come from Lab 4.2 on this sandbox model, and the room reproduces the left-hand one this afternoon: same four functions, same argument schemas, prose the only difference, two of five to five of five. The right-hand one is the control that stops 'always write better descriptions' becoming a slogan -- with the names already meaningful and the asks unambiguous, three levels of description all scored the same. Reconcile them out loud with the amber line: it is about having a channel at all, not about polish. If someone asks which half of the left-hand change carried it, names or descriptions, the honest answer is that the bake-off moved both together and the lab's first extension exercise is the third arm that separates them.">
+  <h2>What the prose is actually worth</h2>
+  <div class="body">
+    <svg width="1180" height="430" viewBox="0 0 1180 430" role="img" aria-label="Two measured experiments on tool description quality and what separates them">
+      <rect x="50" y="52" width="500" height="252" rx="8" fill="#eef2ff" stroke="#4338ca" stroke-width="2.5"/>
+      <text x="300" y="84" text-anchor="middle" class="lbl">Measured &mdash; the bake-off</text>
+      <text x="300" y="114" text-anchor="middle" class="bds">same four functions, same argument schemas</text>
+      <text x="76" y="164" class="bd">coded names, label-only descriptions</text>
+      <text x="524" y="166" text-anchor="end" class="big no">2 / 5</text>
+      <text x="76" y="216" class="bd">real names, descriptions with a boundary</text>
+      <text x="524" y="218" text-anchor="end" class="big ok">5 / 5</text>
+      <text x="300" y="274" text-anchor="middle" class="bxs am">first-tool accuracy, and only the prose moved</text>
+
+      <rect x="630" y="52" width="500" height="252" rx="8" fill="#f8f8fd" stroke="#94a3b8" stroke-width="2"/>
+      <text x="880" y="84" text-anchor="middle" class="lbl">Measured &mdash; the same test, no effect</text>
+      <text x="880" y="114" text-anchor="middle" class="bds">names left meaningful, asks left unambiguous</text>
+      <text x="656" y="164" class="bd">three levels of description quality</text>
+      <text x="656" y="200" class="bd">over twelve plain asks</text>
+      <text x="880" y="248" text-anchor="middle" class="big">all three: 100%</text>
+      <text x="880" y="278" text-anchor="middle" class="bds">the description had no work left to do</text>
+
+      <text x="590" y="330" text-anchor="middle" class="bds">Five cases means one flip is twenty points &mdash; large enough to read, small enough to distrust a 4/5</text>
+
+      <rect x="180" y="344" width="820" height="72" rx="6" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
+      <text x="590" y="374" text-anchor="middle" class="bxs am">A tool needs at least one channel saying what it is for</text>
+      <text x="590" y="400" text-anchor="middle" class="bds">coded internal names are exactly the case where the description is the only channel you have</text>
     </svg>
   </div>
 </div>
@@ -318,7 +348,7 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
       <text x="880" y="120" text-anchor="middle" class="bxs ok">a result the model can act on</text>
       <text x="656" y="160" class="bd"><tspan class="bxs">ok</tspan>&nbsp; false</text>
       <text x="656" y="194" class="bd"><tspan class="bxs">error</tspan>&nbsp; not_found | invalid_input |</text>
-      <text x="736" y="216" class="bd">unavailable | not_permitted</text>
+      <text x="736" y="216" class="bd">unavailable | timeout | not_permitted</text>
       <text x="656" y="250" class="bd"><tspan class="bxs">message</tspan>&nbsp; one plain sentence</text>
       <text x="656" y="284" class="bd"><tspan class="bxs">retryable</tspan>&nbsp; true / false</text>
       <text x="880" y="324" text-anchor="middle" class="bds ok">the model can retry, switch tool, or stop and say why</text>
@@ -351,6 +381,7 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
       <path d="M146 292 L356 284 L600 250 L844 158 L1060 96" fill="none" stroke="#b91c1c" stroke-width="3" stroke-dasharray="7 5"/>
       <text x="640" y="100" class="bxs no">wrong-tool rate</text>
       <text x="640" y="124" class="bds">rises faster than the token cost</text>
+      <text x="640" y="148" class="bds">shape of the problem, not data from this model</text>
 
       <rect x="150" y="72" width="290" height="86" rx="6" fill="#f0fdf9" stroke="#0d9488" stroke-width="2"/>
       <text x="295" y="102" text-anchor="middle" class="bxs ok">The fix is not fewer tools</text>
@@ -359,6 +390,43 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
 
       <rect x="230" y="356" width="720" height="52" rx="6" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
       <text x="590" y="388" text-anchor="middle" class="bxs am">Every tool you add taxes every decision the agent makes, not just the one it helps</text>
+    </svg>
+  </div>
+</div>
+
+<div class="slide" data-sec="Tools" data-notes="Lab 4.3 is this slide, and it is the last thing before MCP. 'Multi-tool' is three problems wearing one name: selection, which the bake-off just measured; arguments, which the model extracts from a sentence a human wrote; and sequencing, which is the interesting one. policy_for needs a reason code that only lookup_payment can supply, so the second call's argument does not exist when the run starts -- and nothing in your code threads it through. The model reads it out of the message list. That is why the message list is the architecture, and that loop is what create_agent is, with the hardening put back. Then the endings: a repeated call is a stuck agent, since the same tool with the same arguments cannot return anything new -- and note the id is new every turn, so an identity that includes it never matches and the check silently never fires. The budget catches the run that never repeats and never converges. The fourth ending is the one nothing catches: ask 'Why did it fail?' with no payment named and you get a clean, terminated, worthless answer. That is failure 4 from earlier, and participants meet it as the third request in the lab.">
+  <h2>Many tools is a loop, not a call</h2>
+  <div class="body">
+    <svg width="1180" height="430" viewBox="0 0 1180 430" role="img" aria-label="A message list carrying two sequenced tool calls, and the three ways the loop ends">
+      <rect x="50" y="48" width="700" height="300" rx="8" fill="#f8f8fd" stroke="#cbd5e1" stroke-width="2"/>
+      <text x="400" y="80" text-anchor="middle" class="lbl">One investigation, as the message list sees it</text>
+
+      <text x="76" y="118" class="lbl">human</text>
+      <text x="188" y="118" class="bds">Why did PMT-1002 fail, and what do we do?</text>
+      <text x="76" y="156" class="lbl">ai</text>
+      <text x="188" y="156" class="bds">calls lookup_payment(ref=PMT-1002)</text>
+      <text x="76" y="194" class="lbl">tool</text>
+      <text x="188" y="194" class="bds">reason_code: INSUFFICIENT_FUNDS</text>
+      <text x="76" y="232" class="lbl">ai</text>
+      <text x="188" y="232" class="bds am">calls policy_for(reason_code=INSUFFICIENT_FUNDS)</text>
+      <text x="76" y="270" class="lbl">tool</text>
+      <text x="188" y="270" class="bds">Retry once after 24h, then notify the desk</text>
+      <text x="76" y="308" class="lbl">ai</text>
+      <text x="188" y="308" class="bds ok">answers in one sentence, no tool call</text>
+
+      <rect x="790" y="48" width="340" height="300" rx="8" fill="#eef2ff" stroke="#4338ca" stroke-width="2.5"/>
+      <text x="960" y="80" text-anchor="middle" class="lbl">Three ways it ends</text>
+      <text x="960" y="122" text-anchor="middle" class="bxs ok">it answered</text>
+      <text x="960" y="146" text-anchor="middle" class="bds">a reply with no tool call</text>
+      <text x="960" y="196" text-anchor="middle" class="bxs no">it repeated itself</text>
+      <text x="960" y="220" text-anchor="middle" class="bds">same tool, same arguments</text>
+      <text x="960" y="270" text-anchor="middle" class="bxs am">it ran out of budget</text>
+      <text x="960" y="294" text-anchor="middle" class="bds">calls spent, still no answer</text>
+      <text x="960" y="330" text-anchor="middle" class="bds">you write all three, or none exist</text>
+
+      <rect x="180" y="360" width="820" height="56" rx="6" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
+      <text x="590" y="386" text-anchor="middle" class="bxs am">The second call's argument did not exist until the first one returned</text>
+      <text x="590" y="408" text-anchor="middle" class="bds">nothing in your code threaded it through &mdash; the message list carried it</text>
     </svg>
   </div>
 </div>
@@ -509,7 +577,7 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
   </div>
 </div>
 
-<div class="slide" data-sec="MCP" data-notes="Walk the lifecycle left to right -- this is exactly the sequence they implement by hand in Lab 4.4, framing and all. The key insight is discovery: the agent does not know the tools at build time. It asks. That is what makes a server upgradeable without redeploying the agent, and also what makes a compromised server dangerous.">
+<div class="slide" data-sec="MCP" data-notes="Walk the lifecycle left to right -- this is exactly the sequence they implement by hand in Lab 4.4, framing and all. The message types come from the mcp package itself, so the SDK validates every response they build; the transport is theirs to write. The key insight is discovery: the agent does not know the tools at build time. It asks. That is what makes a server upgradeable without redeploying the agent, and also what makes a compromised server dangerous.">
   <h2>The session: initialize, discover, call</h2>
   <div class="body">
     <svg width="1180" height="420" viewBox="0 0 1180 420" role="img" aria-label="MCP session lifecycle from initialize through tools list to tools call">
@@ -553,7 +621,7 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
       <text x="76" y="198" class="bd">&bull; no port, no listener, nothing to firewall</text>
       <text x="76" y="232" class="bd">&bull; identity is the OS user you already are</text>
       <text x="76" y="266" class="bd">&bull; one server process per client session</text>
-      <text x="300" y="310" text-anchor="middle" class="bds ok">the default &mdash; and what you configure in Lab 4.4</text>
+      <text x="300" y="310" text-anchor="middle" class="bds ok">the default &mdash; and the one you run over a real pipe in Lab 4.4</text>
 
       <rect x="630" y="52" width="500" height="292" rx="8" fill="#f8f8fd" stroke="#94a3b8" stroke-width="2"/>
       <text x="880" y="84" text-anchor="middle" class="lbl">Streamable HTTP</text>
@@ -570,7 +638,7 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
   </div>
 </div>
 
-<div class="slide" data-sec="MCP" data-notes="Configuration is where most people meet MCP first, so show the shape and name the parts. The important line is the last one: the config file is the grant. Adding four lines of JSON gives an agent a new capability with no code review, which is exactly the governance gap Module 8 closes.">
+<div class="slide" data-sec="MCP" data-notes="Configuration is where most people meet MCP first, so show the shape and name the parts. The important line is the last one: the config file is the grant. Adding four lines of JSON gives an agent a new capability with no code review, which is exactly the governance gap Module 8 closes. Lab 4.4 closes on this exact file: four servers, and the participant has to say which of them can change something -- the one with no env block at all being the one they know least about.">
   <h2>Client configuration is an access grant</h2>
   <div class="body">
     <svg width="1180" height="420" viewBox="0 0 1180 420" role="img" aria-label="Anatomy of an MCP client configuration entry">
@@ -607,7 +675,7 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
   </div>
 </div>
 
-<div class="slide" data-sec="MCP" data-notes="Bridging is the practical step that turns MCP from a demo into something in your stack, and Lab 4.5 builds the adapter by hand before showing the packaged one. Emphasise that the adapter is thin -- which is the point. If bridging were hard, the protocol would have failed at its own job.">
+<div class="slide" data-sec="MCP" data-notes="Bridging is the practical step that turns MCP from a demo into something in your stack, and Lab 4.5 builds the adapter by hand -- there is no packaged one in the sandbox, and the lab says so plainly. Emphasise that the adapter is thin, which is the point: if bridging were hard the protocol would have failed at its own job. The interesting part is not the adapter but the amber line -- the sentence your selection accuracy depends on is now not yours to edit, and 4.5 has them audit four third-party descriptions and refuse three.">
   <h2>Bridging an MCP server into a LangChain agent</h2>
   <div class="body">
     <svg width="1180" height="420" viewBox="0 0 1180 420" role="img" aria-label="Adapting MCP tool descriptors into LangChain tool objects">
@@ -996,7 +1064,7 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
   </div></div>
 </div>
 
-<div class="slide div" data-sec="End" data-notes="Into the labs: the tool contract, a measured A/B on description quality, multi-tool orchestration, MCP by hand over the wire, then the LangChain bridge and the injection that arrives with it.">
+<div class="slide div" data-sec="End" data-notes="Into the labs: the tool contract, a measured A/B on the prose, the tool-calling loop written out by hand, MCP by hand over the wire, then the LangChain bridge and the injection that arrives with it. Every lab builds real framework objects -- the self-checks assert on those, and the cells marked 'Run it for real' are the ones that go to the model.">
   <div class="k">End of Module 4</div>
   <h1>To the labs</h1>
 </div>

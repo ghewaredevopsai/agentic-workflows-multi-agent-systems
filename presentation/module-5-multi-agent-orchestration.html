@@ -167,8 +167,8 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
 
       <rect x="180" y="262" width="820" height="130" rx="6" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
       <text x="590" y="296" text-anchor="middle" class="bxs am">You already have the baseline. That is what makes this module honest.</text>
-      <text x="590" y="330" text-anchor="middle" class="bd">Every graph you build today gets compared against the single agent from Day 1</text>
-      <text x="590" y="358" text-anchor="middle" class="bd">on the eval set you wrote yourself &mdash; not against a demo, and not against a hope</text>
+      <text x="590" y="330" text-anchor="middle" class="bd">Every graph you build today gets compared against one agent doing the same job,</text>
+      <text x="590" y="358" text-anchor="middle" class="bd">on ground truth you state yourself &mdash; not against a demo, and not against a hope</text>
       <text x="590" y="382" text-anchor="middle" class="bds">Sometimes the graph loses. Lab 5.5 is designed so that finding out costs you an afternoon.</text>
     </svg>
   </div>
@@ -235,7 +235,7 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
   </div>
 </div>
 
-<div class="slide" data-sec="Topologies" data-notes="The reframing slide for this module. A supervisor is a router, so routing accuracy is measurable exactly the way tool selection was in Lab 4.2 -- same harness, same confusion table. Almost nobody measures it, and a supervisor that misroutes 20% of cases wastes every downstream token. The rule-based column is not a strawman: it is often right.">
+<div class="slide" data-sec="Topologies" data-notes="The reframing slide for this module. A supervisor is a router, so routing accuracy is measurable exactly the way tool selection was in Lab 4.2 -- same harness, same confusion table, and Lab 5.1 brings fifteen requests of its own. Four of them state their intent only by implication, which is where a rule table runs out. Almost nobody measures any of this, and a supervisor that misroutes 20% of cases wastes every downstream token. The rule-based column is not a strawman: it is often right.">
   <h2>A supervisor is a router &mdash; so measure it like one</h2>
   <div class="body">
     <svg width="1180" height="430" viewBox="0 0 1180 430" role="img" aria-label="Rule-based routing compared with LLM routing">
@@ -259,8 +259,8 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
 
       <rect x="150" y="336" width="880" height="82" rx="6" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
       <text x="590" y="366" text-anchor="middle" class="bxs am">Routing accuracy is the same measurement you built in Lab 4.2</text>
-      <text x="590" y="394" text-anchor="middle" class="bds">an eval set, accuracy, a confusion table naming the two workers that overlap &mdash; and a</text>
-      <text x="590" y="412" text-anchor="middle" class="bds">misroute wastes every token spent downstream of it, so it is the cheapest thing to fix</text>
+      <text x="590" y="394" text-anchor="middle" class="bds">an eval set, accuracy, and a confusion table &mdash; on which a rule router's misses pile up in</text>
+      <text x="590" y="412" text-anchor="middle" class="bds">one place, its fallback. A misroute wastes every token downstream, so it is the cheapest fix</text>
     </svg>
   </div>
 </div>
@@ -335,7 +335,7 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
   </div>
 </div>
 
-<div class="slide div" data-sec="Execution" data-notes="Part two: what actually goes wrong once the shape is chosen. This is the section with the bug nobody expects -- the silent parallel write.">
+<div class="slide div" data-sec="Execution" data-notes="Part two: what actually goes wrong once the shape is chosen. This is the section with the bug nobody expects -- two parallel branches writing one state key, and three different endings depending on what was declared.">
   <div class="k">Part two</div>
   <h1>Running it: order, parallelism, disagreement</h1>
 </div>
@@ -380,46 +380,41 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
   </div>
 </div>
 
-<div class="slide" data-sec="Execution" data-notes="This is the bug of the module and it is Module 3's reducer lesson arriving with real consequences. Two branches return findings, the state key is overwritten rather than merged, and one specialist's entire contribution vanishes with no error anywhere. Ask the room what would show this in production: nothing does, except a test that counts.">
-  <h2>The parallel bug that never raises</h2>
+<div class="slide" data-sec="Execution" data-notes="The bug of the module, and the correction that matters. LangGraph does NOT lose the finding silently -- an un-annotated key written by two nodes in the same superstep raises InvalidUpdateError. Silent loss is what a hand-rolled merge does, and a hand-rolled merge is what most teams write first. So the lesson is not 'the framework saves you', it is 'the framework saves the keys you declared'. Lab 5.3 runs all three endings in order: ask the room to predict the middle one before you show it.">
+  <h2>Two branches wrote one key. What happens is what you declared.</h2>
   <div class="body">
-    <svg width="1180" height="424" viewBox="0 0 1180 424" role="img" aria-label="Two parallel branches writing the same state key, one result silently lost">
-      <rect x="60" y="76" width="180" height="70" rx="8" fill="#eef2ff" stroke="#4338ca" stroke-width="2"/>
-      <text x="150" y="108" text-anchor="middle" class="bxs">fan out</text>
-      <text x="150" y="130" text-anchor="middle" class="bds">same state in</text>
+    <svg width="1180" height="424" viewBox="0 0 1180 424" role="img" aria-label="Three outcomes when two parallel nodes write the same state key">
+      <text x="590" y="44" text-anchor="middle" class="bxs">policy and sanctions finish in the same superstep &mdash; both return findings</text>
 
-      <rect x="330" y="34" width="290" height="72" rx="8" fill="#f8f8fd" stroke="#94a3b8" stroke-width="2"/>
-      <text x="475" y="62" text-anchor="middle" class="bxs">policy agent</text>
-      <text x="475" y="88" text-anchor="middle" class="bds">returns {findings: [P]}</text>
+      <rect x="40" y="66" width="350" height="210" rx="8" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
+      <text x="215" y="98" text-anchor="middle" class="lbl no">Your own merge</text>
+      <text x="215" y="136" text-anchor="middle" class="bxs">out.update(partial)</text>
+      <text x="215" y="180" text-anchor="middle" class="bx no">findings = [S]</text>
+      <text x="215" y="218" text-anchor="middle" class="bds">nothing raised, nothing logged</text>
+      <text x="215" y="240" text-anchor="middle" class="bds">the policy finding is simply gone</text>
+      <text x="215" y="266" text-anchor="middle" class="bds no">whoever ran last wins</text>
 
-      <rect x="330" y="128" width="290" height="72" rx="8" fill="#f8f8fd" stroke="#94a3b8" stroke-width="2"/>
-      <text x="475" y="156" text-anchor="middle" class="bxs">sanctions agent</text>
-      <text x="475" y="182" text-anchor="middle" class="bds">returns {findings: [S]}</text>
+      <rect x="415" y="66" width="350" height="210" rx="8" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
+      <text x="590" y="98" text-anchor="middle" class="lbl am">A state key you did not declare</text>
+      <text x="590" y="136" text-anchor="middle" class="bxs">findings: list</text>
+      <text x="590" y="180" text-anchor="middle" class="bx am">InvalidUpdateError</text>
+      <text x="590" y="218" text-anchor="middle" class="bds">two writes, one key, one step &mdash;</text>
+      <text x="590" y="240" text-anchor="middle" class="bds">the framework refuses to guess</text>
+      <text x="590" y="266" text-anchor="middle" class="bds am">loud, and on the first run</text>
 
-      <line x1="244" y1="98" x2="326" y2="70" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
-      <line x1="244" y1="124" x2="326" y2="158" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
+      <rect x="790" y="66" width="350" height="210" rx="8" fill="#f0fdf9" stroke="#0d9488" stroke-width="2.5"/>
+      <text x="965" y="98" text-anchor="middle" class="lbl ok">A reducer, declared per key</text>
+      <text x="965" y="136" text-anchor="middle" class="bxs">Annotated[list, add]</text>
+      <text x="965" y="180" text-anchor="middle" class="bx ok">findings = [P, S]</text>
+      <text x="965" y="218" text-anchor="middle" class="bds">both survive, in whichever</text>
+      <text x="965" y="240" text-anchor="middle" class="bds">order they finished</text>
+      <text x="965" y="266" text-anchor="middle" class="bds ok">and the spend sums instead</text>
 
-      <line x1="624" y1="70" x2="700" y2="104" stroke="#94a3b8" stroke-width="2" marker-end="url(#ag)"/>
-      <line x1="624" y1="158" x2="700" y2="126" stroke="#94a3b8" stroke-width="2" marker-end="url(#ag)"/>
-
-      <rect x="706" y="34" width="200" height="72" rx="8" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
-      <text x="806" y="62" text-anchor="middle" class="bxs no">no reducer</text>
-      <text x="806" y="88" text-anchor="middle" class="bds no">findings = [S]</text>
-
-      <rect x="706" y="128" width="200" height="72" rx="8" fill="#f0fdf9" stroke="#0d9488" stroke-width="2.5"/>
-      <text x="806" y="156" text-anchor="middle" class="bxs ok">add reducer</text>
-      <text x="806" y="182" text-anchor="middle" class="bds ok">findings = [P, S]</text>
-
-      <text x="1010" y="66" text-anchor="middle" class="bd no">the policy</text>
-      <text x="1010" y="90" text-anchor="middle" class="bd no">finding is gone</text>
-      <text x="1010" y="162" text-anchor="middle" class="bd ok">both survive</text>
-
-      <rect x="120" y="238" width="940" height="164" rx="6" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
-      <text x="590" y="272" text-anchor="middle" class="bx no">Nothing errored. Nothing logged. The agent ran and the answer is wrong.</text>
-      <text x="150" y="310" class="bd">&bull;&nbsp; Both branches returned successfully &mdash; there is no failed call to find</text>
-      <text x="150" y="342" class="bd">&bull;&nbsp; The summary reads fine, because a summary of one finding also reads fine</text>
-      <text x="150" y="374" class="bd">&bull;&nbsp; The only thing that catches it is a test that <tspan font-weight="600">counts</tspan> what came back &mdash; Lab 5.3 writes it</text>
-      <text x="590" y="398" text-anchor="middle" class="bds am">Declare a reducer for every key two branches can write. Module 3 told you why; this is where it bites.</text>
+      <rect x="100" y="296" width="980" height="110" rx="6" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
+      <text x="590" y="328" text-anchor="middle" class="bxs am">The framework protects the keys you declared, and only those</text>
+      <text x="590" y="358" text-anchor="middle" class="bd">The hand-rolled merge is the silent one: every branch returned cleanly, and a summary of</text>
+      <text x="590" y="382" text-anchor="middle" class="bd">one finding reads exactly as well as a summary of two.</text>
+      <text x="590" y="402" text-anchor="middle" class="bds">Only a test that counts who came back shows it &mdash; Lab 5.3 runs all three, then writes that test.</text>
     </svg>
   </div>
 </div>
@@ -554,38 +549,66 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
   <h1>What collaboration costs</h1>
 </div>
 
-<div class="slide" data-sec="Economics" data-notes="Where the 3-10x actually comes from. It is not that agents are expensive -- it is that context is re-sent at every hop, and the supervisor pays to read every worker's output. Walk the arithmetic slowly; this is the slide people photograph.">
-  <h2>Where the 3&ndash;10&times; comes from</h2>
+<div class="slide" data-sec="Economics" data-notes="Concept before arithmetic: a multi-agent system is not expensive because it has agents in it. It is expensive because the same case file is re-sent to every specialist, and the supervisor pays to read every result back. Lab 5.5 prices the same seven cases twice -- 2.2x with the case context re-sent at every hop, 1.5x with nothing re-sent -- so they watch most of the multiple disappear when only the context handling changes. Walk the two columns slowly, then let the next slide take the folklore number away from them.">
+  <h2>The multiple is the re-sent context, not the agents</h2>
   <div class="body">
-    <svg width="1180" height="424" viewBox="0 0 1180 424" role="img" aria-label="Token accounting for a single agent against a five-agent supervisor system">
-      <rect x="50" y="52" width="440" height="234" rx="8" fill="#f0fdf9" stroke="#0d9488" stroke-width="2.5"/>
-      <text x="270" y="84" text-anchor="middle" class="lbl ok">One agent</text>
-      <text x="76" y="126" class="bd">system prompt + tools</text>
-      <text x="440" y="126" text-anchor="end" class="bd">1&times;</text>
-      <text x="76" y="164" class="bd">case context</text>
-      <text x="440" y="164" text-anchor="end" class="bd">1&times;</text>
-      <text x="76" y="202" class="bd">reasoning turns</text>
-      <text x="440" y="202" text-anchor="end" class="bd">6</text>
-      <line x1="76" y1="222" x2="440" y2="222" stroke="#0d9488" stroke-width="1.5"/>
-      <text x="76" y="258" class="bxs ok">total</text>
-      <text x="440" y="258" text-anchor="end" class="num ok">1.0&times;</text>
+    <svg width="1180" height="424" viewBox="0 0 1180 424" role="img" aria-label="Token accounting for a single agent against a supervisor with four specialists">
+      <rect x="50" y="48" width="440" height="200" rx="8" fill="#f0fdf9" stroke="#0d9488" stroke-width="2.5"/>
+      <text x="270" y="80" text-anchor="middle" class="lbl ok">One agent</text>
+      <text x="76" y="120" class="bd">system prompt + tools</text>
+      <text x="464" y="120" text-anchor="end" class="bd">1&times;</text>
+      <text x="76" y="156" class="bd">case context</text>
+      <text x="464" y="156" text-anchor="end" class="bd">1&times;</text>
+      <text x="76" y="192" class="bd">held across its own turns</text>
+      <text x="464" y="192" text-anchor="end" class="bd">&mdash;</text>
+      <line x1="76" y1="210" x2="464" y2="210" stroke="#0d9488" stroke-width="1.5"/>
+      <text x="76" y="240" class="bxs ok">Lab 5.5, 7 cases</text>
+      <text x="464" y="240" text-anchor="end" class="num ok">1.0&times;</text>
 
-      <rect x="530" y="52" width="600" height="234" rx="8" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
-      <text x="830" y="84" text-anchor="middle" class="lbl no">Supervisor + 4 workers</text>
-      <text x="556" y="126" class="bd">system prompt + tools, <tspan font-weight="600">per agent</tspan></text>
-      <text x="1104" y="126" text-anchor="end" class="bd no">5&times;</text>
-      <text x="556" y="164" class="bd">case context, re-sent at <tspan font-weight="600">every hop</tspan></text>
-      <text x="1104" y="164" text-anchor="end" class="bd no">5&times;</text>
-      <text x="556" y="202" class="bd">supervisor reads every worker's output</text>
-      <text x="1104" y="202" text-anchor="end" class="bd no">+4 calls</text>
-      <line x1="556" y1="222" x2="1104" y2="222" stroke="#b91c1c" stroke-width="1.5"/>
-      <text x="556" y="258" class="bxs no">total</text>
-      <text x="1104" y="258" text-anchor="end" class="num no">3&ndash;10&times;</text>
+      <rect x="530" y="48" width="600" height="200" rx="8" fill="#eef2ff" stroke="#4338ca" stroke-width="2.5"/>
+      <text x="830" y="80" text-anchor="middle" class="lbl">Supervisor + 4 specialists</text>
+      <text x="556" y="120" class="bd">system prompt + tools, <tspan font-weight="600">per agent</tspan></text>
+      <text x="1104" y="120" text-anchor="end" class="bd">5&times;</text>
+      <text x="556" y="156" class="bd">case context, re-sent at <tspan font-weight="600">every dispatch</tspan></text>
+      <text x="1104" y="156" text-anchor="end" class="bd">4&times;</text>
+      <text x="556" y="192" class="bd">supervisor reads each result back</text>
+      <text x="1104" y="192" text-anchor="end" class="bd">+4 calls</text>
+      <line x1="556" y1="210" x2="1104" y2="210" stroke="#4338ca" stroke-width="1.5"/>
+      <text x="556" y="240" class="bxs">Lab 5.5, 7 cases</text>
+      <text x="1104" y="240" text-anchor="end" class="num">2.2&times;</text>
 
-      <rect x="150" y="312" width="880" height="94" rx="6" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
-      <text x="590" y="344" text-anchor="middle" class="bxs am">The cost is not the agents. It is re-sending the context.</text>
-      <text x="590" y="374" text-anchor="middle" class="bd">Which is why the cheapest optimisation is sending each worker <tspan font-style="italic">less</tspan> &mdash; the slice it needs,</text>
-      <text x="590" y="398" text-anchor="middle" class="bd">not the whole case file. That is a design decision, and it is worth more than a model change.</text>
+      <rect x="100" y="272" width="980" height="134" rx="6" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
+      <text x="590" y="304" text-anchor="middle" class="bxs am">Take the re-sending away and most of the multiple goes with it</text>
+      <text x="590" y="336" text-anchor="middle" class="bd">Lab 5.5, same seven cases and the same four specialists: 2.2&times; with the case context</text>
+      <text x="590" y="362" text-anchor="middle" class="bd">re-sent at every hop, and 1.5&times; with nothing re-sent. No agent got cheaper.</text>
+      <text x="590" y="390" text-anchor="middle" class="bds">So the cheapest optimisation is sending each worker the slice it needs, not the whole case file.</text>
+    </svg>
+  </div>
+</div>
+
+<div class="slide" data-sec="Economics" data-notes="The number-correction slide, and it is deliberate. The 3-10x figure is folklore: on this sandbox, one agent and several came out level on tokens -- 9,794 against 9,720 -- while the CALL count doubled and wall clock went up half again. Say plainly that the bill is rarely the reason not to build a graph. The reasons are the extra calls, each of which can fail, and the context fragmenting across hops, which is where quality moves. Rule for the room: a number you have not run on your own prompts is not a number.">
+  <h2>The 3&ndash;10&times; you have read is not what we measured</h2>
+  <div class="body">
+    <svg width="1180" height="424" viewBox="0 0 1180 424" role="img" aria-label="The quoted token multiple against the multiple measured on this sandbox">
+      <rect x="60" y="52" width="500" height="196" rx="8" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
+      <text x="310" y="84" text-anchor="middle" class="lbl no">What you will read</text>
+      <text x="310" y="132" text-anchor="middle" class="big no">3&ndash;10&times; the tokens</text>
+      <text x="310" y="176" text-anchor="middle" class="bds">quoted everywhere, and almost never</text>
+      <text x="310" y="198" text-anchor="middle" class="bds">alongside the prompts it was measured on</text>
+      <text x="310" y="230" text-anchor="middle" class="bds no">do not put it in a business case</text>
+
+      <rect x="620" y="52" width="500" height="196" rx="8" fill="#f0fdf9" stroke="#0d9488" stroke-width="2.5"/>
+      <text x="870" y="84" text-anchor="middle" class="lbl ok">What this sandbox gave us</text>
+      <text x="870" y="132" text-anchor="middle" class="big ok">9,794 vs 9,720 tokens</text>
+      <text x="870" y="176" text-anchor="middle" class="bds">one agent against several, same task</text>
+      <text x="870" y="198" text-anchor="middle" class="bds">&mdash; a difference under one per cent</text>
+      <text x="870" y="230" text-anchor="middle" class="bds ok">level, on our prompts</text>
+
+      <rect x="100" y="272" width="980" height="134" rx="6" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
+      <text x="590" y="304" text-anchor="middle" class="bxs am">What doubled was the call count, not the bill</text>
+      <text x="590" y="336" text-anchor="middle" class="bd">Calls 2&times;. Wall clock 1.5&times;. Tokens: level. Each extra call is one more thing that can fail,</text>
+      <text x="590" y="362" text-anchor="middle" class="bd">and one more hop for the context to fragment across &mdash; which is where the quality moves.</text>
+      <text x="590" y="390" text-anchor="middle" class="bds">Price your own prompts. A number you have not run is not a number.</text>
     </svg>
   </div>
 </div>
@@ -680,7 +703,7 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
   <h1>The human is part of the graph</h1>
 </div>
 
-<div class="slide" data-sec="Control" data-notes="Four mechanisms, and the one people forget is timeout. An approval gate with no timeout is a graph that hangs forever on a Friday evening. Point out that all four rest on Module 3's checkpointing -- you can only pause a run whose state you can persist and resume.">
+<div class="slide" data-sec="Control" data-notes="Four mechanisms, and the one people forget is timeout. An approval gate with no timeout is a graph that hangs forever on a Friday evening. And correct what everyone assumes: an approval gate does NOT need a checkpointer. A node that refuses to fire without a named approver is already a gate, and that is exactly Lab 5.4's node_release. What needs Module 3's checkpointing is pause and resume -- stopping now and finishing tomorrow, from another process.">
   <h2>Interrupt, approve, time out, escalate</h2>
   <div class="body">
     <svg width="1180" height="424" viewBox="0 0 1180 424" role="img" aria-label="Four human-in-the-loop mechanisms built on checkpointing">
@@ -717,10 +740,10 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
       <text x="1002" y="230" text-anchor="middle" class="bds am">the ladder ends somewhere</text>
 
       <rect x="150" y="280" width="880" height="126" rx="6" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
-      <text x="590" y="314" text-anchor="middle" class="bxs am">All four rest on being able to stop and resume</text>
-      <text x="590" y="346" text-anchor="middle" class="bd">You can only pause a run whose state you can write down and pick up again.</text>
-      <text x="590" y="376" text-anchor="middle" class="bd">That is why checkpointing came first &mdash; approval gates are an application of it,</text>
-      <text x="590" y="400" text-anchor="middle" class="bds">not a separate feature. Lab 5.4 builds all four on the graph from Lab 5.3.</text>
+      <text x="590" y="314" text-anchor="middle" class="bxs am">A gate needs no checkpointer. Pausing and resuming does.</text>
+      <text x="590" y="346" text-anchor="middle" class="bd">A node that refuses to act until a person is named is already a gate &mdash; that is one</text>
+      <text x="590" y="376" text-anchor="middle" class="bd">condition inside the node. Checkpointing is what lets the person answer tomorrow,</text>
+      <text x="590" y="400" text-anchor="middle" class="bds">from another process. Lab 5.4 builds both, on the graph from Lab 5.2.</text>
     </svg>
   </div>
 </div>
@@ -773,40 +796,40 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
   <h1>And then measure it</h1>
 </div>
 
-<div class="slide" data-sec="Verdict" data-notes="The scorecard is the deliverable of this module and of Lab 5.5. Insist on the fourth row: a graph that wins on quality and loses 6x on cost has not obviously won. Emphasise that the comparison uses their own Day 1 eval set, so the answer is about their workload and not about anybody's benchmark.">
+<div class="slide" data-sec="Verdict" data-notes="The deliverable of the module and of Lab 5.5, and every number here comes out of that lab -- seven cases, four specialists, one case file. The single agent misses exactly the two payments where nothing in the reason code told it to screen the counterparty, which is the honest reason a graph can win: not that four agents think better, but that an unconditional edge looks at something the one agent never thought to look at. Then the last row decides nothing until you name what a wrong recommendation costs. Say the breakeven out loud -- 8,460 tokens per error prevented -- and ask the room whether one of their own errors is worth more than that.">
   <h2>The scorecard, against your own baseline</h2>
   <div class="body">
-    <svg width="1180" height="424" viewBox="0 0 1180 424" role="img" aria-label="A scorecard comparing a single agent with a multi-agent graph">
+    <svg width="1180" height="424" viewBox="0 0 1180 424" role="img" aria-label="A scorecard comparing a single agent with a four-specialist graph over seven cases">
       <line x1="60" y1="92" x2="1120" y2="92" stroke="#4338ca" stroke-width="2"/>
-      <text x="380" y="72" text-anchor="middle" class="lbl">Single agent (Day 1)</text>
-      <text x="700" y="72" text-anchor="middle" class="lbl">Supervisor + 4 workers</text>
+      <text x="380" y="72" text-anchor="middle" class="lbl">One agent, one context</text>
+      <text x="700" y="72" text-anchor="middle" class="lbl">Supervisor + 4 specialists</text>
       <text x="960" y="72" text-anchor="middle" class="lbl">Verdict</text>
 
       <text x="80" y="132" class="bxs">Quality</text>
-      <text x="380" y="132" text-anchor="middle" class="bd">74% on your eval set</text>
-      <text x="700" y="132" text-anchor="middle" class="bd ok">89%</text>
+      <text x="380" y="132" text-anchor="middle" class="bd">5 of 7 cases right</text>
+      <text x="700" y="132" text-anchor="middle" class="bd ok">7 of 7</text>
       <text x="960" y="132" text-anchor="middle" class="bd ok">graph wins</text>
 
-      <text x="80" y="180" class="bxs">Cost per case</text>
-      <text x="380" y="180" text-anchor="middle" class="bd">1.0&times;</text>
-      <text x="700" y="180" text-anchor="middle" class="bd no">6.2&times;</text>
+      <text x="80" y="180" class="bxs">Tokens, 7 cases</text>
+      <text x="380" y="180" text-anchor="middle" class="bd">13,740</text>
+      <text x="700" y="180" text-anchor="middle" class="bd no">30,660 &mdash; 2.2&times;</text>
       <text x="960" y="180" text-anchor="middle" class="bd no">agent wins</text>
 
-      <text x="80" y="228" class="bxs">Latency (p95)</text>
-      <text x="380" y="228" text-anchor="middle" class="bd">11 s</text>
-      <text x="700" y="228" text-anchor="middle" class="bd">19 s</text>
+      <text x="80" y="228" class="bxs">Critical path</text>
+      <text x="380" y="228" text-anchor="middle" class="bd">2 supersteps</text>
+      <text x="700" y="228" text-anchor="middle" class="bd">3, and no parallelism shortens it</text>
       <text x="960" y="228" text-anchor="middle" class="bd">agent wins</text>
 
       <text x="80" y="276" class="bxs">Debuggable</text>
       <text x="380" y="276" text-anchor="middle" class="bd">one trace</text>
-      <text x="700" y="276" text-anchor="middle" class="bd">five, and a router</text>
+      <text x="700" y="276" text-anchor="middle" class="bd">four nodes and a router</text>
       <text x="960" y="276" text-anchor="middle" class="bd">agent wins</text>
       <line x1="60" y1="298" x2="1120" y2="298" stroke="#cbd5e1" stroke-width="1.5"/>
 
       <rect x="150" y="316" width="880" height="94" rx="6" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
-      <text x="590" y="348" text-anchor="middle" class="bxs am">+15 points of quality for 6&times; the cost is a decision, not a result</text>
-      <text x="590" y="378" text-anchor="middle" class="bd">It is obviously right for a payment that can be wrong by a million, and obviously</text>
-      <text x="590" y="402" text-anchor="middle" class="bd">wrong for one that can be wrong by ten. The scorecard makes that argument sayable.</text>
+      <text x="590" y="348" text-anchor="middle" class="bxs am">Two errors prevented, for 16,920 extra tokens</text>
+      <text x="590" y="378" text-anchor="middle" class="bd">Which is a decision rule, not a result: ship the graph once one wrong recommendation</text>
+      <text x="590" y="402" text-anchor="middle" class="bd">costs more than 8,460 tokens of model time. Lab 5.5 makes you supply both prices.</text>
     </svg>
   </div>
 </div>
@@ -855,10 +878,10 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
       <text x="315" y="184" text-anchor="middle" class="bd">&mdash; a misroute wastes everything downstream</text>
 
       <rect x="610" y="56" width="510" height="146" rx="8" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
-      <text x="865" y="88" text-anchor="middle" class="lbl no">The silent bug</text>
-      <text x="865" y="126" text-anchor="middle" class="bx no">Parallel branches lose findings</text>
-      <text x="865" y="160" text-anchor="middle" class="bd">declare a reducer for every shared key</text>
-      <text x="865" y="184" text-anchor="middle" class="bd">&mdash; nothing errors when you don't</text>
+      <text x="865" y="88" text-anchor="middle" class="lbl no">The key you did not declare</text>
+      <text x="865" y="126" text-anchor="middle" class="bx no">Parallel writes need a reducer</text>
+      <text x="865" y="160" text-anchor="middle" class="bd">declare one and every branch survives</text>
+      <text x="865" y="184" text-anchor="middle" class="bd">&mdash; hand-roll the merge and one vanishes</text>
 
       <rect x="60" y="222" width="510" height="146" rx="8" fill="#eef2ff" stroke="#4338ca" stroke-width="2.5"/>
       <text x="315" y="254" text-anchor="middle" class="lbl">Economics</text>
@@ -869,7 +892,7 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
       <rect x="610" y="222" width="510" height="146" rx="8" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
       <text x="865" y="254" text-anchor="middle" class="lbl am">The verdict</text>
       <text x="865" y="292" text-anchor="middle" class="bx am">Measured against your baseline</text>
-      <text x="865" y="326" text-anchor="middle" class="bd">quality, cost, latency, debuggability</text>
+      <text x="865" y="326" text-anchor="middle" class="bd">quality, cost, critical path, debuggability</text>
       <text x="865" y="350" text-anchor="middle" class="bd">&mdash; and &ldquo;don't&rdquo; is a real answer</text>
 
       <text x="590" y="404" text-anchor="middle" class="bd">Next: Module 6 makes retrieval a tool the agent chooses &mdash; and every agent here can call it.</text>
@@ -932,11 +955,11 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
   </div></div>
 </div>
 
-<div class="slide q" data-sec="Knowledge check" data-notes="Answer D. If anyone begins describing which log line they would grep, the slide has done its job. There is no log line.">
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer D. If anyone begins describing which log line they would grep, the slide has done its job. There is no log line -- for a hand-rolled merge. Note the stem says dict.update deliberately: on a LangGraph state the same shape raises InvalidUpdateError instead, which is the correction this deck now carries.">
   <div class="qtag">Question 3 of 8</div>
   <h2>The finding that is not there</h2>
   <div class="body"><div class="qbox">
-    <div class="qstem">Two parallel branches each return <code>{findings: [&hellip;]}</code> into the same state key. The final summary mentions only the sanctions finding; the policy finding is nowhere. What do you look for in the logs?</div>
+    <div class="qstem">Your own orchestrator fans two agents out and merges their partial states with <code>dict.update</code>. The final summary mentions only the sanctions finding; the policy finding is nowhere. What do you look for in the logs?</div>
     <div class="opt"><span class="k">A</span><span>The failed call from the policy branch</span></div>
     <div class="opt"><span class="k">B</span><span>A timeout on the policy branch</span></div>
     <div class="opt"><span class="k">C</span><span>An exception raised while merging the two branches</span></div>
@@ -944,16 +967,16 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
   </div></div>
 </div>
 
-<div class="slide q" data-sec="Knowledge check" data-notes="Answer D. If anyone begins describing which log line they would grep, the slide has done its job. There is no log line.">
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer D. If anyone begins describing which log line they would grep, the slide has done its job. There is no log line -- for a hand-rolled merge. Note the stem says dict.update deliberately: on a LangGraph state the same shape raises InvalidUpdateError instead, which is the correction this deck now carries.">
   <div class="qtag">Answer 3 of 8</div>
   <h2>The finding that is not there</h2>
   <div class="body"><div class="qbox">
-    <div class="qstem">Two parallel branches each return <code>{findings: [&hellip;]}</code> into the same state key. The final summary mentions only the sanctions finding; the policy finding is nowhere. What do you look for in the logs?</div>
+    <div class="qstem">Your own orchestrator fans two agents out and merges their partial states with <code>dict.update</code>. The final summary mentions only the sanctions finding; the policy finding is nowhere. What do you look for in the logs?</div>
     <div class="opt miss"><span class="k">A</span><span>The failed call from the policy branch</span></div>
     <div class="opt miss"><span class="k">B</span><span>A timeout on the policy branch</span></div>
     <div class="opt miss"><span class="k">C</span><span>An exception raised while merging the two branches</span></div>
     <div class="opt hit"><span class="k">D</span><span>Nothing &mdash; every call succeeded; only a test that counts findings will show it</span></div>
-    <div class="why"><b>Why:</b> Without a declared reducer the second write replaces the first. Both branches returned cleanly, so there is no failure to find, and a one-finding summary reads exactly as well as a two-finding one. This is the module's signature bug, and you write the test for it in Lab 5.3.</div>
+    <div class="why"><b>Why:</b> Last write wins, so the second partial replaced the first. Both branches returned cleanly, so there is no failure to find, and a one-finding summary reads exactly as well as a two-finding one. Declare that key on a LangGraph state and you get an <code>InvalidUpdateError</code> instead &mdash; the silence is what the hand-rolled merge bought you. Lab 5.3 runs both.</div>
   </div></div>
 </div>
 
@@ -1061,11 +1084,11 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
   <div class="qtag">Question 8 of 8</div>
   <h2>Read the scorecard</h2>
   <div class="body"><div class="qbox">
-    <div class="qstem">Your graph scores 89% against the single agent's 74% on your own eval set, at 6.2&times; the cost and 19s against 11s at p95. What does that establish?</div>
+    <div class="qstem">Your graph gets 7 of 7 cases right against the single agent's 5 of 7, for 2.2&times; the tokens and a critical path one superstep longer. What does that establish?</div>
     <div class="opt"><span class="k">A</span><span>The graph should ship &mdash; quality is what the eval set exists to protect</span></div>
-    <div class="opt"><span class="k">B</span><span>The single agent should ship &mdash; nothing justifies 6.2&times;</span></div>
+    <div class="opt"><span class="k">B</span><span>The single agent should ship &mdash; nothing justifies 2.2&times;</span></div>
     <div class="opt"><span class="k">C</span><span>Nothing yet &mdash; one run of an agent system is not a measurement</span></div>
-    <div class="opt"><span class="k">D</span><span>That the choice is now a business one: 15 points is worth 6.2&times; only if a wrong answer is expensive enough</span></div>
+    <div class="opt"><span class="k">D</span><span>That the choice is now a business one: two errors prevented are worth 16,920 extra tokens only if a wrong answer is expensive enough</span></div>
   </div></div>
 </div>
 
@@ -1073,12 +1096,12 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
   <div class="qtag">Answer 8 of 8</div>
   <h2>Read the scorecard</h2>
   <div class="body"><div class="qbox">
-    <div class="qstem">Your graph scores 89% against the single agent's 74% on your own eval set, at 6.2&times; the cost and 19s against 11s at p95. What does that establish?</div>
+    <div class="qstem">Your graph gets 7 of 7 cases right against the single agent's 5 of 7, for 2.2&times; the tokens and a critical path one superstep longer. What does that establish?</div>
     <div class="opt miss"><span class="k">A</span><span>The graph should ship &mdash; quality is what the eval set exists to protect</span></div>
-    <div class="opt miss"><span class="k">B</span><span>The single agent should ship &mdash; nothing justifies 6.2&times;</span></div>
+    <div class="opt miss"><span class="k">B</span><span>The single agent should ship &mdash; nothing justifies 2.2&times;</span></div>
     <div class="opt miss"><span class="k">C</span><span>Nothing yet &mdash; one run of an agent system is not a measurement</span></div>
-    <div class="opt hit"><span class="k">D</span><span>That the choice is now a business one: 15 points is worth 6.2&times; only if a wrong answer is expensive enough</span></div>
-    <div class="why"><b>Why:</b> A and B each pick one row and call it the answer. C is a fair objection &mdash; repeat the run, it is Module 7's whole opening &mdash; but it is an argument for more runs, not for no decision. The scorecard's job is to turn &ldquo;multi-agent feels better&rdquo; into a sentence with a number in it that a risk owner can agree or disagree with.</div>
+    <div class="opt hit"><span class="k">D</span><span>That the choice is now a business one: two errors prevented are worth 16,920 extra tokens only if a wrong answer is expensive enough</span></div>
+    <div class="why"><b>Why:</b> A and B each pick one row and call it the answer. C is a fair objection &mdash; repeat the run, it is Module 7's whole opening &mdash; but it is an argument for more runs, not for no decision. Divide the two numbers and the sentence writes itself: the graph pays for itself once one wrong recommendation costs more than 8,460 tokens of model time. That is something a risk owner can agree or disagree with.</div>
   </div></div>
 </div>
 

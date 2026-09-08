@@ -183,6 +183,53 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
   <h1>An agent becomes a service</h1>
 </div>
 
+<div class="slide" data-sec="The service" data-notes="Before any FastAPI. The boundary is where you declare what you accept and what you return, and the interesting question is not the framework, it is WHERE the boundary sits relative to the agent. Two things to land. First, extra=forbid: a field you did not declare is how an instruction rides along, and ignoring it silently is the default in most schema libraries. Second, and this is the settled one -- the policy gate runs BEFORE the agent object is ever consulted, so the escalating request never reaches the model and costs nothing. That is why the capstone gates approval with no checkpointer at all. A checkpointer pauses a run that has started; a gate decides whether there should be one. Lab 9.1 builds exactly this: two Pydantic models, the gate, and create_agent behind it.">
+  <h2>Where the boundary sits, and what crosses it</h2>
+  <div class="body">
+    <svg width="1180" height="430" viewBox="0 0 1180 430" role="img" aria-label="The request contract, the policy gate, and the agent behind it">
+      <rect x="46" y="60" width="250" height="76" rx="6" fill="#eef2ff" stroke="#4338ca" stroke-width="2.5"/>
+      <text x="171" y="90" text-anchor="middle" class="bxs">the contract</text>
+      <text x="171" y="118" text-anchor="middle" class="bds" font-family="Consolas,monospace">extra=&quot;forbid&quot;</text>
+
+      <line x1="296" y1="98" x2="344" y2="98" stroke="#4338ca" stroke-width="2.5" marker-end="url(#ai)"/>
+
+      <rect x="348" y="60" width="250" height="76" rx="6" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
+      <text x="473" y="90" text-anchor="middle" class="bxs am">the policy gate</text>
+      <text x="473" y="118" text-anchor="middle" class="bds">no model consulted</text>
+
+      <line x1="598" y1="98" x2="646" y2="98" stroke="#4338ca" stroke-width="2.5" marker-end="url(#ai)"/>
+
+      <rect x="650" y="60" width="230" height="76" rx="6" fill="#eef2ff" stroke="#4338ca" stroke-width="2.5"/>
+      <text x="765" y="90" text-anchor="middle" class="bxs">the agent</text>
+      <text x="765" y="118" text-anchor="middle" class="bds">tools, then the model</text>
+
+      <line x1="880" y1="98" x2="928" y2="98" stroke="#4338ca" stroke-width="2.5" marker-end="url(#ai)"/>
+
+      <rect x="932" y="60" width="202" height="76" rx="6" fill="#f8f8fd" stroke="#94a3b8" stroke-width="2"/>
+      <text x="1033" y="90" text-anchor="middle" class="bxs">the gateway</text>
+      <text x="1033" y="118" text-anchor="middle" class="bds">the priced call</text>
+
+      <line x1="473" y1="136" x2="473" y2="194" stroke="#d97706" stroke-width="2.5" marker-end="url(#aa)"/>
+      <line x1="1033" y1="136" x2="1033" y2="194" stroke="#0d9488" stroke-width="2.5" marker-end="url(#at)"/>
+
+      <rect x="300" y="198" width="346" height="92" rx="6" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
+      <text x="473" y="228" text-anchor="middle" class="bx am">200 &middot; escalated</text>
+      <text x="473" y="256" text-anchor="middle" class="bds" font-family="Consolas,monospace">requires_approval = true</text>
+      <text x="473" y="280" text-anchor="middle" class="bds am">the model was never called</text>
+
+      <rect x="788" y="198" width="346" height="92" rx="6" fill="#f0fdf9" stroke="#0d9488" stroke-width="2.5"/>
+      <text x="961" y="228" text-anchor="middle" class="bx ok">200 &middot; answered</text>
+      <text x="961" y="256" text-anchor="middle" class="bds">with the decision in the body</text>
+      <text x="961" y="280" text-anchor="middle" class="bds ok">and the tokens on the span</text>
+
+      <rect x="120" y="312" width="940" height="98" rx="6" fill="#eef2ff" stroke="#4338ca" stroke-width="2.5"/>
+      <text x="590" y="344" text-anchor="middle" class="bxs">A gate decides whether there is a run. A checkpointer pauses one that already started.</text>
+      <text x="590" y="376" text-anchor="middle" class="bd">So an approval gate at the edge needs <tspan font-weight="700">no checkpointer</tspan> &mdash; and a field you did not declare, refused</text>
+      <text x="590" y="398" text-anchor="middle" class="bd">at the boundary, is an instruction that never reached the prompt.</text>
+    </svg>
+  </div>
+</div>
+
 <div class="slide" data-sec="The service" data-notes="The measured result from Lab 9.1 Section 2. Ten concurrent callers, a 200ms call. Awaiting: 0.2 seconds. Blocking: 2.0 seconds. Same answers from both, no error anywhere, every correctness test green. Ask the room how they would have found this before production -- the honest answer is a load test, which is why one belongs in the pipeline. Measured against the real gateway in Lab 9.1, five concurrent calls overlapped only 3.1x rather than 5x: fixing your own event loop stops you being the bottleneck, it does not create capacity downstream. Worth saying out loud so nobody leaves thinking one await solves capacity.">
   <h2>One blocking call, and the worker is serial</h2>
   <div class="body">
@@ -401,7 +448,7 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
 
       <rect x="614" y="46" width="520" height="230" rx="8" fill="#eef2ff" stroke="#4338ca" stroke-width="2.5"/>
       <text x="874" y="78" text-anchor="middle" class="lbl">what readiness costs, per day</text>
-      <text x="640" y="118" class="bd">3 replicas &times; a probe every 10s</text>
+      <text x="640" y="118" class="bd">3 replicas &times; a probe every 5s</text>
       <text x="874" y="162" text-anchor="middle" class="num">51,840 calls / day</text>
       <text x="640" y="204" class="bd">If that probe calls the model, it is a load generator</text>
       <text x="640" y="230" class="bd">you did not plan for, pointed at the dependency</text>
@@ -470,18 +517,19 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
   </div>
 </div>
 
-<div class="slide" data-sec="Manifest" data-notes="This is Lab 9.3. The point is not the five rules -- everyone knows them -- but that written as predicates they run in CI, and written as prose they are a thing to forget. The last rule is the interesting one and part five comes back to it.">
+<div class="slide" data-sec="Manifest" data-notes="This is Lab 9.3. The point is not the rules -- everyone knows them -- but that written as predicates they run in CI, and written as prose they are a thing to forget. Two of them are worth pausing on. The sixth, the probe path, is the only rule that cannot be written by reading the manifest alone: in the lab it compares the probe paths against the FastAPI app's OWN route table, so /ready versus /readyz is caught offline and the rule cannot drift from the code. And the advisory is the one part five comes back to.">
   <h2>A checklist you remember is one you skip</h2>
   <div class="body">
     <svg width="1180" height="430" viewBox="0 0 1180 430" role="img" aria-label="Five blocking rules and one advisory over a manifest">
-      <rect x="46" y="48" width="470" height="300" rx="8" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
-      <text x="281" y="80" text-anchor="middle" class="lbl no">blocks the release</text>
-      <text x="70" y="118" class="bxs">requests and limits on every container</text>
-      <text x="70" y="160" class="bxs">liveness and readiness, and not the same check</text>
-      <text x="70" y="202" class="bxs">no credential as a literal in the manifest</text>
-      <text x="70" y="244" class="bxs">an image tag that is not <tspan font-family="Consolas,monospace">:latest</tspan></text>
-      <text x="70" y="286" class="bxs">more than one replica, or something that adds one</text>
-      <text x="281" y="326" text-anchor="middle" class="bds">five findings in a manifest that looks ordinary</text>
+      <rect x="46" y="48" width="470" height="312" rx="8" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
+      <text x="281" y="78" text-anchor="middle" class="lbl no">blocks the release</text>
+      <text x="70" y="112" class="bxs">requests and limits on every container</text>
+      <text x="70" y="150" class="bxs">liveness and readiness, and not the same check</text>
+      <text x="70" y="188" class="bxs">no credential as a literal in the manifest</text>
+      <text x="70" y="226" class="bxs">an image tag that is not <tspan font-family="Consolas,monospace">:latest</tspan></text>
+      <text x="70" y="264" class="bxs">more than one replica, or something that adds one</text>
+      <text x="70" y="302" class="bxs">a probe path the app does not serve</text>
+      <text x="281" y="340" text-anchor="middle" class="bds">the first five all fire on one ordinary manifest</text>
 
       <rect x="556" y="48" width="578" height="140" rx="8" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
       <text x="845" y="80" text-anchor="middle" class="lbl am">advises, and cannot block</text>
@@ -500,12 +548,51 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
     </svg>
   </div>
 </div>
+
+<div class="slide" data-sec="Manifest" data-notes="The limit of the previous slide, and the honest version of `the manifest is the deploy`. Three columns, and the exercise is to sort a problem into one of them before you write a rule for it. Column one is free and instant, so put everything there that can go there -- including the probe path, because the lab reads the app's own route table rather than a copy of it. Column two needs a cluster but not a rollout: --dry-run=server is the API server's own opinion, and it is the only thing that knows your quota, your RBAC and your admission webhooks. Column three is why a deploy is still an event: no schema anywhere knows what is in your registry. Lab 9.3 grades columns one and three offline and sends one object to a real API server in a Run-it-for-real cell.">
+  <h2>Three places a bad deploy can be caught</h2>
+  <div class="body">
+    <svg width="1180" height="430" viewBox="0 0 1180 430" role="img" aria-label="What a linter catches, what the API server catches, and what nothing catches until it runs">
+      <rect x="46" y="48" width="348" height="248" rx="8" fill="#f0fdf9" stroke="#0d9488" stroke-width="2.5"/>
+      <text x="220" y="80" text-anchor="middle" class="lbl ok">your rules, offline</text>
+      <text x="220" y="114" text-anchor="middle" class="bx ok">free, instant, in CI</text>
+      <text x="70" y="152" class="bd">&bull; no limits, <tspan font-family="Consolas,monospace">:latest</tspan>, a literal key</text>
+      <text x="70" y="180" class="bd">&bull; both probes asking one question</text>
+      <text x="70" y="208" class="bd">&bull; a probe path the app does not serve</text>
+      <text x="90" y="234" class="bds">read off the app's own route table,</text>
+      <text x="90" y="256" class="bds">so the rule cannot drift from the code</text>
+      <text x="220" y="284" text-anchor="middle" class="bds ok">put everything here that can go here</text>
+
+      <rect x="416" y="48" width="348" height="248" rx="8" fill="#eef2ff" stroke="#4338ca" stroke-width="2.5"/>
+      <text x="590" y="80" text-anchor="middle" class="lbl">the API server</text>
+      <text x="590" y="114" text-anchor="middle" class="bx" font-family="Consolas,monospace">--dry-run=server</text>
+      <text x="440" y="152" class="bd">&bull; the schema, properly</text>
+      <text x="440" y="180" class="bd">&bull; RBAC: may you even do this?</text>
+      <text x="440" y="208" class="bd">&bull; the namespace quota</text>
+      <text x="440" y="236" class="bd">&bull; admission webhooks</text>
+      <text x="590" y="284" text-anchor="middle" class="bds">needs a cluster, changes nothing on it</text>
+
+      <rect x="786" y="48" width="348" height="248" rx="8" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
+      <text x="960" y="80" text-anchor="middle" class="lbl no">nobody</text>
+      <text x="960" y="114" text-anchor="middle" class="bx no">not until it runs</text>
+      <text x="810" y="152" class="bd">&bull; the image tag is spelled right</text>
+      <text x="830" y="176" class="bds">and is not in the registry</text>
+      <text x="810" y="212" class="bd">&bull; the Secret named by <tspan font-family="Consolas,monospace">envFrom</tspan></text>
+      <text x="830" y="236" class="bds">does not exist in this namespace</text>
+      <text x="960" y="284" text-anchor="middle" class="bds no">both manifests are perfectly legal</text>
+
+      <rect x="120" y="322" width="940" height="86" rx="6" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
+      <text x="590" y="354" text-anchor="middle" class="bxs am">Sort the problem before you write the rule</text>
+      <text x="590" y="386" text-anchor="middle" class="bd">A gate that tries to catch column three offline is a gate that is wrong sometimes &mdash; and a gate people route around.</text>
+    </svg>
+  </div>
+</div>
 <div class="slide div" data-sec="Telemetry" data-notes="Part four. OpenTelemetry gives three signals and one vocabulary; an agent needs a fourth thing that none of them provides for free.">
   <div class="k">Part four</div>
   <h1>Traces, metrics, logs &mdash; and cost</h1>
 </div>
 
-<div class="slide" data-sec="Telemetry" data-notes="Three pillars, and the honest point: latency, cost and error rate come free with any HTTP instrumentation. Did a guardrail fire, did the answer cite its source, was it right -- those have to be recorded on purpose, by you, as span attributes. That gap is the whole of the difference between observability for a web service and AgentOps.">
+<div class="slide" data-sec="Telemetry" data-notes="Three pillars, and the honest point: latency, cost and error rate come free with any HTTP instrumentation. Did a guardrail fire, did the answer cite its source, was it right -- those have to be recorded on purpose, by you, as span attributes. That gap is the whole of the difference between observability for a web service and AgentOps. Lab 9.4 makes it countable: of six questions you would ask in an incident review, three cannot be answered at any price -- not slowly, not expensively -- because the attribute was never recorded.">
   <h2>Three pillars, and the thing they do not give you</h2>
   <div class="body">
     <svg width="1180" height="430" viewBox="0 0 1180 430" role="img" aria-label="What traces, metrics and logs each answer, and what an agent needs on top">
@@ -570,6 +657,45 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
   </div>
 </div>
 
+<div class="slide" data-sec="Telemetry" data-notes="The trap in the lab's own title. `Spans you can bill` is a promise the tracing backend does not keep, and it is worth saying before anybody builds a chargeback report on one. Measured on this sandbox: the token columns read zero unless the observation is recorded as a GENERATION rather than a plain span, and the total-token field is None whatever you do, because the served model has no priced entry. Your own app.cost_usd is better -- but it is your rate table's opinion, correct exactly as long as somebody maintains it. The money is metered by the thing that charges for it. In this sandbox that is the Grafana tokenomics dashboard, not the tracing UI. One delivery note: tracing is Langfuse Cloud region JP. Do not point it at the US region -- it accepts the export with a 200 and never renders the trace.">
+  <h2>The span is not the bill</h2>
+  <div class="body">
+    <svg width="1180" height="430" viewBox="0 0 1180 430" role="img" aria-label="Three candidate sources for what a request cost, and which one you can invoice against">
+      <rect x="46" y="48" width="348" height="230" rx="8" fill="#f8f8fd" stroke="#94a3b8" stroke-width="2"/>
+      <text x="220" y="80" text-anchor="middle" class="lbl">the tracing UI</text>
+      <text x="220" y="116" text-anchor="middle" class="bx">shape and attribution</text>
+      <text x="70" y="156" class="bds">where the time went, which hop,</text>
+      <text x="70" y="180" class="bds">which tenant, what it decided</text>
+      <text x="70" y="216" class="bds no">token columns read zero unless the</text>
+      <text x="70" y="240" class="bds no">call is recorded as a generation, and</text>
+      <text x="70" y="264" class="bds no">the total is empty for an unpriced model</text>
+
+      <rect x="416" y="48" width="348" height="230" rx="8" fill="#f0fdf9" stroke="#0d9488" stroke-width="2.5"/>
+      <text x="590" y="80" text-anchor="middle" class="lbl ok">your span attribute</text>
+      <text x="590" y="116" text-anchor="middle" class="bx ok" font-family="Consolas,monospace">app.cost_usd</text>
+      <text x="440" y="156" class="bds">computed from the usage the model</text>
+      <text x="440" y="180" class="bds">returned, times your rate table</text>
+      <text x="440" y="216" class="bds am">true while somebody maintains that</text>
+      <text x="440" y="240" class="bds am">table &mdash; so record the token counts</text>
+      <text x="440" y="264" class="bds am">too, and a price change costs nothing</text>
+
+      <rect x="786" y="48" width="348" height="230" rx="8" fill="#eef2ff" stroke="#4338ca" stroke-width="2.5"/>
+      <text x="960" y="80" text-anchor="middle" class="lbl">the gateway's accounting</text>
+      <text x="960" y="116" text-anchor="middle" class="bx">the money</text>
+      <text x="810" y="156" class="bds">the system that meters the tokens</text>
+      <text x="810" y="180" class="bds">is the system that charges for them</text>
+      <text x="810" y="216" class="bds">in this sandbox that is the</text>
+      <text x="810" y="240" class="bds">tokenomics dashboard, and it is</text>
+      <text x="810" y="264" class="bds">the only one of the three you can invoice</text>
+
+      <rect x="120" y="304" width="940" height="104" rx="6" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
+      <text x="590" y="336" text-anchor="middle" class="bxs am">Instrument for attribution. Reconcile for money.</text>
+      <text x="590" y="368" text-anchor="middle" class="bd">The span tells you <tspan font-weight="700">who</tspan> spent it and <tspan font-weight="700">on what</tspan> &mdash; which no invoice can ever tell you, because it arrives</text>
+      <text x="590" y="390" text-anchor="middle" class="bd">as one number a month later. Neither replaces the other, and only one of them is the bill.</text>
+    </svg>
+  </div>
+</div>
+
 <div class="slide" data-sec="Telemetry" data-notes="The cardinality trap, with the arithmetic. A span attribute is stored once per request; a metric label creates a time series per distinct combination, forever. Payment reference on the span is right; on the metric it is 144,000 series for one metric, and unbounded thereafter.">
   <h2>A label multiplies. An attribute does not.</h2>
   <div class="body">
@@ -600,7 +726,7 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
   </div>
 </div>
 
-<div class="slide" data-sec="Telemetry" data-notes="Two things here. The collector -- one place to sample, redact and fan out, changeable without redeploying the service. And the sampling arithmetic, which is the number to remember: head sampling at ten percent loses the entire day's evidence about one day in three.">
+<div class="slide" data-sec="Telemetry" data-notes="Two things here. The collector -- one place to sample, redact and fan out, changeable without redeploying the service. And the sampling arithmetic, which is the number to remember: head sampling at ten percent loses the entire day's evidence about one day in three. Be explicit that the tail rule on the right stores MORE than head sampling, not less -- 17.4% against 10%, measured in Lab 9.4 on a 500-trace window. If you want a smaller bill, the lever is the 5% of ordinary traffic, and it costs you nothing you would have asked for. Anyone who came for a compression ratio has the wrong frame.">
   <h2>The collector, and what sampling costs you</h2>
   <div class="body">
     <svg width="1180" height="430" viewBox="0 0 1180 430" role="img" aria-label="OTLP collector between the service and its backends, and head versus tail sampling">
@@ -624,7 +750,7 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
       <rect x="630" y="80" width="180" height="40" rx="5" fill="#f8f8fd" stroke="#94a3b8" stroke-width="2"/>
       <text x="720" y="106" text-anchor="middle" class="bds">metrics</text>
       <rect x="630" y="110" width="180" height="42" rx="5" fill="#f8f8fd" stroke="#94a3b8" stroke-width="2"/>
-      <text x="720" y="137" text-anchor="middle" class="bds">LangFuse</text>
+      <text x="720" y="137" text-anchor="middle" class="bds">Langfuse</text>
 
       <text x="856" y="72" class="bd">One place to decide what leaves,</text>
       <text x="856" y="98" class="bd">what is redacted, and where it goes.</text>
@@ -636,17 +762,18 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
 
       <rect x="70" y="236" width="516" height="72" rx="5" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
       <text x="328" y="264" text-anchor="middle" class="bxs no">head sampling at 10%</text>
-      <text x="328" y="292" text-anchor="middle" class="bd">keeps 1 failure &mdash; and on <tspan font-weight="700">35% of days</tspan>, none at all</text>
+      <text x="328" y="292" text-anchor="middle" class="bd">stores 10% &mdash; keeps 1 failure, and on <tspan font-weight="700">35% of days</tspan> none</text>
 
       <rect x="594" y="236" width="516" height="72" rx="5" fill="#f0fdf9" stroke="#0d9488" stroke-width="2.5"/>
-      <text x="852" y="264" text-anchor="middle" class="bxs ok">tail sampling, 5% of the clean ones</text>
-      <text x="852" y="292" text-anchor="middle" class="bd">keeps <tspan font-weight="700">every</tspan> failure, and stores 45% less</text>
+      <text x="852" y="264" text-anchor="middle" class="bxs ok">tail sampling, an agent's keep rule</text>
+      <text x="852" y="292" text-anchor="middle" class="bd">stores <tspan font-weight="700">17.4%</tspan> &mdash; and has lost none of them</text>
 
       <text x="70" y="338" class="bd">Tail sampling decides when the request <tspan font-style="italic">ends</tspan>, so the collector has to buffer the trace &mdash; which is the</text>
       <text x="70" y="362" class="bd">real cost, and the reason it lives in the collector rather than the SDK.</text>
-      <text x="70" y="390" class="bd">For an agent, extend the keep rule past errors: every <tspan font-weight="700">refusal</tspan>, every <tspan font-weight="700">escalation</tspan>, and the slowest 1%.</text>
+      <text x="70" y="390" class="bd">The rule: every error, every <tspan font-weight="700">refusal</tspan>, every <tspan font-weight="700">escalation</tspan>, the slowest 5%, and 5% of the rest.</text>
     </svg>
   </div>
+  <div class="take"><b>A keep rule is a decision about what you will want at 3am, not a compression ratio.</b> This one stores more than head sampling, and Lab 9.4 measures both.</div>
 </div>
 
 <div class="slide div" data-sec="Running it" data-notes="Part five. Scaling, alarming, and the on-call page for a system that can be wrong without erroring.">
@@ -801,7 +928,7 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
       <text x="620" y="236" class="bd ok">predicates over the manifest, run in CI</text>
 
       <text x="70" y="284" class="bd">head sampling at 10%</text>
-      <text x="620" y="284" class="bd ok">tail sampling: keep errors, refusals, escalations</text>
+      <text x="620" y="284" class="bd ok">keep every error, refusal and escalation, not a flat 10%</text>
 
       <text x="70" y="332" class="bd">autoscale on CPU</text>
       <text x="620" y="332" class="bd ok">autoscale on in-flight &mdash; CPU never moves</text>
@@ -958,7 +1085,7 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
     <div class="opt miss"><span class="k">B</span><span>About one day in a hundred</span></div>
     <div class="opt miss"><span class="k">C</span><span>About one day in twenty</span></div>
     <div class="opt hit"><span class="k">D</span><span>About one day in three</span></div>
-    <div class="why"><b>Why:</b> Ten failures, each kept independently with probability 0.1, so the chance of losing all of them is 0.9<sup>10</sup> = 35%. Tail sampling at 5% of the clean traffic keeps every failure and stores 45% less than head sampling at 10%.</div>
+    <div class="why"><b>Why:</b> Ten failures, each kept independently with probability 0.1, so the chance of losing all of them is 0.9<sup>10</sup> = 35%. A tail rule that keeps every error, refusal, escalation and slow request loses none of them &mdash; and in Lab 9.4 it stores 17.4%, <em>more</em> than head sampling at 10%. Storing less was never what you were buying.</div>
   </div></div>
 </div>
 
