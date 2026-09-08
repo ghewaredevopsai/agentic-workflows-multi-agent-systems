@@ -974,9 +974,43 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
   </div>
 </div>
 
-<div class="slide div" data-sec="On-ramp" data-notes="Two slides only. Enough LangChain to build today's labs, and an honest statement of where it stops being enough. Do not tour the framework.">
+<div class="slide div" data-sec="On-ramp" data-notes="Five slides, in this order for a reason: tools, then the one call they will actually write, then what that call contains, then the output contract, then the boundary. Anyone new to LangChain should leave this section believing there is ONE way to build an agent &mdash; create_agent &mdash; and that the loop slide is its inside, not an alternative. Do not tour the framework beyond this.">
   <div class="k">Part seven</div>
   <h1>Enough LangChain to start</h1>
+</div>
+
+<div class="slide" data-sec="On-ramp" data-notes="Three parts of this function are read by the model and by nothing else: the name, the docstring and the type hints. Say the measured number out loud &mdash; in Lab 1.3 the same five questions against the same five functions went from 2/5 to 5/5 on first-tool accuracy purely by writing the descriptions. That is the highest return per minute in the whole course. The second paragraph, what NOT to use it for, is the half people skip.">
+  <h2>A tool is a function the model can read</h2>
+  <div class="body">
+    <svg width="1180" height="420" viewBox="0 0 1180 420" role="img" aria-label="The tool decorator and which parts of it the model reads">
+      <rect x="50" y="40" width="690" height="300" rx="8" fill="#1e1b4b"/>
+      <text x="74" y="78" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#fbbf24">@tool</tspan></text>
+      <text x="74" y="110" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#a5b4fc">def</tspan><tspan fill="#e0e7ff"> </tspan><tspan fill="#fbbf24">lookup_payment</tspan><tspan fill="#e0e7ff">(</tspan><tspan fill="#7dd3fc">ref</tspan><tspan fill="#e0e7ff">: str) -&gt; str:</tspan></text>
+      <text x="74" y="148" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#86efac">    """Return the ledger record for one payment</tspan></text>
+      <text x="74" y="176" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#86efac">    reference such as 'PMT-1003'.</tspan></text>
+      <text x="74" y="218" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#86efac">    Use when you have a reference.</tspan></text>
+      <text x="74" y="246" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#86efac">    Not for searching across payments.</tspan></text>
+      <text x="74" y="274" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#86efac">    """</tspan></text>
+      <text x="74" y="312" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#a5b4fc">    return</tspan><tspan fill="#e0e7ff"> json.dumps(LEDGER[ref])</tspan></text>
+
+      <line x1="756" y1="110" x2="800" y2="110" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
+      <text x="816" y="104" class="bx">name and arg schema</text>
+      <text x="816" y="126" class="bd">from the signature</text>
+
+      <line x1="756" y1="176" x2="800" y2="176" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
+      <text x="816" y="170" class="bx">description</text>
+      <text x="816" y="192" class="bd">from the docstring</text>
+
+      <line x1="756" y1="246" x2="800" y2="246" stroke="#fbbf24" stroke-width="2.5" marker-end="url(#aa)"/>
+      <text x="816" y="240" class="bx am">and when NOT to</text>
+      <text x="816" y="262" class="bd">the half people skip</text>
+
+      <line x1="756" y1="312" x2="800" y2="312" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
+      <text x="816" y="306" class="bx">the return value</text>
+      <text x="816" y="328" class="bd">becomes the observation</text>
+    </svg>
+  </div>
+  <div class="take"><b>Measured in Lab 1.3:</b> same model, same five functions, same questions &mdash; descriptions alone moved first-tool accuracy from 2/5 to 5/5.</div>
 </div>
 
 <div class="slide" data-sec="On-ramp" data-notes="Point out that create_agent IS the loop from part two, prebuilt. Model, tools, prompt, checkpointer. That is the whole surface for today. LangChain 1.x replaced create_react_agent with create_agent &mdash; flag it, the internet is full of the old name. Flag the keyword too: it is system_prompt=, not prompt=. The 1.0 preview used prompt= and it now raises TypeError, which is exactly the error a participant will hit if they copy an older snippet.">
@@ -1020,8 +1054,8 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
   </div>
 </div>
 
-<div class="slide" data-sec="On-ramp" data-notes="This is Lab 1.1 on one slide. Walk the three arrows in order. The point to land: nowhere in this loop do you parse anything. bind_tools sends the tool SCHEMA, so the name is checked against the tools you passed and the arguments against their types before your code ever sees them. Module 2 shows what it costs when you do not have that.">
-  <h2>The loop, in LangChain objects</h2>
+<div class="slide" data-sec="On-ramp" data-notes="Say the framing FIRST or this slide confuses people new to LangChain: this is not a second way to build an agent. It is the inside of the previous slide. Nobody writes this in production. Three reasons it is worth two minutes anyway. One: Lab 1.1 has them build exactly this, so they know what create_agent is doing rather than trusting it. Two: nowhere in it is anything parsed &mdash; bind_tools sends the tool SCHEMA, so the name is checked against the tools you passed and the arguments against their types before your code sees them, and that is WHY the previous slide is safe. Three: Module 2 reads tool_calls directly, so they need to be able to read it. Walk the three arrows, then move on.">
+  <h2>What create_agent is doing inside</h2>
   <div class="body">
     <svg width="1180" height="420" viewBox="0 0 1180 420" role="img" aria-label="The tool-calling loop expressed with bind_tools, tool_calls and ToolMessage">
       <rect x="50" y="40" width="690" height="330" rx="8" fill="#1e1b4b"/>
@@ -1046,41 +1080,7 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
       <text x="816" y="278" class="bd">result back to request</text>
     </svg>
   </div>
-  <div class="take"><b>No format to get wrong:</b> the tool name is validated against the tools you passed, the arguments against their schema &mdash; before your code sees them.</div>
-</div>
-
-<div class="slide" data-sec="On-ramp" data-notes="Three parts of this function are read by the model and by nothing else: the name, the docstring and the type hints. Say the measured number out loud &mdash; in Lab 1.3 the same five questions against the same five functions went from 2/5 to 5/5 on first-tool accuracy purely by writing the descriptions. That is the highest return per minute in the whole course. The second paragraph, what NOT to use it for, is the half people skip.">
-  <h2>A tool is a function the model can read</h2>
-  <div class="body">
-    <svg width="1180" height="420" viewBox="0 0 1180 420" role="img" aria-label="The tool decorator and which parts of it the model reads">
-      <rect x="50" y="40" width="690" height="300" rx="8" fill="#1e1b4b"/>
-      <text x="74" y="78" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#fbbf24">@tool</tspan></text>
-      <text x="74" y="110" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#a5b4fc">def</tspan><tspan fill="#e0e7ff"> </tspan><tspan fill="#fbbf24">lookup_payment</tspan><tspan fill="#e0e7ff">(</tspan><tspan fill="#7dd3fc">ref</tspan><tspan fill="#e0e7ff">: str) -&gt; str:</tspan></text>
-      <text x="74" y="148" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#86efac">    """Return the ledger record for one payment</tspan></text>
-      <text x="74" y="176" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#86efac">    reference such as 'PMT-1003'.</tspan></text>
-      <text x="74" y="218" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#86efac">    Use when you have a reference.</tspan></text>
-      <text x="74" y="246" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#86efac">    Not for searching across payments.</tspan></text>
-      <text x="74" y="274" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#86efac">    """</tspan></text>
-      <text x="74" y="312" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#a5b4fc">    return</tspan><tspan fill="#e0e7ff"> json.dumps(LEDGER[ref])</tspan></text>
-
-      <line x1="756" y1="110" x2="800" y2="110" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
-      <text x="816" y="104" class="bx">name and arg schema</text>
-      <text x="816" y="126" class="bd">from the signature</text>
-
-      <line x1="756" y1="176" x2="800" y2="176" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
-      <text x="816" y="170" class="bx">description</text>
-      <text x="816" y="192" class="bd">from the docstring</text>
-
-      <line x1="756" y1="246" x2="800" y2="246" stroke="#fbbf24" stroke-width="2.5" marker-end="url(#aa)"/>
-      <text x="816" y="240" class="bx am">and when NOT to</text>
-      <text x="816" y="262" class="bd">the half people skip</text>
-
-      <line x1="756" y1="312" x2="800" y2="312" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
-      <text x="816" y="306" class="bx">the return value</text>
-      <text x="816" y="328" class="bd">becomes the observation</text>
-    </svg>
-  </div>
-  <div class="take"><b>Measured in Lab 1.3:</b> same model, same five functions, same questions &mdash; descriptions alone moved first-tool accuracy from 2/5 to 5/5.</div>
+  <div class="take"><b>You will not write this loop &mdash; <code>create_agent</code> is it, prebuilt.</b> You write it once in Lab 1.1 so you know what you are handing over.</div>
 </div>
 
 <div class="slide" data-sec="On-ramp" data-notes="The last piece of today's surface. An agent that returns prose forces every caller to parse it; response_format makes it return a validated object instead. Do NOT oversell it: show the red box. On this model the structured response comes back None intermittently, with nothing raised, because the model answered in prose instead of calling the schema tool. Labs 1.3 and 1.4 both handle it explicitly and 1.3 makes them run it until they see it.">
