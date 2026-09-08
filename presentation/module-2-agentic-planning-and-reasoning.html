@@ -720,52 +720,30 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
   <div class="take"><b>These are shapes to reason with, not numbers to quote.</b> In Lab 2.5 you measure your own, on your own eval set.</div>
 </div>
 
-<div class="slide" data-sec="What it costs" data-notes="These are OUR numbers from Lab 2.5 on the sandbox model, not shapes. All four arms the lab runs are here. Two things to land, in this order. First: ReAct scored the same 80% as Direct and Reflection and was still rejected -- not on cost, but because it got PMT-1005 wrong, and the bar named that case as disqualifying before anything ran. Some failures are worth the whole decision, not 20% of it. Second: Chain-of-Thought scored highest and did not win. Direct cleared the bar more cheaply, so it wins; that is the rule, and it is the result people argue with. Add the tie-break honestly -- if the costs had been equal, CoT would have won on pass rate. Their own numbers will differ; the lab tells them so. If anyone asks what SEC/CASE really measures, answer honestly: it is total wall clock over five cases, run serially by one user, with thinking turned off. It is not a benchmark. Its value is that it is a visible proxy for the model-calls row on the previous slide -- 1 for direct, 1 for CoT, 3 for ReAct, 2 for Reflection -- and round trips are the part that is a property of the ARCHITECTURE rather than of our gateway. Two warnings if they try to reuse these figures: measured with thirty people on the same gateway they will be far worse and far noisier, because output tokens are generated serially per request and concurrent callers divide the throughput; and with thinking left ON the same answers took 24s instead of 0.7s. In production you would want p50 and p95 over many runs under real concurrency; p95 is the one that bites.">
-  <h2>The bake-off, and how to read it</h2>
+<div class="slide" data-sec="What it costs" data-notes="The closing discipline of the module, and it is a RULE slide, not a results slide -- the results are Lab 2.5, with their numbers, not ours. Read the bar out loud clause by clause and stress that all three were written before anything ran. Then the contrast: two arms, the same 80%, opposite verdicts. A pass rate is an average, and averaging is exactly what hides the case you cannot afford to lose. Clause 2 is how you stop an average from deciding something an average should not decide. Finish on the takeaway: once an arm clears the bar, extra quality is something you are paying for and not using -- so the cheapest that clears wins, and only a tie on cost is settled by pass rate. That last line is the one people argue with.">
+  <h2>How to read a bake-off</h2>
   <div class="body">
-    <svg width="1180" height="410" viewBox="0 0 1180 410" role="img" aria-label="Bake-off scorecard for all four architectures, measured in lab 2.5">
-      <rect x="60" y="46" width="1060" height="216" rx="8" fill="#f8f8fd" stroke="#4338ca" stroke-width="2"/>
-      <line x1="60" y1="92" x2="1120" y2="92" stroke="#4338ca" stroke-width="2"/>
-      <text x="96" y="76" class="lbl">Architecture</text>
-      <text x="520" y="76" text-anchor="middle" class="lbl">Pass rate</text>
-      <text x="690" y="76" text-anchor="middle" class="lbl">Sec / case</text>
-      <text x="920" y="76" text-anchor="middle" class="lbl">Verdict</text>
+    <svg width="1180" height="410" viewBox="0 0 1180 410" role="img" aria-label="The acceptance bar, and two arms with the same score and opposite verdicts">
+      <rect x="60" y="42" width="1060" height="150" rx="8" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
+      <text x="96" y="80" class="bx am">Write the bar first &mdash; before you run anything</text>
+      <text x="96" y="120" class="bd">1&nbsp;&nbsp; A pass rate of at least 80% on the eval set</text>
+      <text x="96" y="152" class="bd">2&nbsp;&nbsp; Never fails PMT-1005 &mdash; the sanctions hold. One wrong answer there is disqualifying.</text>
+      <text x="96" y="184" class="bd">3&nbsp;&nbsp; Under 20 seconds per case</text>
 
-      <text x="96" y="128" class="bx ok">Direct</text>
-      <text x="520" y="128" text-anchor="middle" class="bd">80%</text>
-      <text x="690" y="128" text-anchor="middle" class="bd ok">0.5</text>
-      <text x="920" y="128" text-anchor="middle" class="bds ok">accepted &mdash; and it wins</text>
+      <rect x="60" y="216" width="515" height="124" rx="7" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
+      <text x="317" y="250" text-anchor="middle" class="bx">ReAct + tools</text>
+      <text x="317" y="288" text-anchor="middle" class="big">80%</text>
+      <text x="317" y="322" text-anchor="middle" class="bx no">rejected &mdash; clause 2</text>
 
-      <text x="96" y="168" class="bx">Chain-of-Thought</text>
-      <text x="520" y="168" text-anchor="middle" class="bd ok">100%</text>
-      <text x="690" y="168" text-anchor="middle" class="bd">0.7</text>
-      <text x="920" y="168" text-anchor="middle" class="bds">accepted &mdash; but not the winner</text>
+      <rect x="605" y="216" width="515" height="124" rx="7" fill="#ecfdf5" stroke="#0d9488" stroke-width="2.5"/>
+      <text x="862" y="250" text-anchor="middle" class="bx">Reflection</text>
+      <text x="862" y="288" text-anchor="middle" class="big">80%</text>
+      <text x="862" y="322" text-anchor="middle" class="bx ok">accepted</text>
 
-      <text x="96" y="208" class="bx">ReAct + tools</text>
-      <text x="520" y="208" text-anchor="middle" class="bd">80%</text>
-      <text x="690" y="208" text-anchor="middle" class="bd">2.4</text>
-      <text x="920" y="208" text-anchor="middle" class="bds no">REJECTED &mdash; lost PMT-1005</text>
-
-      <text x="96" y="248" class="bx">Reflection</text>
-      <text x="520" y="248" text-anchor="middle" class="bd">80%</text>
-      <text x="690" y="248" text-anchor="middle" class="bd">1.4</text>
-      <text x="920" y="248" text-anchor="middle" class="bds">accepted</text>
-
-      <rect x="60" y="282" width="515" height="112" rx="7" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
-      <text x="317" y="312" text-anchor="middle" class="bx no">Some failures are disqualifying</text>
-      <text x="317" y="340" text-anchor="middle" class="bd">ReAct tied on score and still lost &mdash; it got</text>
-      <text x="317" y="364" text-anchor="middle" class="bd">the sanctions hold wrong.</text>
-      <text x="317" y="386" text-anchor="middle" class="bds">Named in the bar before anything ran.</text>
-
-      <rect x="605" y="282" width="515" height="112" rx="7" fill="#ecfdf5" stroke="#0d9488" stroke-width="2.5"/>
-      <text x="862" y="312" text-anchor="middle" class="bx ok">The best score did not win</text>
-      <text x="862" y="340" text-anchor="middle" class="bd">Cheapest arm that clears the bar wins.</text>
-      <text x="862" y="364" text-anchor="middle" class="bd">A tie on cost breaks on pass rate.</text>
-      <text x="862" y="386" text-anchor="middle" class="bds">This is the result people argue with most.</text>
-
+      <text x="590" y="378" text-anchor="middle" class="bx">Identical pass rate. Opposite verdicts. A pass rate is an average &mdash; clause 2 is not.</text>
     </svg>
   </div>
-  <div class="take"><b>Read the ordering, not the numbers.</b> Seconds/case is one serial run on an idle gateway with thinking off &mdash; what it is really showing you is <b>round trips</b>: 1, 1, 3, 2.</div>
+  <div class="take"><b>Then the cheapest arm that clears the bar wins</b> &mdash; not the highest-scoring one. Only a tie on cost is settled by pass rate.</div>
 </div>
 
 <div class="slide" data-sec="Recap" data-notes="Ninety seconds. The rule of thumb line is the one to leave ringing: start at the cheapest architecture that can possibly work, and let the eval set force you upward.">
