@@ -1,17 +1,25 @@
-# Runtime prerequisites — Module 1 labs
+# Runtime prerequisites — Day 1 labs (Modules 1–3)
 
 The notebooks run on the **K3s cluster, namespace `agenticai`**. The cluster admin provides the
-runtime; this file is the contract the notebooks expect. Nothing here is hardcoded in a notebook —
+runtime; this file is the contract the notebooks expect. It lives under `module-1/` for historical
+reasons and covers **all of Day 1** — Modules 2 and 3 need exactly the same packages. Nothing here is hardcoded in a notebook —
 the endpoint is read from the environment, so the admin can point it anywhere without editing labs.
 
 ## 1. Python packages
 
 | Package | Needed by | Notes |
 |---|---|---|
-| `langchain` (1.x) | **every lab** | `langchain.agents.create_agent`, `langchain_core.tools.tool`, message types, `trim_messages` |
-| `langchain-openai` | **every lab** | `ChatOpenAI`, pointed at the in-cluster gateway |
-| `langgraph` (1.x) | Labs 1.1, 1.2 | `langgraph.checkpoint.memory.InMemorySaver` — `create_agent`'s thread memory |
-| `pydantic` (2.x) | Labs 1.2, 1.3, 1.4, 1.5 | `BaseModel` / `Field` for `with_structured_output` and `response_format` |
+| `langchain` (1.x) | **every Day 1 lab** | `langchain.agents.create_agent`, `langchain_core.tools.tool`, message types, `trim_messages`, `ChatPromptTemplate`, `StrOutputParser` |
+| `langchain-openai` | **every Day 1 lab** | `ChatOpenAI`, pointed at the in-cluster gateway |
+| `langgraph` (1.x) | 1.1, 1.2, and **all of Module 3** | `StateGraph`, `START`/`END`, `InMemorySaver`; Module 3 builds and checkpoints real graphs |
+| `pydantic` (2.x) | most labs from 1.2 on | `BaseModel` / `Field` for `with_structured_output` and `response_format` |
+| `typing_extensions` | Module 3 | `TypedDict` for graph state |
+
+**Nothing new is required for the Day 1 rebuild.** Every import above is already pinned in the lab
+image's `requirements.txt` and present in the running sandbox. ⚠️ The pins are floors and very
+loose (`langchain>=0.3` while **1.4.0** is what is installed and what the labs are written
+against). A future image rebuild that resolves to a 2.x would break `create_agent`'s signature
+silently. Raising those floors to the 1.x line is worth doing before the next rebuild.
 
 Verified against the sandbox image on 2026-09-08: langchain **1.4.0**, langchain-core 1.6.2,
 langchain-openai 1.6.0, langgraph 1.2.11, pydantic 2.11.7, Python 3.12.11.
