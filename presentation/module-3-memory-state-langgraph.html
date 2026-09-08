@@ -606,7 +606,7 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
   </div>
 </div>
 
-<div class="slide" data-sec="Checkpoints" data-notes="One keyword argument buys all four capabilities from the previous slide. Walk the sequence top to bottom &mdash; it is exactly Lab 3.4. Two things to say out loud: resuming passes None as the input, which means carry on rather than start again; and the amber box, which surprises everyone. interrupt_before is a property of the COMPILED GRAPH, not of a run, so replaying from an older checkpoint runs forward and stops at the gate again rather than sailing through to a new answer. They will see exactly that in the lab.">
+<div class="slide" data-sec="Checkpoints" data-notes="One keyword argument buys all four capabilities from the previous slide. Be precise about the approval claim if anyone pushes: a checkpointer is what lets you PAUSE a run and resume it. It is not the only way to build an approval gate --  our own capstone gates without one, by proposing a recommendation with a requires_approval flag and having no write tool at all. That is a perfectly good gate; it just cannot resume mid-run. Walk the sequence top to bottom &mdash; it is exactly Lab 3.4. Two things to say out loud: resuming passes None as the input, which means carry on rather than start again; and the amber box, which surprises everyone. interrupt_before is a property of the COMPILED GRAPH, not of a run, so replaying from an older checkpoint runs forward and stops at the gate again rather than sailing through to a new answer. They will see exactly that in the lab.">
   <h2>One argument, and the sequence it unlocks</h2>
   <div class="body">
     <svg width="1180" height="420" viewBox="0 0 1180 420" role="img" aria-label="The checkpointer API: thread id, pause, inspect, update, resume and history">
@@ -636,7 +636,7 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
       <text x="76" y="394" class="bd">Rewinding into an interrupt_before node <tspan font-weight="700">pauses again</tspan> &mdash; the interrupt belongs to the graph, not to a run.</text>
     </svg>
   </div>
-  <div class="take"><b>Without a checkpointer none of this exists:</b> a crash loses the case, an approval gate is impossible, and the audit question has no answer.</div>
+  <div class="take"><b>Without a checkpointer none of this exists:</b> a crash restarts the case from scratch, a run cannot be paused and resumed for a human, and the audit trail is whatever you remembered to log.</div>
 </div>
 
 <div class="slide div" data-sec="Shared memory" data-notes="The bridge into Day 2. Everything so far has been one agent. The moment there are several, memory becomes a design decision with a failure mode nobody expects.">

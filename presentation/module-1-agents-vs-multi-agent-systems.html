@@ -375,7 +375,7 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
       <text x="590" y="342" text-anchor="middle" class="bd">Reading a ledger can sit at 4. Writing to it should not.</text>
     </svg>
   </div>
-  <div class="take"><b>The capstone enforces this:</b> retrieval and analysis run free; every write passes a human approval gate.</div>
+  <div class="take"><b>The capstone sets the dial deliberately:</b> retrieval and analysis run free, and it proposes rather than acts &mdash; it has no write tool at all.</div>
 </div>
 
 <div class="slide div" data-sec="Chatbot, RAG or agent" data-notes="Short section, but it is the one that stops teams building an agent where a retrieval pipeline would have done.">
@@ -723,10 +723,10 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
       <text x="960" y="118" text-anchor="middle" class="bd">in one place</text>
       <line x1="60" y1="134" x2="1120" y2="134" stroke="#eef2ff" stroke-width="1.5"/>
 
-      <text x="70" y="168" class="bxs">Token cost</text>
+      <text x="70" y="168" class="bxs">Model calls</text>
       <text x="400" y="168" text-anchor="middle" class="bd ok">baseline &times;1</text>
-      <text x="680" y="168" text-anchor="middle" class="bd no">&times;3 to &times;10</text>
-      <text x="960" y="168" text-anchor="middle" class="bd no">&times;3 to &times;10</text>
+      <text x="680" y="168" text-anchor="middle" class="bd no">&times;2 and up</text>
+      <text x="960" y="168" text-anchor="middle" class="bd no">&times;2 and up</text>
       <line x1="60" y1="184" x2="1120" y2="184" stroke="#eef2ff" stroke-width="1.5"/>
 
       <text x="70" y="218" class="bxs">Debugging</text>
@@ -795,7 +795,7 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
   <div class="take"><b>If neither applies,</b> you are paying the tax and receiving nothing. That is the most common multi-agent mistake in production.</div>
 </div>
 
-<div class="slide" data-sec="The coordination tax" data-notes="Cost and latency grow roughly linearly. The failure surface does not. This is why the fifth agent hurts so much more than the second &mdash; and why 'just add another agent' is not a small change.">
+<div class="slide" data-sec="The coordination tax" data-notes="Calls and latency grow roughly linearly. The failure surface does not. Do not say tokens here -- Lab 1.4 measures them coming out LEVEL, because specialists get shorter prompts and the per-call saving offsets the extra calls. The argument against splitting is the edges, not the bill. This is why the fifth agent hurts so much more than the second &mdash; and why 'just add another agent' is not a small change.">
   <h2>Cost grows in a line. Failure grows in a mesh.</h2>
   <div class="body">
     <svg width="1180" height="420" viewBox="0 0 1180 420" role="img" aria-label="Handoff paths growing combinatorially as agents are added">
@@ -829,7 +829,7 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
       </g>
       <rect x="960" y="88" width="160" height="130" rx="7" fill="#f8f8fd" stroke="#cbd5e1" stroke-width="2"/>
       <text x="1040" y="120" text-anchor="middle" class="lbl">Meanwhile</text>
-      <text x="1040" y="152" text-anchor="middle" class="bd">tokens: &times;5</text>
+      <text x="1040" y="152" text-anchor="middle" class="bd">calls: &times;5</text>
       <text x="1040" y="180" text-anchor="middle" class="bd">latency: &times;5</text>
       <text x="1040" y="204" text-anchor="middle" class="bds">roughly linear</text>
       <text x="590" y="326" text-anchor="middle" class="bds">Counting each direction separately &mdash; n(n&minus;1). Every drawn edge runs both ways.</text>
@@ -1052,6 +1052,7 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
       <text x="925" y="378" text-anchor="middle" class="bds no">is all over the internet &mdash; you will hit it, and it is not what we use.</text>
     </svg>
   </div>
+  <div class="take"><b>Four arguments, and today you need three.</b> The checkpointer waits for Module 3 &mdash; note that it arrives as a constructor argument, not a rewrite.</div>
 </div>
 
 <div class="slide" data-sec="On-ramp" data-notes="Say the framing FIRST or this slide confuses people new to LangChain: this is not a second way to build an agent. It is the inside of the previous slide. Nobody writes this in production. Three reasons it is worth two minutes anyway. One: Lab 1.1 has them build exactly this, so they know what create_agent is doing rather than trusting it. Two: nowhere in it is anything parsed &mdash; bind_tools sends the tool SCHEMA, so the name is checked against the tools you passed and the arguments against their types before your code sees them, and that is WHY the previous slide is safe. Three: Module 2 reads tool_calls directly, so they need to be able to read it. Walk the three arrows, then move on.">
@@ -1381,7 +1382,7 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
     <div class="opt miss"><span class="k">B</span><span>End-to-end latency</span></div>
     <div class="opt miss"><span class="k">C</span><span>Memory footprint of the service</span></div>
     <div class="opt hit"><span class="k">D</span><span>The number of handoff paths that can fail</span></div>
-    <div class="why"><b>Why:</b> tokens and latency grow roughly linearly with the agent count. Handoff paths do not &mdash; three agents give six, four give twelve, five give twenty. Your bill grows with the agents; your debugging grows with the edges between them.</div>
+    <div class="why"><b>Why:</b> model calls and latency grow roughly linearly with the agent count &mdash; and tokens often do not grow at all, since specialists get shorter prompts. Handoff paths do not either &mdash; three agents give six, four give twelve, five give twenty. Your bill grows with the agents; your debugging grows with the edges between them.</div>
   </div></div>
 </div>
 
