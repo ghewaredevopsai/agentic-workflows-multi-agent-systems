@@ -288,7 +288,7 @@ def carry(history: list, user_msg: str) -> list:
     Returns: [SystemMessage, *history, HumanMessage(user_msg)]
     """
     msgs = [SystemMessage(SYSTEM)]
-    for m in BLANK:                   # TODO: which sequence replays the earlier turns?
+    for m in history:                 # the model gets the whole history back, every time
         msgs.append(m)
     msgs.append(HumanMessage(user_msg))
     return msgs
@@ -387,11 +387,11 @@ def run_tool_calls(ai_message, tools: dict) -> list:
 
 
 def should_stop(messages: list, steps: int, max_steps: int = MAX_STEPS):
-    """Return (stop, reason). The goal is reached when the model answers WITHOUT a tool call."""
+    """Return (stop, reason). Two ways a run ends: the goal is reached, or the budget is spent."""
     last = messages[-1]
-    if getattr(last, "type", None) == "ai" and not last.tool_calls:
+    if getattr(last, "type", None) == "ai" and BLANK:   # TODO: an agent is DONE when the model does what?
         return True, "goal"
-    if BLANK:                          # TODO: has the step budget been spent?
+    if steps >= max_steps:             # the backstop: a hard number, not a hope
         return True, "budget"
     return False, None
 
@@ -428,9 +428,9 @@ def run_tool_calls(ai_message, tools: dict) -> list:
 
 
 def should_stop(messages: list, steps: int, max_steps: int = MAX_STEPS):
-    """Return (stop, reason). The goal is reached when the model answers WITHOUT a tool call."""
+    """Return (stop, reason). Two ways a run ends: the goal is reached, or the budget is spent."""
     last = messages[-1]
-    if getattr(last, "type", None) == "ai" and not last.tool_calls:
+    if getattr(last, "type", None) == "ai" and not last.tool_calls:   # answering, not asking
         return True, "goal"
     if steps >= max_steps:             # a hard number, not a hope
         return True, "budget"
@@ -478,10 +478,11 @@ check("an unknown reference does not raise",
           _call("lookup_payment", {"ref": "PMT-9999"}, "c1"), TOOLS)[0].content,
       "a raising tool aborts the whole agent run")
 check("a run that answers without a tool call stops with reason 'goal'",
-      lambda: run_agent("q", _finisher, TOOLS)["stopped"] == "goal")
+      lambda: run_agent("q", _finisher, TOOLS)["stopped"] == "goal",
+      "an agent is finished when the model replies WITHOUT asking for a tool")
 check("a run that never finishes stops on the budget",
       lambda: run_agent("q", _never_finishes, TOOLS)["stopped"] == "budget",
-      "should_stop() must compare steps against max_steps")
+      "the budget is given -- this fails while the goal test above it is unfilled")
 check("the budget is actually respected",
       lambda: run_agent("q", _never_finishes, TOOLS)["steps"] == MAX_STEPS)
 '''),
@@ -503,7 +504,7 @@ def is_looping(messages: list, window: int = 3) -> bool:
              for c in (m.tool_calls or [])]
     if len(calls) < window:
         return False
-    return BLANK                      # TODO: are the last `window` calls all the same call?
+    return len(set(calls[-window:])) == 1        # one distinct call across the window
 ''', '''
 def is_looping(messages: list, window: int = 3) -> bool:
     """True when the last `window` tool calls are identical in both name and arguments."""
@@ -903,9 +904,11 @@ from typing import List
 
 class Step(BaseModel):
     """One step of an investigation plan."""
-    name: str = Field(description="Short snake_case name for this step")
+    # These descriptions are not documentation. with_structured_output sends them to the
+    # model AS THE SCHEMA -- they are the only instruction it gets about what goes here.
+    name: str = Field(description="BLANK")          # TODO: what must a step name look like?
     depends_on: List[str] = Field(default_factory=list,
-                                  description="Names of steps that must finish before this one")
+                                  description="BLANK")  # TODO: names of WHAT? say it precisely
     tool: str = Field(description="Which tool this step calls, or 'none'")
 
 
@@ -928,7 +931,7 @@ def order_steps(plan: Plan) -> list[str]:
         for name, d in deps.items():
             if name in done:
                 continue
-            if BLANK:                  # TODO: may this step run yet?
+            if all(x in done for x in d):        # every dependency already ordered
                 ordered.append(name)
                 done.add(name)
                 progressed = True
@@ -992,9 +995,18 @@ def _cycles():
 
 check("the schema declares a goal and steps",
       lambda: set(Plan.model_fields) == {"goal", "steps"})
+def _desc(field: str) -> str:
+    d = (Step.model_fields[field].description or "").strip()
+    if d == "BLANK":
+        raise NameError(f"{field} still has the placeholder description")
+    return d
+
 check("every step field carries a description the model can read",
-      lambda: all(f.description for f in Step.model_fields.values()),
+      lambda: all(_desc(f) for f in Step.model_fields),
       "with_structured_output sends these descriptions to the model as the schema")
+check("depends_on says what the names REFER to",
+      lambda: "step" in _desc("depends_on").lower(),
+      "the model has to know these are other steps' names, not tool names")
 check("dependencies come before dependants",
       lambda: order_steps(HAND_PLAN).index("read_payment") < order_steps(HAND_PLAN).index("read_policy"))
 check("every step is scheduled exactly once",
@@ -1352,7 +1364,7 @@ def first_tool(result: dict) -> str | None:
     for m in result["messages"]:
         calls = getattr(m, "tool_calls", None)
         if calls:
-            return BLANK              # TODO: the name of the first call on the first calling message
+            return BLANK              # TODO: a tool CHOICE lives on the AI message -- which part of it?
     return None
 
 
@@ -1650,7 +1662,7 @@ class Meter:
             self.calls += 1
             self.tool_calls += len(m.tool_calls or [])
             usage = getattr(m, "usage_metadata", None) or {}
-            self.in_tokens += BLANK    # TODO: the prompt side of the bill
+            self.in_tokens += usage.get("input_tokens", 0)     # you are billed for the context too
             self.out_tokens += usage.get("output_tokens", 0)
 
     @property
@@ -1771,7 +1783,7 @@ def route(step: str) -> str:
     mapping = {"read_payment": "ledger", "read_policy": "policy", "check_approval": "control"}
     if step not in mapping:
         raise ValueError(f"no worker for step {step!r}")
-    return BLANK                       # TODO: the worker this step belongs to
+    return mapping[step]
 ''', '''
 from langchain_core.tools import tool
 from langchain.agents import create_agent
@@ -1865,7 +1877,7 @@ EVAL_SET = [
 def passes(case: dict, answer: str) -> bool:
     """A case passes when the answer mentions any of its required terms."""
     low = (answer or "").lower()
-    return BLANK                      # TODO: any required term present, or all of them?
+    return any(term in low for term in case["must_contain"])
 
 
 def run_single(meter: Meter) -> list[bool]:
@@ -2277,6 +2289,9 @@ score()
    everything downstream carries on regardless. Change the supervisor to refuse rather than
    continue, and decide where that check belongs &mdash; in the worker, the supervisor, or the tool.
    Module 8 argues for one of the three.
+4. **Argue with the scorer.** `passes()` accepts an answer that contains *any* required term.
+   PMT-1004 requires two of them (`originator`, `r04`). Switch it to `all` and re-run. Which
+   arm loses more, and is your eval now measuring the architecture or the wording?
 """),
 ]
 

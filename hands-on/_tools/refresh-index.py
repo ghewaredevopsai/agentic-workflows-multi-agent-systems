@@ -73,7 +73,7 @@ def card(slug, nb_lab, nb_sol, fn):
             f'    <h3><a href="{fn}">{num} &mdash; {title}</a></h3>\n'
             f'    <p>{BLURBS[slug]}</p>\n'
             f'    <ul>\n{lis}\n    </ul>\n'
-            f'    <div class="foot">{blanks} blanks &middot; {checks} checks &middot; solution:\n'
+            f'    <div class="foot">{blanks} blank{"" if blanks == 1 else "s"} &middot; {checks} checks &middot; solution:\n'
             f'      <a href="solutions/{fn}">solutions/{fn}</a></div>\n'
             f'  </div>')
 

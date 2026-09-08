@@ -290,7 +290,7 @@ def long_session(turns: int = 14) -> list:
 
 def window_fits(messages: list, budget: int) -> bool:
     """Does this conversation still fit the budget?"""
-    return BLANK                      # TODO: measure the messages, compare against the budget
+    return count_tokens_approximately(messages) <= budget
 ''', '''
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 from langchain_core.messages.utils import count_tokens_approximately

@@ -430,7 +430,7 @@ def scores(answers: list[str]) -> list[bool]:
     out = []
     for case, answer in zip(CASES, answers):
         action = final_action(answer).lower()
-        out.append(BLANK)             # TODO: any required term present, or all of them?
+        out.append(any(term in action for term in case["must_contain"]))
     return out
 
 
@@ -640,7 +640,7 @@ def parse_step(text: str) -> dict | None:
     if not m:
         return None
     return {"thought": m.group("thought").strip(),
-            "action": BLANK,          # TODO: the tool name the model asked for
+            "action": m.group("action").strip(),
             "input": m.group("input").strip().strip('"').strip("'")}
 ''', '''
 import re
@@ -1065,7 +1065,7 @@ def finishable(step: Step) -> bool:
     """A step is finishable when it names a real tool and does not describe an attitude."""
     if step.tool != "none" and step.tool not in TOOLS:
         return False
-    return BLANK                      # TODO: reject names that contain a vague word
+    return not any(word in step.name.lower().replace("_", " ") for word in VAGUE)
 ''', '''
 VAGUE = ("understand", "thoroughly", "make sure", "as needed", "properly",
          "investigate fully", "look into", "analyse", "review", "consider")
@@ -1120,7 +1120,7 @@ def diagnose(observation: str) -> Literal["transient", "wrong_plan", "ok"]:
     low = (observation or "").lower()
     if any(w in low for w in TRANSIENT):
         return "transient"
-    if BLANK:                         # TODO: the other failure kind
+    if any(w in low for w in BLANK):  # TODO: retrying will never fix these -- which list is it?
         return "wrong_plan"
     return "ok"
 
@@ -1432,7 +1432,7 @@ def branches(ref: str) -> list[str]:
     rec = LEDGER[ref]
     base = {"payment": json.dumps({"ref": ref, **rec}),
             "policy": POLICY.get(rec["reason_code"], "no policy applies")}
-    return branch_chain().batch(BLANK)    # TODO: one input dict per angle
+    return branch_chain().batch([{**base, "angle": a} for a in ANGLES])   # one call, three branches
 ''', '''
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
@@ -1457,7 +1457,7 @@ def branches(ref: str) -> list[str]:
     rec = LEDGER[ref]
     base = {"payment": json.dumps({"ref": ref, **rec}),
             "policy": POLICY.get(rec["reason_code"], "no policy applies")}
-    return branch_chain().batch([{**base, "angle": a} for a in ANGLES])
+    return branch_chain().batch([{**base, "angle": a} for a in ANGLES])   # one call, three branches
 '''),
     code('''
 # --- Self-check: Section 1   (input construction only -- no model call)
@@ -1908,9 +1908,10 @@ def accepts(result: dict) -> tuple[bool, str]:
     """result: {"rate", "failed_refs", "seconds_case"}. Return (ok, first failing reason)."""
     if result["rate"] < BAR["min_pass_rate"]:
         return False, f"pass rate {result['rate']:.0%} below {BAR['min_pass_rate']:.0%}"
-    banned = BLANK                    # TODO: did it fail a case it is not allowed to fail?
-    if banned:
-        return False, f"failed a disqualifying case: {sorted(banned)}"
+    banned = set(result["failed_refs"]) & set(BAR["must_never_fail"])
+    if banned:                        # it cleared the 80% bar, but it got the sanctions hold wrong
+        # TODO: does an arm that fails a must-never-fail case still pass? decide, then defend it
+        return BLANK, f"failed a disqualifying case: {sorted(banned)}"
     if result["seconds_case"] > BAR["max_seconds_case"]:
         return False, f"{result['seconds_case']:.1f}s/case over {BAR['max_seconds_case']}"
     return True, "accepted"
