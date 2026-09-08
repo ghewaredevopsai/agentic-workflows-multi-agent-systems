@@ -10,7 +10,19 @@ the endpoint is read from the environment, so the admin can point it anywhere wi
 |---|---|---|
 | *(stdlib only)* | every **graded** cell | `os`, `json`, `time`, `textwrap`, `typing` — nothing else |
 | `langchain` (1.x) | Lab 1.3 live cell | `langchain.agents.create_agent`, `langchain.tools.tool` |
-| `langchain-openai` | Labs 1.1–1.5 live cells | `ChatOpenAI`, pointed at the in-cluster gateway |
+| `langchain-openai` | Labs 1.1, 1.2, 1.3, 1.5 live cells | `ChatOpenAI`, pointed at the in-cluster gateway |
+
+⚠️ **Lab 1.4 makes no model call at all** — not one, in either the lab or the solution. Its
+workers are deterministic stand-ins and its "tokens" are `len(text)//4`, deliberately: the
+coordination-tax argument is architectural, and a real model would add variance without moving
+the ratio while making every participant's numbers different. So 1.4 runs with the gateway down
+and costs nothing against the daily cap. Say so when introducing it, or someone who expects to
+watch agents talk will report the lab as broken.
+
+⚠️ **`create_agent` takes `system_prompt=`, not `prompt=`.** The sandbox ships **langchain
+1.4.0**; `prompt=` was the 1.0-preview name and now raises `TypeError: create_agent() got an
+unexpected keyword argument 'prompt'`. Pin-sensitive — re-check this signature after any
+langchain bump, because the graded cells will not catch it (they never call the model).
 
 Python **3.12** (the course stack). Every graded cell is stdlib-only and self-checks offline, so a
 participant whose LLM access is not yet wired can still complete and score all five labs.
