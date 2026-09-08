@@ -27,6 +27,7 @@ Day 3 closes with a capstone: a payment-exception investigation service, accepte
 | `presentation/module-N-*.html` | Delivery decks. Self-contained single-file slide runners, no CDN |
 | `hands-on/module-N/` | Five lab notebooks per module, plus `solutions/`, `_generators/` and `RUNTIME.md` |
 | `hands-on/capstone/` | Brief, eval set, `acceptance.py` (the gate), a starter and a reference service |
+| `presentation/faq-day-1-*.html` | Day 1 FAQ and quick revision — searchable, printable |
 | `resources/video-resources.html` | Post-session curated videos, mapped to the modules |
 
 Everything is plain HTML and Jupyter notebooks. There is no build, no package manager and no test
@@ -37,10 +38,13 @@ framework at the repository level.
 Each notebook is self-contained and self-grading:
 
 - `BLANK` marks a placeholder you fill in.
-- Self-check cells print `[PASS]` / `[FAIL]` / `[TODO]` and a `Score: passed/total`.
-- **Graded cells are stdlib-only and never call a model**, so a score cannot be broken by a flaky
-  endpoint and a lab can be completed offline. Cells marked *Run it for real* use the LLM and
-  degrade to a printed message when it is unavailable.
+- Self-check cells print `[PASS]` / `[FAIL]` / `[TODO]` and a `Self-check: passed/total` tally.
+- **Self-checks assert on the objects you build** — a bound tool, a compiled graph, a validated
+  schema — so they are deterministic and do not need the model. A flaky endpoint cannot break your
+  score, and you can work through a whole module while your LLM access is being sorted out.
+- Cells marked *Run it for real* put your code in front of the model. That is the half worth
+  watching; if the endpoint is unreachable they print how to fix it rather than crashing, so
+  *Run All* is always safe on an untouched notebook.
 - One synthetic case file (`LEDGER` / `POLICY` — payment exceptions) runs through every lab in a
   module, and later labs carry forward earlier labs' code.
 
