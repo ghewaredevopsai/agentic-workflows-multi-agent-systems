@@ -405,12 +405,12 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
       <rect x="630" y="52" width="500" height="310" rx="8" fill="#ecfdf5" stroke="#0d9488" stroke-width="2.5"/>
       <text x="880" y="86" text-anchor="middle" class="bx ok">State as an explicit object</text>
       <rect x="660" y="108" width="440" height="150" rx="4" fill="#fff" stroke="#99f6e4"/>
-      <text x="678" y="132" font-size="15" font-family="Consolas,monospace" fill="#0d9488">class CaseState(TypedDict):</text>
-      <text x="678" y="156" font-size="15" font-family="Consolas,monospace" fill="#475569">    ref: str</text>
-      <text x="678" y="180" font-size="15" font-family="Consolas,monospace" fill="#475569">    findings: Annotated[list, add]</text>
-      <text x="678" y="204" font-size="15" font-family="Consolas,monospace" fill="#475569">    needs_human: bool</text>
-      <text x="678" y="228" font-size="15" font-family="Consolas,monospace" fill="#475569">    steps: int</text>
-      <text x="678" y="250" font-size="15" font-family="Consolas,monospace" fill="#b91c1c">    # every node reads and writes THIS</text>
+      <text x="678" y="132" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#0d9488">class CaseState(TypedDict):</tspan></text>
+      <text x="678" y="156" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#475569">    ref: str</tspan></text>
+      <text x="678" y="180" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#475569">    findings: Annotated[list, add]</tspan></text>
+      <text x="678" y="204" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#475569">    needs_human: bool</tspan></text>
+      <text x="678" y="228" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#475569">    steps: int</tspan></text>
+      <text x="678" y="250" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#b91c1c">    # every node reads and writes THIS</tspan></text>
       <text x="880" y="292" text-anchor="middle" class="bd">Printable. Assertable. Storable.</text>
       <text x="880" y="322" text-anchor="middle" class="bxs ok">Everything else in this module</text>
       <text x="880" y="344" text-anchor="middle" class="bxs ok">follows from that one move.</text>
@@ -471,20 +471,57 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
   <div class="take"><b>A cycle is not a special feature.</b> It is an edge that points backwards &mdash; which is exactly the loop you hand-wrote in Lab 1.1.</div>
 </div>
 
+<div class="slide" data-sec="The graph" data-notes="The whole API, on one slide. Six calls. Emphasise that nodes are plain functions returning PARTIAL state and that everything here is ordinary testable software &mdash; in Lab 3.3 every self-check builds and runs a real compiled graph with no model in it at all. That is the point to leave them with: put the model in one node and the control flow around it stays code you can unit-test.">
+  <h2>The whole API, in six calls</h2>
+  <div class="body">
+    <svg width="1180" height="420" viewBox="0 0 1180 420" role="img" aria-label="The StateGraph API: state schema, nodes, edges, conditional edges, compile and invoke">
+      <rect x="50" y="42" width="700" height="310" rx="8" fill="#1e1b4b"/>
+      <text x="74" y="80" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#a5b4fc">class</tspan><tspan fill="#e0e7ff"> </tspan><tspan fill="#fbbf24">CaseState</tspan><tspan fill="#e0e7ff">(TypedDict):</tspan></text>
+      <text x="74" y="110" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#e0e7ff">    findings: </tspan><tspan fill="#7dd3fc">Annotated</tspan><tspan fill="#e0e7ff">[list, add]</tspan><tspan fill="#64748b">   # merge, do not replace</tspan></text>
+      <text x="74" y="152" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#e0e7ff">g = </tspan><tspan fill="#fbbf24">StateGraph</tspan><tspan fill="#e0e7ff">(CaseState)</tspan></text>
+      <text x="74" y="182" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#e0e7ff">g.</tspan><tspan fill="#fbbf24">add_node</tspan><tspan fill="#e0e7ff">(</tspan><tspan fill="#7dd3fc">&quot;read_ledger&quot;</tspan><tspan fill="#e0e7ff">, read_ledger)</tspan></text>
+      <text x="74" y="212" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#e0e7ff">g.</tspan><tspan fill="#fbbf24">add_edge</tspan><tspan fill="#e0e7ff">(START, </tspan><tspan fill="#7dd3fc">&quot;read_ledger&quot;</tspan><tspan fill="#e0e7ff">)</tspan></text>
+      <text x="74" y="242" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#e0e7ff">g.</tspan><tspan fill="#fbbf24">add_conditional_edges</tspan><tspan fill="#e0e7ff">(</tspan><tspan fill="#7dd3fc">&quot;read_policy&quot;</tspan><tspan fill="#e0e7ff">, enough, {...})</tspan></text>
+      <text x="74" y="284" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#e0e7ff">app = g.</tspan><tspan fill="#fbbf24">compile</tspan><tspan fill="#e0e7ff">()</tspan></text>
+      <text x="74" y="314" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#e0e7ff">app.invoke(state)   app.</tspan><tspan fill="#fbbf24">stream</tspan><tspan fill="#e0e7ff">(state)</tspan></text>
+
+      <line x1="766" y1="80" x2="806" y2="80" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
+      <text x="822" y="74" class="bx">state</text>
+      <text x="822" y="96" class="bd">declared, with reducers</text>
+
+      <line x1="766" y1="182" x2="806" y2="182" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
+      <text x="822" y="176" class="bx">nodes</text>
+      <text x="822" y="198" class="bd">state &rarr; partial state</text>
+
+      <line x1="766" y1="242" x2="806" y2="242" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
+      <text x="822" y="236" class="bx">edges</text>
+      <text x="822" y="258" class="bd">fixed, or chosen at runtime</text>
+
+      <line x1="766" y1="314" x2="806" y2="314" stroke="#0d9488" stroke-width="2" marker-end="url(#at)"/>
+      <text x="822" y="308" class="bx ok">runnable</text>
+      <text x="822" y="330" class="bd">stream() = a free debugger</text>
+
+      <rect x="50" y="366" width="1060" height="40" rx="7" fill="#fffbeb" stroke="#fbbf24" stroke-width="2"/>
+      <text x="76" y="393" class="bd">A backward edge is a cycle, and LangGraph will run it forever. The step budget is not optional.</text>
+    </svg>
+  </div>
+  <div class="take"><b>No model required to test any of this.</b> In Lab 3.3 every check builds and runs a real graph, offline and deterministic.</div>
+</div>
+
 <div class="slide" data-sec="The graph" data-notes="Reducers are the piece people skip and then debug for a day. Default is replace; for anything accumulating you must say so. The parallel case on the right is where it becomes non-negotiable.">
   <h2>Reducers &mdash; what happens when two nodes write the same key</h2>
   <div class="body">
     <svg width="1180" height="420" viewBox="0 0 1180 420" role="img" aria-label="Replace versus append reducers, and why parallel branches need them">
       <rect x="50" y="52" width="510" height="150" rx="8" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
       <text x="305" y="84" text-anchor="middle" class="bx no">Default: replace</text>
-      <text x="80" y="118" font-size="15" font-family="Consolas,monospace" fill="#475569">findings: list</text>
+      <text x="80" y="118" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#475569">findings: list</tspan></text>
       <text x="305" y="150" text-anchor="middle" class="bd">node A writes ["held"], then node B</text>
       <text x="305" y="172" text-anchor="middle" class="bd">writes ["needs treasury"] &mdash; and A is gone.</text>
       <text x="305" y="194" text-anchor="middle" class="bds no">Silently. No error, no warning.</text>
 
       <rect x="50" y="222" width="510" height="150" rx="8" fill="#ecfdf5" stroke="#0d9488" stroke-width="2.5"/>
       <text x="305" y="254" text-anchor="middle" class="bx ok">Declared: append</text>
-      <text x="80" y="288" font-size="15" font-family="Consolas,monospace" fill="#0d9488">findings: Annotated[list, add]</text>
+      <text x="80" y="288" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#0d9488">findings: Annotated[list, add]</tspan></text>
       <text x="305" y="320" text-anchor="middle" class="bd">Both writes survive, in order.</text>
       <text x="305" y="342" text-anchor="middle" class="bd">The reducer says how to merge, once,</text>
       <text x="305" y="364" text-anchor="middle" class="bds ok">instead of every node remembering to.</text>
@@ -518,6 +555,39 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
 <div class="slide div" data-sec="Checkpoints" data-notes="The part that turns a demo into something operable -- and the part a bank cares about most, because it is also the audit trail.">
   <div class="k">Part four</div>
   <h1>Checkpoints</h1>
+</div>
+
+<div class="slide" data-sec="Checkpoints" data-notes="One keyword argument buys all four capabilities from the previous slide. Walk the sequence top to bottom &mdash; it is exactly Lab 3.4. Two things to say out loud: resuming passes None as the input, which means carry on rather than start again; and the amber box, which surprises everyone. interrupt_before is a property of the COMPILED GRAPH, not of a run, so replaying from an older checkpoint runs forward and stops at the gate again rather than sailing through to a new answer. They will see exactly that in the lab.">
+  <h2>One argument, and the sequence it unlocks</h2>
+  <div class="body">
+    <svg width="1180" height="420" viewBox="0 0 1180 420" role="img" aria-label="The checkpointer API: thread id, pause, inspect, update, resume and history">
+      <rect x="50" y="42" width="700" height="310" rx="8" fill="#1e1b4b"/>
+      <text x="74" y="80" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#e0e7ff">app = g.compile(</tspan><tspan fill="#7dd3fc">checkpointer</tspan><tspan fill="#e0e7ff">=InMemorySaver(),</tspan></text>
+      <text x="74" y="110" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#e0e7ff">                </tspan><tspan fill="#7dd3fc">interrupt_before</tspan><tspan fill="#e0e7ff">=[</tspan><tspan fill="#7dd3fc">&quot;write_note&quot;</tspan><tspan fill="#e0e7ff">])</tspan></text>
+      <text x="74" y="152" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#e0e7ff">cfg = {</tspan><tspan fill="#7dd3fc">&quot;configurable&quot;</tspan><tspan fill="#e0e7ff">: {</tspan><tspan fill="#7dd3fc">&quot;thread_id&quot;</tspan><tspan fill="#e0e7ff">: ref}}</tspan></text>
+      <text x="74" y="194" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#e0e7ff">app.invoke(state, cfg)      </tspan><tspan fill="#64748b"># runs, then PAUSES</tspan></text>
+      <text x="74" y="224" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#e0e7ff">app.</tspan><tspan fill="#fbbf24">get_state</tspan><tspan fill="#e0e7ff">(cfg).next    </tspan><tspan fill="#64748b"># ('write_note',)</tspan></text>
+      <text x="74" y="254" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#e0e7ff">app.</tspan><tspan fill="#fbbf24">update_state</tspan><tspan fill="#e0e7ff">(cfg, {...})  </tspan><tspan fill="#64748b"># a human adds a fact</tspan></text>
+      <text x="74" y="284" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#e0e7ff">app.invoke(</tspan><tspan fill="#a5b4fc">None</tspan><tspan fill="#e0e7ff">, cfg)        </tspan><tspan fill="#64748b"># resume</tspan></text>
+      <text x="74" y="314" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#e0e7ff">app.</tspan><tspan fill="#fbbf24">get_state_history</tspan><tspan fill="#e0e7ff">(cfg)   </tspan><tspan fill="#64748b"># the audit trail</tspan></text>
+
+      <line x1="766" y1="152" x2="806" y2="152" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
+      <text x="822" y="146" class="bx">thread_id</text>
+      <text x="822" y="168" class="bd">one case, one history</text>
+
+      <line x1="766" y1="224" x2="806" y2="224" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
+      <text x="822" y="218" class="bx">paused</text>
+      <text x="822" y="240" class="bd">before it did the thing</text>
+
+      <line x1="766" y1="314" x2="806" y2="314" stroke="#0d9488" stroke-width="2" marker-end="url(#at)"/>
+      <text x="822" y="308" class="bx ok">what it knew, when</text>
+      <text x="822" y="330" class="bd">the auditor&rsquo;s question</text>
+
+      <rect x="50" y="366" width="1060" height="42" rx="7" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
+      <text x="76" y="394" class="bd">Rewinding into an interrupt_before node <tspan font-weight="700">pauses again</tspan> &mdash; the interrupt belongs to the graph, not to a run.</text>
+    </svg>
+  </div>
+  <div class="take"><b>Without a checkpointer none of this exists:</b> a crash loses the case, an approval gate is impossible, and the audit question has no answer.</div>
 </div>
 
 <div class="slide" data-sec="Checkpoints" data-notes="One mechanism, four capabilities. Stress the fourth: the checkpoint history IS the audit record, which is a far stronger artefact than the model's own account of what it did.">
@@ -650,6 +720,33 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
     </svg>
   </div>
   <div class="take"><b>The defence is provenance:</b> a finding carries which agent produced it and from which source, so a critic can check the claim rather than the consensus.</div>
+</div>
+
+<div class="slide" data-sec="Shared memory" data-notes="The measured close to Module 3, and the most portable idea in it. Same poisoned evidence, same model, two prompts differing by one sentence. Licensed to refuse: it flagged the inconsistency every time. Not licensed: it closed the case as resolved every time. The model could catch the poisoning all along &mdash; what it lacked was permission. Put the question to the room: what does YOUR agent do when the evidence does not support an answer? If nobody wrote that down, it answers anyway.">
+  <h2>The mitigation is one sentence</h2>
+  <div class="body">
+    <svg width="1180" height="420" viewBox="0 0 1180 420" role="img" aria-label="A critic licensed to refuse catches poisoned evidence; one that is not, does not">
+      <rect x="50" y="40" width="1060" height="74" rx="8" fill="#f8f8fd" stroke="#4338ca" stroke-width="2"/>
+      <text x="76" y="70" class="lbl">Same poisoned evidence, same model, two system prompts</text>
+      <text x="76" y="98" class="bds">&ldquo;the payment already settled normally&rdquo; &mdash; well-formed, correctly attributed, and false</text>
+
+      <rect x="50" y="136" width="520" height="196" rx="8" fill="#ecfdf5" stroke="#0d9488" stroke-width="2.5"/>
+      <text x="310" y="172" text-anchor="middle" class="bx ok">&hellip; if the evidence is inconsistent</text>
+      <text x="310" y="198" text-anchor="middle" class="bx ok">or insufficient, say so instead</text>
+      <text x="310" y="224" text-anchor="middle" class="bx ok">of deciding.</text>
+      <text x="310" y="278" text-anchor="middle" class="big ok">3 / 3</text>
+      <text x="310" y="310" text-anchor="middle" class="bds">flagged the inconsistency</text>
+
+      <rect x="610" y="136" width="500" height="196" rx="8" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
+      <text x="860" y="172" text-anchor="middle" class="bx no">&hellip; decide what must happen</text>
+      <text x="860" y="198" text-anchor="middle" class="bx no">next.</text>
+      <text x="860" y="278" text-anchor="middle" class="big no">0 / 3</text>
+      <text x="860" y="310" text-anchor="middle" class="bds">closed the case as resolved</text>
+
+      <text x="580" y="376" text-anchor="middle" class="bx">The only difference between the two prompts is that sentence.</text>
+    </svg>
+  </div>
+  <div class="take"><b>An agent told only to decide will decide,</b> on whatever it has, every time. Write down what it should do when it cannot.</div>
 </div>
 
 <div class="slide" data-sec="Recap" data-notes="Ninety seconds, then the labs. Day 1 is done after this: shape, thinking, state. Everything on Days 2 and 3 sits on what they built today.">

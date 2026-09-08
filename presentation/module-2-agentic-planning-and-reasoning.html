@@ -308,6 +308,36 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
   <div class="take"><b>For a regulated setting:</b> the reasoning text is evidence for a human reviewer, never the control. The control is the trace and the check &mdash; Modules 7 and 8.</div>
 </div>
 
+<div class="slide" data-sec="Four architectures" data-notes="The mechanism the rest of the module is built on. Three parts, one pipe: a template that turns variables into messages, the model, and a parser that hands you a plain string. Land .batch() hard &mdash; it is the difference between an eval set people run every time and one they ran once. Both arms of Lab 2.1 are this same chain with one word changed in the system prompt.">
+  <h2>Building it: one chain, three parts</h2>
+  <div class="body">
+    <svg width="1180" height="420" viewBox="0 0 1180 420" role="img" aria-label="An LCEL chain composed of a prompt, a model and an output parser">
+      <rect x="50" y="46" width="640" height="270" rx="8" fill="#1e1b4b"/>
+      <text x="74" y="84" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#e0e7ff">chain = prompt </tspan><tspan fill="#fbbf24">|</tspan><tspan fill="#e0e7ff"> model </tspan><tspan fill="#fbbf24">|</tspan><tspan fill="#e0e7ff"> StrOutputParser()</tspan></text>
+      <text x="74" y="132" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#e0e7ff">chain.</tspan><tspan fill="#fbbf24">invoke</tspan><tspan fill="#e0e7ff">({</tspan><tspan fill="#7dd3fc">&quot;payment&quot;</tspan><tspan fill="#e0e7ff">: rec, </tspan><tspan fill="#7dd3fc">&quot;policy&quot;</tspan><tspan fill="#e0e7ff">: text})</tspan></text>
+      <text x="74" y="168" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#64748b"># one case</tspan></text>
+      <text x="74" y="216" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#e0e7ff">chain.</tspan><tspan fill="#fbbf24">batch</tspan><tspan fill="#e0e7ff">([...])</tspan></text>
+      <text x="74" y="252" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#64748b"># the whole eval set, concurrently</tspan></text>
+
+      <rect x="726" y="46" width="384" height="80" rx="7" fill="#eef2ff" stroke="#4338ca" stroke-width="2"/>
+      <text x="918" y="80" text-anchor="middle" class="bx">prompt</text>
+      <text x="918" y="106" text-anchor="middle" class="bd">variables &rarr; messages</text>
+
+      <rect x="726" y="140" width="384" height="80" rx="7" fill="#eef2ff" stroke="#4338ca" stroke-width="2"/>
+      <text x="918" y="174" text-anchor="middle" class="bx">model</text>
+      <text x="918" y="200" text-anchor="middle" class="bd">messages &rarr; AIMessage</text>
+
+      <rect x="726" y="234" width="384" height="80" rx="7" fill="#eef2ff" stroke="#4338ca" stroke-width="2"/>
+      <text x="918" y="268" text-anchor="middle" class="bx">parser</text>
+      <text x="918" y="294" text-anchor="middle" class="bd">AIMessage &rarr; plain string</text>
+
+      <rect x="50" y="336" width="1060" height="66" rx="7" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
+      <text x="76" y="376" class="bx am">Change ONE thing between arms &mdash; the system prompt &mdash; and the comparison means something.</text>
+    </svg>
+  </div>
+  <div class="take"><b>.batch() is what makes an eval set affordable:</b> five cases go out together, not one after another.</div>
+</div>
+
 <div class="slide" data-sec="Four architectures" data-notes="ReAct in detail. The engineering point everyone underestimates: the format contract. The model must emit something parseable, and it will drift. Lab 2.2 breaks the parser on purpose.">
   <h2>ReAct &mdash; the loop, and the contract it depends on</h2>
   <div class="body">
@@ -341,6 +371,39 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
     </svg>
   </div>
   <div class="take"><b>Lab 2.2 breaks it on purpose:</b> a strict parser fails a good answer; a lenient one runs the wrong tool. You will pick a side and defend it.</div>
+</div>
+
+<div class="slide" data-sec="Four architectures" data-notes="The most important slide in Module 2, and the numbers are ours &mdash; measured on the sandbox model in Lab 2.2. Do not tell them the text format is fragile and breaks; that is the obvious claim and it is FALSE here. It parsed 4/4 both times. What drifted was the ARGUMENT: under a prompt that had aged towards 'be thorough', the model wrote a perfectly formatted step whose Action Input was a JSON object with a key the tool had never heard of. The lookup returns nothing, the agent concludes the payment does not exist, and no error is raised anywhere. Then show the right column: bind_tools validates arguments against the schema, so this cannot happen.">
+  <h2>The parser you do not have to write</h2>
+  <div class="body">
+    <svg width="1180" height="430" viewBox="0 0 1180 430" role="img" aria-label="Text ReAct format compared with native tool calling, with measured parse and usability rates">
+      <rect x="50" y="40" width="520" height="196" rx="8" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
+      <text x="310" y="76" text-anchor="middle" class="bx no">You parse the text</text>
+      <text x="76" y="114" class="bd">Thought: &hellip;</text>
+      <text x="76" y="144" class="bd">Action: lookup_payment</text>
+      <text x="76" y="174" class="bd">Action Input: PMT-1003</text>
+      <text x="310" y="212" text-anchor="middle" class="bds">A contract the model never signed.</text>
+
+      <rect x="610" y="40" width="500" height="196" rx="8" fill="#ecfdf5" stroke="#0d9488" stroke-width="2.5"/>
+      <text x="860" y="76" text-anchor="middle" class="bx ok">The stack parses it</text>
+      <text x="636" y="114" class="bd">llm.bind_tools([...])</text>
+      <text x="636" y="144" class="bd">ai.tool_calls &rarr; name, args, id</text>
+      <text x="636" y="174" class="bd">args checked against the schema</text>
+      <text x="860" y="212" text-anchor="middle" class="bds">Nothing to drift out of.</text>
+
+      <rect x="50" y="254" width="1060" height="164" rx="8" fill="#f8f8fd" stroke="#4338ca" stroke-width="2"/>
+      <text x="76" y="288" class="lbl">Measured in Lab 2.2 &mdash; same model, same question, four runs each</text>
+      <line x1="50" y1="302" x2="1110" y2="302" stroke="#e2e8f0" stroke-width="2"/>
+      <text x="76" y="336" class="bx">Strict format instruction</text>
+      <text x="700" y="336" text-anchor="middle" class="bd">4/4 parsed</text>
+      <text x="960" y="336" text-anchor="middle" class="bd ok">4/4 usable</text>
+      <text x="76" y="376" class="bx">After six months of prompt edits</text>
+      <text x="700" y="376" text-anchor="middle" class="bd">4/4 parsed</text>
+      <text x="960" y="376" text-anchor="middle" class="bx no">0/4 usable</text>
+      <text x="76" y="406" class="bds">Action Input: {&quot;payment_id&quot;: &quot;PMT-1003&quot;} &mdash; format perfect, tool name right, argument a key the tool never heard of.</text>
+    </svg>
+  </div>
+  <div class="take"><b>Worse than a parse failure:</b> a parse failure is loud. This one returns nothing, concludes the payment does not exist, and raises no error.</div>
 </div>
 
 <div class="slide" data-sec="Four architectures" data-notes="Tree-of-Thought. Be blunt about cost: branches times depth times tokens per node. The scoring function is the part teams forget, and a bad scorer makes the whole tree worse than a single line of reasoning.">
@@ -427,6 +490,36 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
 <div class="slide div" data-sec="Decomposition" data-notes="Short section. The failure it prevents is subtle: a sub-goal that no single step can finish, which turns into a loop that looks like a reasoning problem.">
   <div class="k">Part two</div>
   <h1>Decomposition that an agent can finish</h1>
+</div>
+
+<div class="slide" data-sec="Decomposition" data-notes="Decomposition is only worth anything if the plan comes back in a shape you can check before you run it. with_structured_output sends the schema and validates the reply, so order_steps can walk the dependencies directly. Then make the honest point: in Lab 2.3 the model regularly invents a step naming a tool that does not exist. That is not the model misbehaving, it is what planners do &mdash; and catching it before execution is the entire value of validating a plan.">
+  <h2>A plan you can check before you run it</h2>
+  <div class="body">
+    <svg width="1180" height="420" viewBox="0 0 1180 420" role="img" aria-label="A plan returned as a validated Pydantic object rather than prose">
+      <rect x="50" y="46" width="640" height="252" rx="8" fill="#1e1b4b"/>
+      <text x="74" y="84" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#a5b4fc">class</tspan><tspan fill="#e0e7ff"> </tspan><tspan fill="#fbbf24">Step</tspan><tspan fill="#e0e7ff">(BaseModel):</tspan></text>
+      <text x="74" y="116" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#e0e7ff">    name: str</tspan></text>
+      <text x="74" y="148" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#e0e7ff">    tool: str        </tspan><tspan fill="#64748b"># must be one of TOOLS</tspan></text>
+      <text x="74" y="180" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#e0e7ff">    depends_on: list[str]</tspan></text>
+      <text x="74" y="228" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#e0e7ff">plan = llm.</tspan><tspan fill="#fbbf24">with_structured_output</tspan><tspan fill="#e0e7ff">(Plan).invoke(...)</tspan></text>
+      <text x="74" y="268" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#e0e7ff">order_steps(plan)   </tspan><tspan fill="#64748b"># reads FIELDS, not prose</tspan></text>
+
+      <rect x="726" y="46" width="384" height="118" rx="7" fill="#ecfdf5" stroke="#0d9488" stroke-width="2.5"/>
+      <text x="918" y="82" text-anchor="middle" class="bx ok">An object</text>
+      <text x="918" y="112" text-anchor="middle" class="bd">Dependencies you can sort</text>
+      <text x="918" y="140" text-anchor="middle" class="bd">Tools you can check exist</text>
+
+      <rect x="726" y="180" width="384" height="118" rx="7" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
+      <text x="918" y="216" text-anchor="middle" class="bx no">A paragraph</text>
+      <text x="918" y="246" text-anchor="middle" class="bd">Headings that change per run</text>
+      <text x="918" y="274" text-anchor="middle" class="bd">Steps you find out about late</text>
+
+      <rect x="50" y="318" width="1060" height="84" rx="7" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
+      <text x="76" y="352" class="bx am">The model will invent a step naming a tool that does not exist.</text>
+      <text x="76" y="384" class="bd">That is what planners do. Rejecting it before execution is why you validate the plan rather than trusting it.</text>
+    </svg>
+  </div>
+  <div class="take"><b>Validate the plan, then run it.</b> A step you cannot check is a step you cannot budget for.</div>
 </div>
 
 <div class="slide" data-sec="Decomposition" data-notes="The test for a good sub-goal is the one on the right: could you tell, from the output alone, whether it succeeded? If not, the agent cannot either, and it will not know when to stop.">
@@ -648,7 +741,7 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
         <rect x="774" y="46" width="345" height="112" rx="7" fill="#eef2ff" stroke="#818cf8" stroke-width="2"/>
         <text x="800" y="78" class="lbl">03</text>
         <text x="946" y="106" text-anchor="middle" class="bx">Your parser is a protocol</text>
-        <text x="946" y="134" text-anchor="middle" class="bd">The model's format will drift. Plan for it.</text>
+        <text x="946" y="134" text-anchor="middle" class="bd">Let bind_tools check the arguments.</text>
       </g>
       <g>
         <rect x="60" y="176" width="345" height="112" rx="7" fill="#eef2ff" stroke="#818cf8" stroke-width="2"/>

@@ -565,15 +565,15 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
     <svg width="1180" height="410" viewBox="0 0 1180 410" role="img" aria-label="How a model reads a tool definition and chooses">
       <text x="290" y="42" text-anchor="middle" class="lbl">What you write</text>
       <rect x="60" y="60" width="460" height="128" rx="6" fill="#f8f8fd" stroke="#cbd5e1" stroke-width="2"/>
-      <text x="86" y="92" font-size="15" font-family="Consolas,monospace" fill="#b91c1c">get_data(id)</text>
+      <text x="86" y="92" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#b91c1c">get_data(id)</tspan></text>
       <text x="86" y="120" font-size="16" font-family="Consolas,monospace" fill="#64748b">"""Gets data."""</text>
       <text x="86" y="158" class="bds no">The model has no idea when to call this.</text>
 
       <rect x="60" y="212" width="460" height="150" rx="6" fill="#ecfdf5" stroke="#0d9488" stroke-width="2"/>
-      <text x="86" y="244" font-size="15" font-family="Consolas,monospace" fill="#0d9488">get_settlement_status(payment_ref)</text>
-      <text x="86" y="272" font-size="15" font-family="Consolas,monospace" fill="#475569">"""Current settlement state for one</text>
-      <text x="86" y="294" font-size="15" font-family="Consolas,monospace" fill="#475569">payment. Use when a payment is late</text>
-      <text x="86" y="316" font-size="15" font-family="Consolas,monospace" fill="#475569">or disputed. Not for batch totals."""</text>
+      <text x="86" y="244" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#0d9488">get_settlement_status(payment_ref)</tspan></text>
+      <text x="86" y="272" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#475569">"""Current settlement state for one</tspan></text>
+      <text x="86" y="294" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#475569">payment. Use when a payment is late</tspan></text>
+      <text x="86" y="316" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#475569">or disputed. Not for batch totals."""</tspan></text>
       <text x="86" y="348" class="bds ok">Names the case, and the case it is not for.</text>
 
       <line x1="530" y1="212" x2="640" y2="212" stroke="#4338ca" stroke-width="2.5" marker-end="url(#ai)"/>
@@ -839,7 +839,7 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
   </div>
 </div>
 
-<div class="slide" data-sec="The coordination tax" data-notes="Be concrete about what you must measure. Nothing here is opinion &mdash; the Day 2 scorecard lab produces these four numbers for a single agent and a graph, on the same eval set.">
+<div class="slide" data-sec="The coordination tax" data-notes="Be concrete about what you must measure. Nothing here is opinion &mdash; Lab 1.4 this morning produces these numbers, and the Day 2 scorecard lab repeats them for a real graph. Warn them NOT to expect a token blow-up: on our sandbox the split came out level on tokens while calls doubled, latency rose by half, and the pass rate FELL from 5/5 to 0-3/5. The tax is real; it just does not land where people expect. Which axis it lands on is the thing to measure.">
   <h2>So measure it &mdash; four numbers, same eval set</h2>
   <div class="body">
     <svg width="1180" height="410" viewBox="0 0 1180 410" role="img" aria-label="Scorecard comparing a single agent and a multi-agent graph">
@@ -854,9 +854,9 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
       <text x="100" y="152" class="bx">Pass rate on the eval set</text>
       <text x="697" y="152" text-anchor="middle" class="bd">baseline</text>
       <text x="972" y="152" text-anchor="middle" class="bd">must beat it, or stop</text>
-      <text x="100" y="196" class="bx">Tokens per run</text>
+      <text x="100" y="196" class="bx">Model calls per run</text>
       <text x="697" y="196" text-anchor="middle" class="bd">baseline</text>
-      <text x="972" y="196" text-anchor="middle" class="bd">expect 3&ndash;10&times;</text>
+      <text x="972" y="196" text-anchor="middle" class="bd">roughly 2&times; &mdash; always</text>
       <text x="100" y="240" class="bx">Latency, p50 and p95</text>
       <text x="697" y="240" text-anchor="middle" class="bd">baseline</text>
       <text x="972" y="240" text-anchor="middle" class="bd">p95 is the one that bites</text>
@@ -979,7 +979,7 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
   <h1>Enough LangChain to start</h1>
 </div>
 
-<div class="slide" data-sec="On-ramp" data-notes="Point out that create_agent IS the loop from part two, prebuilt. Model, tools, prompt, checkpointer. That is the whole surface for today. LangChain 1.x replaced create_react_agent with create_agent &mdash; flag it, the internet is full of the old name.">
+<div class="slide" data-sec="On-ramp" data-notes="Point out that create_agent IS the loop from part two, prebuilt. Model, tools, prompt, checkpointer. That is the whole surface for today. LangChain 1.x replaced create_react_agent with create_agent &mdash; flag it, the internet is full of the old name. Flag the keyword too: it is system_prompt=, not prompt=. The 1.0 preview used prompt= and it now raises TypeError, which is exactly the error a participant will hit if they copy an older snippet.">
   <h2>The whole surface you need today</h2>
   <div class="body">
     <svg width="1180" height="410" viewBox="0 0 1180 410" role="img" aria-label="The create_agent call and what each argument corresponds to">
@@ -995,8 +995,8 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
       <text x="180" y="176" font-size="16" font-family="Consolas,monospace" fill="#e0e7ff">=llm,</text>
       <text x="110" y="212" font-size="16" font-family="Consolas,monospace" fill="#7dd3fc">tools</text>
       <text x="180" y="212" font-size="16" font-family="Consolas,monospace" fill="#e0e7ff">=[lookup, search],</text>
-      <text x="110" y="248" font-size="16" font-family="Consolas,monospace" fill="#7dd3fc">prompt</text>
-      <text x="192" y="248" font-size="16" font-family="Consolas,monospace" fill="#e0e7ff">=SYSTEM,</text>
+      <text x="110" y="248" font-size="16" font-family="Consolas,monospace" fill="#7dd3fc">system_prompt</text>
+      <text x="288" y="248" font-size="16" font-family="Consolas,monospace" fill="#e0e7ff">=SYSTEM,</text>
       <text x="110" y="284" font-size="16" font-family="Consolas,monospace" fill="#7dd3fc">checkpointer</text>
       <text x="272" y="284" font-size="16" font-family="Consolas,monospace" fill="#e0e7ff">=saver,</text>
       <text x="76" y="320" font-size="16" font-family="Consolas,monospace" fill="#e0e7ff">)</text>
@@ -1018,6 +1018,93 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
       <text x="925" y="378" text-anchor="middle" class="bds no">is all over the internet &mdash; you will hit it, and it is not what we use.</text>
     </svg>
   </div>
+</div>
+
+<div class="slide" data-sec="On-ramp" data-notes="This is Lab 1.1 on one slide. Walk the three arrows in order. The point to land: nowhere in this loop do you parse anything. bind_tools sends the tool SCHEMA, so the name is checked against the tools you passed and the arguments against their types before your code ever sees them. Module 2 shows what it costs when you do not have that.">
+  <h2>The loop, in LangChain objects</h2>
+  <div class="body">
+    <svg width="1180" height="420" viewBox="0 0 1180 420" role="img" aria-label="The tool-calling loop expressed with bind_tools, tool_calls and ToolMessage">
+      <rect x="50" y="40" width="690" height="330" rx="8" fill="#1e1b4b"/>
+      <text x="74" y="82" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#e0e7ff">model = llm.</tspan><tspan fill="#fbbf24">bind_tools</tspan><tspan fill="#e0e7ff">([lookup_payment, policy_for])</tspan></text>
+      <text x="74" y="116" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#e0e7ff">ai    = model.invoke(messages)</tspan></text>
+      <text x="74" y="160" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#a5b4fc">for</tspan><tspan fill="#e0e7ff"> call </tspan><tspan fill="#a5b4fc">in</tspan><tspan fill="#e0e7ff"> ai.</tspan><tspan fill="#fbbf24">tool_calls</tspan><tspan fill="#e0e7ff">:</tspan></text>
+      <text x="74" y="194" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#e0e7ff">    out = TOOLS[call[</tspan><tspan fill="#7dd3fc">&quot;name&quot;</tspan><tspan fill="#e0e7ff">]].invoke(call[</tspan><tspan fill="#7dd3fc">&quot;args&quot;</tspan><tspan fill="#e0e7ff">])</tspan></text>
+      <text x="74" y="228" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#e0e7ff">    messages.append(</tspan></text>
+      <text x="74" y="262" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#e0e7ff">        </tspan><tspan fill="#fbbf24">ToolMessage</tspan><tspan fill="#e0e7ff">(out, </tspan><tspan fill="#7dd3fc">tool_call_id</tspan><tspan fill="#e0e7ff">=call[</tspan><tspan fill="#7dd3fc">&quot;id&quot;</tspan><tspan fill="#e0e7ff">]))</tspan></text>
+      <text x="74" y="310" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#64748b"># nothing above is parsed out of prose</tspan></text>
+
+      <line x1="756" y1="82" x2="800" y2="82" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
+      <text x="816" y="76" class="bx">The model may now</text>
+      <text x="816" y="98" class="bx">answer with an action</text>
+
+      <line x1="756" y1="160" x2="800" y2="160" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
+      <text x="816" y="154" class="bx">Structured already:</text>
+      <text x="816" y="176" class="bd">name, args, id</text>
+
+      <line x1="756" y1="262" x2="800" y2="262" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
+      <text x="816" y="256" class="bx">The id is what pairs</text>
+      <text x="816" y="278" class="bd">result back to request</text>
+    </svg>
+  </div>
+  <div class="take"><b>No format to get wrong:</b> the tool name is validated against the tools you passed, the arguments against their schema &mdash; before your code sees them.</div>
+</div>
+
+<div class="slide" data-sec="On-ramp" data-notes="Three parts of this function are read by the model and by nothing else: the name, the docstring and the type hints. Say the measured number out loud &mdash; in Lab 1.3 the same five questions against the same five functions went from 2/5 to 5/5 on first-tool accuracy purely by writing the descriptions. That is the highest return per minute in the whole course. The second paragraph, what NOT to use it for, is the half people skip.">
+  <h2>A tool is a function the model can read</h2>
+  <div class="body">
+    <svg width="1180" height="420" viewBox="0 0 1180 420" role="img" aria-label="The tool decorator and which parts of it the model reads">
+      <rect x="50" y="40" width="690" height="300" rx="8" fill="#1e1b4b"/>
+      <text x="74" y="78" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#fbbf24">@tool</tspan></text>
+      <text x="74" y="110" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#a5b4fc">def</tspan><tspan fill="#e0e7ff"> </tspan><tspan fill="#fbbf24">lookup_payment</tspan><tspan fill="#e0e7ff">(</tspan><tspan fill="#7dd3fc">ref</tspan><tspan fill="#e0e7ff">: str) -&gt; str:</tspan></text>
+      <text x="74" y="148" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#86efac">    """Return the ledger record for one payment</tspan></text>
+      <text x="74" y="176" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#86efac">    reference such as 'PMT-1003'.</tspan></text>
+      <text x="74" y="218" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#86efac">    Use when you have a reference.</tspan></text>
+      <text x="74" y="246" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#86efac">    Not for searching across payments.</tspan></text>
+      <text x="74" y="274" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#86efac">    """</tspan></text>
+      <text x="74" y="312" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#a5b4fc">    return</tspan><tspan fill="#e0e7ff"> json.dumps(LEDGER[ref])</tspan></text>
+
+      <line x1="756" y1="110" x2="800" y2="110" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
+      <text x="816" y="104" class="bx">name and arg schema</text>
+      <text x="816" y="126" class="bd">from the signature</text>
+
+      <line x1="756" y1="176" x2="800" y2="176" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
+      <text x="816" y="170" class="bx">description</text>
+      <text x="816" y="192" class="bd">from the docstring</text>
+
+      <line x1="756" y1="246" x2="800" y2="246" stroke="#fbbf24" stroke-width="2.5" marker-end="url(#aa)"/>
+      <text x="816" y="240" class="bx am">and when NOT to</text>
+      <text x="816" y="262" class="bd">the half people skip</text>
+
+      <line x1="756" y1="312" x2="800" y2="312" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
+      <text x="816" y="306" class="bx">the return value</text>
+      <text x="816" y="328" class="bd">becomes the observation</text>
+    </svg>
+  </div>
+  <div class="take"><b>Measured in Lab 1.3:</b> same model, same five functions, same questions &mdash; descriptions alone moved first-tool accuracy from 2/5 to 5/5.</div>
+</div>
+
+<div class="slide" data-sec="On-ramp" data-notes="The last piece of today's surface. An agent that returns prose forces every caller to parse it; response_format makes it return a validated object instead. Do NOT oversell it: show the red box. On this model the structured response comes back None intermittently, with nothing raised, because the model answered in prose instead of calling the schema tool. Labs 1.3 and 1.4 both handle it explicitly and 1.3 makes them run it until they see it.">
+  <h2>Ask for an object, not a paragraph</h2>
+  <div class="body">
+    <svg width="1180" height="420" viewBox="0 0 1180 420" role="img" aria-label="response_format returns a validated object, and the case where it returns None">
+      <rect x="50" y="40" width="640" height="250" rx="8" fill="#1e1b4b"/>
+      <text x="74" y="78" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#a5b4fc">class</tspan><tspan fill="#e0e7ff"> </tspan><tspan fill="#fbbf24">Verdict</tspan><tspan fill="#e0e7ff">(BaseModel):</tspan></text>
+      <text x="74" y="110" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#e0e7ff">    needs_human: bool = Field(</tspan></text>
+      <text x="74" y="138" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#7dd3fc">        description=</tspan><tspan fill="#86efac">&quot;True if policy requires</tspan></text>
+      <text x="74" y="166" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#86efac">                     a human to decide&quot;</tspan><tspan fill="#e0e7ff">)</tspan></text>
+      <text x="74" y="208" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#e0e7ff">agent = create_agent(..., </tspan><tspan fill="#7dd3fc">response_format</tspan><tspan fill="#e0e7ff">=Verdict)</tspan></text>
+      <text x="74" y="250" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#e0e7ff">out[</tspan><tspan fill="#7dd3fc">&quot;structured_response&quot;</tspan><tspan fill="#e0e7ff">]   </tspan><tspan fill="#64748b"># a Verdict</tspan></text>
+
+      <line x1="706" y1="208" x2="748" y2="208" stroke="#0d9488" stroke-width="2" marker-end="url(#at)"/>
+      <text x="764" y="202" class="bx ok">Validated by pydantic</text>
+      <text x="764" y="224" class="bd">before you ever see it</text>
+
+      <rect x="50" y="312" width="1060" height="88" rx="8" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
+      <text x="76" y="346" class="bx no">It can come back None &mdash; and nothing is raised</text>
+      <text x="76" y="378" class="bd">A model that replies in prose instead of calling the schema tool leaves structured_response empty. Intermittent here. Handle it.</text>
+    </svg>
+  </div>
+  <div class="take"><b>A contract fixes the shape, not the truth.</b> You still check what is in the object &mdash; and that there is one.</div>
 </div>
 
 <div class="slide" data-sec="On-ramp" data-notes="Be honest about the boundary. create_agent is perfect until you need to see or steer the state, branch, or resume. That is LangGraph, and it is this afternoon. Do not oversell either.">
@@ -1072,7 +1159,7 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
         <rect x="60" y="176" width="345" height="112" rx="7" fill="#eef2ff" stroke="#818cf8" stroke-width="2"/>
         <text x="86" y="208" class="lbl">04</text>
         <text x="232" y="236" text-anchor="middle" class="bx">Every agent is a tax</text>
-        <text x="232" y="264" text-anchor="middle" class="bd">Specialisation or parallelism, or don't.</text>
+        <text x="232" y="264" text-anchor="middle" class="bd">Paid in calls and accuracy, not just tokens.</text>
       </g>
       <g>
         <rect x="417" y="176" width="345" height="112" rx="7" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
