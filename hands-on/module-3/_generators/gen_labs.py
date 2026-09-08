@@ -1321,8 +1321,9 @@ The run went round the cycle exactly as many times as the deterministic one, and
 same reason. The model wrote a sentence; it decided nothing.
 
 Nothing about the loop got less testable: the Section 2 checks still run offline and still cover
-the budget &mdash; the one behaviour you cannot afford to have flake. Lab 1.1 spun in a `while True`
-for want of exactly this, and here the same mistake is a missing `>=` in a four-line function.
+the budget &mdash; the one behaviour you cannot afford to have flake. Lab 1.1's agent was a
+`while True` too, and the stop rule you wrote there is the only thing that ended it. Here the same
+job is a missing `>=` in a four-line function.
 """),
 
     code('''

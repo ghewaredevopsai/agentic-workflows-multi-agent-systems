@@ -32,8 +32,8 @@ footer a{color:#c7d2fe;text-decoration:none}
 <header>
   <a class="home" href="../../course-outline-agentic-workflows-multi-agent-systems.html" title="Course outline">Home</a>
   <h1>Module 1 &mdash; Agents vs. Multi-Agent Systems</h1>
-  <div class="tagline">Day 1 hands-on &middot; five labs, intermediate to advanced</div>
-  <div class="meta"><span>One case file throughout</span> &middot; <span>self-checked</span> &middot; <span>solutions provided</span></div>
+  <div class="tagline">Day 1 hands-on &middot; five labs, two sections each, intermediate to advanced</div>
+  <div class="meta"><span>One ticket queue throughout</span> &middot; <span>self-checked</span> &middot; <span>solutions provided</span></div>
 </header>
 
 <div class="container">
@@ -54,72 +54,69 @@ footer a{color:#c7d2fe;text-decoration:none}
   </div>
 
   <div class="lab">
-    <div class="tags">35 min<span class="lvl">Intermediate</span></div>
-    <h3><a href="lab-1-01-llm-vs-agent-loop.ipynb">Lab 1.1 &mdash; From a Stateless Call to an Agent Loop</a></h3>
-    <p>What turns a model call into an agent &mdash; built by hand, then handed to <code>create_agent</code>.</p>
+    <div class="tags">30 min<span class="lvl">Intermediate</span></div>
+    <h3><a href="lab-1-01-stateless-call-to-agent-loop.ipynb">Lab 1.1 &mdash; From a Stateless Call to an Agent Loop</a></h3>
+    <p>Write the agent loop by hand in fifteen lines, then hand the whole thing to <code>create_agent</code>.</p>
     <ul>
-      <li>Carry state the way LangChain does it &mdash; as a list of message objects you resend</li>
-      <li>Let the model choose a tool for real, with `bind_tools` and `tool_calls`</li>
-      <li>Close the loop by feeding results back as `ToolMessage`, and make it stop</li>
-      <li>Then replace the whole thing with `create_agent` + a checkpointer, and compare</li>
+      <li>Carry state the way LangChain does &mdash; a list of messages you resend</li>
+      <li>Let the model choose a tool for real, with <code>bind_tools</code> and <code>tool_calls</code></li>
+      <li>Close the loop, and decide what makes it stop</li>
+      <li>Then replace the whole thing with <code>create_agent</code> and compare</li>
     </ul>
-    <div class="foot">2 blanks &middot; 18 checks &middot; solution:
-      <a href="solutions/lab-1-01-llm-vs-agent-loop.ipynb">solutions/lab-1-01-llm-vs-agent-loop.ipynb</a></div>
+    <div class="foot">3 blanks &middot; 8 checks &middot; solution:
+      <a href="solutions/lab-1-01-stateless-call-to-agent-loop.ipynb">solutions/lab-1-01-stateless-call-to-agent-loop.ipynb</a></div>
   </div>
 
   <div class="lab">
-    <div class="tags">40 min<span class="lvl">Intermediate</span></div>
+    <div class="tags">30 min<span class="lvl">Intermediate</span></div>
     <h3><a href="lab-1-02-four-building-blocks.ipynb">Lab 1.2 &mdash; The Four Building Blocks</a></h3>
-    <p>Each of the four blocks as a real LangChain object, then all four assembled over the case file.</p>
+    <p>Each of the four blocks as a real LangChain object &mdash; including a tool that refuses.</p>
     <ul>
-      <li>Write tools with a real argument schema, and docstrings the model actually reads</li>
-      <li>Bound memory with `trim_messages` &mdash; including the token counter that breaks on this model</li>
-      <li>Turn a goal into a dependency-ordered plan with `with_structured_output` and Pydantic</li>
-      <li>Assemble all four blocks into one agent over the case file</li>
+      <li>Build a <code>@tool</code> that knows what it is not allowed to do</li>
+      <li>Bound the history with <code>trim_messages</code> &mdash; and meet the counter that breaks here</li>
+      <li>Turn a goal into a typed <code>Plan</code> with <code>with_structured_output</code></li>
+      <li>Assemble all four blocks into one agent</li>
     </ul>
-    <div class="foot">2 blanks &middot; 25 checks &middot; solution:
+    <div class="foot">2 blanks &middot; 8 checks &middot; solution:
       <a href="solutions/lab-1-02-four-building-blocks.ipynb">solutions/lab-1-02-four-building-blocks.ipynb</a></div>
   </div>
 
   <div class="lab">
-    <div class="tags">40 min<span class="lvl">Intermediate &rarr; Advanced</span></div>
-    <h3><a href="lab-1-03-create-agent-on-ramp.ipynb">Lab 1.3 &mdash; create_agent, and What a Tool Description Is Worth</a></h3>
-    <p>The same agent twice, with opaque and with good tool descriptions. Measure the difference.</p>
+    <div class="tags">30 min<span class="lvl">Intermediate &rarr; Advanced</span></div>
+    <h3><a href="lab-1-03-tool-descriptions.ipynb">Lab 1.3 &mdash; Tool Descriptions Are Instructions</a></h3>
+    <p>Same model, same functions, two sets of words. Measure what the words are worth.</p>
     <ul>
-      <li>Build the same agent twice &mdash; once with opaque tool descriptions, once with good ones</li>
-      <li><b>Measure</b> the difference in tool-selection accuracy against the live model</li>
-      <li>Make the agent return a typed <code>Verdict</code> with <code>response_format</code>, not prose</li>
-      <li>Read the message trace `create_agent` produces, and find where a run went wrong</li>
+      <li>Run the same agent twice: same model, same functions, different descriptions</li>
+      <li>Measure the difference on a small eval set instead of asserting it</li>
+      <li>Make the agent return a typed object rather than a paragraph</li>
     </ul>
-    <div class="foot">1 blank &middot; 15 checks &middot; solution:
-      <a href="solutions/lab-1-03-create-agent-on-ramp.ipynb">solutions/lab-1-03-create-agent-on-ramp.ipynb</a></div>
+    <div class="foot">4 blanks &middot; 7 checks &middot; solution:
+      <a href="solutions/lab-1-03-tool-descriptions.ipynb">solutions/lab-1-03-tool-descriptions.ipynb</a></div>
   </div>
 
   <div class="lab">
-    <div class="tags">50 min<span class="lvl">Advanced</span></div>
-    <h3><a href="lab-1-04-coordination-tax.ipynb">Lab 1.4 &mdash; One Agent or Three: Building the Same App Twice</a></h3>
-    <p>One agent or three? Build both, find out which you would ship, then investigate the gap.</p>
+    <div class="tags">35 min<span class="lvl">Advanced</span></div>
+    <h3><a href="lab-1-04-coordination-tax.ipynb">Lab 1.4 &mdash; The Coordination Tax</a></h3>
+    <p>One agent or three? Build both, measure both, and let the team lose if it loses.</p>
     <ul>
-      <li>Build the same capability twice: one agent with three tools, three agents with one each</li>
-      <li>Run one eval set through both and find out which one you would actually ship</li>
-      <li>Find the bug the second architecture introduces &mdash; a handoff that loses information</li>
-      <li>Fix it with typed handoffs (<code>response_format</code>) and watch the accuracy come back</li>
+      <li>Build the same capability twice: one agent, and three specialists</li>
+      <li>Instrument both &mdash; calls, tokens, latency &mdash; before arguing about either</li>
+      <li>Score them on one eval set and let the result be whatever it is</li>
     </ul>
-    <div class="foot">1 blank &middot; 25 checks &middot; solution:
+    <div class="foot">4 blanks &middot; 7 checks &middot; solution:
       <a href="solutions/lab-1-04-coordination-tax.ipynb">solutions/lab-1-04-coordination-tax.ipynb</a></div>
   </div>
 
   <div class="lab">
-    <div class="tags">45 min<span class="lvl">Advanced</span></div>
-    <h3><a href="lab-1-05-challenge-decision-rubric.ipynb">Lab 1.5 &mdash; Challenge &mdash; The Decision Rubric, Made Executable</a></h3>
+    <div class="tags">35 min<span class="lvl">Advanced</span></div>
+    <h3><a href="lab-1-05-challenge-decision-rubric.ipynb">Lab 1.5 &mdash; Challenge &mdash; The Decision Rubric</a></h3>
     <p>The rubric that answers &ldquo;do we need multiple agents?&rdquo; before anyone starts building.</p>
     <ul>
-      <li>Encode the &ldquo;do I need multiple agents?&rdquo; rubric as code that terminates early</li>
-      <li>Write the acceptance bar down <i>before</i> you look at any result</li>
-      <li>Feed Lab 1.4's real pass rates in and let them overrule the architecture you wanted</li>
-      <li>Have an agent produce the design-review record as a typed object, not a paragraph</li>
+      <li>Turn &ldquo;do we need multiple agents?&rdquo; into a rule you can apply before building</li>
+      <li>Include the answer everyone forgets: sometimes the right build is no agent</li>
+      <li>Apply it to four real systems, then watch a model disagree with it</li>
     </ul>
-    <div class="foot">3 blanks &middot; 22 checks &middot; solution:
+    <div class="foot">4 blanks &middot; 7 checks &middot; solution:
       <a href="solutions/lab-1-05-challenge-decision-rubric.ipynb">solutions/lab-1-05-challenge-decision-rubric.ipynb</a></div>
   </div>
 

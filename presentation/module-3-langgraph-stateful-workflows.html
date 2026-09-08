@@ -431,7 +431,7 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
   </div>
 </div>
 
-<div class="slide" data-sec="Choosing at runtime" data-notes="A cycle is not a feature -- there is no loop construct, just an edge that points backwards. So the interesting part is stopping, which is Module 2's most common production failure written down as a field and a comparison. Point at the amber box: >= is what makes it a budget rather than a suggestion, and Lab 1.1 spun in a while True for want of exactly this. Mention recursion_limit as the framework's backstop and ask which error they would rather explain to an auditor.">
+<div class="slide" data-sec="Choosing at runtime" data-notes="A cycle is not a feature -- there is no loop construct, just an edge that points backwards. So the interesting part is stopping, which is Module 2's most common production failure written down as a field and a comparison. Point at the amber box: >= is what makes it a budget rather than a suggestion, and Lab 1.1's agent was a while True too, and the stop rule they wrote there was the only thing that ended it. Mention recursion_limit as the framework's backstop and ask which error they would rather explain to an auditor.">
   <h2>Cycles &mdash; and the budget that stops them</h2>
   <div class="body">
     <svg width="1180" height="400" viewBox="0 0 1180 400" role="img" aria-label="A cycle in the leave workflow with a clarification budget">
@@ -466,7 +466,7 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
       <rect x="45" y="292" width="1090" height="94" rx="8" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
       <text x="590" y="326" text-anchor="middle" class="bxs am">if state["attempts"] &gt;= POLICY["max_clarifications"]: return "withdraw"</text>
       <text x="590" y="356" text-anchor="middle" class="bd">One comparison. It is the difference between a cycle and a hang.</text>
-      <text x="590" y="378" text-anchor="middle" class="bds">Lab 1.1 spun in a <tspan font-family="Consolas,monospace">while True</tspan> for want of exactly this.</text>
+      <text x="590" y="378" text-anchor="middle" class="bds">Lab 1.1&rsquo;s agent was a <tspan font-family="Consolas,monospace">while True</tspan> too &mdash; its stop rule ended it.</text>
     </svg>
   </div>
 </div>

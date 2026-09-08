@@ -7,10 +7,10 @@ the labs were rewritten. Now they are derived.
 import json, os, re, io, tokenize, token, sys
 
 BLURBS = {
- "lab-1-01": "What turns a model call into an agent &mdash; built by hand, then handed to <code>create_agent</code>.",
- "lab-1-02": "Each of the four blocks as a real LangChain object, then all four assembled over the case file.",
- "lab-1-03": "The same agent twice, with opaque and with good tool descriptions. Measure the difference.",
- "lab-1-04": "One agent or three? Build both, find out which you would ship, then investigate the gap.",
+ "lab-1-01": "Write the agent loop by hand in fifteen lines, then hand the whole thing to <code>create_agent</code>.",
+ "lab-1-02": "Each of the four blocks as a real LangChain object &mdash; including a tool that refuses.",
+ "lab-1-03": "Same model, same functions, two sets of words. Measure what the words are worth.",
+ "lab-1-04": "One agent or three? Build both, measure both, and let the team lose if it loses.",
  "lab-1-05": "The rubric that answers &ldquo;do we need multiple agents?&rdquo; before anyone starts building.",
  "lab-2-01": "Compose your first LCEL chain, then measure what &ldquo;think step by step&rdquo; is worth here.",
  "lab-2-02": "Write the ReAct parser, break it, then meet the version where the argument is schema-checked.",

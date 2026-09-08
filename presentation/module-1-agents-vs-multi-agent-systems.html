@@ -601,12 +601,12 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
   <div class="body">
     <svg width="1180" height="410" viewBox="0 0 1180 410" role="img" aria-label="Planning as decomposition plus explicit stop conditions">
       <text x="300" y="44" text-anchor="middle" class="lbl">Decompose &mdash; goal into finishable steps</text>
-      <rect x="80" y="62" width="440" height="44" rx="5" fill="#4338ca"/><text x="300" y="90" text-anchor="middle" font-size="16" font-weight="600" fill="#fff">Investigate this payment exception</text>
+      <rect x="80" y="62" width="440" height="44" rx="5" fill="#4338ca"/><text x="300" y="90" text-anchor="middle" font-size="16" font-weight="600" fill="#fff">Handle this support ticket</text>
       <line x1="200" y1="110" x2="150" y2="140" stroke="#94a3b8" stroke-width="2" marker-end="url(#ag)"/>
       <line x1="300" y1="110" x2="300" y2="140" stroke="#94a3b8" stroke-width="2" marker-end="url(#ag)"/>
       <line x1="400" y1="110" x2="450" y2="140" stroke="#94a3b8" stroke-width="2" marker-end="url(#ag)"/>
-      <rect x="80" y="146" width="140" height="40" rx="4" fill="#eef2ff" stroke="#818cf8"/><text x="150" y="171" text-anchor="middle" class="bds">pull the record</text>
-      <rect x="230" y="146" width="140" height="40" rx="4" fill="#eef2ff" stroke="#818cf8"/><text x="300" y="171" text-anchor="middle" class="bds">find the rule</text>
+      <rect x="80" y="146" width="140" height="40" rx="4" fill="#eef2ff" stroke="#818cf8"/><text x="150" y="171" text-anchor="middle" class="bds">read the ticket</text>
+      <rect x="230" y="146" width="140" height="40" rx="4" fill="#eef2ff" stroke="#818cf8"/><text x="300" y="171" text-anchor="middle" class="bds">find the runbook</text>
       <rect x="380" y="146" width="140" height="40" rx="4" fill="#eef2ff" stroke="#818cf8"/><text x="450" y="171" text-anchor="middle" class="bds">compare</text>
       <text x="300" y="216" text-anchor="middle" class="bds">Each step has a definition of done. Order respects dependencies.</text>
 
@@ -985,13 +985,13 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
     <svg width="1180" height="420" viewBox="0 0 1180 420" role="img" aria-label="The tool decorator and which parts of it the model reads">
       <rect x="50" y="40" width="690" height="300" rx="8" fill="#1e1b4b"/>
       <text x="74" y="78" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#fbbf24">@tool</tspan></text>
-      <text x="74" y="110" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#a5b4fc">def</tspan><tspan fill="#e0e7ff"> </tspan><tspan fill="#fbbf24">lookup_payment</tspan><tspan fill="#e0e7ff">(</tspan><tspan fill="#7dd3fc">ref</tspan><tspan fill="#e0e7ff">: str) -&gt; str:</tspan></text>
-      <text x="74" y="148" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#86efac">    """Return the ledger record for one payment</tspan></text>
-      <text x="74" y="176" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#86efac">    reference such as 'PMT-1003'.</tspan></text>
+      <text x="74" y="110" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#a5b4fc">def</tspan><tspan fill="#e0e7ff"> </tspan><tspan fill="#fbbf24">lookup_ticket</tspan><tspan fill="#e0e7ff">(</tspan><tspan fill="#7dd3fc">ref</tspan><tspan fill="#e0e7ff">: str) -&gt; str:</tspan></text>
+      <text x="74" y="148" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#86efac">    """Return the support ticket for one</tspan></text>
+      <text x="74" y="176" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#86efac">    reference such as 'TCK-4001'.</tspan></text>
       <text x="74" y="218" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#86efac">    Use when you have a reference.</tspan></text>
-      <text x="74" y="246" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#86efac">    Not for searching across payments.</tspan></text>
+      <text x="74" y="246" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#86efac">    Not for searching across tickets.</tspan></text>
       <text x="74" y="274" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#86efac">    """</tspan></text>
-      <text x="74" y="312" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#a5b4fc">    return</tspan><tspan fill="#e0e7ff"> json.dumps(LEDGER[ref])</tspan></text>
+      <text x="74" y="312" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#a5b4fc">    return</tspan><tspan fill="#e0e7ff"> json.dumps(TICKETS[ref])</tspan></text>
 
       <line x1="756" y1="110" x2="800" y2="110" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
       <text x="816" y="104" class="bx">name and arg schema</text>
@@ -1060,7 +1060,7 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
   <div class="body">
     <svg width="1180" height="420" viewBox="0 0 1180 420" role="img" aria-label="The tool-calling loop expressed with bind_tools, tool_calls and ToolMessage">
       <rect x="50" y="40" width="690" height="330" rx="8" fill="#1e1b4b"/>
-      <text x="74" y="82" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#e0e7ff">model = llm.</tspan><tspan fill="#fbbf24">bind_tools</tspan><tspan fill="#e0e7ff">([lookup_payment, policy_for])</tspan></text>
+      <text x="74" y="82" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#e0e7ff">model = llm.</tspan><tspan fill="#fbbf24">bind_tools</tspan><tspan fill="#e0e7ff">([lookup_ticket, runbook_for])</tspan></text>
       <text x="74" y="116" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#e0e7ff">ai    = model.invoke(messages)</tspan></text>
       <text x="74" y="160" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#a5b4fc">for</tspan><tspan fill="#e0e7ff"> call </tspan><tspan fill="#a5b4fc">in</tspan><tspan fill="#e0e7ff"> ai.</tspan><tspan fill="#fbbf24">tool_calls</tspan><tspan fill="#e0e7ff">:</tspan></text>
       <text x="74" y="194" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#e0e7ff">    out = TOOLS[call[</tspan><tspan fill="#7dd3fc">&quot;name&quot;</tspan><tspan fill="#e0e7ff">]].invoke(call[</tspan><tspan fill="#7dd3fc">&quot;args&quot;</tspan><tspan fill="#e0e7ff">])</tspan></text>

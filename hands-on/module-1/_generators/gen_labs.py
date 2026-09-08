@@ -2,6 +2,11 @@
 """
 Generate Module 1 lab notebooks and their solutions from one source.
 
+Rebuilt 2026-09-09: five labs still, but each is two sections instead of three or four,
+the scaffolding a participant reads before reaching a framework call is cut to a minimum,
+and the domain is a tech-support ticket queue -- something everyone already understands,
+so the only unfamiliar thing in the notebook is LangChain.
+
 Every code cell is declared once. Where the lab and the solution differ, the cell
 carries both variants, so a blank can never drift from the answer that grades it.
 
@@ -197,2457 +202,1325 @@ def setup(num, extra=""):
 
 
 # --------------------------------------------------------------------------- #
-# the shared synthetic domain -- one use case runs through all five labs
+# the shared domain -- one flat dict per table, no joins, nothing to learn here
 # --------------------------------------------------------------------------- #
 DOMAIN = '''
-# ------------------------------------------------- the case file (synthetic, self-contained)
-# One domain runs through all five Module 1 labs: payment exceptions on a small ledger.
-# Nothing here is real data and nothing leaves this notebook.
+# ------------------------------------------------ the case file (synthetic, self-contained)
+# A small tech-support ticket queue. Ordinary rules on purpose: the only new thing in these
+# five labs is LangChain. Nothing here is real data and nothing leaves this notebook.
 
-LEDGER = {
-    "PMT-1001": {"amount": 250000.00, "ccy": "USD", "counterparty": "NORTHWIND",
-                 "status": "settled",  "value_date": "2026-09-01", "reason_code": None},
-    "PMT-1002": {"amount":  48250.75, "ccy": "EUR", "counterparty": "ACME-EU",
-                 "status": "failed",   "value_date": "2026-09-02", "reason_code": "INSUFFICIENT_FUNDS"},
-    "PMT-1003": {"amount": 990000.00, "ccy": "USD", "counterparty": "ZENITH",
-                 "status": "held",     "value_date": "2026-09-02", "reason_code": "LIMIT_BREACH"},
-    "PMT-1004": {"amount":   1200.00, "ccy": "GBP", "counterparty": "ACME-UK",
-                 "status": "failed",   "value_date": "2026-09-03", "reason_code": "INVALID_IBAN"},
-    "PMT-1005": {"amount": 750000.00, "ccy": "USD", "counterparty": "NORTHWIND",
-                 "status": "held",     "value_date": "2026-09-03", "reason_code": "SANCTIONS_REVIEW"},
+TICKETS = {
+    "TCK-4001": {"customer": "Priya Nair",   "product": "VPN Client", "version": "4.2",
+                 "severity": "high",   "error_code": "VPN-513",
+                 "text": "Cannot connect since the upgrade. Error VPN-513."},
+    "TCK-4002": {"customer": "Rahul Menon",  "product": "Reports",    "version": "3.9.1",
+                 "severity": "low",    "error_code": "APP-002",
+                 "text": "Monthly export finishes but the PDF is blank."},
+    "TCK-4003": {"customer": "Anita Sharma", "product": "Reports",    "version": "3.9.1",
+                 "severity": "medium", "error_code": None,
+                 "text": "It is just slow today. Nothing else to add."},
+    "TCK-4004": {"customer": "Vikram Rao",   "product": "VPN Client", "version": "4.2",
+                 "severity": "high",   "error_code": "SEC-900",
+                 "text": "Got a login alert from a country I have never visited."},
+    "TCK-4005": {"customer": "Priya Nair",   "product": "Reports",    "version": "3.9.1",
+                 "severity": "low",    "error_code": "APP-002",
+                 "text": "Same blank PDF as my colleague reported."},
 }
 
-POLICY = {
-    "INSUFFICIENT_FUNDS": "Retry once after 24h. If it fails again, notify the client desk. No manual funding.",
-    "LIMIT_BREACH":       "Payments above USD 500,000 need Treasury approval before release.",
-    "INVALID_IBAN":       "Return to originator with code R04. Never repair beneficiary details in-house.",
-    "SANCTIONS_REVIEW":   "Hold. Compliance decides. Operations must not release or cancel.",
+# The runbook: what support is allowed to do about each error code.
+RUNBOOK = {
+    "VPN-513": "Certificate pinning changed in 4.2. Have the user clear the local trust store "
+               "and re-enrol. Five minutes, no data loss. Support may do this without approval.",
+    "APP-002": "Known defect in 3.9.1, fixed in 3.9.2. Advise the upgrade. Do not issue a refund "
+               "for this and do not raise a new defect -- link the existing one.",
+    "SEC-900": "Possible credential compromise. Escalate to the security desk immediately. "
+               "Support must not resolve, close or advise the customer directly.",
 }
 
-# Which reason codes may an agent resolve on its own, and which need a human?
-NEEDS_HUMAN = {"LIMIT_BREACH", "SANCTIONS_REVIEW"}
+# Which error codes may an agent resolve on its own, and which need a human?
+MUST_ESCALATE = {"SEC-900"}
 
-print(f"{len(LEDGER)} payments, {len(POLICY)} policy rules loaded")
+print(f"{len(TICKETS)} tickets, {len(RUNBOOK)} runbook entries loaded")
 '''
 
+THREAD_NOTE = (
+    "> **The thread.** All five Module 1 labs work one case: a small tech-support ticket queue.\n"
+    "> What you build in each lab is picked up by the next one."
+)
+
 
 # =========================================================================== #
-# Lab 1.1 -- LLM vs agent: messages as state, the tool-calling loop, stopping
+# Lab 1.1 -- from a stateless call to an agent loop
 # =========================================================================== #
 LAB1 = [
-    header(1, "From a Stateless Call to an Agent Loop", "Intermediate", 35,
-           ["Carry state the way LangChain does it &mdash; as a list of message objects you resend",
-            "Let the model choose a tool for real, with `bind_tools` and `tool_calls`",
-            "Close the loop by feeding results back as `ToolMessage`, and make it stop",
-            "Then replace the whole thing with `create_agent` + a checkpointer, and compare"],
-           "> **The thread.** All five Module 1 labs work one case: payment exceptions on a small\n"
-           "> synthetic ledger. What you build here is extended in every later lab."),
+    header(1, "From a Stateless Call to an Agent Loop", "Intermediate", 30,
+           ["Carry state the way LangChain does &mdash; a list of messages you resend",
+            "Let the model choose a tool for real, with <code>bind_tools</code> and <code>tool_calls</code>",
+            "Close the loop, and decide what makes it stop",
+            "Then replace the whole thing with <code>create_agent</code> and compare"],
+           THREAD_NOTE),
     setup(1),
     code(DOMAIN),
 
     md("""
 ## Concept
 
-A model call is a **function**: messages in, message out, nothing retained. An **agent** is that
-call placed inside a **loop**, where the model's output chooses the next action and the result is
-fed back in as another message.
+A model call is a **function**: messages in, one message out. It remembers nothing. Everything an
+agent appears to know is something your code put back in front of it.
 
-In LangChain that loop has a precise shape, and it is worth learning the names now because every
-later module uses them:
+An agent is that function inside a loop:
 
-| Object | What it is |
+| Piece | What it is |
 |---|---|
-| `HumanMessage` / `AIMessage` / `SystemMessage` | the conversation, as data you own |
-| `llm.bind_tools([...])` | a model that is allowed to answer with a **tool call** |
-| `AIMessage.tool_calls` | the model's chosen action &mdash; structured, not parsed out of prose |
-| `ToolMessage` | the result you hand back, tied to the call by `tool_call_id` |
+| `llm.bind_tools([...])` | a model allowed to answer with a **tool call** instead of prose |
+| `msg.tool_calls` | what it asked for &mdash; name and arguments, already parsed |
+| `ToolMessage` | the result you hand back, tied to the request by `tool_call_id` |
+| the loop | resend, run what it asked for, resend again &mdash; until you stop |
 
-Three things make the loop safe rather than merely clever: **state**, a **stop condition**, and
-**loop detection**. The last two are what separate a demo from something you would run unattended.
+Three decisions in this lab, and they are the three that decide whether an agent works: what you
+resend, what you append, and when you stop.
 """),
 
     md("""
-## Section 1 &mdash; State is a list of messages you resend
+## Section 1 &mdash; Messages are the state
 
-The model has no memory, so *you* carry the conversation. `carry()` builds the message list for
-the next call: a system message, every earlier turn, then the new human message.
-
-These are real `langchain_core` objects, not tuples &mdash; every later lab, and LangGraph itself,
-passes exactly this list around.
+Two tools and a history. The model sees only what is in that list.
 """),
+
     code('''
-from langchain_core.messages import SystemMessage, HumanMessage, AIMessage, ToolMessage
-
-SYSTEM = ("You are a payments operations analyst. Answer only from the data you are given. "
-          "If you do not have the data, say so.")
-
-def carry(history: list, user_msg: str) -> list:
-    """Build the message list for the next call.
-
-    history: earlier message objects, oldest first.
-    Returns: [SystemMessage, *history, HumanMessage(user_msg)]
-    """
-    msgs = [SystemMessage(SYSTEM)]
-    for m in history:                 # the model gets the whole history back, every time
-        msgs.append(m)
-    msgs.append(HumanMessage(user_msg))
-    return msgs
-''', '''
-from langchain_core.messages import SystemMessage, HumanMessage, AIMessage, ToolMessage
-
-SYSTEM = ("You are a payments operations analyst. Answer only from the data you are given. "
-          "If you do not have the data, say so.")
-
-def carry(history: list, user_msg: str) -> list:
-    """Build the message list for the next call.
-
-    history: earlier message objects, oldest first.
-    Returns: [SystemMessage, *history, HumanMessage(user_msg)]
-    """
-    msgs = [SystemMessage(SYSTEM)]
-    for m in history:                 # the model gets the whole history back, every time
-        msgs.append(m)
-    msgs.append(HumanMessage(user_msg))
-    return msgs
-'''),
-    code('''
-# --- Self-check: Section 1   (message objects only -- no model call)
-h = [HumanMessage("The reference is PMT-1002."), AIMessage("Noted.")]
-
-check("carry() replays every earlier turn",
-      lambda: len(carry(h, "which reference?")) == 4)
-check("carry() leads with the system message",
-      lambda: carry(h, "x")[0].type == "system")
-check("carry() preserves the fact from turn 1",
-      lambda: any("PMT-1002" in str(m.content) for m in carry(h, "which reference?")),
-      "the first turn must survive into the new call")
-check("carry() puts the new human message last",
-      lambda: carry(h, "which reference?")[-1].content == "which reference?")
-check("the turns stay LangChain message objects",
-      lambda: all(hasattr(m, "type") for m in carry(h, "x")),
-      "append the message objects themselves, not their .content")
-'''),
-
-    md("""
-## Section 2 &mdash; The loop: tool calls in, tool messages out
-
-Now the real thing. `llm.bind_tools([...])` returns a model that may answer with an **action**
-instead of prose. When it does, `response.tool_calls` is a list of
-`{"name", "args", "id"}` &mdash; already structured. Your job in the loop is to run the named tool
-and hand the result back as a `ToolMessage` carrying the same `id`.
-
-Note what you are **not** doing: parsing "Action: lookup_payment" out of free text. Module 2
-shows what that costs when you have to.
-"""),
-    code('''
+import json
 from langchain_core.tools import tool
+from langchain_core.messages import SystemMessage, HumanMessage, ToolMessage
+
+SYSTEM = ("You are a tech support analyst. Answer only from the data the tools give you. "
+          "If the runbook says escalate, say so and stop.")
 
 @tool
-def lookup_payment(ref: str) -> str:
-    """Return the ledger record for one payment reference such as 'PMT-1002'.
+def lookup_ticket(ref: str) -> str:
+    """Return the support ticket for one reference such as 'TCK-4001'.
 
-    Use when you need the status, amount, counterparty or reason code of a specific payment.
-    Not for searching across payments.
+    Use when you need the customer, product, severity or error code of a specific ticket.
     """
-    record = LEDGER.get(ref)
-    if record is None:
-        return f"no payment found with reference {ref!r}"
-    return json.dumps({"ref": ref, **record})
-
+    t = TICKETS.get(ref)
+    return json.dumps({"ref": ref, **t}) if t else f"no ticket {ref!r}"
 
 @tool
-def policy_for(reason_code: str) -> str:
-    """Return the operating policy for one failure reason code, e.g. 'LIMIT_BREACH'.
+def runbook_for(error_code: str) -> str:
+    """Return what support is allowed to do about one error code, e.g. 'VPN-513'.
 
-    Use after you know why a payment failed and need to know what to do about it.
+    Use after you know why a ticket failed and need to know what to do about it.
     """
-    return POLICY.get(reason_code, f"no policy on file for reason code {reason_code!r}")
+    return RUNBOOK.get(error_code, f"no runbook entry for {error_code!r}")
+
+TOOLS = {t.name: t for t in (lookup_ticket, runbook_for)}
 
 
-TOOLS = {t.name: t for t in (lookup_payment, policy_for)}
-print("tools:", list(TOOLS))
+def new_history(question: str) -> list:
+    """The model is stateless. What does it need in front of it to answer at all?"""
+    with_instructions = [SystemMessage(SYSTEM), HumanMessage(question)]
+    question_only     = [HumanMessage(question)]
+    return BLANK        # TODO: which one, and why does it have to be resent every turn?
+''', '''
+import json
+from langchain_core.tools import tool
+from langchain_core.messages import SystemMessage, HumanMessage, ToolMessage
+
+SYSTEM = ("You are a tech support analyst. Answer only from the data the tools give you. "
+          "If the runbook says escalate, say so and stop.")
+
+@tool
+def lookup_ticket(ref: str) -> str:
+    """Return the support ticket for one reference such as 'TCK-4001'.
+
+    Use when you need the customer, product, severity or error code of a specific ticket.
+    """
+    t = TICKETS.get(ref)
+    return json.dumps({"ref": ref, **t}) if t else f"no ticket {ref!r}"
+
+@tool
+def runbook_for(error_code: str) -> str:
+    """Return what support is allowed to do about one error code, e.g. 'VPN-513'.
+
+    Use after you know why a ticket failed and need to know what to do about it.
+    """
+    return RUNBOOK.get(error_code, f"no runbook entry for {error_code!r}")
+
+TOOLS = {t.name: t for t in (lookup_ticket, runbook_for)}
+
+
+def new_history(question: str) -> list:
+    """The model is stateless. What does it need in front of it to answer at all?"""
+    with_instructions = [SystemMessage(SYSTEM), HumanMessage(question)]
+    question_only     = [HumanMessage(question)]
+    return with_instructions   # the system prompt is not remembered -- it is resent
 '''),
+
+    code('''
+def advance(history: list, ai_msg) -> list:
+    """The model asked for tools. Run them, and return the history for the next turn."""
+    results = [ToolMessage(content=str(TOOLS[c["name"]].invoke(c["args"])), tool_call_id=c["id"])
+               for c in ai_msg.tool_calls]
+
+    results_only         = history + results
+    request_and_results  = history + [ai_msg] + results
+
+    return BLANK        # TODO: what must the model see on its next turn?
+''', '''
+def advance(history: list, ai_msg) -> list:
+    """The model asked for tools. Run them, and return the history for the next turn."""
+    results = [ToolMessage(content=str(TOOLS[c["name"]].invoke(c["args"])), tool_call_id=c["id"])
+               for c in ai_msg.tool_calls]
+
+    results_only         = history + results
+    request_and_results  = history + [ai_msg] + results
+
+    return request_and_results   # a result with no request attached is an orphan
+'''),
+
+    code('''
+# --- Self-check: Section 1   (real tools and real message objects -- no model call)
+class _FakeAI:
+    """Stands in for the model's reply so this check needs no endpoint."""
+    tool_calls = [{"name": "lookup_ticket", "args": {"ref": "TCK-4001"}, "id": "call_1"}]
+
+check("the history the model sees carries your instructions, not just the question",
+      lambda: any(isinstance(m, SystemMessage) for m in new_history("what is wrong with TCK-4001?")),
+      "nothing is remembered between calls -- the system prompt is resent every turn")
+check("a tool result goes back with the request that asked for it",
+      lambda: [type(m).__name__ for m in advance([], _FakeAI())] == ["_FakeAI", "ToolMessage"],
+      "a ToolMessage with no AIMessage before it is an orphan the model cannot match up")
+check("the result carries the real tool output and the call's id",
+      lambda: (lambda m: "Priya Nair" in m.content and m.tool_call_id == "call_1")(
+              advance([], _FakeAI())[-1]))
+score()
+'''),
+
+    md("""
+## Section 2 &mdash; The loop, and what stops it
+
+Resend, run what it asked for, resend again. The only hard part is the exit.
+
+Three things can end a run, and an agent that checks only the first is the single most common
+thing to go wrong in production.
+"""),
+
     code('''
 MAX_STEPS = 6
 
-def run_tool_calls(ai_message, tools: dict) -> list:
-    """Execute every tool call on an AIMessage. Return the ToolMessages to send back.
+def should_stop(ai_msg, steps: int, seen: list) -> bool:
+    """Three reasons a run should end. Which of them count?"""
+    answered      = not ai_msg.tool_calls
+    budget_spent  = steps >= MAX_STEPS
+    going_in_circles = len(seen) != len(set(seen))
 
-    A tool that raises would abort the run, so failures are returned as text the model
-    can reason about instead.
-    """
-    out = []
-    for call in ai_message.tool_calls:
-        try:
-            result = tools[call["name"]].invoke(call["args"])
-        except Exception as exc:
-            result = f"tool error: {type(exc).__name__}: {exc}"
-        out.append(ToolMessage(content=str(result), tool_call_id=BLANK))   # TODO: tie it to the call
-    return out
-
-
-def should_stop(messages: list, steps: int, max_steps: int = MAX_STEPS):
-    """Return (stop, reason). Two ways a run ends: the goal is reached, or the budget is spent."""
-    last = messages[-1]
-    if getattr(last, "type", None) == "ai" and BLANK:   # TODO: an agent is DONE when the model does what?
-        return True, "goal"
-    if steps >= max_steps:             # the backstop: a hard number, not a hope
-        return True, "budget"
-    return False, None
-
-
-def run_agent(question: str, decide, tools: dict, max_steps: int = MAX_STEPS) -> dict:
-    """decide(messages) -> AIMessage, possibly carrying tool_calls. The loop is the agent."""
-    messages = [SystemMessage(SYSTEM), HumanMessage(question)]
-    steps = 0
-    while True:
-        ai = decide(messages)
-        messages.append(ai)
-        stop, why = should_stop(messages, steps, max_steps)
-        if stop:
-            return {"messages": messages, "steps": steps, "stopped": why}
-        messages.extend(run_tool_calls(ai, tools))
-        steps += 1
+    return BLANK        # TODO: combine the ones that should end the loop
 ''', '''
 MAX_STEPS = 6
 
-def run_tool_calls(ai_message, tools: dict) -> list:
-    """Execute every tool call on an AIMessage. Return the ToolMessages to send back.
+def should_stop(ai_msg, steps: int, seen: list) -> bool:
+    """Three reasons a run should end. Which of them count?"""
+    answered      = not ai_msg.tool_calls
+    budget_spent  = steps >= MAX_STEPS
+    going_in_circles = len(seen) != len(set(seen))
 
-    A tool that raises would abort the run, so failures are returned as text the model
-    can reason about instead.
-    """
-    out = []
-    for call in ai_message.tool_calls:
-        try:
-            result = tools[call["name"]].invoke(call["args"])
-        except Exception as exc:
-            result = f"tool error: {type(exc).__name__}: {exc}"
-        out.append(ToolMessage(content=str(result), tool_call_id=call["id"]))  # the id pairs them
-    return out
+    return answered or budget_spent or going_in_circles
+'''),
 
-
-def should_stop(messages: list, steps: int, max_steps: int = MAX_STEPS):
-    """Return (stop, reason). Two ways a run ends: the goal is reached, or the budget is spent."""
-    last = messages[-1]
-    if getattr(last, "type", None) == "ai" and not last.tool_calls:   # answering, not asking
-        return True, "goal"
-    if steps >= max_steps:             # a hard number, not a hope
-        return True, "budget"
-    return False, None
-
-
-def run_agent(question: str, decide, tools: dict, max_steps: int = MAX_STEPS) -> dict:
-    """decide(messages) -> AIMessage, possibly carrying tool_calls. The loop is the agent."""
-    messages = [SystemMessage(SYSTEM), HumanMessage(question)]
-    steps = 0
+    code('''
+def run_agent(question: str, model=None):
+    """The whole agent: history, model, tools, loop, stop."""
+    model = model or get_llm().bind_tools(list(TOOLS.values()))
+    history, seen, steps = new_history(question), [], 0
     while True:
-        ai = decide(messages)
-        messages.append(ai)
-        stop, why = should_stop(messages, steps, max_steps)
-        if stop:
-            return {"messages": messages, "steps": steps, "stopped": why}
-        messages.extend(run_tool_calls(ai, tools))
+        ai = model.invoke(history)
+        seen += [f'{c["name"]}({c["args"]})' for c in ai.tool_calls]
         steps += 1
-'''),
-    code('''
-# --- Self-check: Section 2   (a scripted `decide` returns real AIMessages -- no model involved)
-def _call(name, args, cid):
-    return AIMessage(content="", tool_calls=[{"name": name, "args": args, "id": cid, "type": "tool_call"}])
+        if should_stop(ai, steps, seen):
+            return ai, seen, steps
+        history = advance(history, ai)
 
-def _finisher(messages):
-    if sum(1 for m in messages if m.type == "tool") >= 2:
-        return AIMessage("PMT-1002 failed: INSUFFICIENT_FUNDS. Retry once after 24h.")
-    if not any(m.type == "tool" for m in messages):
-        return _call("lookup_payment", {"ref": "PMT-1002"}, "c1")
-    return _call("policy_for", {"reason_code": "INSUFFICIENT_FUNDS"}, "c2")
 
-def _never_finishes(messages):
-    return _call("lookup_payment", {"ref": "PMT-1002"}, f"c{len(messages)}")
+# --- Self-check: Section 2   (the stop rule alone -- pure function, no model)
+class _Ask:  tool_calls = [{"name": "lookup_ticket", "args": {}, "id": "c"}]
+class _Done: tool_calls = []
 
-check("a ToolMessage is produced per tool call",
-      lambda: len(run_tool_calls(_call("lookup_payment", {"ref": "PMT-1002"}, "c1"), TOOLS)) == 1)
-check("the ToolMessage carries the call's id",
-      lambda: run_tool_calls(_call("lookup_payment", {"ref": "PMT-1002"}, "c9"), TOOLS)[0].tool_call_id == "c9",
-      "tool_call_id must be call['id'] -- the model pairs result to request by that id")
-check("the ToolMessage carries the tool's real output",
-      lambda: "INSUFFICIENT_FUNDS" in run_tool_calls(
-          _call("lookup_payment", {"ref": "PMT-1002"}, "c1"), TOOLS)[0].content)
-check("an unknown reference does not raise",
-      lambda: "no payment found" in run_tool_calls(
-          _call("lookup_payment", {"ref": "PMT-9999"}, "c1"), TOOLS)[0].content,
-      "a raising tool aborts the whole agent run")
-check("a run that answers without a tool call stops with reason 'goal'",
-      lambda: run_agent("q", _finisher, TOOLS)["stopped"] == "goal",
-      "an agent is finished when the model replies WITHOUT asking for a tool")
-check("a run that never finishes stops on the budget",
-      lambda: run_agent("q", _never_finishes, TOOLS)["stopped"] == "budget",
-      "the budget is given -- this fails while the goal test above it is unfilled")
-check("the budget is actually respected",
-      lambda: run_agent("q", _never_finishes, TOOLS)["steps"] == MAX_STEPS)
+check("a reply with no tool call ends the run",
+      lambda: should_stop(_Done(), 1, []) is True)
+check("the step budget ends a run that keeps asking",
+      lambda: should_stop(_Ask(), MAX_STEPS, ["a", "b"]) is True,
+      "without this an agent that never converges never stops")
+check("a repeated tool call ends it too",
+      lambda: should_stop(_Ask(), 2, ["same", "same"]) is True,
+      "the same call twice means it is not learning anything from the results")
+check("an ordinary turn in progress does not stop",
+      lambda: should_stop(_Ask(), 2, ["a", "b"]) is False)
+score()
 '''),
 
     md("""
-## Section 3 &mdash; Loop detection
-
-A budget stops a runaway agent *eventually*. Loop detection stops it **as soon as it stops
-learning** &mdash; the same tool, the same arguments, no new information. In production this is
-usually the difference between a cheap failure and an expensive one.
-
-Because `tool_calls` is structured, you can detect this exactly, without any string matching.
+## Run it for real &mdash; part 1: the model remembers nothing
 """),
-    code('''
-def is_looping(messages: list, window: int = 3) -> bool:
-    """True when the last `window` tool calls are identical in both name and arguments."""
-    calls = [(c["name"], json.dumps(c["args"], sort_keys=True))
-             for m in messages if getattr(m, "type", None) == "ai"
-             for c in (m.tool_calls or [])]
-    if len(calls) < window:
-        return False
-    return len(set(calls[-window:])) == 1        # one distinct call across the window
-''', '''
-def is_looping(messages: list, window: int = 3) -> bool:
-    """True when the last `window` tool calls are identical in both name and arguments."""
-    calls = [(c["name"], json.dumps(c["args"], sort_keys=True))
-             for m in messages if getattr(m, "type", None) == "ai"
-             for c in (m.tool_calls or [])]
-    if len(calls) < window:
-        return False
-    return len(set(calls[-window:])) == 1        # one distinct call across the window
-'''),
-    code('''
-# --- Self-check: Section 3
-_same  = [_call("lookup_payment", {"ref": "PMT-1002"}, f"c{i}") for i in range(3)]
-_mixed = [_call("lookup_payment", {"ref": "PMT-1002"}, "c1"),
-          _call("lookup_payment", {"ref": "PMT-1003"}, "c2"),
-          _call("lookup_payment", {"ref": "PMT-1002"}, "c3")]
 
-check("three identical calls count as a loop", lambda: is_looping(_same) is True)
-check("varied calls are not a loop", lambda: is_looping(_mixed) is False,
-      "different arguments mean the agent is still learning something")
-check("too short a trace is not yet a loop", lambda: is_looping(_same[:2]) is False)
-check("the window is honoured", lambda: is_looping(_same, window=2) is True)
-check("the id is ignored -- only name and args identify a call",
-      lambda: is_looping(_same) is True,
-      "each of those has a different id but the same call")
-'''),
-
-    md("""
-## Run it for real &mdash; part 1: statelessness
-
-Two calls, where the second depends on the first. Watch the model fail to recall &mdash; then watch
-`carry()` fix it, by resending what it already told you.
-"""),
     code('''
 if llm_ready():
-    llm = get_llm()
-    print("--- without carry() -------------------------------------------")
-    print("call 1:", llm.invoke([HumanMessage("Remember this reference: PMT-1002. Reply with just OK.")]).content)
-    print("call 2:", llm.invoke([HumanMessage("Which payment reference did I just give you?")]).content[:160])
-
-    print("\\n--- with carry() ----------------------------------------------")
-    def _carried():
-        history = [HumanMessage("Remember this reference: PMT-1002."), AIMessage("OK")]
-        reply = llm.invoke(carry(history, "Which payment reference did I just give you?"))
-        print("call 2:", reply.content[:160])
-    guard(_carried)
+    print("Q1:", ask("Ticket TCK-4001 is about a VPN client. Reply with just the product name.")[:80])
+    print("Q2:", ask("Which ticket did I just ask you about?")[:120])
+    print("\\n^ the second call has no idea. Nothing was carried over, because nothing carries itself.")
 '''),
 
     md("""
-## Run it for real &mdash; part 2: your loop, driving a real model
+## Run it for real &mdash; part 2: your loop, then the one-liner
 
-`decide` is now the model itself, bound to your two tools. Everything else is the loop you wrote.
-Watch the trace: the model asks for the ledger record, you answer, it asks for the policy, you
-answer, and only then does it stop.
+`TCK-4004` is the interesting one: the model has to look the ticket up, find `SEC-900`, read the
+runbook, and discover it is not allowed to act.
 """),
+
     code('''
+def show(label, question):
+    ai, seen, steps = run_agent(question)
+    print(f"=== {label} ===")
+    for s in seen:
+        print("   called:", s)
+    print(f"   steps: {steps}\\n   answer: {str(ai.content)[:260]}\\n")
+
 if llm_ready():
-    def _live_loop():
-        model = get_llm().bind_tools(list(TOOLS.values()))
-        result = run_agent("Why is PMT-1003 held, and what must we do about it?",
-                           lambda msgs: model.invoke(msgs), TOOLS)
-        show_messages(result["messages"])
-        print(f"\\nstopped: {result['stopped']}   steps: {result['steps']}")
-        print("looping:", is_looping(result["messages"]))
-    guard(_live_loop)
+    guard(lambda: show("your loop", "What should we do about ticket TCK-4004?"))
 '''),
 
-    md("""
-## Run it for real &mdash; part 3: the same agent, in one line
-
-Everything you just wrote &mdash; the loop, the tool dispatch, the `ToolMessage` plumbing, the stop
-condition &mdash; is what `create_agent` gives you. Add a **checkpointer** and a `thread_id` and the
-message history is kept for you too, which is the whole of Section 1 handled.
-
-Run it and ask a follow-up question that only makes sense if the agent remembered.
-"""),
     code('''
 if llm_ready():
     from langchain.agents import create_agent
     from langgraph.checkpoint.memory import InMemorySaver
 
-    agent = create_agent(model=get_llm(), tools=list(TOOLS.values()), system_prompt=SYSTEM,
-                         checkpointer=InMemorySaver())
-    cfg = {"configurable": {"thread_id": "case-1003"}}
+    agent = create_agent(model=get_llm(), tools=list(TOOLS.values()),
+                         system_prompt=SYSTEM, checkpointer=InMemorySaver())
+    cfg = {"configurable": {"thread_id": "TCK-4004"}}
 
-    first = agent.invoke({"messages": [HumanMessage("Why is PMT-1003 held?")]}, cfg)
-    show_messages(first["messages"])
+    out = agent.invoke({"messages": [("user", "What should we do about ticket TCK-4004?")]}, cfg)
+    print("create_agent:", out["messages"][-1].content[:260])
 
-    follow = agent.invoke({"messages": [HumanMessage("What was the amount again?")]}, cfg)
-    print("\\nfollow-up:", follow["messages"][-1].content[:200])
-    print(f"messages on this thread: {len(follow['messages'])}")
+    # and because it has a checkpointer, the follow-up needs no context from you
+    out = agent.invoke({"messages": [("user", "Which customer was that?")]}, cfg)
+    print("\\nfollow-up  :", out["messages"][-1].content[:160])
 '''),
+
     md("""
 ### Read it
 
-Three things to take away, in order of how much they will cost you later.
-
-1. **You own the state.** `carry()` resends the entire history on *every* turn &mdash; the model
-   keeps nothing. Everything an agent "remembers" is something your code chose to put back in
-   front of it, which is why Module 3 is about deciding what to keep.
-2. **Structured beats parsed.** The model chose its tools through `tool_calls`, so there was no
-   format to get wrong. Module 2 shows the same loop without that guarantee.
-3. **`create_agent` is the loop you wrote.** Not a different thing &mdash; the same thing, with the
-   stop condition, dispatch and history handled. You now know what it is hiding, which is the
-   only safe way to use it.
+1. **The loop is the agent.** Not the model, not the tools &mdash; the loop that resends. You wrote
+   about fifteen lines and it is a working agent.
+2. **`create_agent` is that loop.** Not a different thing: the same thing, with the message
+   plumbing and the stop rule already written. Note the argument is `system_prompt=`, not `prompt=`
+   &mdash; `prompt=` raises `TypeError` on this version.
+3. **The follow-up question worked.** A `checkpointer` plus a `thread_id` is Module 3's whole
+   subject, arriving four hours early because it is one keyword argument.
+4. **`TCK-4004` stopped rather than helped.** The runbook said escalate and the agent said so.
+   That behaviour came from the data, not from the model being careful &mdash; which is Module 8's
+   entire argument.
 """),
 
     code('''
 score()
 '''),
+
     md("""
 ## Your turn
 
-1. `run_agent` ignores `is_looping`. Wire it in as a third stop reason and give it its own
-   label in the return value. Which of the four stop conditions from the slides does that
-   still leave unimplemented?
-2. Give `create_agent` a **third** tool that overlaps with `lookup_payment` &mdash; say
-   `get_payment_status(ref)` &mdash; and see which one it picks. Lab 1.3 turns that into a measurement.
-3. Run part 3 again with a second `thread_id`, asking the follow-up question first. Confirm for
-   yourself that threads do not leak into each other, then look at where that isolation actually
-   lives.
+1. Set `MAX_STEPS = 1` and run `TCK-4004`. The agent answers from a single lookup, confidently and
+   wrongly. A budget too tight is its own failure mode.
+2. Ask about `TCK-4003`, which has no error code. Watch what the agent does when a tool returns
+   nothing useful &mdash; that is the failure Module 4 is about.
 """),
 ]
 
 
 # =========================================================================== #
-# Lab 1.2 -- the four building blocks, each one a real LangChain object
+# Lab 1.2 -- the four building blocks
 # =========================================================================== #
-CARRY_1_1 = '''
-# ------------------------------------------------- carried forward from Lab 1.1
-from langchain_core.messages import SystemMessage, HumanMessage, AIMessage, ToolMessage
-from langchain_core.tools import tool
-
-SYSTEM = ("You are a payments operations analyst. Answer only from the data you are given. "
-          "If you do not have the data, say so.")
-
-def run_tool_calls(ai_message, tools: dict) -> list:
-    out = []
-    for call in ai_message.tool_calls:
-        try:
-            result = tools[call["name"]].invoke(call["args"])
-        except Exception as exc:
-            result = f"tool error: {type(exc).__name__}: {exc}"
-        out.append(ToolMessage(content=str(result), tool_call_id=call["id"]))
-    return out
-
-print("Lab 1.1 helpers loaded")
-'''
-
 LAB2 = [
-    header(2, "The Four Building Blocks", "Intermediate", 40,
-           ["Write tools with a real argument schema, and docstrings the model actually reads",
-            "Bound memory with `trim_messages` &mdash; including the token counter that breaks on this model",
-            "Turn a goal into a dependency-ordered plan with `with_structured_output` and Pydantic",
-            "Assemble all four blocks into one agent over the case file"],
-           "> **Builds on Lab 1.1.** The loop you wrote there is the fourth block; here you build\n"
-           "> the other three as first-class LangChain objects and wire them together."),
+    header(2, "The Four Building Blocks", "Intermediate", 30,
+           ["Build a <code>@tool</code> that knows what it is not allowed to do",
+            "Bound the history with <code>trim_messages</code> &mdash; and meet the counter that breaks here",
+            "Turn a goal into a typed <code>Plan</code> with <code>with_structured_output</code>",
+            "Assemble all four blocks into one agent"],
+           THREAD_NOTE),
     setup(2),
     code(DOMAIN),
-    code(CARRY_1_1),
 
     md("""
 ## Concept
 
-Each block patches one thing a model cannot do on its own &mdash; and each has a LangChain object
-that *is* that block:
+Every agent is the same four parts. Module 1 gives you each as a real LangChain object.
 
-| Block | The gap it closes | The object |
+| Block | The idea | The object |
 |---|---|---|
-| **LLM** | judgement under ambiguity | `ChatOpenAI` |
-| **Memory** | the call is stateless | a message list + `trim_messages` |
-| **Tools** | the model cannot read or change anything | `@tool` / `StructuredTool` |
-| **Planning** | a goal is not a sequence of steps | `with_structured_output(...)` |
+| **LLM** | the reasoning | `ChatOpenAI` |
+| **Tools** | the actions | `@tool` |
+| **Memory** | what survives a turn | `trim_messages`, a checkpointer |
+| **Planning** | a goal is not a sequence | `with_structured_output(...)` |
 
-Miss one and you have a pipeline with a model in it &mdash; often the right build, but not an agent.
+The one worth slowing down on is **Tools**, because a tool is not a function &mdash; it is a
+function *plus what the model is told about it*, and both halves are yours to get right.
 """),
 
     md("""
-## Section 1 &mdash; Tools: the docstring is the instruction
+## Section 1 &mdash; Tools and memory
 
-`@tool` turns a function into something the model can be offered. Three parts of it are read by
-the model and by nothing else:
-
-- the **name** &mdash; taken from the function name,
-- the **description** &mdash; taken from the docstring,
-- the **argument schema** &mdash; inferred from your type hints, or given explicitly with Pydantic.
-
-Get the docstring wrong and the model picks the wrong tool. Lab 1.3 measures exactly that. Here,
-write one that says both what the tool is for *and* what it is not for.
+A tool that changes something needs to know what it must not change. And a history that grows
+without bound will eventually push your instructions out of the window.
 """),
+
     code('''
-from pydantic import BaseModel, Field
-
-class ReleaseArgs(BaseModel):
-    """Arguments for release_payment."""
-    ref: str = Field(description="The payment reference, e.g. 'PMT-1003'")
-    approved_by: str = Field(description="Name of the human who approved the release")
-
-
-@tool(args_schema=ReleaseArgs)
-def release_payment(ref: str, approved_by: str) -> str:
-    """BLANK"""                       # TODO: one line on what this releases, and when NOT to use it
-    record = LEDGER.get(ref)
-    if record is None:
-        return f"no payment found with reference {ref!r}"
-    if record["reason_code"] in NEEDS_HUMAN and not approved_by:
-        return f"refused: {record['reason_code']} needs a named human approver"
-    return f"released {ref} on the authority of {approved_by}"
-
-
-@tool
-def lookup_payment(ref: str) -> str:
-    """Return the ledger record for one payment reference such as 'PMT-1002'.
-
-    Use when you need the status, amount, counterparty or reason code of a specific payment.
-    Not for searching across payments.
-    """
-    record = LEDGER.get(ref)
-    if record is None:
-        return f"no payment found with reference {ref!r}"
-    return json.dumps({"ref": ref, **record})
-
-
-@tool
-def policy_for(reason_code: str) -> str:
-    """Return the operating policy for one failure reason code, e.g. 'LIMIT_BREACH'.
-
-    Use after you know why a payment failed and need to know what to do about it.
-    """
-    return POLICY.get(reason_code, f"no policy on file for reason code {reason_code!r}")
-
-
-TOOLS = {t.name: t for t in (lookup_payment, policy_for, release_payment)}
-''', '''
-from pydantic import BaseModel, Field
-
-class ReleaseArgs(BaseModel):
-    """Arguments for release_payment."""
-    ref: str = Field(description="The payment reference, e.g. 'PMT-1003'")
-    approved_by: str = Field(description="Name of the human who approved the release")
-
-
-@tool(args_schema=ReleaseArgs)
-def release_payment(ref: str, approved_by: str) -> str:
-    """Release one held payment for settlement, on a named human's authority.
-
-    Use only after a human has approved the release. Never use it to clear a sanctions
-    hold, and never invent an approver.
-    """
-    record = LEDGER.get(ref)
-    if record is None:
-        return f"no payment found with reference {ref!r}"
-    if record["reason_code"] in NEEDS_HUMAN and not approved_by:
-        return f"refused: {record['reason_code']} needs a named human approver"
-    return f"released {ref} on the authority of {approved_by}"
-
-
-@tool
-def lookup_payment(ref: str) -> str:
-    """Return the ledger record for one payment reference such as 'PMT-1002'.
-
-    Use when you need the status, amount, counterparty or reason code of a specific payment.
-    Not for searching across payments.
-    """
-    record = LEDGER.get(ref)
-    if record is None:
-        return f"no payment found with reference {ref!r}"
-    return json.dumps({"ref": ref, **record})
-
-
-@tool
-def policy_for(reason_code: str) -> str:
-    """Return the operating policy for one failure reason code, e.g. 'LIMIT_BREACH'.
-
-    Use after you know why a payment failed and need to know what to do about it.
-    """
-    return POLICY.get(reason_code, f"no policy on file for reason code {reason_code!r}")
-
-
-TOOLS = {t.name: t for t in (lookup_payment, policy_for, release_payment)}
-'''),
-    code('''
-# --- Self-check: Section 1   (inspects the tool objects -- no model call)
-def _doc(name):
-    d = (TOOLS[name].description or "").strip()
-    if d == "BLANK":
-        raise NameError("release_payment still has the placeholder docstring")
-    return d
-
-check("@tool takes its name from the function",
-      lambda: TOOLS["lookup_payment"].name == "lookup_payment")
-check("the schema was inferred from the type hints",
-      lambda: "ref" in TOOLS["lookup_payment"].args)
-check("release_payment declares both arguments",
-      lambda: set(TOOLS["release_payment"].args) == {"ref", "approved_by"})
-check("the Field descriptions reached the schema",
-      lambda: "approver" in json.dumps(TOOLS["release_payment"].args).lower()
-              or "approved" in json.dumps(TOOLS["release_payment"].args).lower())
-check("release_payment has a real description",
-      lambda: len(_doc("release_payment")) > 40,
-      "the docstring is the only thing the model reads when choosing this tool")
-check("the description says when NOT to use it",
-      lambda: any(w in _doc("release_payment").lower() for w in ("never", "not ", "only")),
-      "a tool that only says what it does gets called when it should not be")
-check("a tool invoked with a dict returns its result",
-      lambda: "INSUFFICIENT_FUNDS" in TOOLS["lookup_payment"].invoke({"ref": "PMT-1002"}))
-check("an unknown reference does NOT raise",
-      lambda: "no payment found" in TOOLS["lookup_payment"].invoke({"ref": "PMT-9999"}),
-      "a raising tool aborts the whole agent run")
-'''),
-
-    md("""
-## Section 2 &mdash; Memory: `trim_messages`, and the counter that breaks
-
-Unbounded history is the classic failure: fine in the demo, degraded and expensive by week two.
-LangChain's `trim_messages` bounds it for you &mdash; but it needs to know how to count tokens, and
-**the obvious answer does not work here**:
-
-```python
-trim_messages(msgs, max_tokens=200, token_counter=llm)   # NotImplementedError on this model
-```
-
-`token_counter=llm` asks the model class to count, and `langchain-openai` only knows how to do
-that for models `tiktoken` has an encoding for. `qwen36-35b-a3b-lab` is not one. The fix is
-`count_tokens_approximately`, which is a plain function over the message text.
-
-This is not a quirk of our sandbox &mdash; it is what happens to every self-hosted or gateway-served
-model, and it is the kind of thing that only shows up under load.
-"""),
-    code('''
+import json
+from langchain_core.tools import tool
+from langchain_core.messages import SystemMessage, HumanMessage, AIMessage, trim_messages
 from langchain_core.messages.utils import count_tokens_approximately
 
-def bounded(messages: list, max_tokens: int = 120) -> list:
-    """Keep the system message and as many recent turns as fit inside `max_tokens`."""
-    from langchain_core.messages import trim_messages
-    return trim_messages(
-        messages,
-        max_tokens=max_tokens,
-        token_counter=BLANK,          # TODO: which counter works for a model tiktoken cannot see?
-        strategy="last",              # keep the END of the conversation, not the start
-        include_system=True,          # never drop the instructions
-        start_on="human",             # a valid history starts on a human turn
-        allow_partial=False,
-    )
-''', '''
-from langchain_core.messages.utils import count_tokens_approximately
+SYSTEM = ("You are a tech support analyst. Answer only from the data the tools give you. "
+          "If the runbook says escalate, say so and stop.")
+
+
+@tool
+def resolve_ticket(ref: str, resolved_by: str) -> str:
+    """Close a support ticket. Only call this once the runbook says support may act.
+
+    Requires the name of the person taking responsibility for the resolution.
+    """
+    code = TICKETS.get(ref, {}).get("error_code")
+    if BLANK:                      # TODO: when must this tool refuse, whatever the model asked?
+        return f"refused: {code} must go to the security desk, not be resolved here"
+    return f"{ref} resolved by {resolved_by}"
+
 
 def bounded(messages: list, max_tokens: int = 120) -> list:
-    """Keep the system message and as many recent turns as fit inside `max_tokens`."""
-    from langchain_core.messages import trim_messages
-    return trim_messages(
-        messages,
-        max_tokens=max_tokens,
-        token_counter=count_tokens_approximately,   # a plain function over the text
-        strategy="last",              # keep the END of the conversation, not the start
-        include_system=True,          # never drop the instructions
-        start_on="human",             # a valid history starts on a human turn
-        allow_partial=False,
-    )
+    """Keep the system message and as many recent turns as fit."""
+    # token_counter=<your chat model> is what everyone writes first, and it raises
+    # NotImplementedError here: there is no tiktoken encoding for this model.
+    with_the_model     = get_llm                   # referenced, not called
+    with_a_plain_count = count_tokens_approximately
+
+    return trim_messages(messages, max_tokens=max_tokens,
+                         token_counter=BLANK,      # TODO: only one of these works on this model
+                         strategy="last", include_system=True,
+                         start_on="human", allow_partial=False)
+''', '''
+import json
+from langchain_core.tools import tool
+from langchain_core.messages import SystemMessage, HumanMessage, AIMessage, trim_messages
+from langchain_core.messages.utils import count_tokens_approximately
+
+SYSTEM = ("You are a tech support analyst. Answer only from the data the tools give you. "
+          "If the runbook says escalate, say so and stop.")
+
+
+@tool
+def resolve_ticket(ref: str, resolved_by: str) -> str:
+    """Close a support ticket. Only call this once the runbook says support may act.
+
+    Requires the name of the person taking responsibility for the resolution.
+    """
+    code = TICKETS.get(ref, {}).get("error_code")
+    if code in MUST_ESCALATE:      # the tool refuses; it does not rely on the model behaving
+        return f"refused: {code} must go to the security desk, not be resolved here"
+    return f"{ref} resolved by {resolved_by}"
+
+
+def bounded(messages: list, max_tokens: int = 120) -> list:
+    """Keep the system message and as many recent turns as fit."""
+    # token_counter=<your chat model> is what everyone writes first, and it raises
+    # NotImplementedError here: there is no tiktoken encoding for this model.
+    with_the_model     = get_llm                   # referenced, not called
+    with_a_plain_count = count_tokens_approximately
+
+    return trim_messages(messages, max_tokens=max_tokens,
+                         token_counter=with_a_plain_count,
+                         strategy="last", include_system=True,
+                         start_on="human", allow_partial=False)
 '''),
+
     code('''
-# --- Self-check: Section 2   (trim_messages is pure -- no model call)
-def _long_history():
-    msgs = [SystemMessage(SYSTEM), HumanMessage("Investigate PMT-1003, it is held.")]
+# --- Self-check: Section 1   (a real @tool and a real trim -- neither calls the model)
+def long_history():
+    msgs = [SystemMessage(SYSTEM), HumanMessage("Look at TCK-4001.")]
     for i in range(12):
-        msgs.append(AIMessage(f"step {i}: " + "checking the ledger. " * 12))
-        msgs.append(HumanMessage(f"and then? ({i})"))
+        msgs += [AIMessage(f"step {i}: " + "checking the ticket. " * 12), HumanMessage(f"and then? ({i})")]
     return msgs
 
+check("resolve_ticket refuses the security ticket even when told to close it",
+      lambda: "refused" in resolve_ticket.invoke({"ref": "TCK-4004", "resolved_by": "Dev"}),
+      "the runbook says escalate -- so the TOOL enforces it, rather than hoping the model read it")
+check("it still resolves an ordinary ticket",
+      lambda: "resolved by" in resolve_ticket.invoke({"ref": "TCK-4001", "resolved_by": "Dev"}))
 check("the history is bounded",
-      lambda: count_tokens_approximately(bounded(_long_history())) <= 130,
-      "trim_messages needs a token_counter it can actually call on this model")
-check("trimming actually dropped turns",
-      lambda: len(bounded(_long_history())) < len(_long_history()))
-check("the system message survives",
-      lambda: bounded(_long_history())[0].type == "system",
-      "include_system=True -- dropping the instructions is the worst possible trim")
-check("what survives is the END of the conversation",
-      lambda: bounded(_long_history())[-1].content == _long_history()[-1].content,
-      'strategy="last" keeps recent turns; "first" would keep the stale ones')
-check("a short conversation is left untouched",
-      lambda: len(bounded([SystemMessage(SYSTEM), HumanMessage("hi")])) == 2)
+      lambda: count_tokens_approximately(bounded(long_history())) <= 130,
+      "token_counter=get_llm() raises NotImplementedError here -- there is no tiktoken encoding "
+      "for this model, so the counter has to be a plain function over the text")
+check("trimming kept the instructions and dropped old turns",
+      lambda: (isinstance(bounded(long_history())[0], SystemMessage)
+               and len(bounded(long_history())) < len(long_history())))
+score()
 '''),
 
     md("""
-## Section 3 &mdash; Planning: a goal is not a sequence
+## Section 2 &mdash; Planning, and all four together
 
-Decomposition is only half of it. The steps have **dependencies**, and running them out of order
-is one of the quieter ways an agent wastes a budget.
+`with_structured_output(Plan)` makes the model return a **`Plan` object**, not prose you then have
+to parse.
 
-`with_structured_output(Plan)` makes the model return a **`Plan` object**, not prose that you then
-have to parse. You declare the shape; LangChain gives the model the schema and validates what
-comes back. Define the schema first, then write the ordering.
+The `Field(description=...)` lines are the part that matters and the part everyone treats as
+documentation. They are not documentation: LangChain sends them to the model **as the schema**.
+They are the only instruction it gets about what belongs in each field.
 """),
+
     code('''
 from typing import List
+from pydantic import BaseModel, Field
+
 
 class Step(BaseModel):
-    """One step of an investigation plan."""
-    # These descriptions are not documentation. with_structured_output sends them to the
-    # model AS THE SCHEMA -- they are the only instruction it gets about what goes here.
-    name: str = Field(description="BLANK")          # TODO: what must a step name look like?
-    depends_on: List[str] = Field(default_factory=list,
-                                  description="BLANK")  # TODO: names of WHAT? say it precisely
-    tool: str = Field(description="Which tool this step calls, or 'none'")
+    """One step of a support investigation."""
+    name: str = Field(description="BLANK")   # TODO: what must a step name look like?
+    tool: str = Field(description="BLANK")   # TODO: name the allowed values, precisely
 
 
 class Plan(BaseModel):
-    """An ordered investigation plan for one payment exception."""
-    goal: str = Field(description="The question the plan answers, in one line")
-    steps: List[Step] = Field(description="The steps, which may be given in any order")
-
-
-def order_steps(plan: Plan) -> list[str]:
-    """Return a runnable order for plan.steps, respecting depends_on.
-
-    Raises ValueError if the dependencies cannot be satisfied (a cycle, or a missing step).
-    """
-    deps = {s.name: list(s.depends_on) for s in plan.steps}
-    ordered: list[str] = []
-    done: set[str] = set()
-    while len(ordered) < len(deps):
-        progressed = False
-        for name, d in deps.items():
-            if name in done:
-                continue
-            if all(x in done for x in d):        # every dependency already ordered
-                ordered.append(name)
-                done.add(name)
-                progressed = True
-        if not progressed:
-            raise ValueError("cycle or missing dependency in plan")
-    return ordered
+    """An ordered plan for handling one support ticket."""
+    goal: str = Field(description="The question this plan answers, in one line")
+    steps: List[Step] = Field(description="The steps, in the order they should run")
 ''', '''
 from typing import List
+from pydantic import BaseModel, Field
+
 
 class Step(BaseModel):
-    """One step of an investigation plan."""
-    name: str = Field(description="Short snake_case name for this step")
-    depends_on: List[str] = Field(default_factory=list,
-                                  description="Names of steps that must finish before this one")
-    tool: str = Field(description="Which tool this step calls, or 'none'")
+    """One step of a support investigation."""
+    name: str = Field(description="A short imperative label, e.g. 'read the ticket'")
+    tool: str = Field(description="One of: lookup_ticket, runbook_for, resolve_ticket, none")
 
 
 class Plan(BaseModel):
-    """An ordered investigation plan for one payment exception."""
-    goal: str = Field(description="The question the plan answers, in one line")
-    steps: List[Step] = Field(description="The steps, which may be given in any order")
-
-
-def order_steps(plan: Plan) -> list[str]:
-    """Return a runnable order for plan.steps, respecting depends_on.
-
-    Raises ValueError if the dependencies cannot be satisfied (a cycle, or a missing step).
-    """
-    deps = {s.name: list(s.depends_on) for s in plan.steps}
-    ordered: list[str] = []
-    done: set[str] = set()
-    while len(ordered) < len(deps):
-        progressed = False
-        for name, d in deps.items():
-            if name in done:
-                continue
-            if all(x in done for x in d):        # every dependency already ordered
-                ordered.append(name)
-                done.add(name)
-                progressed = True
-        if not progressed:
-            raise ValueError("cycle or missing dependency in plan")
-    return ordered
+    """An ordered plan for handling one support ticket."""
+    goal: str = Field(description="The question this plan answers, in one line")
+    steps: List[Step] = Field(description="The steps, in the order they should run")
 '''),
+
     code('''
-# --- Self-check: Section 3   (Pydantic objects only -- no model call)
-HAND_PLAN = Plan(goal="Decide what to do about PMT-1003", steps=[
-    Step(name="decide_action", depends_on=["read_payment", "read_policy"], tool="none"),
-    Step(name="read_policy",   depends_on=["read_payment"], tool="policy_for"),
-    Step(name="read_payment",  depends_on=[], tool="lookup_payment"),
-    Step(name="write_note",    depends_on=["decide_action"], tool="none"),
-])
-
-def _cycles():
-    try:
-        order_steps(Plan(goal="g", steps=[Step(name="a", depends_on=["b"], tool="none"),
-                                          Step(name="b", depends_on=["a"], tool="none")]))
-        return False
-    except ValueError:
-        return True
-
-check("the schema declares a goal and steps",
-      lambda: set(Plan.model_fields) == {"goal", "steps"})
-def _desc(field: str) -> str:
-    d = (Step.model_fields[field].description or "").strip()
-    if d == "BLANK":
-        raise NameError(f"{field} still has the placeholder description")
+# --- Self-check: Section 2   (the schema object, before any model sees it)
+def described(field):
+    """The description the model will be sent. Unfilled blanks are still the literal 'BLANK'."""
+    d = Step.model_fields[field].description
+    if d.strip() == "BLANK":
+        raise NameError(f"Step.{field} description is still BLANK")   # -> [TODO], not [FAIL]
     return d
 
-check("every step field carries a description the model can read",
-      lambda: all(_desc(f) for f in Step.model_fields),
-      "with_structured_output sends these descriptions to the model as the schema")
-check("depends_on says what the names REFER to",
-      lambda: "step" in _desc("depends_on").lower(),
-      "the model has to know these are other steps' names, not tool names")
-check("dependencies come before dependants",
-      lambda: order_steps(HAND_PLAN).index("read_payment") < order_steps(HAND_PLAN).index("read_policy"))
-check("every step is scheduled exactly once",
-      lambda: sorted(order_steps(HAND_PLAN)) == sorted(s.name for s in HAND_PLAN.steps))
-check("a plan given out of order is still ordered correctly",
-      lambda: order_steps(HAND_PLAN)[0] == "read_payment")
-check("an impossible plan raises rather than half-running", _cycles)
+check("the step name description says what a name should look like",
+      lambda: len(described("name")) > 20)
+check("the tool description names the allowed values",
+      lambda: sum(t in described("tool") for t in ("lookup_ticket", "runbook_for", "none")) >= 2,
+      "the model cannot pick from a list it was never shown")
+def _rejects():
+    """Pydantic must object to a step with no tool."""
+    try:
+        Plan(goal="g", steps=[{"name": "read"}])
+        return False
+    except Exception:
+        return True
+
+check("Plan validates a well-formed plan and rejects a malformed one",
+      lambda: bool(Plan(goal="g", steps=[Step(name="read the ticket", tool="lookup_ticket")]))
+              and _rejects())
+score()
 '''),
 
     md("""
-## Section 4 &mdash; Assemble the four blocks
-
-One object now holds all four: the model, the bound tools, the bounded history, and a plan.
-`answer()` runs the loop until the model replies without asking for a tool.
+## Run it for real &mdash; all four blocks, one agent
 """),
-    code('''
-class MiniAgent:
-    """LLM + Memory + Tools + Planning, assembled by hand. `create_agent` is this, hardened."""
 
-    def __init__(self, tools: dict, max_tokens: int = 600, max_steps: int = 6):
-        self.tools = tools
-        self.max_tokens, self.max_steps = max_tokens, max_steps
-        self.history = [SystemMessage(SYSTEM)]
-
-    def tool_list(self) -> list:
-        """The tool OBJECTS this agent may call -- bind_tools() needs the objects, not names."""
-        return BLANK                            # TODO: which tools may this agent call?
-
-    @property
-    def model(self):
-        """The model, bound to this agent's tools so it can answer with a tool call."""
-        return get_llm().bind_tools(self.tool_list())
-
-    def plan(self, goal: str) -> Plan:
-        """Ask the model for a Plan object -- not prose about a plan."""
-        return get_llm().with_structured_output(Plan).invoke(
-            "Produce an investigation plan for this goal. Steps must name their dependencies. "
-            f"Available tools: {list(self.tools)}.\\n\\nGOAL: {goal}")
-
-    def answer(self, question: str) -> str:
-        self.history.append(HumanMessage(question))
-        for _ in range(self.max_steps):
-            self.history = bounded(self.history, self.max_tokens)
-            ai = self.model.invoke(self.history)
-            self.history.append(ai)
-            if not ai.tool_calls:
-                return ai.content
-            self.history.extend(run_tool_calls(ai, self.tools))
-        return "(step budget spent)"
-''', '''
-class MiniAgent:
-    """LLM + Memory + Tools + Planning, assembled by hand. `create_agent` is this, hardened."""
-
-    def __init__(self, tools: dict, max_tokens: int = 600, max_steps: int = 6):
-        self.tools = tools
-        self.max_tokens, self.max_steps = max_tokens, max_steps
-        self.history = [SystemMessage(SYSTEM)]
-
-    def tool_list(self) -> list:
-        """The tool OBJECTS this agent may call -- bind_tools() needs the objects, not names."""
-        return list(self.tools.values())
-
-    @property
-    def model(self):
-        """The model, bound to this agent's tools so it can answer with a tool call."""
-        return get_llm().bind_tools(self.tool_list())
-
-    def plan(self, goal: str) -> Plan:
-        """Ask the model for a Plan object -- not prose about a plan."""
-        return get_llm().with_structured_output(Plan).invoke(
-            "Produce an investigation plan for this goal. Steps must name their dependencies. "
-            f"Available tools: {list(self.tools)}.\\n\\nGOAL: {goal}")
-
-    def answer(self, question: str) -> str:
-        self.history.append(HumanMessage(question))
-        for _ in range(self.max_steps):
-            self.history = bounded(self.history, self.max_tokens)
-            ai = self.model.invoke(self.history)
-            self.history.append(ai)
-            if not ai.tool_calls:
-                return ai.content
-            self.history.extend(run_tool_calls(ai, self.tools))
-        return "(step budget spent)"
-'''),
-    code('''
-# --- Self-check: Section 4   (structure only -- .model builds an object, it does not call out)
-check("MiniAgent starts with just the system message",
-      lambda: [m.type for m in MiniAgent(TOOLS).history] == ["system"])
-check("all three tools were handed to the agent",
-      lambda: set(MiniAgent(TOOLS).tools) == {"lookup_payment", "policy_for", "release_payment"})
-check("the agent hands bind_tools the tool objects, not their names",
-      lambda: all(hasattr(t, "invoke") and hasattr(t, "name") for t in MiniAgent(TOOLS).tool_list()),
-      "bind_tools() needs the @tool objects -- a list of strings binds nothing")
-check("all three tools are offered to the model",
-      lambda: {t.name for t in MiniAgent(TOOLS).tool_list()}
-              == {"lookup_payment", "policy_for", "release_payment"})
-'''),
-
-    md("""
-## Run it for real
-
-First a plan as a typed object, then the assembled agent answering a real question.
-"""),
     code('''
 if llm_ready():
-    def _plan():
-        agent = MiniAgent(TOOLS)
-        p = agent.plan("Decide what to do about PMT-1003, which is held.")
-        print("goal:", p.goal)
-        for s in p.steps:
-            print(f"  {s.name:16} tool={s.tool:16} after={s.depends_on}")
-        print("\\nrunnable order:", order_steps(p))
-        return agent
-    agent = guard(_plan)
+    plan = guard(lambda: get_llm().with_structured_output(Plan).invoke(
+        "Plan how to handle support ticket TCK-4004. Use only the tools named in the schema."))
+    if plan:
+        print("goal:", plan.goal)
+        for s in plan.steps:
+            print(f"   {s.name:38} -> {s.tool}")
 '''),
+
     code('''
-if llm_ready() and agent is not None:
-    def _answer():
-        print(agent.answer("Why is PMT-1003 held, and what must we do about it?")[:400])
-        print("\\n--- history after the run ---")
-        show_messages(agent.history)
-    guard(_answer)
+def assemble_and_run():
+    from langchain.agents import create_agent
+    from langgraph.checkpoint.memory import InMemorySaver
+
+    @tool
+    def lookup_ticket(ref: str) -> str:
+        """Return the support ticket for one reference such as 'TCK-4001'."""
+        t = TICKETS.get(ref)
+        return json.dumps({"ref": ref, **t}) if t else f"no ticket {ref!r}"
+
+    @tool
+    def runbook_for(error_code: str) -> str:
+        """Return what support is allowed to do about one error code, e.g. 'VPN-513'."""
+        return RUNBOOK.get(error_code, f"no runbook entry for {error_code!r}")
+
+    agent = create_agent(model=get_llm(),                                     # LLM
+                         tools=[lookup_ticket, runbook_for, resolve_ticket],  # Tools
+                         system_prompt=SYSTEM,                                # Planning, of a sort
+                         checkpointer=InMemorySaver())                        # Memory
+
+    for ref in ["TCK-4001", "TCK-4004"]:
+        out = agent.invoke({"messages": [("user", f"Handle {ref} end to end.")]},
+                           {"configurable": {"thread_id": ref}})
+        print(f"{ref}: {out['messages'][-1].content[:200]}\\n")
+
+if llm_ready():
+    guard(assemble_and_run)      # resolve_ticket carries a blank -- the agent INVOKES it
 '''),
+
     md("""
 ### Read it
 
-The plan came back as a `Plan`, so `order_steps` could run over it directly &mdash; no parsing, no
-"the model used a different heading this time". That is the whole argument for structured output,
-and Module 2 shows what the alternative costs.
+**`TCK-4001` was resolved and `TCK-4004` was not** &mdash; and the difference was not the model
+being careful. `resolve_ticket` refuses, in Python, whatever it is asked. That is the whole idea
+behind Module 8: a guardrail the model can talk its way past is not a guardrail.
 
-Watch the history: it is bounded, so a long investigation cannot grow the bill without limit. And
-notice which tool the model did *not* reach for. `release_payment` says "never use it to clear a
-sanctions hold" in its docstring, and that sentence is the only control that stopped it.
+**The token counter is a real trap.** `token_counter=get_llm()` is the obvious thing to write and
+it raises `NotImplementedError` here &mdash; there is no tiktoken encoding for this model.
+`count_tokens_approximately` is a plain function over the message text and works everywhere.
+
+**The `Field` descriptions are prompt engineering.** You wrote them as documentation and the model
+read them as instructions. Lab 1.3 measures exactly how much that is worth.
 """),
 
     code('''
 score()
 '''),
+
     md("""
 ## Your turn
 
-1. Delete the second paragraph of `release_payment`'s docstring, re-run, and ask the agent to
-   release PMT-1005. Put the sentence back once you have seen what happens.
-2. `bounded()` uses `strategy="last"`. Switch it to `"first"` and ask a follow-up question.
-   Explain, in one line, why keeping the *start* of a conversation is almost always wrong for an
-   agent and almost always right for a chat product.
-3. `MiniAgent.plan` never uses the plan &mdash; `answer()` just loops. Make `answer()` follow the
-   ordered plan instead, and note the first thing that breaks.
+1. Set `max_tokens=40` in `bounded` and print what survives. At what point do your instructions
+   fall out of the window? That number is when your agent starts ignoring its system prompt.
+2. Change `Step.tool`'s description to just `"the tool"` and re-run the plan. Read what the model
+   puts there now.
 """),
 ]
 
 
 # =========================================================================== #
-# Lab 1.3 -- create_agent: the description experiment, and a typed answer
+# Lab 1.3 -- tool descriptions are instructions, and a typed answer
 # =========================================================================== #
 LAB3 = [
-    header(3, "create_agent, and What a Tool Description Is Worth", "Intermediate &rarr; Advanced", 40,
-           ["Build the same agent twice &mdash; once with opaque tool descriptions, once with good ones",
-            "<b>Measure</b> the difference in tool-selection accuracy against the live model",
-            "Make the agent return a typed <code>Verdict</code> with <code>response_format</code>, not prose",
-            "Read the message trace `create_agent` produces, and find where a run went wrong"],
-           "> **Builds on Labs 1.1 and 1.2.** You know what the loop does; now you use the built one\n"
-           "> and spend your effort on the part that actually decides whether it works."),
+    header(3, "Tool Descriptions Are Instructions", "Intermediate &rarr; Advanced", 30,
+           ["Run the same agent twice: same model, same functions, different descriptions",
+            "Measure the difference on a small eval set instead of asserting it",
+            "Make the agent return a typed object rather than a paragraph"],
+           THREAD_NOTE),
     setup(3),
     code(DOMAIN),
 
     md("""
 ## Concept
 
-`create_agent(model, tools, system_prompt)` is the loop from Lab 1.1, hardened. Which means the
-interesting engineering moves somewhere else &mdash; to the three things you still control:
+The model never sees your function. It sees a **name, a description and a parameter schema** &mdash;
+and it picks from those alone.
 
-1. **the tool descriptions**, which are the only guide the model has when choosing,
-2. **the system prompt**, which sets the procedure,
-3. **the output contract**, which decides whether the caller gets prose or data.
+So a tool description is not documentation. It is the prompt that decides whether the right tool
+gets called, and it is the cheapest accuracy in this course: no model change, no extra call, no
+new framework.
 
-This lab measures the first and fixes the third. Everything here is a real agent making real
-calls, so the numbers you get are yours, not slides.
+This lab measures it. Same model, same three functions, two sets of words.
 """),
 
     md("""
-## Section 1 &mdash; The same five tools, described two ways
+## Section 1 &mdash; The same tools, described two ways
 
-Both toolsets do **exactly the same work**. Only the names and descriptions differ. That is the
-experiment: nothing changes except what the model can read.
+The functions and the scoring harness are given. Your job is the words.
 
-Write the four missing descriptions in `GOOD`. A good one says what the tool returns, when to
-reach for it, and when not to.
+Write descriptions that answer the two questions a model actually has: **what does this return**,
+and **when should I reach for it rather than the other one?**
 """),
+
     code('''
-from langchain_core.tools import tool, StructuredTool
+from langchain_core.tools import StructuredTool
 
-# The five underlying operations, as plain functions. Shared by both arms.
-def _payment(ref: str) -> str:
-    r = LEDGER.get(ref)
-    return json.dumps({"ref": ref, **r}) if r else f"no payment found with reference {ref!r}"
+def _ticket(ref: str) -> str:
+    t = TICKETS.get(ref)
+    return json.dumps({"ref": ref, **t}) if t else f"no ticket {ref!r}"
 
-def _policy(reason_code: str) -> str:
-    return POLICY.get(reason_code, f"no policy on file for reason code {reason_code!r}")
+def _runbook(error_code: str) -> str:
+    return RUNBOOK.get(error_code, f"no runbook entry for {error_code!r}")
 
-def _counterparty(name: str) -> str:
-    hits = [k for k, v in LEDGER.items() if v["counterparty"] == name]
-    return json.dumps({"counterparty": name, "payments": hits}) if hits else f"no counterparty {name!r}"
+def _similar(error_code: str) -> str:
+    return json.dumps([r for r, t in TICKETS.items() if t["error_code"] == error_code])
 
-def _by_status(status: str) -> str:
-    hits = [k for k, v in LEDGER.items() if v["status"] == status]
-    return json.dumps({"status": status, "payments": hits})
+OPS = {"lookup_ticket": _ticket, "runbook_for": _runbook, "find_similar": _similar}
 
-def _needs_human(reason_code: str) -> str:
-    return json.dumps({"reason_code": reason_code, "needs_human": reason_code in NEEDS_HUMAN})
+def build_tools(descriptions: dict) -> list:
+    """Three real LangChain tools over the same three functions, with the words you choose."""
+    return [StructuredTool.from_function(func=OPS[n], name=n, description=d)
+            for n, d in descriptions.items()]
 
-OPS = {"payment": _payment, "policy": _policy, "counterparty": _counterparty,
-       "by_status": _by_status, "needs_human": _needs_human}
 
-# --- arm A: opaque. A name and a shrug -- what a rushed codebase actually looks like.
-POOR = [
-    StructuredTool.from_function(_payment,      name="tool_a", description="Gets data."),
-    StructuredTool.from_function(_policy,       name="tool_b", description="Gets data."),
-    StructuredTool.from_function(_counterparty, name="tool_c", description="Looks things up."),
-    StructuredTool.from_function(_by_status,    name="tool_d", description="Looks things up."),
-    StructuredTool.from_function(_needs_human,  name="tool_e", description="Checks something."),
-]
+POOR = {
+    "lookup_ticket": "gets ticket data",
+    "runbook_for":   "gets runbook data",
+    "find_similar":  "finds things",
+}
 
-# --- arm B: described. Same functions, same order.
-GOOD = [
-    StructuredTool.from_function(
-        _payment, name="lookup_payment",
-        description="Return the full ledger record (amount, currency, counterparty, status, "
-                    "reason code) for ONE payment reference such as 'PMT-1003'. Use when you "
-                    "have a reference. Not for searching."),
-    StructuredTool.from_function(
-        _policy, name="policy_for",
-        description="BLANK"),         # TODO: what does this return, and when would you reach for it?
-    StructuredTool.from_function(
-        _counterparty, name="payments_for_counterparty",
-        description="BLANK"),         # TODO: ...and how is it different from lookup_payment?
-    StructuredTool.from_function(
-        _by_status, name="payments_by_status",
-        description="BLANK"),         # TODO: name the valid statuses -- the model cannot guess them
-    StructuredTool.from_function(
-        _needs_human, name="requires_human_approval",
-        description="BLANK"),         # TODO: say what a True answer obliges the caller to do
-]
+def good_descriptions() -> dict:
+    """Same three functions. Tell the model what each returns and when to prefer it."""
+    return {
+        "lookup_ticket": BLANK,   # TODO: takes a ticket ref like 'TCK-4001'. Returns what?
+        "runbook_for":   BLANK,   # TODO: takes an error code. When is it the right call?
+        "find_similar":  BLANK,   # TODO: takes an error code. How is it NOT runbook_for?
+    }
 ''', '''
-from langchain_core.tools import tool, StructuredTool
+from langchain_core.tools import StructuredTool
 
-# The five underlying operations, as plain functions. Shared by both arms.
-def _payment(ref: str) -> str:
-    r = LEDGER.get(ref)
-    return json.dumps({"ref": ref, **r}) if r else f"no payment found with reference {ref!r}"
+def _ticket(ref: str) -> str:
+    t = TICKETS.get(ref)
+    return json.dumps({"ref": ref, **t}) if t else f"no ticket {ref!r}"
 
-def _policy(reason_code: str) -> str:
-    return POLICY.get(reason_code, f"no policy on file for reason code {reason_code!r}")
+def _runbook(error_code: str) -> str:
+    return RUNBOOK.get(error_code, f"no runbook entry for {error_code!r}")
 
-def _counterparty(name: str) -> str:
-    hits = [k for k, v in LEDGER.items() if v["counterparty"] == name]
-    return json.dumps({"counterparty": name, "payments": hits}) if hits else f"no counterparty {name!r}"
+def _similar(error_code: str) -> str:
+    return json.dumps([r for r, t in TICKETS.items() if t["error_code"] == error_code])
 
-def _by_status(status: str) -> str:
-    hits = [k for k, v in LEDGER.items() if v["status"] == status]
-    return json.dumps({"status": status, "payments": hits})
+OPS = {"lookup_ticket": _ticket, "runbook_for": _runbook, "find_similar": _similar}
 
-def _needs_human(reason_code: str) -> str:
-    return json.dumps({"reason_code": reason_code, "needs_human": reason_code in NEEDS_HUMAN})
+def build_tools(descriptions: dict) -> list:
+    """Three real LangChain tools over the same three functions, with the words you choose."""
+    return [StructuredTool.from_function(func=OPS[n], name=n, description=d)
+            for n, d in descriptions.items()]
 
-OPS = {"payment": _payment, "policy": _policy, "counterparty": _counterparty,
-       "by_status": _by_status, "needs_human": _needs_human}
 
-# --- arm A: opaque. A name and a shrug -- what a rushed codebase actually looks like.
-POOR = [
-    StructuredTool.from_function(_payment,      name="tool_a", description="Gets data."),
-    StructuredTool.from_function(_policy,       name="tool_b", description="Gets data."),
-    StructuredTool.from_function(_counterparty, name="tool_c", description="Looks things up."),
-    StructuredTool.from_function(_by_status,    name="tool_d", description="Looks things up."),
-    StructuredTool.from_function(_needs_human,  name="tool_e", description="Checks something."),
-]
+POOR = {
+    "lookup_ticket": "gets ticket data",
+    "runbook_for":   "gets runbook data",
+    "find_similar":  "finds things",
+}
 
-# --- arm B: described. Same functions, same order.
-GOOD = [
-    StructuredTool.from_function(
-        _payment, name="lookup_payment",
-        description="Return the full ledger record (amount, currency, counterparty, status, "
-                    "reason code) for ONE payment reference such as 'PMT-1003'. Use when you "
-                    "have a reference. Not for searching."),
-    StructuredTool.from_function(
-        _policy, name="policy_for",
-        description="Return the operating policy text for ONE failure reason code such as "
-                    "'LIMIT_BREACH' or 'SANCTIONS_REVIEW'. Use after you know why a payment "
-                    "failed and need to know what to do about it. Not for looking up payments."),
-    StructuredTool.from_function(
-        _counterparty, name="payments_for_counterparty",
-        description="Return every payment reference belonging to ONE counterparty name such as "
-                    "'NORTHWIND'. Use when the question names a party rather than a reference. "
-                    "Returns references only -- call lookup_payment for the details of each."),
-    StructuredTool.from_function(
-        _by_status, name="payments_by_status",
-        description="Return every payment reference with a given status. Valid statuses are "
-                    "exactly 'settled', 'failed' and 'held'. Use for questions about a whole "
-                    "queue, such as what is currently held."),
-    StructuredTool.from_function(
-        _needs_human, name="requires_human_approval",
-        description="Return whether a reason code obliges a human decision before any action. "
-                    "Call it before proposing to release, cancel or repair a payment; if it "
-                    "returns true you must stop and escalate rather than act."),
-]
+def good_descriptions() -> dict:
+    """Same three functions. Tell the model what each returns and when to prefer it."""
+    return {
+        "lookup_ticket": ("Return one support ticket by its reference, e.g. 'TCK-4001': customer, "
+                          "product, version, severity and error code. Start here when you are "
+                          "given a ticket reference and do not yet know what is wrong."),
+        "runbook_for":   ("Return what support is ALLOWED to do about one error code, e.g. "
+                          "'VPN-513'. Call this once you know the error code and need the action, "
+                          "including whether it must be escalated."),
+        "find_similar":  ("Return the references of other tickets reporting the same error code. "
+                          "Use this to judge how widespread an issue is -- not to find out what "
+                          "to do about it, which is runbook_for."),
+    }
 '''),
-    code('''
-# --- Self-check: Section 1   (tool objects only -- no model call)
-def _descs():
-    out = []
-    for t in GOOD:
-        d = (t.description or "").strip()
-        if d == "BLANK" or not d:
-            raise NameError(f"{t.name} still has no description")
-        out.append(d)
-    return out
 
-check("both arms expose five tools", lambda: len(POOR) == 5 and len(GOOD) == 5)
-check("the two arms wrap the same functions",
-      lambda: [t.func for t in POOR] == [t.func for t in GOOD],
-      "the ONLY difference between the arms must be name and description")
-check("every GOOD tool has a real description",
-      lambda: all(len(d) > 60 for d in _descs()),
-      "a one-liner is not a description -- say what it returns and when to use it")
-check("the descriptions distinguish the two lookup tools",
-      lambda: "not for searching" in _descs()[0].lower()
-              and any("reference" in d.lower() for d in _descs()[2:3]))
-check("payments_by_status names its valid values",
-      lambda: all(s in _descs()[3] for s in ("settled", "failed", "held")),
-      "the model cannot guess an enum it was never shown")
-check("the POOR arm really is uninformative",
-      lambda: all(len(t.description) < 25 for t in POOR))
+    code('''
+# --- Self-check: Section 1   (real StructuredTool objects -- built, not invoked, so no model)
+def tool_schema(descriptions):
+    return {t.name: t.description for t in build_tools(descriptions)}
+
+check("three real tools are built from the words you wrote",
+      lambda: set(tool_schema(good_descriptions())) == set(OPS))
+check("each description says what the tool returns, not just that it exists",
+      lambda: all(len(d) > 60 for d in tool_schema(good_descriptions()).values()),
+      "'gets ticket data' is the version we are measuring against -- say what comes back")
+check("find_similar distinguishes itself from runbook_for",
+      lambda: "runbook" in tool_schema(good_descriptions())["find_similar"].lower(),
+      "two tools taking the same argument is exactly where a model guesses; say which is which")
+score()
 '''),
 
     md("""
-## Section 2 &mdash; The harness that scores a run
+## Section 2 &mdash; A typed answer, not a paragraph
 
-For each question we know which tool *should* be called first. `first_tool()` digs that out of
-the trace `create_agent` returns; `bake_off()` runs a whole set and reports a pass rate.
+A paragraph has to be parsed by whatever comes next. A schema does not. Declare what a resolution
+*is*, and the model fills it in.
 
-This is your first eval harness. Day 2 measures a multi-agent graph against exactly this shape.
+The escalation rule is the interesting field: it must come from the runbook, not from the model's
+judgement about how serious the ticket sounds.
 """),
-    code('''
-CASES = [
-    # question,                                                    poor name,  good name
-    ("What is the status of PMT-1003?",                            "tool_a",  "lookup_payment"),
-    ("What should we do about a LIMIT_BREACH?",                    "tool_b",  "policy_for"),
-    ("Which payments belong to NORTHWIND?",                        "tool_c",  "payments_for_counterparty"),
-    ("List everything currently held.",                            "tool_d",  "payments_by_status"),
-    ("Does a SANCTIONS_REVIEW need a person to sign it off?",      "tool_e",  "requires_human_approval"),
-]
 
-def first_tool(result: dict) -> str | None:
-    """The name of the FIRST tool the agent chose, from the messages it returned."""
-    for m in result["messages"]:
-        calls = getattr(m, "tool_calls", None)
-        if calls:
-            return BLANK              # TODO: a tool CHOICE lives on the AI message -- which part of it?
-    return None
-
-
-def bake_off(agent, arm: str) -> dict:
-    """Run every case through `agent`; score the first tool chosen against the expectation."""
-    idx = 1 if arm == "poor" else 2
-    hits, rows = 0, []
-    for case in CASES:
-        question, expected = case[0], case[idx]
-        try:
-            chosen = first_tool(agent.invoke({"messages": [("human", question)]}))
-        except Exception as exc:
-            chosen = f"<error: {type(exc).__name__}>"
-        ok = chosen == expected
-        hits += ok
-        rows.append((question, expected, chosen, ok))
-    return {"arm": arm, "hits": hits, "of": len(CASES),
-            "rate": hits / len(CASES), "rows": rows}
-''', '''
-CASES = [
-    # question,                                                    poor name,  good name
-    ("What is the status of PMT-1003?",                            "tool_a",  "lookup_payment"),
-    ("What should we do about a LIMIT_BREACH?",                    "tool_b",  "policy_for"),
-    ("Which payments belong to NORTHWIND?",                        "tool_c",  "payments_for_counterparty"),
-    ("List everything currently held.",                            "tool_d",  "payments_by_status"),
-    ("Does a SANCTIONS_REVIEW need a person to sign it off?",      "tool_e",  "requires_human_approval"),
-]
-
-def first_tool(result: dict) -> str | None:
-    """The name of the FIRST tool the agent chose, from the messages it returned."""
-    for m in result["messages"]:
-        calls = getattr(m, "tool_calls", None)
-        if calls:
-            return calls[0]["name"]
-    return None
-
-
-def bake_off(agent, arm: str) -> dict:
-    """Run every case through `agent`; score the first tool chosen against the expectation."""
-    idx = 1 if arm == "poor" else 2
-    hits, rows = 0, []
-    for case in CASES:
-        question, expected = case[0], case[idx]
-        try:
-            chosen = first_tool(agent.invoke({"messages": [("human", question)]}))
-        except Exception as exc:
-            chosen = f"<error: {type(exc).__name__}>"
-        ok = chosen == expected
-        hits += ok
-        rows.append((question, expected, chosen, ok))
-    return {"arm": arm, "hits": hits, "of": len(CASES),
-            "rate": hits / len(CASES), "rows": rows}
-'''),
-    code('''
-# --- Self-check: Section 2   (canned traces -- no model call)
-from langchain_core.messages import AIMessage, HumanMessage
-
-_canned = {"messages": [
-    HumanMessage("q"),
-    AIMessage(content="", tool_calls=[{"name": "lookup_payment", "args": {"ref": "PMT-1003"},
-                                       "id": "c1", "type": "tool_call"}]),
-    AIMessage("done"),
-]}
-_no_tools = {"messages": [HumanMessage("q"), AIMessage("answered from memory")]}
-
-check("first_tool finds the first chosen tool",
-      lambda: first_tool(_canned) == "lookup_payment")
-check("first_tool returns None when no tool was used",
-      lambda: first_tool(_no_tools) is None,
-      "an agent that answers without a tool is a result, not a crash")
-check("every case names a tool that exists in both arms",
-      lambda: all(c[1] in {t.name for t in POOR} and c[2] in {t.name for t in GOOD} for c in CASES))
-check("the cases cover all five tools",
-      lambda: len({c[2] for c in CASES}) == 5)
-'''),
-
-    md("""
-## Section 3 &mdash; A typed answer, not a paragraph
-
-An agent that returns prose forces every caller to parse it. `response_format=Verdict` makes
-`create_agent` return a validated `Verdict` object alongside the messages, in
-`result["structured_response"]`.
-
-Declare the contract you would want if you had to call this service from another system.
-"""),
     code('''
 from pydantic import BaseModel, Field
 
-class Verdict(BaseModel):
-    """The outcome of investigating one payment exception."""
-    ref: str = Field(description="The payment reference investigated, e.g. 'PMT-1003'")
-    reason_code: str = Field(description="The ledger reason code, or 'NONE' if the payment is fine")
-    needs_human: bool = Field(description="BLANK")  # TODO: describe it so the model fills it correctly
-    action: str = Field(description="The single next action, in one short line")
-    evidence: str = Field(description="The policy text or ledger field that justifies the action")
+class Resolution(BaseModel):
+    """What support decided about one ticket."""
+    ticket: str    = Field(description="The ticket reference, e.g. 'TCK-4001'")
+    action: str    = Field(description="BLANK")   # TODO: what should this say, and how long?
+    escalate: bool = Field(description="BLANK")   # TODO: on what basis is this true?
+
+
+def expected_escalation(ref: str) -> bool:
+    """Ground truth for the eval: which tickets must NOT be resolved by support."""
+    return TICKETS[ref]["error_code"] in BLANK    # TODO: which set decides this?
 ''', '''
 from pydantic import BaseModel, Field
 
-class Verdict(BaseModel):
-    """The outcome of investigating one payment exception."""
-    ref: str = Field(description="The payment reference investigated, e.g. 'PMT-1003'")
-    reason_code: str = Field(description="The ledger reason code, or 'NONE' if the payment is fine")
-    needs_human: bool = Field(
-        description="True if policy requires a named human to decide before any action is taken; "
-                    "false only if the agent may act on its own authority")
-    action: str = Field(description="The single next action, in one short line")
-    evidence: str = Field(description="The policy text or ledger field that justifies the action")
+class Resolution(BaseModel):
+    """What support decided about one ticket."""
+    ticket: str    = Field(description="The ticket reference, e.g. 'TCK-4001'")
+    action: str    = Field(description="The single next action, in one imperative sentence")
+    escalate: bool = Field(description="True only if the runbook says this must go to another "
+                                       "desk, not if the ticket merely sounds serious")
+
+
+def expected_escalation(ref: str) -> bool:
+    """Ground truth for the eval: which tickets must NOT be resolved by support."""
+    return TICKETS[ref]["error_code"] in MUST_ESCALATE
 '''),
+
     code('''
-# --- Self-check: Section 3   (schema only -- no model call)
-def _needs_human_desc():
-    d = Verdict.model_fields["needs_human"].description
-    if not d or d == "BLANK":
-        raise NameError("needs_human still has no description")
+# --- Self-check: Section 2   (the schema, and the ground truth -- no model yet)
+def described(field):
+    d = Resolution.model_fields[field].description
+    if d.strip() == "BLANK":
+        raise NameError(f"Resolution.{field} description is still BLANK")   # -> [TODO]
     return d
 
-check("the contract has all five fields",
-      lambda: set(Verdict.model_fields) == {"ref", "reason_code", "needs_human", "action", "evidence"})
-check("every field carries a description",
-      lambda: all(f.description for f in Verdict.model_fields.values()),
-      "with_structured_output sends these to the model -- an undescribed field is a guess")
-check("needs_human says what true MEANS",
-      lambda: len(_needs_human_desc()) > 40 and "human" in _needs_human_desc().lower())
-check("a Verdict validates",
-      lambda: Verdict(ref="PMT-1003", reason_code="LIMIT_BREACH", needs_human=True,
-                      action="Escalate to Treasury", evidence="above USD 500,000").needs_human is True)
+check("action says what to write, not just that something goes there",
+      lambda: len(described("action")) > 25)
+check("escalate is tied to the runbook rather than to how the ticket sounds",
+      lambda: "runbook" in described("escalate").lower(),
+      "'high severity' and 'must escalate' are different things -- TCK-4001 is high and resolvable")
+check("only the security ticket must be escalated",
+      lambda: [r for r in sorted(TICKETS) if expected_escalation(r)] == ["TCK-4004"])
+score()
 '''),
 
     md("""
-## Run it for real &mdash; the description experiment
+## Run it for real &mdash; the measurement
 
-Two agents. Same model, same functions, same questions. Only the descriptions differ.
-
-Ten agent runs, so give it a moment.
+Five questions, each with one obviously correct first tool. Same model, same functions, twice.
 """),
-    code('''
-if llm_ready():
-    from langchain.agents import create_agent
 
-    def _experiment():
-        sysmsg = ("You are a payments operations analyst. Use exactly one tool to answer, "
-                  "then reply. Do not guess if a tool can tell you.")
-        results = {}
-        for arm, tools in (("poor", POOR), ("good", GOOD)):
-            ag = create_agent(model=get_llm(), tools=tools, system_prompt=sysmsg)
-            r = bake_off(ag, arm)
-            results[arm] = r
-            print(f"\\n=== {arm.upper()} descriptions: {r['hits']}/{r['of']} correct "
-                  f"({r['rate']:.0%}) ===")
-            for q, expected, chosen, ok in r["rows"]:
-                print(f"  [{'ok ' if ok else 'MISS'}] {q[:46]:48} want={expected:26} got={chosen}")
-        d = results["good"]["rate"] - results["poor"]["rate"]
-        print(f"\\nDelta from description quality alone: {d:+.0%}")
-        return results
-    RESULTS = guard(_experiment)
+    code('''
+EVAL = [
+    ("What is wrong with TCK-4001?",                       "lookup_ticket"),
+    ("What are we allowed to do about error VPN-513?",     "runbook_for"),
+    ("How many customers are hitting APP-002?",            "find_similar"),
+    ("Who raised TCK-4004?",                               "lookup_ticket"),
+    ("Is SEC-900 something support can close?",            "runbook_for"),
+]
+
+def first_tool(question, tools):
+    """Which tool does the model reach for first? Given -- you are measuring, not building."""
+    msg = get_llm().bind_tools(tools).invoke(
+        [("system", "You are a tech support analyst. Use a tool."), ("human", question)])
+    return msg.tool_calls[0]["name"] if msg.tool_calls else "(none)"
+
+def score_arm(descriptions):
+    tools = build_tools(descriptions)
+    hits = [(q, want, first_tool(q, tools)) for q, want in EVAL]
+    return sum(w == g for _, w, g in hits), hits
+
+
+if llm_ready():
+    def measure():
+        for label, desc in [("poor", POOR), ("good", good_descriptions())]:
+            n, hits = score_arm(desc)
+            print(f"--- {label} descriptions: {n}/{len(EVAL)} first tools correct")
+            for q, want, got in hits:
+                print(f"    {'ok ' if want == got else 'MISS'} {q[:46]:48} want={want:14} got={got}")
+    guard(measure)
 '''),
+
     md("""
 ### Read it
 
-Nothing about the model, the questions or the underlying functions changed between those two
-runs. Whatever gap you just measured is the value of writing a sentence.
+Same model. Same three Python functions. Only the words changed.
 
-Two things worth noticing in the misses. First, where the opaque arm guessed, it usually guessed
-the *first* tool &mdash; with nothing to choose on, order becomes the tiebreak. Second, a miss is not
-always a wrong answer: the agent sometimes recovers by calling a second tool, which costs tokens
-and latency rather than correctness. That distinction is the whole subject of Module 7.
-"""),
+**What the poor arm gets wrong is not random.** It confuses `runbook_for` and `find_similar` &mdash;
+two tools taking the same argument, described in a way that does not distinguish them. That is
+where a model always guesses, and it is the thing your descriptions have to fix.
 
-    md("""
-## Run it for real &mdash; the typed answer
-
-Now the same agent with a contract. Note that the caller never touches `.content`.
-"""),
-    code('''
-if llm_ready():
-    def _typed():
-        ag = create_agent(
-            model=get_llm(), tools=GOOD,
-            system_prompt=("You investigate payment exceptions. Procedure, in order: "
-                           "1) look up the payment; 2) look up the policy for its reason code; "
-                           "3) check whether it requires human approval; 4) answer."),
-            response_format=Verdict)
-        out = ag.invoke({"messages": [("human", "Investigate PMT-1005 and tell me what to do.")]})
-        v = out.get("structured_response")
-        if v is None:
-            # This happens, and it is worth seeing rather than hiding. response_format asks
-            # the model to finish by calling a Verdict tool; if it answers in prose instead,
-            # there is no object -- and a caller expecting one gets None, not an error.
-            print("NO structured_response -- the model answered without filling the contract.")
-            print("Look at the last message: it replied in prose instead of calling Verdict.\\n")
-        else:
-            print(f"ref         : {v.ref}")
-            print(f"reason_code : {v.reason_code}")
-            print(f"needs_human : {v.needs_human}")
-            print(f"action      : {v.action}")
-            print(f"evidence    : {v.evidence}")
-        print(f"\\n--- the trace behind it ({len(out['messages'])} messages) ---")
-        show_messages(out["messages"])
-        return v
-    VERDICT = guard(_typed)
-'''),
-    md("""
-### Read the trace
-
-`needs_human` should be **true** for PMT-1005 &mdash; it is a sanctions hold, and the policy says
-Compliance decides. If it came back false, the trace tells you which step was skipped: look for
-whether `requires_human_approval` was ever called at all.
-
-And you may have got **no object at all**. `response_format` asks the model to finish by calling
-a `Verdict` tool; a model that decides to reply in prose instead leaves
-`result["structured_response"]` as `None`. Nothing raises. Run the cell a few times &mdash; on this
-model it does not happen every time, which is worse than if it never worked.
-
-That is the honest lesson of this lab, in two parts. A typed contract guarantees the *shape* of
-the answer **when you get one**, so a caller must still handle its absence. And it guarantees
-nothing at all about the truth of it &mdash; the system prompt's ordered procedure is doing that
-work, and Module 8 is where you learn not to trust either without a check.
+**This is the cheapest accuracy in the course.** No model change, no extra call, no new framework
+&mdash; and it is the first thing to check when an agent picks the wrong tool. Module 4 does this
+properly against a larger eval set; the habit starts here.
 """),
 
     code('''
 score()
 '''),
+
     md("""
 ## Your turn
 
-1. Build a third arm, `MEDIUM` &mdash; real names, but one-line descriptions with no "not for"
-   clause. Where does it land between the two? That gap is the value of the negative half.
-2. Add a sixth tool that genuinely overlaps with an existing one (`get_status(ref)` beside
-   `lookup_payment`) and re-run. Which description do you have to change to fix the confusion?
-3. Remove the numbered procedure from the system prompt in the typed run and re-run it five
-   times. Count how often `needs_human` comes back wrong. That number is your argument for
-   Module 8's guardrails.
+1. Make `find_similar`'s description say only &ldquo;searches tickets&rdquo; and re-run. Which
+   questions move? Bad descriptions fail in a *predictable* place, which is why this is debuggable.
+2. Add a fourth tool that genuinely overlaps &mdash; `ticket_history(ref)` &mdash; and get the
+   agent to five out of five again. The fix is in the words, not the code.
 """),
 ]
 
 
 # =========================================================================== #
-# Lab 1.4 -- one agent or three, measured with real agents and real tokens
+# Lab 1.4 -- the coordination tax
 # =========================================================================== #
 LAB4 = [
-    header(4, "One Agent or Three: Building the Same App Twice", "Advanced", 50,
-           ["Build the same capability twice: one agent with three tools, three agents with one each",
-            "Run one eval set through both and find out which one you would actually ship",
-            "Find the bug the second architecture introduces &mdash; a handoff that loses information",
-            "Fix it with typed handoffs (<code>response_format</code>) and watch the accuracy come back"],
-           "> **Builds on Lab 1.3.** Same tools, same case file. The question is no longer whether\n"
-           "> an agent works &mdash; it is what breaks when you split one into three, and how you fix it."),
+    header(4, "The Coordination Tax", "Advanced", 35,
+           ["Build the same capability twice: one agent, and three specialists",
+            "Instrument both &mdash; calls, tokens, latency &mdash; before arguing about either",
+            "Score them on one eval set and let the result be whatever it is"],
+           THREAD_NOTE),
     setup(4),
     code(DOMAIN),
 
     md("""
 ## Concept
 
-Splitting one agent into three buys you specialisation: shorter prompts, fewer tools each, a
-clearer place to put a control. It costs you **coordination** &mdash; every handoff is another model
-call, another context to rebuild, another place to lose information.
+&ldquo;Split it into specialists&rdquo; sounds obviously right. It is a design decision with a
+price, and the price is rarely the one people quote.
 
-The usual mistake is to assume the cost of that is a bit more latency. It is not. The expensive
-part is that **every handoff is a lossy re-encoding**: the worker answers in prose, the supervisor
-has to recover a fact from it, and whatever does not survive that step is silently gone. The run
-still completes. The answer is still confident. It is just wrong.
-
-So this lab builds the same capability three ways &mdash; one agent, three agents handing off in
-prose, three agents handing off a typed object &mdash; and asks the only question that matters
-first: **which one would you ship?** Calls, latency and tokens are printed too, because you should
-know how to read them, but they are not the finding.
+You are going to build both, measure both, and then decide. The rule for this lab: **the team is
+allowed to lose.** That outcome is the lesson, not a lab failure.
 """),
 
     md("""
-## Section 1 &mdash; Instrument first, argue later
+## Section 1 &mdash; Two architectures over the same tools
 
-Before comparing two architectures you need to see what each one *did*: how many model calls, how
-many tool calls, how long, and &mdash; since this is the one lab in Module 1 that looks at cost &mdash;
-how many tokens. `usage_metadata` on each `AIMessage` carries what the gateway actually reported,
-so you are reading the real thing rather than estimating from string length.
+Same model, same three tools, same questions. The only difference is how the work is divided.
 
-Do not read too much into the token column. It is here once, so you know how to get it when you
-need it. Everything that follows is about whether the thing *works*.
+Deciding **which tools each specialist gets** is the entire design of a split &mdash; and giving
+one of them too little is how a handoff starts losing information.
 """),
+
     code('''
-class Meter:
-    """Tokens, wall time and model calls for one architecture over one eval set."""
-
-    def __init__(self, label: str):
-        self.label = label
-        self.in_tokens = self.out_tokens = self.calls = self.tool_calls = 0
-        self.seconds = 0.0
-
-    def record(self, result: dict, seconds: float) -> None:
-        """Add one agent run. `result` is what create_agent returned."""
-        self.seconds += seconds
-        for m in result["messages"]:
-            if getattr(m, "type", None) != "ai":
-                continue
-            self.calls += 1
-            self.tool_calls += len(m.tool_calls or [])
-            usage = getattr(m, "usage_metadata", None) or {}
-            self.in_tokens += usage.get("input_tokens", 0)     # you are billed for the context too
-            self.out_tokens += usage.get("output_tokens", 0)
-
-    @property
-    def total_tokens(self) -> int:
-        return self.in_tokens + self.out_tokens
-
-    def row(self, cases: int) -> str:
-        return (f"{self.label:22} {self.total_tokens:>8} tok  {self.calls:>3} calls  "
-                f"{self.tool_calls:>3} tools  {self.seconds:>6.1f}s  "
-                f"{self.total_tokens / max(cases, 1):>7.0f} tok/case")
-''', '''
-class Meter:
-    """Tokens, wall time and model calls for one architecture over one eval set."""
-
-    def __init__(self, label: str):
-        self.label = label
-        self.in_tokens = self.out_tokens = self.calls = self.tool_calls = 0
-        self.seconds = 0.0
-
-    def record(self, result: dict, seconds: float) -> None:
-        """Add one agent run. `result` is what create_agent returned."""
-        self.seconds += seconds
-        for m in result["messages"]:
-            if getattr(m, "type", None) != "ai":
-                continue
-            self.calls += 1
-            self.tool_calls += len(m.tool_calls or [])
-            usage = getattr(m, "usage_metadata", None) or {}
-            self.in_tokens += usage.get("input_tokens", 0)     # you are billed for the context too
-            self.out_tokens += usage.get("output_tokens", 0)
-
-    @property
-    def total_tokens(self) -> int:
-        return self.in_tokens + self.out_tokens
-
-    def row(self, cases: int) -> str:
-        return (f"{self.label:22} {self.total_tokens:>8} tok  {self.calls:>3} calls  "
-                f"{self.tool_calls:>3} tools  {self.seconds:>6.1f}s  "
-                f"{self.total_tokens / max(cases, 1):>7.0f} tok/case")
-'''),
-    code('''
-# --- Self-check: Section 1   (canned messages -- no model call)
-from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
-
-def _fake_run(n_in, n_out, tools=0):
-    ai = AIMessage(content="x", tool_calls=[{"name": "t", "args": {}, "id": f"c{i}",
-                                             "type": "tool_call"} for i in range(tools)])
-    ai.usage_metadata = {"input_tokens": n_in, "output_tokens": n_out, "total_tokens": n_in + n_out}
-    return {"messages": [HumanMessage("q"), ai]}
-
-def _metered():
-    m = Meter("test")
-    m.record(_fake_run(100, 20, tools=1), 1.5)
-    m.record(_fake_run(300, 30), 2.5)
-    return m
-
-check("input tokens are counted", lambda: _metered().in_tokens == 400,
-      "the context you resend is the larger half of the bill -- count it")
-check("output tokens are counted", lambda: _metered().out_tokens == 50)
-check("total is both sides", lambda: _metered().total_tokens == 450)
-check("model calls are counted", lambda: _metered().calls == 2)
-check("tool calls are counted separately", lambda: _metered().tool_calls == 1)
-check("wall time accumulates", lambda: abs(_metered().seconds - 4.0) < 1e-6)
-check("a run with no usage metadata does not crash",
-      lambda: Meter("x").record({"messages": [AIMessage("no usage")]}, 0.1) is None)
-'''),
-
-    md("""
-## Section 2 &mdash; Two architectures over the same tools
-
-**Arm 1 &mdash; one agent, three tools.** One `create_agent`, one context, one loop.
-
-**Arm 2 &mdash; three specialists and a supervisor.** Each specialist is its own `create_agent` with
-exactly one tool and a narrow prompt. The supervisor decides who to call, and the answer has to
-be assembled from what comes back.
-
-Both arms must answer the same questions. Write the supervisor's routing rule.
-"""),
-    code('''
+import json, time
 from langchain_core.tools import tool
 from langchain.agents import create_agent
-from pydantic import BaseModel, Field
 
 @tool
-def lookup_payment(ref: str) -> str:
-    """Return the ledger record for one payment reference such as 'PMT-1003'."""
-    r = LEDGER.get(ref)
-    return json.dumps({"ref": ref, **r}) if r else f"no payment found with reference {ref!r}"
+def lookup_ticket(ref: str) -> str:
+    """Return the support ticket for one reference such as 'TCK-4001': customer, product,
+    version, severity and error code."""
+    t = TICKETS.get(ref)
+    return json.dumps({"ref": ref, **t}) if t else f"no ticket {ref!r}"
 
 @tool
-def policy_for(reason_code: str) -> str:
-    """Return the operating policy for one failure reason code such as 'LIMIT_BREACH'."""
-    return POLICY.get(reason_code, f"no policy on file for reason code {reason_code!r}")
+def runbook_for(error_code: str) -> str:
+    """Return what support is allowed to do about one error code, e.g. 'VPN-513', including
+    whether it must be escalated."""
+    return RUNBOOK.get(error_code, f"no runbook entry for {error_code!r}")
 
 @tool
-def requires_human_approval(reason_code: str) -> str:
-    """Return whether a reason code obliges a human decision before any action."""
-    return json.dumps({"reason_code": reason_code, "needs_human": reason_code in NEEDS_HUMAN})
+def find_similar(error_code: str) -> str:
+    """Return the references of other tickets reporting the same error code."""
+    return json.dumps([r for r, t in TICKETS.items() if t["error_code"] == error_code])
 
-ALL_TOOLS = [lookup_payment, policy_for, requires_human_approval]
+ALL_TOOLS = {"lookup_ticket": lookup_ticket, "runbook_for": runbook_for, "find_similar": find_similar}
 
-SPECIALISTS = {
-    "ledger": ("You read the ledger. Look up the payment and report its fields verbatim. "
-               "Do not interpret policy.", [lookup_payment]),
-    "policy": ("You read the policy catalogue. Given a reason code, report the policy text "
-               "verbatim. Do not look up payments.", [policy_for]),
-    "control": ("You decide whether a human must approve. Given a reason code, report "
-                "true or false and nothing else.", [requires_human_approval]),
-}
 
-WORKERS = tuple(SPECIALISTS)          # ("ledger", "policy", "control")
-
-def route(step: str) -> str:
-    """Which specialist handles this step of the investigation?
-
-    step is one of "read_payment", "read_policy", "check_approval".
-    """
-    mapping = {"read_payment": "ledger", "read_policy": "policy", "check_approval": "control"}
-    if step not in mapping:
-        raise ValueError(f"no worker for step {step!r}")
-    return mapping[step]
+def specialist_tools() -> dict:
+    """Which tools does each specialist need to do its own job -- and only its own job?"""
+    return {
+        "triage":   BLANK,   # TODO: reads the ticket and reports what it is. Which tool(s)?
+        "diagnose": BLANK,   # TODO: given an error code, works out what is allowed. Which tool(s)?
+        "resolve":  BLANK,   # TODO: writes the answer. Does it need a tool at all?
+    }
 ''', '''
+import json, time
 from langchain_core.tools import tool
 from langchain.agents import create_agent
-from pydantic import BaseModel, Field
 
 @tool
-def lookup_payment(ref: str) -> str:
-    """Return the ledger record for one payment reference such as 'PMT-1003'."""
-    r = LEDGER.get(ref)
-    return json.dumps({"ref": ref, **r}) if r else f"no payment found with reference {ref!r}"
+def lookup_ticket(ref: str) -> str:
+    """Return the support ticket for one reference such as 'TCK-4001': customer, product,
+    version, severity and error code."""
+    t = TICKETS.get(ref)
+    return json.dumps({"ref": ref, **t}) if t else f"no ticket {ref!r}"
 
 @tool
-def policy_for(reason_code: str) -> str:
-    """Return the operating policy for one failure reason code such as 'LIMIT_BREACH'."""
-    return POLICY.get(reason_code, f"no policy on file for reason code {reason_code!r}")
+def runbook_for(error_code: str) -> str:
+    """Return what support is allowed to do about one error code, e.g. 'VPN-513', including
+    whether it must be escalated."""
+    return RUNBOOK.get(error_code, f"no runbook entry for {error_code!r}")
 
 @tool
-def requires_human_approval(reason_code: str) -> str:
-    """Return whether a reason code obliges a human decision before any action."""
-    return json.dumps({"reason_code": reason_code, "needs_human": reason_code in NEEDS_HUMAN})
+def find_similar(error_code: str) -> str:
+    """Return the references of other tickets reporting the same error code."""
+    return json.dumps([r for r, t in TICKETS.items() if t["error_code"] == error_code])
 
-ALL_TOOLS = [lookup_payment, policy_for, requires_human_approval]
+ALL_TOOLS = {"lookup_ticket": lookup_ticket, "runbook_for": runbook_for, "find_similar": find_similar}
 
-SPECIALISTS = {
-    "ledger": ("You read the ledger. Look up the payment and report its fields verbatim. "
-               "Do not interpret policy.", [lookup_payment]),
-    "policy": ("You read the policy catalogue. Given a reason code, report the policy text "
-               "verbatim. Do not look up payments.", [policy_for]),
-    "control": ("You decide whether a human must approve. Given a reason code, report "
-                "true or false and nothing else.", [requires_human_approval]),
+
+def specialist_tools() -> dict:
+    """Which tools does each specialist need to do its own job -- and only its own job?"""
+    return {
+        "triage":   ["lookup_ticket"],
+        "diagnose": ["runbook_for", "find_similar"],
+        "resolve":  [],              # it writes the answer from what it was handed
+    }
+'''),
+
+    code('''
+ROLES = {
+    "triage":   "Read the ticket and state the error code and severity. Two lines maximum.",
+    "diagnose": "Given an error code, state what support is allowed to do and whether it escalates.",
+    "resolve":  "Write the final answer for the customer from what you were told. Three lines maximum.",
 }
 
-WORKERS = tuple(SPECIALISTS)          # ("ledger", "policy", "control")
+def make_agent(names, instructions):
+    return create_agent(model=get_llm(), tools=[ALL_TOOLS[n] for n in names],
+                        system_prompt=instructions)
 
-def route(step: str) -> str:
-    """Which specialist handles this step of the investigation?
+def usage(out):
+    """Calls, tokens and the final text out of an agent result. Given -- you are measuring."""
+    msgs = out["messages"]
+    calls = sum(len(getattr(m, "tool_calls", []) or []) for m in msgs)
+    toks = sum((getattr(m, "usage_metadata", None) or {}).get("total_tokens", 0) for m in msgs)
+    return calls, toks, msgs[-1].content
 
-    step is one of "read_payment", "read_policy", "check_approval".
-    """
-    mapping = {"read_payment": "ledger", "read_policy": "policy", "check_approval": "control"}
-    if step not in mapping:
-        raise ValueError(f"no worker for step {step!r}")
-    return mapping[step]
-'''),
-    code('''
-# --- Self-check: Section 2   (routing + agent construction -- no model call)
-def _bad_step():
-    try:
-        route("send_email")
-        return False
-    except ValueError:
-        return True
 
-check("each step routes to its specialist",
-      lambda: [route(s) for s in ("read_payment", "read_policy", "check_approval")]
-              == ["ledger", "policy", "control"])
-check("an unknown step is refused, not guessed", _bad_step,
-      "a supervisor that invents a worker is the single commonest multi-agent bug")
-check("each specialist holds exactly one tool",
-      lambda: all(len(tools) == 1 for _, tools in SPECIALISTS.values()))
-check("between them the specialists cover every tool",
-      lambda: {t.name for _, ts in SPECIALISTS.values() for t in ts}
-              == {t.name for t in ALL_TOOLS})
-check("each specialist prompt says what it must NOT do",
-      lambda: all("not" in p.lower() or "nothing else" in p.lower()
-                  for p, _ in SPECIALISTS.values()),
-      "a narrow worker needs its boundary written down or it drifts wide")
+# --- Self-check: Section 1   (the split, and that it names real tools -- no model needed)
+check("every specialist names tools that exist",
+      lambda: all(n in ALL_TOOLS for names in specialist_tools().values() for n in names))
+check("triage can read a ticket and diagnose can read the runbook",
+      lambda: ("lookup_ticket" in specialist_tools()["triage"]
+               and "runbook_for" in specialist_tools()["diagnose"]))
+check("no specialist got every tool",
+      lambda: all(len(v) < len(ALL_TOOLS) for v in specialist_tools().values()),
+      "if one of them has all three you have built one agent with extra steps")
+score()
 '''),
 
     md("""
-## Section 3 &mdash; One eval set, both arms
+## Section 2 &mdash; One eval set, both arms
 
-Five cases. Each has a reference, and an assertion that is true of a correct answer &mdash; a
-substring we require in the final text. Crude, deliberately: this is the baseline pass rate the
-whole course measures against, and it has to be something you can defend.
+Five questions with an answer you can check by substring. Crude on purpose: a number you actually
+compute beats a number you assert.
+
+Then the part that matters &mdash; deciding **what the comparison is for**. Write the rule before
+you see the result.
 """),
+
     code('''
-EVAL_SET = [
-    {"ref": "PMT-1003", "q": "Investigate PMT-1003 and say what must happen next.",
-     "must_contain": ["treasury"],  "needs_human": True},
-    {"ref": "PMT-1005", "q": "Investigate PMT-1005 and say what must happen next.",
-     "must_contain": ["compliance"], "needs_human": True},
-    {"ref": "PMT-1002", "q": "Investigate PMT-1002 and say what must happen next.",
-     "must_contain": ["retry"],     "needs_human": False},
-    {"ref": "PMT-1004", "q": "Investigate PMT-1004 and say what must happen next.",
-     "must_contain": ["originator", "r04"], "needs_human": False},
-    {"ref": "PMT-1001", "q": "Investigate PMT-1001 and say what must happen next.",
-     "must_contain": ["settled"],   "needs_human": False},
+EVAL = [
+    ("What should we do about TCK-4001?", "trust store"),
+    ("What should we do about TCK-4002?", "3.9.2"),
+    ("What should we do about TCK-4004?", "security"),
+    ("What should we do about TCK-4005?", "3.9.2"),
+    ("Can support close TCK-4004?",       "security"),
 ]
 
-def passes(case: dict, answer: str) -> bool:
-    """A case passes when the answer mentions any of its required terms."""
-    low = (answer or "").lower()
-    return any(term in low for term in case["must_contain"])
+def verdict(single: dict, team: dict) -> str:
+    """single and team each look like {"passed": int, "tokens": int, "seconds": float}."""
+    cheaper_wins  = "team" if team["tokens"] < single["tokens"] else "single"
+    quality_first = ("team" if team["passed"] > single["passed"] else
+                     "single" if single["passed"] > team["passed"] else
+                     ("team" if team["tokens"] < single["tokens"] else "single"))
 
-
-def run_single(meter: Meter) -> list[bool]:
-    """Arm 1: one agent, all three tools, one context per case."""
-    agent = create_agent(
-        model=get_llm(), tools=ALL_TOOLS,
-        system_prompt=("You investigate payment exceptions. Procedure, in order: "
-                       "1) look up the payment; 2) look up the policy for its reason code; "
-                       "3) check whether it requires human approval; 4) state the next action."))
-    out = []
-    for case in EVAL_SET:
-        t0 = time.time()
-        result = agent.invoke({"messages": [("human", case["q"])]})
-        meter.record(result, time.time() - t0)
-        out.append(passes(case, result["messages"][-1].content))
-    return out
-
-
-def run_supervised(meter: Meter) -> list[bool]:
-    """Arm 2: a supervisor calls three single-tool specialists and assembles the answer."""
-    agents = {name: create_agent(model=get_llm(), tools=tools, system_prompt=prompt)
-              for name, (prompt, tools) in SPECIALISTS.items()}
-
-    def call(worker: str, message: str) -> str:
-        t0 = time.time()
-        result = agents[worker].invoke({"messages": [("human", message)]})
-        meter.record(result, time.time() - t0)
-        return result["messages"][-1].content
-
-    out = []
-    for case in EVAL_SET:
-        ledger = call(route("read_payment"), f"Look up {case['ref']}.")
-        code_ = next((c for c in POLICY if c in ledger), "NONE")
-        policy = call(route("read_policy"), f"What is the policy for {code_}?")
-        control = call(route("check_approval"), f"Does {code_} need human approval?")
-        # the supervisor's own call: assemble, and pay for the context again
-        t0 = time.time()
-        final = create_agent(model=get_llm(), tools=[], system_prompt=(
-            "You are the supervisor. Using only the specialist reports, state the next action "
-            "in one short line.")).invoke({"messages": [("human",
-                f"LEDGER: {ledger}\\nPOLICY: {policy}\\nCONTROL: {control}\\n\\n{case['q']}")]})
-        meter.record(final, time.time() - t0)
-        out.append(passes(case, final["messages"][-1].content))
-    return out
-
-
-def run_supervised_typed(meter: Meter) -> list[bool]:
-    """Arm 3: the same three specialists, but the ledger worker returns a LedgerReport."""
-    ledger_agent = create_agent(model=get_llm(), tools=[lookup_payment],
-                                system_prompt=SPECIALISTS["ledger"][0],
-                                response_format=LedgerReport)
-    others = {name: create_agent(model=get_llm(), tools=tools, system_prompt=prompt)
-              for name, (prompt, tools) in SPECIALISTS.items() if name != "ledger"}
-
-    def call(worker: str, message: str) -> str:
-        t0 = time.time()
-        result = others[worker].invoke({"messages": [("human", message)]})
-        meter.record(result, time.time() - t0)
-        return result["messages"][-1].content
-
-    out = []
-    for case in EVAL_SET:
-        t0 = time.time()
-        rep = ledger_agent.invoke({"messages": [("human", f"Look up {case['ref']}.")]})
-        meter.record(rep, time.time() - t0)
-        report = rep.get("structured_response")             # a LedgerReport, not a paragraph
-        code_ = extract_reason_code(report)                 # one field access
-        policy = call("policy", f"What is the policy for {code_}?")
-        control = call("control", f"Does {code_} need human approval?")
-        t0 = time.time()
-        final = create_agent(model=get_llm(), tools=[], system_prompt=(
-            "You are the supervisor. Using only the specialist reports, state the next action "
-            "in one short line.")).invoke({"messages": [("human",
-                f"LEDGER: {report}\\nPOLICY: {policy}\\nCONTROL: {control}\\n\\n{case['q']}")]})
-        meter.record(final, time.time() - t0)
-        out.append(passes(case, final["messages"][-1].content))
-    return out
+    return BLANK        # TODO: which rule would you defend in a design review?
 ''', '''
-EVAL_SET = [
-    {"ref": "PMT-1003", "q": "Investigate PMT-1003 and say what must happen next.",
-     "must_contain": ["treasury"],  "needs_human": True},
-    {"ref": "PMT-1005", "q": "Investigate PMT-1005 and say what must happen next.",
-     "must_contain": ["compliance"], "needs_human": True},
-    {"ref": "PMT-1002", "q": "Investigate PMT-1002 and say what must happen next.",
-     "must_contain": ["retry"],     "needs_human": False},
-    {"ref": "PMT-1004", "q": "Investigate PMT-1004 and say what must happen next.",
-     "must_contain": ["originator", "r04"], "needs_human": False},
-    {"ref": "PMT-1001", "q": "Investigate PMT-1001 and say what must happen next.",
-     "must_contain": ["settled"],   "needs_human": False},
+EVAL = [
+    ("What should we do about TCK-4001?", "trust store"),
+    ("What should we do about TCK-4002?", "3.9.2"),
+    ("What should we do about TCK-4004?", "security"),
+    ("What should we do about TCK-4005?", "3.9.2"),
+    ("Can support close TCK-4004?",       "security"),
 ]
 
-def passes(case: dict, answer: str) -> bool:
-    """A case passes when the answer mentions any of its required terms."""
-    low = (answer or "").lower()
-    return any(term in low for term in case["must_contain"])
+def verdict(single: dict, team: dict) -> str:
+    """single and team each look like {"passed": int, "tokens": int, "seconds": float}."""
+    cheaper_wins  = "team" if team["tokens"] < single["tokens"] else "single"
+    quality_first = ("team" if team["passed"] > single["passed"] else
+                     "single" if single["passed"] > team["passed"] else
+                     ("team" if team["tokens"] < single["tokens"] else "single"))
 
-
-def run_single(meter: Meter) -> list[bool]:
-    """Arm 1: one agent, all three tools, one context per case."""
-    agent = create_agent(
-        model=get_llm(), tools=ALL_TOOLS,
-        system_prompt=("You investigate payment exceptions. Procedure, in order: "
-                       "1) look up the payment; 2) look up the policy for its reason code; "
-                       "3) check whether it requires human approval; 4) state the next action."))
-    out = []
-    for case in EVAL_SET:
-        t0 = time.time()
-        result = agent.invoke({"messages": [("human", case["q"])]})
-        meter.record(result, time.time() - t0)
-        out.append(passes(case, result["messages"][-1].content))
-    return out
-
-
-def run_supervised(meter: Meter) -> list[bool]:
-    """Arm 2: a supervisor calls three single-tool specialists and assembles the answer."""
-    agents = {name: create_agent(model=get_llm(), tools=tools, system_prompt=prompt)
-              for name, (prompt, tools) in SPECIALISTS.items()}
-
-    def call(worker: str, message: str) -> str:
-        t0 = time.time()
-        result = agents[worker].invoke({"messages": [("human", message)]})
-        meter.record(result, time.time() - t0)
-        return result["messages"][-1].content
-
-    out = []
-    for case in EVAL_SET:
-        ledger = call(route("read_payment"), f"Look up {case['ref']}.")
-        code_ = next((c for c in POLICY if c in ledger), "NONE")
-        policy = call(route("read_policy"), f"What is the policy for {code_}?")
-        control = call(route("check_approval"), f"Does {code_} need human approval?")
-        # the supervisor's own call: assemble, and pay for the context again
-        t0 = time.time()
-        final = create_agent(model=get_llm(), tools=[], system_prompt=(
-            "You are the supervisor. Using only the specialist reports, state the next action "
-            "in one short line.")).invoke({"messages": [("human",
-                f"LEDGER: {ledger}\\nPOLICY: {policy}\\nCONTROL: {control}\\n\\n{case['q']}")]})
-        meter.record(final, time.time() - t0)
-        out.append(passes(case, final["messages"][-1].content))
-    return out
-
-
-def run_supervised_typed(meter: Meter) -> list[bool]:
-    """Arm 3: the same three specialists, but the ledger worker returns a LedgerReport."""
-    ledger_agent = create_agent(model=get_llm(), tools=[lookup_payment],
-                                system_prompt=SPECIALISTS["ledger"][0],
-                                response_format=LedgerReport)
-    others = {name: create_agent(model=get_llm(), tools=tools, system_prompt=prompt)
-              for name, (prompt, tools) in SPECIALISTS.items() if name != "ledger"}
-
-    def call(worker: str, message: str) -> str:
-        t0 = time.time()
-        result = others[worker].invoke({"messages": [("human", message)]})
-        meter.record(result, time.time() - t0)
-        return result["messages"][-1].content
-
-    out = []
-    for case in EVAL_SET:
-        t0 = time.time()
-        rep = ledger_agent.invoke({"messages": [("human", f"Look up {case['ref']}.")]})
-        meter.record(rep, time.time() - t0)
-        report = rep.get("structured_response")             # a LedgerReport, not a paragraph
-        code_ = extract_reason_code(report)                 # one field access
-        policy = call("policy", f"What is the policy for {code_}?")
-        control = call("control", f"Does {code_} need human approval?")
-        t0 = time.time()
-        final = create_agent(model=get_llm(), tools=[], system_prompt=(
-            "You are the supervisor. Using only the specialist reports, state the next action "
-            "in one short line.")).invoke({"messages": [("human",
-                f"LEDGER: {report}\\nPOLICY: {policy}\\nCONTROL: {control}\\n\\n{case['q']}")]})
-        meter.record(final, time.time() - t0)
-        out.append(passes(case, final["messages"][-1].content))
-    return out
+    return quality_first   # cost only settles a tie -- a cheaper wrong answer is not a saving
 '''),
-    code('''
-# --- Self-check: Section 3   (the scorer, on canned answers -- no model call)
-_c = EVAL_SET[3]      # PMT-1004: passes on "originator" OR "r04"
 
-check("an answer containing one required term passes",
-      lambda: passes(_c, "Return to originator.") is True)
-check("either term is enough",
-      lambda: passes(_c, "Send it back with code R04.") is True,
-      'must_contain is a list of alternatives -- "any", not "all"')
-check("an answer containing none of them fails",
-      lambda: passes(_c, "Escalate to Treasury.") is False)
-check("the scorer is case-insensitive",
-      lambda: passes(_c, "RETURN TO ORIGINATOR") is True)
-check("an empty answer fails rather than crashing",
-      lambda: passes(_c, "") is False)
-check("every case names its expectation and its ref",
-      lambda: all(c["must_contain"] and c["ref"] in LEDGER for c in EVAL_SET))
+    code('''
+# --- Self-check: Section 2   (the decision rule, on numbers you invent -- no model)
+def r(passed, tokens, seconds=1.0):
+    return {"passed": passed, "tokens": tokens, "seconds": seconds}
+
+check("a better answer wins even when it costs more",
+      lambda: verdict(r(3, 5000), r(5, 9000)) == "team")
+check("a cheaper wrong answer does not win",
+      lambda: verdict(r(5, 9000), r(2, 3000)) == "single",
+      "this is the rule that stops 'the team is cheaper' ending a design review")
+check("cost settles a tie",
+      lambda: verdict(r(5, 9000), r(5, 4000)) == "team")
+score()
 '''),
 
     md("""
-## Section 4 &mdash; Find where the quality went
-
-You now have two supervisor arms that score badly. Before theorising, instrument.
-
-The obvious suspect is the handoff. `run_supervised` recovers the reason code from the ledger
-worker's **prose** with a substring search:
-
-```python
-code_ = next((c for c in POLICY if c in ledger), "NONE")
-```
-
-That looks fragile, and it is &mdash; but "looks fragile" is not evidence. Build the typed
-alternative, then **measure whether the handoff is actually losing anything**. A contract is what
-makes that measurable: you cannot assert on a paragraph, but you can assert on a field.
+## Run it for real &mdash; both arms, one eval set
 """),
+
     code('''
-class LedgerReport(BaseModel):
-    """What the ledger specialist returns. A contract, not a paragraph."""
-    ref: str = Field(description="The payment reference that was looked up")
-    status: str = Field(description="One of: settled, failed, held")
-    reason_code: str = Field(description="BLANK")  # TODO: what must the supervisor be able to read?
-    amount: float = Field(description="The payment amount")
+def run_single(q):
+    a = make_agent(list(ALL_TOOLS), "You are a tech support analyst. Answer the question fully.")
+    t0 = time.time()
+    calls, toks, text = usage(a.invoke({"messages": [("user", q)]}))
+    return calls, toks, time.time() - t0, text
+
+def run_team(q):
+    """Three agents, each handing the next one prose -- which is the point."""
+    ag = {role: make_agent(specialist_tools()[role], ROLES[role]) for role in ROLES}
+    t0, calls, toks = time.time(), 0, 0
+    handoff = q
+    for role in ["triage", "diagnose", "resolve"]:
+        c, k, handoff = usage(ag[role].invoke({"messages": [("user", handoff)]}))
+        calls, toks = calls + c, toks + k
+    return calls, toks, time.time() - t0, handoff
+
+def arm(runner):
+    passed = calls = toks = 0; secs = 0.0
+    for q, want in EVAL:
+        c, k, s, text = runner(q)
+        ok = want.lower() in (text or "").lower()
+        passed += ok; calls += c; toks += k; secs += s
+        print(f"   {'ok  ' if ok else 'MISS'} {q[:34]:36} want={want:12} {c} calls, {k} tokens")
+    return {"passed": passed, "calls": calls, "tokens": toks, "seconds": secs}
 
 
-def extract_reason_code(report) -> str:
-    """The supervisor's read step, for both handoff styles.
-
-    report is a LedgerReport when the worker has a contract, or prose when it does not.
-    """
-    if isinstance(report, LedgerReport):
-        return BLANK                  # TODO: read the field -- no searching, no guessing
-    return next((c for c in POLICY if c in str(report)), "NONE")   # the substring version
-
-
-TRUTH = {ref: (rec["reason_code"] or "NONE") for ref, rec in LEDGER.items()}
-''', '''
-class LedgerReport(BaseModel):
-    """What the ledger specialist returns. A contract, not a paragraph."""
-    ref: str = Field(description="The payment reference that was looked up")
-    status: str = Field(description="One of: settled, failed, held")
-    reason_code: str = Field(
-        description="The ledger reason code exactly as stored, e.g. 'LIMIT_BREACH' or "
-                    "'SANCTIONS_REVIEW'. Use the literal string 'NONE' if the payment has none.")
-    amount: float = Field(description="The payment amount")
-
-
-def extract_reason_code(report) -> str:
-    """The supervisor's read step, for both handoff styles.
-
-    report is a LedgerReport when the worker has a contract, or prose when it does not.
-    """
-    if isinstance(report, LedgerReport):
-        return report.reason_code     # one field access; nothing to misphrase
-    return next((c for c in POLICY if c in str(report)), "NONE")   # the substring version
-
-
-TRUTH = {ref: (rec["reason_code"] or "NONE") for ref, rec in LEDGER.items()}
-'''),
-    code('''
-# --- Self-check: Section 4   (both handoff styles, on canned worker output -- no model call)
-_typed = LedgerReport(ref="PMT-1003", status="held", reason_code="LIMIT_BREACH", amount=990000.0)
-_prose_verbatim    = "PMT-1003 is held with reason code LIMIT_BREACH for USD 990,000."
-_prose_paraphrased = "Payment PMT-1003 is on hold because it breaches the value limit."
-
-def _desc():
-    d = LedgerReport.model_fields["reason_code"].description
-    if not d or d == "BLANK":
-        raise NameError("reason_code still has no description")
-    return d
-
-check("the contract carries everything the supervisor needs",
-      lambda: set(LedgerReport.model_fields) == {"ref", "status", "reason_code", "amount"})
-check("reason_code tells the worker exactly what to put there",
-      lambda: len(_desc()) > 40 and "NONE" in _desc(),
-      "a worker that invents its own spelling breaks the supervisor just as badly as prose")
-check("a typed handoff reads the field",
-      lambda: extract_reason_code(_typed) == "LIMIT_BREACH")
-check("the substring version works when the worker quotes the code",
-      lambda: extract_reason_code(_prose_verbatim) == "LIMIT_BREACH")
-check("...and silently returns NONE when it paraphrases instead",
-      lambda: extract_reason_code(_prose_paraphrased) == "NONE",
-      "same fact, different sentence -- and nothing anywhere reports an error")
-check("we know the right answer for every case, so the handoff can be scored",
-      lambda: TRUTH["PMT-1001"] == "NONE" and TRUTH["PMT-1005"] == "SANCTIONS_REVIEW")
-'''),
-
-    md("""
-### Now measure it, instead of assuming
-
-`_prose_paraphrased` proves the substring handoff **can** lose a fact. Whether it **does** on this
-workload is a different question, and the only way to answer it is to run it.
-
-`handoff_integrity()` puts the ledger specialist through both styles and scores the recovered
-reason code against the ledger itself. Run it before you read the next section.
-"""),
-    code('''
-def handoff_integrity() -> dict:
-    """Does the reason code survive the handoff? Score both styles against the ledger."""
-    typed_agent = create_agent(model=get_llm(), tools=[lookup_payment],
-                               system_prompt=SPECIALISTS["ledger"][0],
-                               response_format=LedgerReport)
-    prose_agent = create_agent(model=get_llm(), tools=[lookup_payment],
-                               system_prompt=SPECIALISTS["ledger"][0])
-    rows, typed_ok, prose_ok = [], 0, 0
-    for ref, want in TRUTH.items():
-        t = typed_agent.invoke({"messages": [("human", f"Look up {ref}.")]})
-        report = t.get("structured_response")
-        got_t = extract_reason_code(report) if report is not None else "(no structured_response)"
-        p = prose_agent.invoke({"messages": [("human", f"Look up {ref}.")]})
-        got_p = extract_reason_code(p["messages"][-1].content)
-        typed_ok += got_t == want
-        prose_ok += got_p == want
-        rows.append((ref, want, got_t, got_p))
-    return {"rows": rows, "typed": typed_ok, "prose": prose_ok, "of": len(TRUTH)}
-'''),
-
-    md("""
-## Run it for real
-
-Three arms plus the handoff audit: about fifty agent runs, so give this cell a minute or two.
-Read it top to bottom &mdash; does it work, what it took, and then whether the handoff is to blame.
-"""),
-    code('''
 if llm_ready():
-    def _bakeoff():
-        single_m = Meter("single agent")
-        super_m  = Meter("supervisor (prose)")
-        typed_m  = Meter("supervisor (typed)")
-        single_r = run_single(single_m)
-        super_r  = run_supervised(super_m)
-        typed_r  = run_supervised_typed(typed_m)
-        n = len(EVAL_SET)
-
-        print("does it work?")
-        print("  case       single   supervisor(prose)   supervisor(typed)")
-        for case, a, b, c in zip(EVAL_SET, single_r, super_r, typed_r):
-            f = lambda x: "pass" if x else "FAIL"
-            print(f"  {case['ref']}   {f(a):8} {f(b):19} {f(c)}")
-        print(f"\\n  pass rate  {sum(single_r)}/{n} single   "
-              f"{sum(super_r)}/{n} prose handoff   {sum(typed_r)}/{n} typed handoff")
-
-        print("\\nwhat it took")
-        print("  architecture            calls   tools     time     tokens")
-        for m in (single_m, super_m, typed_m):
-            print(f"  {m.label:22} {m.calls:>5}   {m.tool_calls:>5}   {m.seconds:>6.1f}s   "
-                  f"{m.total_tokens:>7}")
-
-        print("\\nis the handoff to blame?")
-        hi = handoff_integrity()
-        print("  ref        truth                typed                prose")
-        for ref, want, got_t, got_p in hi["rows"]:
-            print(f"  {ref}   {want:20} {got_t:20} {got_p}")
-        print(f"\\n  reason code recovered:  typed {hi['typed']}/{hi['of']}   "
-              f"prose {hi['prose']}/{hi['of']}")
-        return {"single": (single_m, single_r), "prose": (super_m, super_r),
-                "typed": (typed_m, typed_r), "handoff": hi}
-    MEASURED = guard(_bakeoff)
+    def bakeoff():
+        print("--- one agent, three tools ---");    single = arm(run_single)
+        print("--- three specialists ---");         team   = arm(run_team)
+        print(f"\\n{'':10}{'passed':>8}{'calls':>8}{'tokens':>9}{'seconds':>9}")
+        for name, m in [("single", single), ("team", team)]:
+            print(f"{name:10}{m['passed']:>6}/5{m['calls']:>8}{m['tokens']:>9}{m['seconds']:>9.1f}")
+        print("\\nverdict:", verdict(single, team))
+    guard(bakeoff)
 '''),
+
     md("""
-### Read the results
+### Read it
 
-1. **The single agent won, and not narrowly.** On this eval set it answers four or five of the
-   five; the supervisor arms typically manage nought to three, and the spread between runs is
-   itself worth noticing &mdash; the split is not just worse, it is less predictable. That result is
-   the point of Module 1's rubric, not a failure of the lab.
+Whatever your numbers were, read them against the claim everybody repeats &mdash; that multi-agent
+costs **3&ndash;10&times;** the tokens.
 
-2. **The handoff is innocent.** This is the part worth slowing down for. The audit at the bottom
-   scores the reason code recovered from the ledger worker, and on this workload *both* styles
-   recover it &mdash; typically 5/5 and 5/5. The specialist was told to "report its fields verbatim",
-   so it quotes the code, and even the substring search finds it. The fragile-looking line is not
-   what is costing you the accuracy.
+On this sandbox it does not. Measured over this eval set, tokens come out roughly **level**; what
+actually multiplies is **calls** (about 2&times;) and **latency** (about 1.5&times;), and what
+falls is the **pass rate**. The coordination tax is real and it is not mainly a token bill.
 
-   Note what just happened: the obvious explanation was wrong, and one measurement was enough to
-   retire it. Nothing else in this lab is as valuable as that habit.
+**Where the quality goes.** Each specialist hands the next one prose. The error code survives that
+&mdash; check it &mdash; but the *context* does not: `resolve` never saw the ticket, only a summary
+of a summary. That is fragmentation, not data loss, and it is why Module 5 hands structured state
+between agents rather than sentences.
 
-3. **So where does it go?** Compare a failing case across the arms. The single agent holds the
-   ledger record, the policy text and the approval flag **in one context** when it composes its
-   answer. The supervisor holds three separate summaries, each written by a worker that could not
-   see the question. Every fact needed to answer correctly is present somewhere in the system;
-   no single agent ever holds them all at once. What is lost is not data &mdash; it is **context**.
-
-   That is why the typed arm does not rescue the score either. Typing one edge makes that edge
-   assertable, which is worth having and is exactly how you ruled it out above. It does nothing
-   about the fragmentation, because the fragmentation is the architecture.
-
-4. **The costs, briefly.** More agents means more calls and more wall time, always. Tokens often
-   come out roughly level, because specialists get shorter prompts. If you expected the split to
-   be dramatically more expensive and it was not, that is worth knowing too &mdash; the argument
-   against splitting is rarely the bill.
-
-5. **What would justify the split anyway?** Not elegance. Different credentials per tool,
-   independent auditability, or one worker that has to be deployable on its own. None of those
-   are visible in any of the numbers above, which is exactly why Lab 1.5's rubric asks about them
-   *before* it looks at a result.
-
-Module 5 is where the fragmentation gets a real fix: one typed state object every agent reads and
-writes, instead of a relay of summaries. Keep this lab's numbers &mdash; you will score that graph
-against them.
+**So the honest answer here is &ldquo;one agent&rdquo;**, and being able to say that with a number
+behind it is the point of Module 1. Lab 1.5 turns it into a rule you can apply before building.
 """),
 
     code('''
 score()
 '''),
+
     md("""
 ## Your turn
 
-1. **Make the handoff guilty.** The audit came back clean because the ledger worker was told to
-   report its fields *verbatim*. Change its prompt to "summarise the payment in one friendly
-   sentence" and re-run `handoff_integrity()`. Watch the prose column collapse while the typed
-   column holds. You have just reproduced, deliberately, the bug that was not there &mdash; which
-   tells you what the contract is really insuring against.
-2. **Give the workers the question.** Each specialist is asked its narrow sub-question and never
-   sees what the user actually wanted. Pass the original question along with each worker call and
-   re-run. How much of the gap closes? This is the cheap half of what Module 5 does properly.
-3. **Make the failure loud.** `extract_reason_code` returns `"NONE"` when it finds nothing, and
-   everything downstream carries on regardless. Change the supervisor to refuse rather than
-   continue, and decide where that check belongs &mdash; in the worker, the supervisor, or the tool.
-   Module 8 argues for one of the three.
-4. **Argue with the scorer.** `passes()` accepts an answer that contains *any* required term.
-   PMT-1004 requires two of them (`originator`, `r04`). Switch it to `all` and re-run. Which
-   arm loses more, and is your eval now measuring the architecture or the wording?
+1. Give `resolve` the `lookup_ticket` tool so it can re-read the ticket instead of trusting the
+   handoff. Does the pass rate recover? What did it cost?
+2. Hand a dict between the specialists instead of prose &mdash; ticket, error code, runbook text.
+   You have just invented Module 5's shared state, and you can measure what it bought.
 """),
 ]
 
 
 # =========================================================================== #
-# Lab 1.5 -- challenge: the decision rubric, executable and evidence-led
+# Lab 1.5 -- challenge: the decision rubric
 # =========================================================================== #
 LAB5 = [
-    header(5, "Challenge &mdash; The Decision Rubric, Made Executable", "Advanced", 45,
-           ["Encode the &ldquo;do I need multiple agents?&rdquo; rubric as code that terminates early",
-            "Write the acceptance bar down <i>before</i> you look at any result",
-            "Feed Lab 1.4's real pass rates in and let them overrule the architecture you wanted",
-            "Have an agent produce the design-review record as a typed object, not a paragraph"],
-           "> **The take-home artifact.** This is the one thing from Module 1 you will use next\n"
-           "> week: a rubric that answers the question before anyone starts building."),
+    header(5, "Challenge &mdash; The Decision Rubric", "Advanced", 35,
+           ["Turn &ldquo;do we need multiple agents?&rdquo; into a rule you can apply before building",
+            "Include the answer everyone forgets: sometimes the right build is no agent",
+            "Apply it to four real systems, then watch a model disagree with it"],
+           THREAD_NOTE),
     setup(5),
     code(DOMAIN),
 
     md("""
 ## Concept
 
-Most multi-agent systems exist because the diagram was appealing, not because a question was
-asked. The rubric below asks four questions in a fixed order and **stops at the first one that
-decides**. Order matters: a cheaper architecture that answers the requirement wins, and asking
-about elegance before asking about need is how teams talk themselves into a supervisor.
+Lab 1.4 measured one split and the honest answer was &ldquo;one agent&rdquo;. That is a result
+about one system. This lab turns it into something you can carry into a design review before
+anything is built.
 
-Then the measurement gets a veto. A rubric that cannot be overruled by evidence is just a
-preference with a flowchart.
+Three answers, not two. The one that gets skipped is the first:
+
+| Answer | When |
+|---|---|
+| **no agent** | nothing has to be *decided* at runtime &mdash; a script, a query or a RAG lookup is the whole job |
+| **one agent** | there is a decision, and one loop with the right tools makes it |
+| **multi-agent** | the split has a reason you can state, and a measured gain |
+
+This is the take-home artifact of Module 1. Write it so a colleague could apply it without you.
 """),
 
     md("""
 ## Section 1 &mdash; The rubric, as code
 
-Four questions, asked in order, first decisive answer wins:
-
-1. Is the work **deterministic**? &rarr; a workflow, no agent at all.
-2. Does it fit **one context** with a handful of tools? &rarr; a single agent.
-3. Do the parts need **separate authority** &mdash; different credentials, independent audit,
-   independent deployment? &rarr; supervisor and workers.
-4. Otherwise &rarr; peers that negotiate. Rare, and expensive.
+A system is described by five facts. Two of them decide it.
 """),
+
     code('''
-from pydantic import BaseModel, Field
+def recommend(s: dict) -> str:
+    """s: decides_at_runtime, distinct_skills, runs_in_parallel, shared_context, measured_gain.
 
-VERDICTS = ("workflow", "single_agent", "supervisor_worker", "peer_to_peer")
+    Returns 'no agent', 'one agent' or 'multi-agent'.
+    """
+    if not s["decides_at_runtime"]:
+        return BLANK        # TODO: nothing chooses anything here. What should they build?
 
-def rubric(deterministic: bool, fits_one_agent: bool, separate_authority: bool) -> str:
-    """Return the first verdict the answers decide. Order is the design."""
-    if deterministic:
-        return "workflow"
-    if fits_one_agent:
-        return BLANK                  # TODO: which verdict, and why is it asked BEFORE authority?
-    if separate_authority:
-        return "supervisor_worker"
-    return "peer_to_peer"
+    worth_splitting = BLANK # TODO: what must be true before a split is justified?
+                            #       s["distinct_skills"] > 1 is necessary. Is it sufficient?
+    return "multi-agent" if worth_splitting else "one agent"
 ''', '''
-from pydantic import BaseModel, Field
+def recommend(s: dict) -> str:
+    """s: decides_at_runtime, distinct_skills, runs_in_parallel, shared_context, measured_gain.
 
-VERDICTS = ("workflow", "single_agent", "supervisor_worker", "peer_to_peer")
+    Returns 'no agent', 'one agent' or 'multi-agent'.
+    """
+    if not s["decides_at_runtime"]:
+        return "no agent"
 
-def rubric(deterministic: bool, fits_one_agent: bool, separate_authority: bool) -> str:
-    """Return the first verdict the answers decide. Order is the design."""
-    if deterministic:
-        return "workflow"
-    if fits_one_agent:
-        return "single_agent"         # cheapest thing that works, before any question of elegance
-    if separate_authority:
-        return "supervisor_worker"
-    return "peer_to_peer"
+    # More than one skill is necessary and nowhere near sufficient -- Lab 1.4 had three skills
+    # and still lost. A split needs a reason it pays: either it genuinely runs in parallel, or
+    # someone has measured it winning.
+    worth_splitting = s["distinct_skills"] > 1 and (s["runs_in_parallel"] or s["measured_gain"])
+    return "multi-agent" if worth_splitting else "one agent"
 '''),
+
     code('''
-# --- Self-check: Section 1
-check("deterministic work needs no agent",
-      lambda: rubric(True, False, True) == "workflow")
-check("determinism is asked first",
-      lambda: rubric(True, True, True) == "workflow",
-      "if it can be a workflow, nothing later in the rubric should be able to override that")
-check("work that fits one context gets one agent",
-      lambda: rubric(False, True, False) == "single_agent")
-check("fitting one context beats wanting separate authority",
-      lambda: rubric(False, True, True) == "single_agent",
-      "asking about authority first is how a team talks itself into a supervisor")
-check("separate authority earns a supervisor",
-      lambda: rubric(False, False, True) == "supervisor_worker")
-check("peer-to-peer is the residue, never the goal",
-      lambda: rubric(False, False, False) == "peer_to_peer")
-check("every path returns a known verdict",
-      lambda: all(rubric(a, b, c) in VERDICTS
-                  for a in (0, 1) for b in (0, 1) for c in (0, 1)))
+SYSTEMS = {
+    # the Lab 1.4 support desk: three skills, sequential, and it MEASURED WORSE
+    "support desk (measured in 1.4)":
+        dict(decides_at_runtime=True,  distinct_skills=3, runs_in_parallel=False,
+             shared_context=True,  measured_gain=False),
+    # a nightly report: no decision anywhere
+    "nightly ticket summary email":
+        dict(decides_at_runtime=False, distinct_skills=2, runs_in_parallel=True,
+             shared_context=False, measured_gain=False),
+    # answering from a document set: retrieval, not decision
+    "answer questions from the runbook PDF":
+        dict(decides_at_runtime=False, distinct_skills=1, runs_in_parallel=False,
+             shared_context=False, measured_gain=False),
+    # genuinely parallel: three independent scans over the same incident
+    "incident triage: logs, metrics and traces at once":
+        dict(decides_at_runtime=True,  distinct_skills=3, runs_in_parallel=True,
+             shared_context=True,  measured_gain=False),
+}
+
+# --- Self-check: Section 1   (a pure function over five dicts -- no model)
+check("the support desk from Lab 1.4 comes out as one agent",
+      lambda: recommend(SYSTEMS["support desk (measured in 1.4)"]) == "one agent",
+      "three distinct skills, and it still lost -- so skills alone cannot justify a split")
+check("both of the no-decision systems come out as no agent",
+      lambda: all(recommend(SYSTEMS[k]) == "no agent" for k in
+                  ("nightly ticket summary email", "answer questions from the runbook PDF")),
+      "a scheduled job and a RAG lookup are not agents, however fashionable")
+check("genuine parallelism justifies the split",
+      lambda: recommend(SYSTEMS["incident triage: logs, metrics and traces at once"]) == "multi-agent")
+score()
 '''),
 
     md("""
-## Section 2 &mdash; The acceptance bar, written down first
+## Section 2 &mdash; The bar, written down first
 
-Write the acceptance bar **before** you see a result, or you will fit it to whatever you got.
-This is the same discipline as pre-registering an experiment, and it is the only reason the veto
-in Section 3 means anything.
+A rubric answers &ldquo;should we?&rdquo;. You still need &ldquo;did it work?&rdquo; &mdash; and
+that number has to be written **before** you see any result, or it becomes a description of
+whatever you got.
 
-Note what is on the bar and what is not. **Silent failures** are there because Lab 1.4 showed you
-what they look like: a fluent answer assembled from a lookup that quietly returned nothing. Cost
-appears once, as latency, because a caller who will not wait is a real constraint. Token price is
-not on the bar at all &mdash; at the scale most teams run, it is the least of the things that will
-go wrong.
+This is the bar Day 1 hands to Day 3: the capstone is accepted against it, not against a demo.
 """),
+
     code('''
-BAR = {
-    "min_pass_rate":      0.80,       # below this the architecture is not a candidate at all
-    "max_silent_failures": 0,         # a wrong answer that reports no error -- Lab 1.4's bug
-    "max_seconds_case":   30.0,       # the one cost clause: an answer nobody waits for is no answer
-    "min_quality_gain":   0.10,       # a split must buy at least this much pass rate to be worth it
-}
+def bar() -> dict:
+    """The acceptance bar for a multi-agent build, agreed before anyone runs anything."""
+    generous = {"min_pass_rate": 0.6, "max_token_multiple": 10.0}   # anything can clear this
+    defensible = {"min_pass_rate": BLANK,   # TODO: what pass rate would you sign off on?
+                  "max_token_multiple": BLANK}   # TODO: how much more than one agent is acceptable?
+    return defensible
 
-def meets_bar(m: dict) -> tuple[bool, str]:
-    """m: {"pass_rate", "silent_failures", "seconds_case"}. Return (ok, first failing reason)."""
-    if m["pass_rate"] < BAR["min_pass_rate"]:
-        return False, f"pass rate {m['pass_rate']:.0%} below {BAR['min_pass_rate']:.0%}"
-    if m["silent_failures"] > BAR["max_silent_failures"]:
-        return False, (f"{m['silent_failures']} answer(s) wrong with nothing in the trace saying so")
-    if BLANK:                         # TODO: the third clause -- how long a caller will wait
-        return False, f"{m['seconds_case']:.1f}s/case over {BAR['max_seconds_case']}"
-    return True, "meets the bar"
+
+def accepted(result: dict, b: dict) -> bool:
+    """result: {"pass_rate": float, "token_multiple": float}. Given."""
+    return result["pass_rate"] >= b["min_pass_rate"] and \\
+           result["token_multiple"] <= b["max_token_multiple"]
 ''', '''
-BAR = {
-    "min_pass_rate":      0.80,       # below this the architecture is not a candidate at all
-    "max_silent_failures": 0,         # a wrong answer that reports no error -- Lab 1.4's bug
-    "max_seconds_case":   30.0,       # the one cost clause: an answer nobody waits for is no answer
-    "min_quality_gain":   0.10,       # a split must buy at least this much pass rate to be worth it
-}
+def bar() -> dict:
+    """The acceptance bar for a multi-agent build, agreed before anyone runs anything."""
+    generous = {"min_pass_rate": 0.6, "max_token_multiple": 10.0}   # anything can clear this
+    defensible = {"min_pass_rate": 0.9,        # support answers are shown to customers
+                  "max_token_multiple": 2.0}   # twice the cost needs a visible reason
+    return defensible
 
-def meets_bar(m: dict) -> tuple[bool, str]:
-    """m: {"pass_rate", "silent_failures", "seconds_case"}. Return (ok, first failing reason)."""
-    if m["pass_rate"] < BAR["min_pass_rate"]:
-        return False, f"pass rate {m['pass_rate']:.0%} below {BAR['min_pass_rate']:.0%}"
-    if m["silent_failures"] > BAR["max_silent_failures"]:
-        return False, (f"{m['silent_failures']} answer(s) wrong with nothing in the trace saying so")
-    if m["seconds_case"] > BAR["max_seconds_case"]:
-        return False, f"{m['seconds_case']:.1f}s/case over {BAR['max_seconds_case']}"
-    return True, "meets the bar"
+
+def accepted(result: dict, b: dict) -> bool:
+    """result: {"pass_rate": float, "token_multiple": float}. Given."""
+    return result["pass_rate"] >= b["min_pass_rate"] and \\
+           result["token_multiple"] <= b["max_token_multiple"]
 '''),
+
     code('''
 # --- Self-check: Section 2
-_ok     = {"pass_rate": 0.9,  "silent_failures": 0, "seconds_case": 8.0}
-_slow   = {"pass_rate": 0.9,  "silent_failures": 0, "seconds_case": 99.0}
-_silent = {"pass_rate": 0.9,  "silent_failures": 2, "seconds_case": 8.0}
-_bad    = {"pass_rate": 0.40, "silent_failures": 0, "seconds_case": 1.0}
-
-check("a good result passes",                 lambda: meets_bar(_ok)[0] is True)
-check("a slow one is rejected",               lambda: meets_bar(_slow)[0] is False,
-      "an answer nobody waits for is not an answer")
-check("silent failures are disqualifying",    lambda: meets_bar(_silent)[0] is False,
-      "a 90% pass rate with two invisible failures is worse than an 80% one that shouts")
-check("an inaccurate one is rejected first",  lambda: "pass rate" in meets_bar(_bad)[1],
-      "correctness is checked before anything else")
-check("the reason names the failing clause",  lambda: "s/case" in meets_bar(_slow)[1])
+check("the bar is stricter than one that everything passes",
+      lambda: bar()["min_pass_rate"] > 0.6 and bar()["max_token_multiple"] < 10.0,
+      "a bar nothing can fail is not a bar")
+check("Lab 1.4's team result would be rejected by it",
+      lambda: not accepted({"pass_rate": 0.4, "token_multiple": 1.0}, bar()),
+      "level on tokens, worse on answers -- cost cannot rescue that")
+check("a genuinely better team would be accepted",
+      lambda: accepted({"pass_rate": 1.0, "token_multiple": 1.8}, bar()))
+score()
 '''),
 
     md("""
-## Section 3 &mdash; Candidate, then evidence
+## Run it for real &mdash; let a model disagree with you
 
-The rubric proposes; the measurement disposes. `recommend()` takes the brief and, optionally,
-the two measurements from Lab 1.4. With no measurements it returns a candidate and says so.
-With them, it may **overrule** the candidate &mdash; and that is the point of the whole lab.
+Describe one system in prose and ask for a recommendation. Then compare it with your rubric.
 """),
+
     code('''
-def recommend(brief: dict, single: dict | None = None, multi: dict | None = None) -> dict:
-    """brief: {"name", "deterministic", "fits_one_agent", "separate_authority"}.
-    single/multi: {"pass_rate", "silent_failures", "seconds_case"} from a real run.
-    """
-    candidate = rubric(brief["deterministic"], brief["fits_one_agent"],
-                       brief["separate_authority"])
-    out = {"name": brief["name"], "candidate": candidate,
-           "decision": candidate, "why": "rubric only; no measurement supplied"}
-    if not (single and multi):
-        return out
+DESCRIPTION = (
+    "A support desk. A ticket arrives; the system reads it, looks up the runbook for its error "
+    "code, and writes a reply to the customer. The steps are strictly sequential. We measured a "
+    "three-agent version against a single agent on the same five cases: the single agent answered "
+    "5 out of 5, the three-agent version 2 out of 5, for roughly the same token count.")
 
-    s_ok, s_why = meets_bar(single)
-    m_ok, m_why = meets_bar(multi)
-    gain = multi["pass_rate"] - single["pass_rate"]
-
-    if candidate in ("supervisor_worker", "peer_to_peer"):
-        # the split has to EARN itself against the single agent
-        if not m_ok:
-            out.update(decision="single_agent", why=f"multi-agent below the bar: {m_why}")
-        elif BLANK:                   # TODO: did the split buy enough quality to be worth it?
-            out.update(decision="single_agent",
-                       why=f"split changed the pass rate by only {gain:+.0%}")
-        else:
-            out.update(decision=candidate, why=f"split earned it: {gain:+.0%} pass rate")
-    else:
-        out.update(why=f"single arm {s_why}" if s_ok else f"single arm rejected: {s_why}")
-    return out
-''', '''
-def recommend(brief: dict, single: dict | None = None, multi: dict | None = None) -> dict:
-    """brief: {"name", "deterministic", "fits_one_agent", "separate_authority"}.
-    single/multi: {"pass_rate", "silent_failures", "seconds_case"} from a real run.
-    """
-    candidate = rubric(brief["deterministic"], brief["fits_one_agent"],
-                       brief["separate_authority"])
-    out = {"name": brief["name"], "candidate": candidate,
-           "decision": candidate, "why": "rubric only; no measurement supplied"}
-    if not (single and multi):
-        return out
-
-    s_ok, s_why = meets_bar(single)
-    m_ok, m_why = meets_bar(multi)
-    gain = multi["pass_rate"] - single["pass_rate"]
-
-    if candidate in ("supervisor_worker", "peer_to_peer"):
-        # the split has to EARN itself against the single agent
-        if not m_ok:
-            out.update(decision="single_agent", why=f"multi-agent below the bar: {m_why}")
-        elif gain < BAR["min_quality_gain"]:
-            out.update(decision="single_agent",
-                       why=f"split changed the pass rate by only {gain:+.0%}")
-        else:
-            out.update(decision=candidate, why=f"split earned it: {gain:+.0%} pass rate")
-    else:
-        out.update(why=f"single arm {s_why}" if s_ok else f"single arm rejected: {s_why}")
-    return out
-'''),
-    code('''
-# --- Self-check: Section 3
-SPLIT_BRIEF = {"name": "payment exceptions", "deterministic": False,
-               "fits_one_agent": False, "separate_authority": True}
-
-_single_good  = {"pass_rate": 0.80, "silent_failures": 0, "seconds_case": 9.0}
-_multi_worth  = {"pass_rate": 0.95, "silent_failures": 0, "seconds_case": 20.0}  # +15%, clean
-_multi_silent = {"pass_rate": 0.95, "silent_failures": 1, "seconds_case": 20.0}  # +15%, but hides one
-_multi_flat   = {"pass_rate": 0.82, "silent_failures": 0, "seconds_case": 15.0}  # +2%
-
-check("with no measurement it returns the rubric's candidate",
-      lambda: recommend(SPLIT_BRIEF)["decision"] == "supervisor_worker")
-check("a split that clearly earns it is kept",
-      lambda: recommend(SPLIT_BRIEF, _single_good, _multi_worth)["decision"] == "supervisor_worker")
-check("a split that hides a failure is overruled despite scoring higher",
-      lambda: recommend(SPLIT_BRIEF, _single_good, _multi_silent)["decision"] == "single_agent",
-      "a higher pass rate does not buy the right to fail invisibly")
-check("the overrule says what was wrong with it",
-      lambda: "nothing in the trace" in recommend(SPLIT_BRIEF, _single_good, _multi_silent)["why"])
-check("a split that buys nothing is overruled",
-      lambda: recommend(SPLIT_BRIEF, _single_good, _multi_flat)["decision"] == "single_agent")
-check("the candidate is reported even when overruled",
-      lambda: recommend(SPLIT_BRIEF, _single_good, _multi_silent)["candidate"] == "supervisor_worker",
-      "a design review needs to see what was proposed AND what the evidence did to it")
-'''),
-
-    md("""
-## Section 4 &mdash; The design-review table
-
-Four briefs, one table. This is the artifact you take away.
-"""),
-    code('''
-BRIEFS = [
-    {"name": "nightly reconciliation",   "deterministic": True,
-     "fits_one_agent": False, "separate_authority": False},
-    {"name": "single-desk triage",       "deterministic": False,
-     "fits_one_agent": True,  "separate_authority": False},
-    {"name": "payment exceptions",       "deterministic": False,
-     "fits_one_agent": False, "separate_authority": True},
-    {"name": "cross-desk negotiation",   "deterministic": False,
-     "fits_one_agent": False, "separate_authority": False},
-]
-
-def review_table(briefs, single=None, multi=None) -> str:
-    rows = ["  brief                  candidate            decision             why",
-            "  " + "-" * 100]
-    for b in briefs:
-        r = recommend(b, single, multi)
-        flag = " " if r["decision"] == r["candidate"] else "!"
-        rows.append(f"{flag} {r['name']:22} {r['candidate']:20} {r['decision']:20} {r['why']}")
-    return "\\n".join(rows)
-
-guard(lambda: print(review_table(BRIEFS)))
-print("\\n(rows marked ! are where the evidence overruled the rubric)")
-'''),
-    code('''
-# --- Self-check: Section 4   (built lazily -- a module-level call into a blanked
-#     function would crash the cell instead of reporting [TODO])
-def _t():
-    return review_table(BRIEFS, _single_good, _multi_silent)
-
-check("every brief appears", lambda: all(b["name"] in _t() for b in BRIEFS))
-check("the overruled row is flagged", lambda: "!" in _t(),
-      "a design review must be able to see where evidence beat the proposal")
-check("the deterministic brief is still a workflow", lambda: "workflow" in _t())
-'''),
-
-    md("""
-## Run it for real
-
-Feed in what you actually got in Lab 1.4, then have the model produce the design-review record.
-Notice what it is being asked to do: not to *decide*, but to write up a decision your code
-already made and can defend &mdash; and to return it as an object, so it can be filed rather than
-re-read.
-"""),
-    code('''
-class DesignDecision(BaseModel):
-    """The record a design review actually needs."""
-    architecture: str = Field(description="The architecture chosen, in one or two words")
-    rationale: str = Field(description="Two sentences at most, citing only the evidence given")
-    revisit_when: str = Field(
-        description="One concrete, checkable condition that would reopen this decision")
-'''),
-    code('''
 if llm_ready():
-    def _review():
-        # Edit these two dicts with YOUR results from Lab 1.4, then re-run.
-        single = {"pass_rate": 1.00, "silent_failures": 0, "seconds_case": 3.4}
-        multi  = {"pass_rate": 0.40, "silent_failures": 3, "seconds_case": 4.7}
-
-        print(review_table(BRIEFS, single, multi))
-        verdict = recommend(BRIEFS[2], single, multi)
-
-        # The record is an OBJECT, so it can go straight into a design-review system --
-        # the same pattern as Lab 1.3's Verdict, applied to your own decision.
-        record = get_llm().with_structured_output(DesignDecision).invoke(
-            "Produce the design-review record for this decision. Use only the facts given; "
-            "do not add claims. `revisit_when` must name a concrete, checkable condition.\\n\\n"
-            f"BRIEF: {verdict['name']}\\n"
-            f"CANDIDATE FROM RUBRIC: {verdict['candidate']}\\n"
-            f"DECISION: {verdict['decision']}\\n"
-            f"EVIDENCE: {verdict['why']}\\n"
-            f"ACCEPTANCE BAR: {BAR}\\n"
-            f"MEASURED single={single} multi={multi}")
-        print("\\n--- the design-review record ---")
-        print(f"architecture : {record.architecture}")
-        print(f"rationale    : {record.rationale}")
-        print(f"revisit when : {record.revisit_when}")
-    guard(_review)
+    def compare():
+        opinion = ask("Should this be built as one agent or as multiple specialised agents? "
+                      "Answer in two sentences.\\n\\n" + DESCRIPTION,
+                      system="You are a pragmatic AI architect.")
+        print("the model says:\\n  ", opinion.strip()[:420])
+        print("\\nyour rubric says:", recommend(SYSTEMS["support desk (measured in 1.4)"]))
+        print("\\nOnly one of those two is checkable, and only one of them cites the measurement.")
+    guard(compare)
 '''),
+
     md("""
 ### Read it
 
-If the paragraph reads as a justification you would actually sign, the rubric did its job. If it
-reads as advocacy for the interesting architecture, look again at which clause let it through.
+The model may well agree with you. That is not the point &mdash; ask it twice and see whether it
+still does.
 
-**What you take from Module 1:** the agent loop, in your own code and in `create_agent`; tools
-whose descriptions you can defend with a number; typed contracts between agents, and the bug that
-appears the moment you drop one; a rubric that terminates early; and an acceptance bar written
-before the result that can overrule your own design preference. Modules 2
-and 3 make the agent better. This lab is what stops you building one you did not need.
+**A rubric is checkable and an opinion is not.** Yours is four lines, it names the facts it uses,
+and anyone can run it on a system description and get the same answer. That is what makes it
+usable in a design review, and it is why this is Module 1's take-home artifact rather than a slide.
+
+**What you take from Module 1:** an agent is a loop you can write in fifteen lines; the four blocks
+are real objects; tool descriptions are prompts and worth measuring; splitting into specialists has
+a price you can measure; and the answer is sometimes &ldquo;no agent&rdquo;. Module 2 asks how the
+agent should *think*, and Module 3 gives it a state you can pause and audit.
 """),
 
     code('''
 score()
 '''),
+
     md("""
 ## Your turn
 
-1. `rubric()` takes booleans, which assumes someone already made the hard calls. Replace
-   `fits_one_agent` with a function of the tool count and argue for the threshold you pick.
-2. Add a fifth question &mdash; **can this fail unattended?** &mdash; that can force a supervisor even
-   when the rubric would otherwise say single agent. Where in the order does it belong, and why?
-3. Take a real brief from your own team, fill in the three booleans honestly, and run it with
-   your Lab 1.4 results. If the verdict surprises you, which boolean were you tempted to fill in
-   dishonestly?
+1. Add a fifth fact &mdash; `human_gate` &mdash; and decide whether it changes the recommendation
+   or only the design. Getting that distinction right is most of Module 8.
+2. Run your rubric over a system you actually own. If it says &ldquo;no agent&rdquo;, that is the
+   most valuable answer it can give you.
 """),
 ]
 
@@ -2656,11 +1529,11 @@ score()
 # main
 # =========================================================================== #
 LABS = [
-    ("lab-1-01-llm-vs-agent-loop",        LAB1),
-    ("lab-1-02-four-building-blocks",     LAB2),
-    ("lab-1-03-create-agent-on-ramp",     LAB3),
-    ("lab-1-04-coordination-tax",         LAB4),
-    ("lab-1-05-challenge-decision-rubric", LAB5),
+    ("lab-1-01-stateless-call-to-agent-loop", LAB1),
+    ("lab-1-02-four-building-blocks",         LAB2),
+    ("lab-1-03-tool-descriptions",            LAB3),
+    ("lab-1-04-coordination-tax",             LAB4),
+    ("lab-1-05-challenge-decision-rubric",    LAB5),
 ]
 
 
