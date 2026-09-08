@@ -43,16 +43,21 @@ footer a{color:#c7d2fe;text-decoration:none}
       <strong>Self-check</strong> cell under each section. It prints <code>[PASS]</code>,
       <code>[FAIL]</code> or <code>[TODO]</code>, and the last cell prints your
       <code>Score</code>.</p>
-    <p><strong>Your score never depends on a live model.</strong> Graded cells are plain Python.
-      Cells marked <strong>Run it for real</strong> do call the sandbox model &mdash; if it is
-      unreachable they print how to fix it rather than crashing, so <em>Run All</em> is always safe
-      on an untouched notebook.</p>
-    <p><strong>Nothing here needs a cluster.</strong> Every graded cell is stdlib and runs
-      offline: the kubelet's probe loop is twenty lines, and a Kubernetes manifest is a Python
-      dict, because a manifest <em>is</em> JSON and YAML is a surface syntax over it. The
-      <strong>Run it for real</strong> cells put the sandbox gateway, your own namespace and
-      LangFuse on the other side &mdash; and a full starter manifest ships beside these
-      notebooks as <code>app-deploy-example.yaml</code>.</p>
+    <p><strong>You write real framework code.</strong> A FastAPI app and its routes, Pydantic
+      request and response contracts, LangChain tools and an agent behind the boundary, and
+      Kubernetes manifests as Python dicts. The self-checks assert on <em>the objects you built</em>
+      &mdash; a route table, a schema, a compiled tool, a manifest &mdash; so they are
+      deterministic.</p>
+    <p><strong>Your score never depends on a live model.</strong> Only cells marked
+      <strong>Run it for real</strong> call the sandbox model &mdash; if it is unreachable they
+      print how to fix it rather than crashing, so <em>Run All</em> is always safe on an untouched
+      notebook.</p>
+    <p><strong>Nothing graded here needs a cluster.</strong> A Kubernetes manifest <em>is</em>
+      JSON and YAML is a surface syntax over it, so the linting is a predicate over a Python dict;
+      the kubelet's probe loop is twenty lines. <code>kubectl apply --dry-run=server</code>, your
+      own namespace and the tracing backend live only in the <strong>Run it for real</strong>
+      cells &mdash; and a full starter manifest ships beside these notebooks as
+      <code>app-deploy-example.yaml</code>.</p>
   </div>
 
   <div class="lab">
@@ -60,12 +65,12 @@ footer a{color:#c7d2fe;text-decoration:none}
     <h3><a href="lab-9-01-the-service-boundary.ipynb">Lab 9.1 &mdash; The Service Boundary</a></h3>
     <p>Same answers, same code, no error anywhere &mdash; and ten callers take ten times as long.</p>
     <ul>
-      <li>Map every failure to a status code a caller can act on</li>
+      <li>Write the request and response contracts as Pydantic models on a real FastAPI app</li>
+      <li>Put the approval gate in front of the agent, where it needs no checkpointer</li>
       <li>Find out why a refusal must not be a 5xx</li>
-      <li>Measure what one blocking call does to an async worker</li>
-      <li>See how streaming fixes the status before the outcome is known</li>
+      <li>Measure what one blocking call does to an async worker under load</li>
     </ul>
-    <div class="sol">3 blanks &middot; 24 checks &middot; solution: <code>solutions/lab-9-01-the-service-boundary.ipynb</code></div>
+    <div class="sol">3 blanks &middot; 32 checks &middot; solution: <code>solutions/lab-9-01-the-service-boundary.ipynb</code></div>
   </div>
 
   <div class="lab">
@@ -73,12 +78,12 @@ footer a{color:#c7d2fe;text-decoration:none}
     <h3><a href="lab-9-02-probes-that-can-fail.ipynb">Lab 9.2 &mdash; Probes That Can Actually Fail</a></h3>
     <p>The gateway blinked for thirty seconds, so Kubernetes restarted three healthy processes.</p>
     <ul>
-      <li>Write liveness and readiness so they answer different questions</li>
-      <li>Simulate the kubelet and price failureThreshold in seconds of traffic</li>
-      <li>Compare three probe configurations through the same outage</li>
-      <li>Find out what a readiness check that calls the model costs</li>
+      <li>Write <code>/healthz</code> and <code>/readyz</code> as real FastAPI routes that answer different questions</li>
+      <li>Decide which failures restart a container and which only drain traffic</li>
+      <li>Simulate the kubelet and price <code>failureThreshold</code> in seconds of traffic</li>
+      <li>Find out what a readiness check that calls the model costs per day</li>
     </ul>
-    <div class="sol">3 blanks &middot; 22 checks &middot; solution: <code>solutions/lab-9-02-probes-that-can-fail.ipynb</code></div>
+    <div class="sol">4 blanks &middot; 24 checks &middot; solution: <code>solutions/lab-9-02-probes-that-can-fail.ipynb</code></div>
   </div>
 
   <div class="lab">
@@ -86,12 +91,12 @@ footer a{color:#c7d2fe;text-decoration:none}
     <h3><a href="lab-9-03-the-manifest-is-the-deploy.ipynb">Lab 9.3 &mdash; The Manifest Is the Deployment</a></h3>
     <p>Five blocking findings in a manifest that looks perfectly ordinary &mdash; and one rule that is wrong.</p>
     <ul>
-      <li>Turn the production-readiness checklist into predicates that run</li>
-      <li>Separate what blocks a release from what is worth an argument</li>
-      <li>Show that the HPA everyone ships never fires for this workload</li>
-      <li>Send the object you linted to a real API server</li>
+      <li>Turn the production-readiness checklist into rules that run</li>
+      <li>Decide which findings block a release and which are only worth an argument</li>
+      <li>Catch a probe path the app does not serve, by reading the app's own route table</li>
+      <li>Send the object you linted to a real API server with <code>--dry-run=server</code></li>
     </ul>
-    <div class="sol">3 blanks &middot; 22 checks &middot; solution: <code>solutions/lab-9-03-the-manifest-is-the-deploy.ipynb</code></div>
+    <div class="sol">3 blanks &middot; 30 checks &middot; solution: <code>solutions/lab-9-03-the-manifest-is-the-deploy.ipynb</code></div>
   </div>
 
   <div class="lab">
@@ -99,12 +104,12 @@ footer a{color:#c7d2fe;text-decoration:none}
     <h3><a href="lab-9-04-spans-you-can-bill.ipynb">Lab 9.4 &mdash; Spans You Can Bill</a></h3>
     <p>Three of six questions cannot be answered at any price, because nobody recorded the attribute.</p>
     <ul>
-      <li>Put cost on the span, with the token counts that re-derive it</li>
-      <li>Work out which questions your instrumentation can answer</li>
-      <li>Count the time series a label adds before you add it</li>
-      <li>Do the arithmetic that shows head sampling loses the incident</li>
+      <li>Build the span attributes from the model's own usage metadata</li>
+      <li>Be honest about where the bill actually comes from</li>
+      <li>Work out which questions your instrumentation can answer, and which it cannot</li>
+      <li>Choose the labels a metric may carry, and the traces tail sampling must keep</li>
     </ul>
-    <div class="sol">3 blanks &middot; 30 checks &middot; solution: <code>solutions/lab-9-04-spans-you-can-bill.ipynb</code></div>
+    <div class="sol">3 blanks &middot; 39 checks &middot; solution: <code>solutions/lab-9-04-spans-you-can-bill.ipynb</code></div>
   </div>
 
   <div class="lab">
@@ -112,12 +117,12 @@ footer a{color:#c7d2fe;text-decoration:none}
     <h3><a href="lab-9-05-challenge-up-and-wrong.ipynb">Lab 9.5 &mdash; Challenge: The Service That Is Up and Wrong</a></h3>
     <p>Every golden signal flat and green, and one payment in twelve went out without a human.</p>
     <ul>
-      <li>Find an incident that no conventional dashboard shows</li>
+      <li>Find an incident in which every conventional signal is green</li>
+      <li>Decide which direction each metric has to move before it is worth a page</li>
       <li>Pick a scaling signal that moves when CPU does not</li>
-      <li>Write alarms that fire on the incident and stay quiet on a good day</li>
       <li>Leave with the runbook page for an agentic service</li>
     </ul>
-    <div class="sol">3 blanks &middot; 27 checks &middot; solution: <code>solutions/lab-9-05-challenge-up-and-wrong.ipynb</code></div>
+    <div class="sol">3 blanks &middot; 33 checks &middot; solution: <code>solutions/lab-9-05-challenge-up-and-wrong.ipynb</code></div>
   </div>
 
   <div class="note">

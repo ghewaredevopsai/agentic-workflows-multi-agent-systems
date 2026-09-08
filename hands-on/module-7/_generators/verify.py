@@ -4,7 +4,7 @@
 Live-model cells self-skip because LAB_LLM_BASE_URL is unset, so this runs offline.
 Also checks that each lab has blanks and that no solution does.
 """
-import io, json, os, sys, contextlib, re
+import io, json, os, sys, contextlib, re, tokenize, token
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 LABDIR = os.path.abspath(os.path.join(HERE, ".."))
@@ -13,9 +13,13 @@ SOLDIR = os.path.join(LABDIR, "solutions")
 # Every name the notebooks resolve a model from, including the LITELLM_* fallback and
 # OPENAI_API_BASE. Miss one and this "offline" verifier makes real model calls on the
 # cluster -- where all of them are set -- so the run stops being free and deterministic.
+# The LANGFUSE_* names go too: no graded cell uses Langfuse, and verification must never
+# depend on a tracing backend being reachable.
 for v in ("LAB_LLM_BASE_URL", "LAB_LLM_MODEL",
           "OPENAI_BASE_URL", "OPENAI_API_BASE", "OPENAI_MODEL",
-          "LITELLM_BASE_URL", "LITELLM_MODEL"):
+          "LITELLM_BASE_URL", "LITELLM_MODEL",
+          "LANGFUSE_BASE_URL", "LANGFUSE_HOST",
+          "LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY"):
     os.environ.pop(v, None)
 
 fails = 0
@@ -50,12 +54,32 @@ for fn in sorted(f for f in os.listdir(SOLDIR) if f.endswith(".ipynb")):
             if "[FAIL]" in line or "[TODO]" in line:
                 print("           " + line)
 
+def count_blanks(nb):
+    """Unfilled blanks = BLANK used as a bare NAME. Not the word in a comment or a string.
+
+    This was a plain substring count, which cannot tell an unfilled blank from a guard that
+    legitimately mentions the sentinel -- lab 7.3 needs to compare a field description
+    against the literal "BLANK", and that read as unfilled blanks in the solution.
+    Tokenising counts only real identifier uses, so it still catches every genuine leftover.
+    """
+    total = 0
+    for c in nb["cells"]:
+        if c["cell_type"] != "code":
+            continue
+        src = "".join(c["source"])
+        try:
+            total += sum(1 for t in tokenize.generate_tokens(io.StringIO(src).readline)
+                         if t.type == token.NAME and t.string == "BLANK")
+        except (tokenize.TokenError, IndentationError, SyntaxError):
+            total += src.count("BLANK")      # unparseable cell: fall back to the blunt count
+    return total
+
 print("\n--- blanks ---")
 for fn in sorted(f for f in os.listdir(LABDIR) if f.endswith(".ipynb")):
     lab = json.load(open(os.path.join(LABDIR, fn)))
     sol = json.load(open(os.path.join(SOLDIR, fn)))
-    lb = sum("".join(c["source"]).count("BLANK") for c in lab["cells"] if c["cell_type"] == "code")
-    sb = sum("".join(c["source"]).count("BLANK") for c in sol["cells"] if c["cell_type"] == "code")
+    lb = count_blanks(lab)
+    sb = count_blanks(sol)
     good = lb > 0 and sb == 0
     print(f"[{'OK    ' if good else 'BROKEN'}] {fn:44} {lb} blanks in lab, {sb} in solution")
     if not good:

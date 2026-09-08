@@ -43,49 +43,54 @@ footer a{color:#c7d2fe;text-decoration:none}
       <strong>Self-check</strong> cell under each section. It prints <code>[PASS]</code>,
       <code>[FAIL]</code> or <code>[TODO]</code>, and the last cell prints your
       <code>Score</code>.</p>
-    <p><strong>Your score never depends on a live model.</strong> Graded cells are plain Python.
-      Cells marked <strong>Run it for real</strong> do call the sandbox model &mdash; if it is
-      unreachable they print how to fix it rather than crashing, so <em>Run All</em> is always safe
-      on an untouched notebook.</p>
-    <p><strong>A corpus, not a ledger</strong> &mdash; two short operating documents the agent has to go
-      and read. The scoring function is term overlap rather than an embedding, so every check is exact
-      and offline; chunking, floors, filters, citations and the metrics are identical whatever computes
-      the similarity. Lab 6.1's <strong>Run it for real</strong> puts the same corpus into ChromaDB with a
-      real embedding model so you can see where semantics win &mdash; that first run downloads about 80&nbsp;MB.</p>
+    <p><strong>Self-checks assert on the objects you built</strong> &mdash; a chunked
+      <code>Document</code>, a Chroma collection, a bound <code>@tool</code>, a compiled
+      <code>StateGraph</code>, a parser. None of that needs the gateway, so your score never depends
+      on a live model. Cells marked <strong>Run it for real</strong> do call the sandbox model &mdash;
+      if it is unreachable they print how to fix it rather than crashing, so <em>Run All</em> is
+      always safe on an untouched notebook.</p>
+    <p><strong>A corpus, not a ledger</strong> &mdash; two short operating documents about the same
+      payments, which the agent has to go and read. Retrieval runs on a real <strong>Chroma</strong>
+      collection, embedded by a thirty-line <code>Embeddings</code> class you can read line by line:
+      the sandbox has no egress, and chromadb's default embedding function wants an 80&nbsp;MB
+      download. Everything else &mdash; chunking, floors, metadata filters, citations, the metrics
+      &mdash; is identical whatever computes the similarity.</p>
   </div>
 
         <div class="lab">
-    <div class="tags">30 min<span class="lvl">Intermediate</span></div>
+    <div class="tags">35 min<span class="lvl">Intermediate</span></div>
     <h3><a href="lab-6-01-a-retriever-you-can-inspect.ipynb">Lab 6.1 &mdash; A Retriever You Can Inspect</a></h3>
     <p>Cut a document two ways and watch one of them put an answer permanently out of reach.</p>
     <ul>
-      <li>Chunk on meaning, so a rule keeps the exception that qualifies it</li>
-      <li>Watch top-k return four confident chunks from a corpus that has nothing</li>
-      <li>Build the score floor that makes an empty result possible</li>
-      <li>Scope with metadata &mdash; a filter is also an access control</li>
+      <li>Split with <code>MarkdownHeaderTextSplitter</code>, so a rule keeps the exception that qualifies it</li>
+      <li>Write an <code>Embeddings</code> class and index the corpus in <strong>Chroma</strong></li>
+      <li>Watch top-k return four confident chunks from a corpus that has nothing &mdash; then choose the floor</li>
+      <li>Scope with a metadata filter &mdash; a filter is also an access control</li>
     </ul>
-    <div class="sol">3 blanks &middot; 20 checks &middot; solution: <code>solutions/lab-6-01-a-retriever-you-can-inspect.ipynb</code></div>
+    <div class="sol">4 blanks &middot; 26 checks &middot; solution: <code>solutions/lab-6-01-a-retriever-you-can-inspect.ipynb</code></div>
   </div>
 
   <div class="lab">
-    <div class="tags">35 min<span class="lvl">Intermediate &rarr; Advanced</span></div>
+    <div class="tags">40 min<span class="lvl">Intermediate &rarr; Advanced</span></div>
     <h3><a href="lab-6-02-retrieval-as-a-tool.ipynb">Lab 6.2 &mdash; Retrieval as a Tool the Agent Chooses</a></h3>
     <p>Half the questions in the set need no corpus at all. A pipeline retrieves for all of them.</p>
     <ul>
-      <li>Decide whether to retrieve, and price the times you should not have</li>
+      <li>Wrap the retriever in a <code>@tool</code> &mdash; and write the description the model actually reads</li>
+      <li>Offer it beside the ledger tool with <code>bind_tools</code>, and let the model decide</li>
+      <li>Price always-retrieve: the tokens, and the noise it puts next to the real context</li>
       <li>Rewrite the user's words into the corpus's vocabulary</li>
-      <li>Compare the pipeline and the agent on the same questions</li>
     </ul>
-    <div class="sol">3 blanks &middot; 17 checks &middot; solution: <code>solutions/lab-6-02-retrieval-as-a-tool.ipynb</code></div>
+    <div class="sol">3 blanks &middot; 22 checks &middot; solution: <code>solutions/lab-6-02-retrieval-as-a-tool.ipynb</code></div>
   </div>
 
   <div class="lab">
-    <div class="tags">35 min<span class="lvl">Advanced</span></div>
+    <div class="tags">40 min<span class="lvl">Advanced</span></div>
     <h3><a href="lab-6-03-adequacy-and-multi-hop.ipynb">Lab 6.3 &mdash; Adequacy, Re-querying and Multi-Hop</a></h3>
     <p>The loop a pipeline cannot have: judge your own retrieval, then ask again with what it taught you.</p>
     <ul>
       <li>An adequacy test that can actually say no</li>
-      <li>Follow a chain of reason codes across three hops</li>
+      <li>Build retrieve &rarr; judge &rarr; re-query as a compiled <code>StateGraph</code></li>
+      <li>Re-query with a reason code the first hop taught you</li>
       <li>A hop budget, a repeat detector, and &lsquo;I could not find it&rsquo; as a real outcome</li>
     </ul>
     <div class="sol">2 blanks &middot; 19 checks &middot; solution: <code>solutions/lab-6-03-adequacy-and-multi-hop.ipynb</code></div>
@@ -96,11 +101,12 @@ footer a{color:#c7d2fe;text-decoration:none}
     <h3><a href="lab-6-04-citations-and-refusing.ipynb">Lab 6.4 &mdash; Citations Bound to Spans, and Refusing</a></h3>
     <p>A citation that names a document proves nothing. A span is checkable by string comparison.</p>
     <ul>
-      <li>Bind each claim to the exact characters that support it</li>
-      <li>Drop a claim that cannot name its source, before it ships</li>
-      <li>Refuse when the corpus cannot answer &mdash; and say what is missing</li>
+      <li>Declare a citation as a <strong>Pydantic</strong> schema the model has to fill</li>
+      <li>Pick the parser that actually rejects a bad one &mdash; one of the two does not</li>
+      <li>Bind each claim to the exact characters that support it, and drop the ones that cannot be bound</li>
+      <li>Refuse when the corpus cannot answer &mdash; structurally, and then in the prompt</li>
     </ul>
-    <div class="sol">3 blanks &middot; 19 checks &middot; solution: <code>solutions/lab-6-04-citations-and-refusing.ipynb</code></div>
+    <div class="sol">4 blanks &middot; 26 checks &middot; solution: <code>solutions/lab-6-04-citations-and-refusing.ipynb</code></div>
   </div>
 
   <div class="lab">
@@ -108,19 +114,23 @@ footer a{color:#c7d2fe;text-decoration:none}
     <h3><a href="lab-6-05-challenge-score-the-halves.ipynb">Lab 6.5 &mdash; Challenge: Score the Two Halves Apart</a></h3>
     <p>A right answer from the wrong evidence passes every demo you will ever run.</p>
     <ul>
-      <li>Label an eval set, then measure recall@k and precision@k</li>
+      <li>Label an eval set, measure recall@k and precision@k, and choose k with the numbers</li>
       <li>Measure faithfulness and answer relevance with no labels at all</li>
       <li>Put a run in the 2&times;2 and read off which half to fix</li>
       <li>Meet the limits of an exact-match faithfulness score &mdash; on purpose</li>
     </ul>
-    <div class="sol">3 blanks &middot; 20 checks &middot; solution: <code>solutions/lab-6-05-challenge-score-the-halves.ipynb</code></div>
+    <div class="sol">3 blanks &middot; 21 checks &middot; solution: <code>solutions/lab-6-05-challenge-score-the-halves.ipynb</code></div>
   </div>
 
   <div class="note">
     <strong>Regenerating.</strong> Labs and solutions are built from a single source
     (<code>_generators/gen_labs.py</code>) so a blank can never drift from the answer that grades
-    it. Run <code>_generators/regenerate.sh</code> to rebuild and re-verify both directions.
-    Runtime prerequisites are in <code>../module-1/RUNTIME.md</code>.
+    it. Run <code>_generators/regenerate.sh</code> to rebuild and re-verify both directions, and
+    <code>_generators/verify_live.py</code> on the cluster to run every solution against the live
+    model. Runtime prerequisites are in <code>../module-1/RUNTIME.md</code>; these labs additionally
+    need <code>langchain-chroma</code>, <code>chromadb</code> and
+    <code>langchain-text-splitters</code>, all present in the sandbox image. No lab downloads
+    anything.
   </div>
 
 </div>

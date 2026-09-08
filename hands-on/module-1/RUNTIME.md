@@ -15,6 +15,19 @@ the endpoint is read from the environment, so the admin can point it anywhere wi
 | `pydantic` (2.x) | most labs from 1.2 on | `BaseModel` / `Field` for `with_structured_output` and `response_format` |
 | `typing_extensions` | Module 3 | `TypedDict` for graph state |
 
+### Days 2&ndash;3 additions (Modules 4&ndash;9, added 2026-09-09 when those labs became framework-forward)
+
+| Package | Needed by | Notes |
+|---|---|---|
+| `mcp` (1.x) | Module 4, labs 4.4 and 4.5 | `mcp.types` &mdash; the SDK's own Pydantic models for `Tool`, `CallToolResult`, `InitializeResult`. **`langchain-mcp-adapters` is NOT installed and the labs do not use it**; the transport is hand-rolled, which is what the module teaches |
+| `chromadb` (1.x) | **all of Module 6** | the vector store. ⚠️ its `DefaultEmbeddingFunction` downloads a MiniLM ONNX model on first call and there is **no egress** &mdash; the labs never use it, they supply their own `Embeddings` subclass |
+| `langchain-chroma` (1.x) | **all of Module 6** | `Chroma` vector store wrapper; passes `embedding_function=None` through, so Chroma's default is never constructed |
+| `langchain-text-splitters` (1.x) | Module 6, lab 6.1 | `MarkdownHeaderTextSplitter`, `RecursiveCharacterTextSplitter` |
+| `langgraph-checkpoint` / `-sqlite` | Module 5, lab 5.4 | checkpointer behind `interrupt_before` / `update_state` / `get_state_history` |
+| `fastapi`, `uvicorn` | Module 9, labs 9.1&ndash;9.3 | the service boundary. Graded cells assert on `app.routes` and call handlers directly &mdash; **no server is ever started**, and `TestClient`/`httpx` is deliberately not relied on |
+| `langfuse` (4.x) | Modules 7 and 9, labs 7.2 and 9.4 | **no graded cell touches it**; every Langfuse cell is guarded and returns when unconfigured |
+| `kubernetes` | Module 9 | present in the image; graded cells never need an API server |
+
 **Nothing new is required for the Day 1 rebuild.** Every import above is already pinned in the lab
 image's `requirements.txt` and present in the running sandbox. ⚠️ The pins are floors and very
 loose (`langchain>=0.3` while **1.4.0** is what is installed and what the labs are written

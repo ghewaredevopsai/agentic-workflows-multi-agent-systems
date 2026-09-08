@@ -7,17 +7,25 @@ carries both variants, so a blank can never drift from the answer that grades it
 
     python3 gen_labs.py          # writes ../lab-4-0N-*.ipynb and ../solutions/
 
-Design rules (from Training/courses/CLAUDE.md and this course's stack):
-  * Graded cells are pure Python -- they never call an LLM, so a self-check is
-    deterministic and a flaky endpoint can never fail a participant.
-  * Live-model cells are clearly marked, guarded, and never crash Run All.
+Design rules (revised 2026-09-09 -- framework-forward, matching Day 1):
+  * The participant writes REAL LangChain and MCP code in every lab. A module called
+    "Tool Calling and MCP" that contains no @tool is teaching around its own subject.
+  * Self-checks assert on framework OBJECTS -- a @tool, a bound args_schema, a ToolMessage,
+    an mcp.types.Tool -- which is deterministic and needs no endpoint. Only model
+    INVOCATION needs the gateway, and that lives in "Run it for real" cells.
+  * Blanks ask a DECISION, not a Python idiom. If the answer is a comprehension, a slice
+    or a dict lookup, the code is given and the blank moves to the choice only
+    understanding answers: which field, which constant, which verdict, which tool.
   * "BLANK" marks a blank; an unfilled blank raises NameError and prints [TODO].
     NOT three underscores: IPython PREDEFINES _, __ and ___ as its output history
     (they start as ""), so under a real Jupyter kernel that token is a defined empty
     string, not an undefined name. The NameError never fires, [TODO] silently becomes
-    [FAIL], and a blank used as a loop guard is falsy forever -- lab 1.1 spun in
-    `while True` until the pod was OOM-killed. Plain-exec verifiers cannot see any
-    of this, which is why verify_labs.py now runs cells through IPython.
+    [FAIL], and a blank used as a loop guard never stops its loop.
+  * A blank inside a STRING is not a blank -- "BLANK" is a defined literal. Where one has
+    to live in a string (a Field description, a tool description), the self-check raises
+    NameError by hand; see the _desc() helpers.
+  * Blanks live INSIDE function bodies, and anything that builds a framework object at
+    module level is wrapped in guard(), so an untouched lab survives Run All.
 """
 import json, os, re, sys
 
@@ -80,10 +88,12 @@ def header(num, title, level, minutes, bullets, note):
 ### What you'll do
 {items}
 
-> **How this lab works.** Fill every `BLANK`, then run the **Self-check** cell under each section.
-> Graded cells are plain Python and never call a model, so your score never depends on a
-> live endpoint. Cells marked **Run it for real** do call the sandbox model; if it is not
-> reachable they print how to fix it instead of crashing.
+> **How this lab works.** You write real LangChain and MCP code. Fill every `BLANK`, then run
+> the **Self-check** cell under each section &mdash; those assert on the *objects you built*
+> (a `@tool`, an argument schema, a `ToolMessage`, an `mcp.types.Tool`), so they are
+> deterministic and do not depend on the model. Cells marked **Run it for real** put your code
+> in front of the sandbox model; that is the part worth watching. The score line is feedback,
+> not a grade.
 
 {note}
 """)
@@ -119,24 +129,29 @@ def guard(fn: Callable[[], Any], default: Any = None) -> Any:
     """Run fn(). If a blank above is still unfilled, say so and carry on -- never crash Run All."""
     try:
         return fn()
-    except NameError:
-        print("(a blank above is still unfilled -- fill it in, then re-run this cell)")
+    except NameError as exc:
+        print(f"(a blank above is still unfilled: {{exc}} -- fill it in, then re-run this cell)")
         return default
 
 def score() -> None:
     done = [r for r in _results if r is not None]
     passed = sum(1 for r in done if r)
     todo = sum(1 for r in _results if r is None)
-    print(f"\\nScore: {{passed}}/{{len(_results)}}" + (f"   ({{todo}} still TODO)" if todo else ""))
+    print(f"\\nSelf-check: {{passed}}/{{len(_results)}}" + (f"   ({{todo}} still TODO)" if todo else ""))
 
 # ---- the sandbox model ---------------------------------------------------
 # Your sandbox already has an LLM configured -- nothing to install, no key to register.
-# These two values are read from the environment so this notebook never hardcodes an endpoint.
+# These values are read from the environment so this notebook never hardcodes an endpoint.
 LLM_BASE_URL = (os.environ.get("LAB_LLM_BASE_URL") or os.environ.get("OPENAI_BASE_URL")
                 or os.environ.get("LITELLM_BASE_URL"))
 LLM_MODEL    = (os.environ.get("LAB_LLM_MODEL") or os.environ.get("OPENAI_MODEL")
                 or os.environ.get("LITELLM_MODEL"))
 LLM_API_KEY  = os.environ.get("OPENAI_API_KEY", "sandbox")
+
+# The served model can reason before it answers, and that reasoning is billed as completion
+# tokens. It is off here because tool selection is a short decision and you will make a lot
+# of them today. Pass think=True to see the difference for yourself.
+NO_THINK = {{"chat_template_kwargs": {{"enable_thinking": False}}}}
 
 def llm_ready() -> bool:
     if not LLM_BASE_URL or not LLM_MODEL:
@@ -146,26 +161,38 @@ def llm_ready() -> bool:
         return False
     return True
 
-_llm = None
-def get_llm(temperature: float = 0.0):
+_llm_cache = {{}}
+def get_llm(temperature: float = 0.0, think: bool = False):
     """A LangChain chat model pointed at the sandbox gateway (OpenAI-compatible)."""
-    global _llm
-    if _llm is None:
-        from langchain_openai import ChatOpenAI
-        _llm = ChatOpenAI(model=LLM_MODEL, base_url=LLM_BASE_URL,
-                          api_key=LLM_API_KEY, temperature=temperature)
-    return _llm
+    from langchain_openai import ChatOpenAI
+    key = (temperature, think)
+    if key not in _llm_cache:
+        kwargs = {{}} if think else {{"extra_body": NO_THINK}}
+        _llm_cache[key] = ChatOpenAI(model=LLM_MODEL, base_url=LLM_BASE_URL,
+                                     api_key=LLM_API_KEY, temperature=temperature, **kwargs)
+    return _llm_cache[key]
 
-def ask(prompt: str, system: str | None = None) -> str:
+def ask(prompt: str, system: str | None = None, think: bool = False) -> str:
     """One stateless call. Returns text, or an error string -- never raises."""
     try:
         msgs = ([("system", system)] if system else []) + [("human", prompt)]
-        return get_llm().invoke(msgs).content
+        return get_llm(think=think).invoke(msgs).content
     except Exception as exc:
         return f"<model unavailable: {{type(exc).__name__}}: {{exc}}>"
 
+def show_messages(messages, width: int = 88) -> None:
+    """Print a message list the way a trace reads: type, content, and any tool calls."""
+    for m in messages:
+        kind = getattr(m, "type", "?")
+        body = str(getattr(m, "content", "")).replace("\\n", " ")[:width]
+        calls = getattr(m, "tool_calls", None)
+        line = f"  [{{kind:9}}] {{body}}"
+        if calls:
+            line += "  -> calls: " + ", ".join(f"{{c['name']}}({{c['args']}})" for c in calls)
+        print(line)
+
 print("work dir:", WORK)
-print("model   :", LLM_MODEL or "(not configured -- graded cells still work)")
+print("model   :", LLM_MODEL or "(not configured -- the object-level self-checks still work)")
 '''
 
 
@@ -174,12 +201,12 @@ def setup(num, extra=""):
 
 
 # --------------------------------------------------------------------------- #
-# the shared synthetic domain -- one use case runs through all five labs
+# the shared synthetic domain -- one case file runs through all five labs
 # --------------------------------------------------------------------------- #
-DOMAIN = '''
+DOMAIN = r'''
 # ------------------------------------------------- the case file (synthetic, self-contained)
 # One domain runs through all five Module 4 labs -- the same payment exceptions as Day 1,
-# now reached through tools the agent chooses, and then through tools it did not write.
+# now reached through tools the model chooses, and then through tools you did not write.
 # Nothing here is real data and nothing leaves this notebook.
 
 LEDGER = {
@@ -209,19 +236,22 @@ print(f"{len(LEDGER)} payments, {len(POLICY)} policy rules loaded")
 '''
 
 
+# --------------------------------------------------------------------------- #
+# the toolkit -- real LangChain tools, carried into every lab
+# --------------------------------------------------------------------------- #
+TOOLKIT = r'''
+# ------------------------------------------------- the toolkit (nothing to fill in)
+# Four tools over that ledger, written with LangChain's @tool decorator. Three read; one
+# moves money -- the distinction that starts mattering the moment a model is choosing.
+# Read the docstrings properly: they are not comments, they are the API the model sees.
+from langchain_core.tools import tool
 
-
-# the two tools from Lab 1.2 of Module 1, carried forward so each notebook stands alone
-CARRIED_TOOLS = '''
-# ------------------------------------------------- carried forward from Lab 1.2 of Module 1
-# The tools you wrote in Lab 1.2 of Module 1. Nothing to fill in -- they are here so this
-# notebook runs on its own. Note the docstrings: they name the case AND the boundary.
-
+@tool
 def lookup_payment(ref: str) -> str:
     """Return the ledger record for one payment reference such as 'PMT-1002'.
 
-    Use when you need the status, amount, counterparty or reason code of a specific payment.
-    Not for searching across payments.
+    Use when you already have the reference. Not for searching across payments --
+    use search_payments when you do not have one.
     """
     record = LEDGER.get(ref)
     if record is None:
@@ -229,45 +259,44 @@ def lookup_payment(ref: str) -> str:
     return json.dumps({"ref": ref, **record})
 
 
-def policy_for(reason_code: str) -> str:
-    """Return the operating policy for one failure reason code, e.g. 'LIMIT_BREACH'.
-
-    Use after you know why a payment failed and need to know what to do about it.
-    """
-    return POLICY.get(reason_code, f"no policy on file for reason code {reason_code!r}")
-
-
-TOOLS = {"lookup_payment": lookup_payment, "policy_for": policy_for}
-print("carried forward:", ", ".join(TOOLS))
-'''
-
-
-
-# the four tools this module works with, carried into every lab that needs them
-TOOLKIT = '''
-# ------------------------------------------------- the toolkit these labs route between
-# Four tools over the same ledger. Two read, one explains, one moves money -- which is the
-# distinction that matters once an agent is choosing between them on its own.
-
+@tool
 def search_payments(counterparty: str = "", status: str = "") -> str:
-    """Return the ledger records whose counterparty or status matches a query."""
+    """Return every ledger record matching a counterparty, a status, or both.
+
+    Use when you must find which payments match. Not for one known reference --
+    use lookup_payment for that.
+    """
     hits = [{"ref": r, **v} for r, v in LEDGER.items()
             if (not counterparty or v["counterparty"] == counterparty)
             and (not status or v["status"] == status)]
     return json.dumps(hits)
 
 
+@tool
+def policy_for(reason_code: str) -> str:
+    """Return the operating policy for one failure reason code such as 'LIMIT_BREACH'.
+
+    Use once you know why a payment failed and need to know what to do about it.
+    """
+    return POLICY.get(reason_code, f"no policy on file for reason code {reason_code!r}")
+
+
+@tool
 def release_payment(ref: str) -> str:
-    """Release one held payment so that it settles."""
+    """Release one held payment so that it settles. This one moves money.
+
+    Use only after a named human has approved this specific release. Not for reading,
+    searching or explaining.
+    """
     record = LEDGER.get(ref)
     if record is None:
         return f"no payment found with reference {ref!r}"
     return json.dumps({"ref": ref, "released": True, "was": record["status"]})
 
 
-TOOLKIT_FNS = {"lookup_payment": lookup_payment, "search_payments": search_payments,
-               "policy_for": policy_for, "release_payment": release_payment}
-print("toolkit:", ", ".join(TOOLKIT_FNS))
+TOOLKIT = [lookup_payment, search_payments, policy_for, release_payment]
+BY_NAME = {t.name: t for t in TOOLKIT}
+print("toolkit:", ", ".join(BY_NAME))
 '''
 
 
@@ -276,15 +305,15 @@ print("toolkit:", ", ".join(TOOLKIT_FNS))
 # =========================================================================== #
 LAB1 = [
     header(1, "The Tool Contract", "Intermediate", 30,
-           ["Build the descriptor a model actually receives, and see what it leaves behind",
+           ["See the exact JSON a <code>@tool</code> becomes, and what it leaves behind",
+            "Write the argument descriptions the model reads to fill a call in",
             "Decide which failures are worth retrying &mdash; and which never are",
-            "Turn a tool that raises into a tool that returns something the agent can act on",
-            "Tell apart the four kinds of failure that all look like &lsquo;no result&rsquo;"],
+            "Wire <code>handle_tool_error</code> so a failing tool returns instead of raising"],
            "> **Start here.** Everything else in Module 4 &mdash; selection accuracy, multi-tool\n"
            "> orchestration, MCP &mdash; is this contract, either written by you or by someone else."),
     setup(1),
     code(DOMAIN),
-    code(CARRIED_TOOLS),
+    code(TOOLKIT),
 
     md("""
 ## Concept
@@ -295,7 +324,7 @@ A tool is not the function you wrote. From the model's side a tool is exactly th
 |---|---|---|
 | `name` | the function name | how the tool is referred to |
 | `description` | the docstring | **whether it is chosen at all** |
-| `parameters` | the signature | whether the arguments are well formed |
+| `parameters` | the signature and `args_schema` | whether the arguments are well formed |
 
 The body, the tests and the types you were careful about never cross the boundary. That is the
 whole reason a tool-calling bug is usually a writing bug.
@@ -304,105 +333,206 @@ whole reason a tool-calling bug is usually a writing bug.
     md("""
 ## Section 1 &mdash; What actually crosses the boundary
 
-Build the descriptor. Note what you *cannot* put in it.
+`convert_to_openai_tool` renders a LangChain tool into the exact JSON that goes on the wire.
+Look at it once and you stop guessing about the rest of the module.
 """),
-    code('''
-import inspect
+    code(r'''
+from langchain_core.utils.function_calling import convert_to_openai_tool
 
-_JSON_TYPES = {str: "string", int: "integer", float: "number", bool: "boolean"}
-
-def _json_type(annotation) -> str:
-    """Map a Python annotation onto a JSON-Schema type name."""
-    return _JSON_TYPES.get(annotation, "string")
+def what_the_model_sees(t) -> dict:
+    """The exact JSON one tool becomes on the wire. Nothing else about it is sent."""
+    return convert_to_openai_tool(t)["function"]
 
 
-def tool_descriptor(fn) -> dict:
-    """Build the three fields a model receives for one Python function.
+def selection_text(t) -> str:
+    """The one field a model reads when deciding whether to call this tool at all.
 
-    A parameter with no default is required; one with a default is optional.
+    The name says how the tool is REFERRED to. The parameters say what a well-formed call
+    looks like. Neither of them says when to call it.
     """
-    props, required = {}, []
-    for pname, p in inspect.signature(fn).parameters.items():
-        props[pname] = {"type": _json_type(p.annotation)}
-        if p.default is inspect.Parameter.empty:
-            required.append(pname)
-    return {
-        "name": fn.__name__,
-        # TODO: the text the model reads to decide -- all of it, exactly as written
-        "description": BLANK,
-        "parameters": {"type": "object", "properties": props, "required": required},
-    }
-''', '''
-import inspect
+    return BLANK          # TODO: which field of the tool decides whether it gets chosen?
+''', r'''
+from langchain_core.utils.function_calling import convert_to_openai_tool
 
-_JSON_TYPES = {str: "string", int: "integer", float: "number", bool: "boolean"}
-
-def _json_type(annotation) -> str:
-    """Map a Python annotation onto a JSON-Schema type name."""
-    return _JSON_TYPES.get(annotation, "string")
+def what_the_model_sees(t) -> dict:
+    """The exact JSON one tool becomes on the wire. Nothing else about it is sent."""
+    return convert_to_openai_tool(t)["function"]
 
 
-def tool_descriptor(fn) -> dict:
-    """Build the three fields a model receives for one Python function.
+def selection_text(t) -> str:
+    """The one field a model reads when deciding whether to call this tool at all.
 
-    A parameter with no default is required; one with a default is optional.
+    The name says how the tool is REFERRED to. The parameters say what a well-formed call
+    looks like. Neither of them says when to call it.
     """
-    props, required = {}, []
-    for pname, p in inspect.signature(fn).parameters.items():
-        props[pname] = {"type": _json_type(p.annotation)}
-        if p.default is inspect.Parameter.empty:
-            required.append(pname)
-    return {
-        "name": fn.__name__,
-        # the docstring, whole and verbatim -- including the boundary sentence
-        "description": inspect.getdoc(fn) or "",
-        "parameters": {"type": "object", "properties": props, "required": required},
-    }
+    return t.description
 '''),
-    code('''
-# --- Self-check: Section 1
-check("the descriptor has exactly the three fields that cross the boundary",
-      lambda: set(tool_descriptor(lookup_payment)) == {"name", "description", "parameters"})
+    code(r'''
+# --- Self-check: Section 1   (tool objects only -- no model call)
+check("a @tool is a framework object, not a plain function",
+      lambda: hasattr(lookup_payment, "name") and hasattr(lookup_payment, "args_schema"))
+check("the wire form carries the three fields that cross the boundary",
+      lambda: {"name", "description", "parameters"} <= set(what_the_model_sees(lookup_payment)))
 check("the name is the function's own name",
-      lambda: tool_descriptor(lookup_payment)["name"] == "lookup_payment")
-check("the description is the whole docstring, not just its first line",
-      lambda: "Not for searching" in tool_descriptor(lookup_payment)["description"],
-      "the boundary sentence is the part that stops the wrong call -- do not truncate it")
-check("a parameter with no default is required",
-      lambda: tool_descriptor(lookup_payment)["parameters"]["required"] == ["ref"])
+      lambda: what_the_model_sees(lookup_payment)["name"] == "lookup_payment")
+check("the description is the WHOLE docstring, not just its first line",
+      lambda: "Not for searching" in selection_text(lookup_payment),
+      "the boundary sentence is the part that stops the wrong call -- it must not be truncated")
+check("and it is the same text that goes on the wire",
+      lambda: what_the_model_sees(lookup_payment)["description"] == selection_text(lookup_payment))
+check("an argument with no default is required",
+      lambda: what_the_model_sees(lookup_payment)["parameters"]["required"] == ["ref"])
+check("an argument with a default is optional",
+      lambda: "counterparty" not in
+              (what_the_model_sees(search_payments)["parameters"].get("required") or []))
 check("the implementation does not cross the boundary",
-      lambda: "LEDGER" not in json.dumps(tool_descriptor(lookup_payment)),
-      "the model never sees the body -- if it did, this check would be meaningless")
+      lambda: "LEDGER" not in json.dumps(what_the_model_sees(lookup_payment)),
+      "the model never sees the body -- your careful code is invisible to the choice")
 
-guard(lambda: print(json.dumps(tool_descriptor(lookup_payment), indent=2)[:420]))
+guard(lambda: print(json.dumps(what_the_model_sees(lookup_payment), indent=2)[:520]))
 '''),
 
     md("""
-## Section 2 &mdash; Which failures deserve a retry
+## Section 2 &mdash; The schema is prose too
 
-Module 2 called blind retry the most common production failure. The fix starts in the tool: a
-result that says *whether trying again could possibly help*.
+The parameters are not just types. Every field can carry a `description`, and those descriptions
+go to the model with the rest of the schema. An optional argument whose default is never stated
+is one the model guesses at.
+
+Attach a hand-written `args_schema` to `search_payments` and write those descriptions yourself.
+"""),
+    code(r'''
+from pydantic import BaseModel, Field
+from langchain_core.tools import StructuredTool
+
+class SearchArgs(BaseModel):
+    """Find payments when you do not have a reference."""
+
+    # TODO: replace "BLANK" with what a model needs in order to fill this in.
+    #       Name the kind of value it takes, and say what leaving it empty means.
+    counterparty: str = Field(default="", description="BLANK")
+
+    status: str = Field(
+        default="",
+        description="One of: settled, failed, held. Empty means any status.")
+
+
+def described_search() -> StructuredTool:
+    """The same function, now with your argument schema attached to it."""
+    return StructuredTool.from_function(
+        func=search_payments.func,
+        name="search_payments",
+        description=search_payments.description,
+        args_schema=SearchArgs)
+''', r'''
+from pydantic import BaseModel, Field
+from langchain_core.tools import StructuredTool
+
+class SearchArgs(BaseModel):
+    """Find payments when you do not have a reference."""
+
+    counterparty: str = Field(
+        default="",
+        description="The counterparty name exactly as the ledger spells it, e.g. NORTHWIND. "
+                    "Empty means any counterparty.")
+
+    status: str = Field(
+        default="",
+        description="One of: settled, failed, held. Empty means any status.")
+
+
+def described_search() -> StructuredTool:
+    """The same function, now with your argument schema attached to it."""
+    return StructuredTool.from_function(
+        func=search_payments.func,
+        name="search_payments",
+        description=search_payments.description,
+        args_schema=SearchArgs)
+'''),
+    code(r'''
+# --- Self-check: Section 2   (schema objects only -- no model call)
+def _desc(field: str) -> str:
+    """The description on one field. An untouched placeholder is a TODO, not a failure."""
+    d = (SearchArgs.model_fields[field].description or "").strip()
+    if d == "BLANK":
+        raise NameError(f"{field} still has the placeholder description")
+    return d
+
+check("every argument carries a description the model can read",
+      lambda: all(_desc(f) for f in SearchArgs.model_fields))
+check("the counterparty description says what an empty value means",
+      lambda: "empty" in _desc("counterparty").lower(),
+      "an optional argument whose default is unstated is one the model guesses at")
+check("it shows how the ledger actually spells a counterparty",
+      lambda: any(n in _desc("counterparty") for n in {v["counterparty"] for v in LEDGER.values()}),
+      "name one of NORTHWIND / ACME-EU / ZENITH / ACME-UK -- the model cannot guess your spelling")
+check("the status description names the values it accepts",
+      lambda: all(s in _desc("status") for s in ("settled", "failed", "held")))
+check("the schema really is attached to the tool",
+      lambda: set(described_search().args) == set(SearchArgs.model_fields))
+check("both arguments reach the wire",
+      lambda: set(what_the_model_sees(described_search())["parameters"]["properties"])
+              == {"counterparty", "status"})
+check("and so do your descriptions of them",
+      lambda: what_the_model_sees(described_search())["parameters"]["properties"]
+              ["counterparty"]["description"] == _desc("counterparty"))
+'''),
+
+    md("""
+## Section 3 &mdash; A tool that returns instead of raising
+
+Module 2 called blind retry the most common production failure. The fix starts here: a result
+that says *whether trying again could possibly help*.
 
 Retrying a malformed argument produces the same malformed argument. Retrying a permission denial
 produces the same denial. Only a **transient** failure has earned a second attempt.
+
+`ToolException` plus `handle_tool_error` is how LangChain turns a raise into a string the model
+reads as an observation.
 """),
-    code('''
+    code(r'''
+from langchain_core.tools import ToolException
+
 ERROR_KINDS = ("not_found", "invalid_input", "unavailable", "timeout", "not_permitted")
 
 def is_retryable(kind: str) -> bool:
     """True only for failures where the identical call might succeed on a second attempt."""
-    return BLANK          # TODO: which of ERROR_KINDS are transient?
+    # TODO: which of ERROR_KINDS are transient? Retrying a bad argument sends the same bad
+    #       argument; retrying a denial is how you page a security team at 3am.
+    return BLANK
 
 
-def ok(data) -> dict:
-    """A successful result."""
-    return {"ok": True, "data": data}
+def _strict_lookup(ref: str, ledger_down: bool = False) -> str:
+    """Return the ledger record for one payment reference such as 'PMT-1002'.
+
+    Use when you already have the reference. Not for searching across payments.
+    """
+    if not ref.startswith("PMT-"):
+        raise ToolException(f"invalid_input: {ref!r} is not a payment reference")
+    if ledger_down:
+        raise ToolException("unavailable: the ledger service did not respond")
+    if ref not in LEDGER:
+        # "I looked and it is not there" is not the same fact as "I could not look".
+        raise ToolException(f"not_found: no payment on file with reference {ref!r}")
+    return json.dumps({"ref": ref, **LEDGER[ref]})
 
 
-def fail(kind: str, message: str) -> dict:
-    """A failure the agent can read, route on, and explain -- rather than an exception it cannot."""
-    return {"ok": False, "error": kind, "message": message, "retryable": is_retryable(kind)}
-''', '''
+def describe_failure(exc: ToolException) -> str:
+    """What the model is told when the tool fails. It reads this as an observation."""
+    kind = str(exc).split(":")[0]
+    return json.dumps({"error": kind, "message": str(exc), "retryable": is_retryable(kind)})
+
+
+def safe_lookup() -> StructuredTool:
+    """The same lookup, wrapped so a failure comes back as text the agent can act on."""
+    return StructuredTool.from_function(
+        func=_strict_lookup,
+        name="lookup_payment",
+        description=lookup_payment.description,
+        handle_tool_error=describe_failure)
+''', r'''
+from langchain_core.tools import ToolException
+
 ERROR_KINDS = ("not_found", "invalid_input", "unavailable", "timeout", "not_permitted")
 
 def is_retryable(kind: str) -> bool:
@@ -410,17 +540,41 @@ def is_retryable(kind: str) -> bool:
     return kind in {"unavailable", "timeout"}
 
 
-def ok(data) -> dict:
-    """A successful result."""
-    return {"ok": True, "data": data}
+def _strict_lookup(ref: str, ledger_down: bool = False) -> str:
+    """Return the ledger record for one payment reference such as 'PMT-1002'.
+
+    Use when you already have the reference. Not for searching across payments.
+    """
+    if not ref.startswith("PMT-"):
+        raise ToolException(f"invalid_input: {ref!r} is not a payment reference")
+    if ledger_down:
+        raise ToolException("unavailable: the ledger service did not respond")
+    if ref not in LEDGER:
+        # "I looked and it is not there" is not the same fact as "I could not look".
+        raise ToolException(f"not_found: no payment on file with reference {ref!r}")
+    return json.dumps({"ref": ref, **LEDGER[ref]})
 
 
-def fail(kind: str, message: str) -> dict:
-    """A failure the agent can read, route on, and explain -- rather than an exception it cannot."""
-    return {"ok": False, "error": kind, "message": message, "retryable": is_retryable(kind)}
+def describe_failure(exc: ToolException) -> str:
+    """What the model is told when the tool fails. It reads this as an observation."""
+    kind = str(exc).split(":")[0]
+    return json.dumps({"error": kind, "message": str(exc), "retryable": is_retryable(kind)})
+
+
+def safe_lookup() -> StructuredTool:
+    """The same lookup, wrapped so a failure comes back as text the agent can act on."""
+    return StructuredTool.from_function(
+        func=_strict_lookup,
+        name="lookup_payment",
+        description=lookup_payment.description,
+        handle_tool_error=describe_failure)
 '''),
-    code('''
-# --- Self-check: Section 2
+    code(r'''
+# --- Self-check: Section 3   (running a tool is plain Python -- still no model call)
+def _out(**kwargs) -> dict:
+    """Invoke the wrapped tool and read whatever came back as JSON."""
+    return json.loads(safe_lookup().invoke(kwargs))
+
 check("a service that did not answer is worth another try",
       lambda: is_retryable("unavailable") is True)
 check("so is a timeout", lambda: is_retryable("timeout") is True)
@@ -430,105 +584,73 @@ check("a missing record is not -- it will still be missing",
       lambda: is_retryable("not_found") is False)
 check("a permission denial is not -- and retrying it is how you page a security team",
       lambda: is_retryable("not_permitted") is False)
-check("every failure carries all four fields",
-      lambda: set(fail("not_found", "x")) == {"ok", "error", "message", "retryable"})
-'''),
 
-    md("""
-## Section 3 &mdash; A tool that never raises
-
-The same lookup, rewritten to the contract. Watch the distinction in the middle: **&ldquo;I looked and
-it is not there&rdquo; is not the same fact as &ldquo;I could not look&rdquo;** &mdash; and an agent that
-confuses the two reports a missing payment when the ledger was merely down.
-"""),
-    code('''
-def safe_lookup(ref, ledger_down: bool = False) -> dict:
-    """Return one payment to the tool contract. Never raises, whatever it is handed."""
-    if not isinstance(ref, str) or not ref.startswith("PMT-"):
-        return fail("invalid_input", f"{ref!r} is not a payment reference; expected e.g. 'PMT-1002'")
-    if ledger_down:
-        return fail("unavailable", "the ledger service did not respond")
-    record = LEDGER.get(ref)
-    if record is None:
-        # TODO: I looked, and there is no such payment. Which is NOT 'I could not look'.
-        return BLANK
-    return ok({"ref": ref, **record})
-''', '''
-def safe_lookup(ref, ledger_down: bool = False) -> dict:
-    """Return one payment to the tool contract. Never raises, whatever it is handed."""
-    if not isinstance(ref, str) or not ref.startswith("PMT-"):
-        return fail("invalid_input", f"{ref!r} is not a payment reference; expected e.g. 'PMT-1002'")
-    if ledger_down:
-        return fail("unavailable", "the ledger service did not respond")
-    record = LEDGER.get(ref)
-    if record is None:
-        return fail("not_found", f"no payment on file with reference {ref!r}")
-    return ok({"ref": ref, **record})
-'''),
-    code('''
-# --- Self-check: Section 3
-check("a known payment comes back as a success",
-      lambda: safe_lookup("PMT-1002")["ok"] is True)
-check("and carries the record",
-      lambda: safe_lookup("PMT-1002")["data"]["reason_code"] == "INSUFFICIENT_FUNDS")
-check("a malformed reference is invalid_input, not not_found",
-      lambda: safe_lookup("northwind")["error"] == "invalid_input")
+check("a known payment comes back as the record",
+      lambda: _out(ref="PMT-1002")["reason_code"] == "INSUFFICIENT_FUNDS")
+check("a malformed reference comes back as TEXT, not as an exception",
+      lambda: _out(ref="northwind")["error"] == "invalid_input",
+      "handle_tool_error is what turns the raise into something the agent can read")
 check("a well-formed reference that is absent is not_found",
-      lambda: safe_lookup("PMT-9999")["error"] == "not_found")
+      lambda: _out(ref="PMT-9999")["error"] == "not_found")
 check("a down ledger is unavailable -- and is the only one of the three worth retrying",
-      lambda: safe_lookup("PMT-1002", ledger_down=True)["error"] == "unavailable"
-              and safe_lookup("PMT-1002", ledger_down=True)["retryable"] is True)
-check("'not there' and 'could not look' are different answers",
-      lambda: safe_lookup("PMT-9999")["error"] != safe_lookup("PMT-9999", ledger_down=True)["error"],
-      "if these ever collapse into one, the agent will report a payment missing when the ledger blinked")
-check("it never raises, whatever it is handed",
-      lambda: all(isinstance(safe_lookup(x), dict) for x in (None, 42, "", [], "PMT-1002")))
+      lambda: _out(ref="PMT-1002", ledger_down=True)["error"] == "unavailable"
+              and _out(ref="PMT-1002", ledger_down=True)["retryable"] is True)
+check("'not there' and 'could not look' stay different answers",
+      lambda: _out(ref="PMT-9999")["error"] != _out(ref="PMT-9999", ledger_down=True)["error"],
+      "collapse these and the agent reports a payment missing when the ledger merely blinked")
 
-for probe in ("PMT-1002", "PMT-9999", "northwind"):
-    guard(lambda p=probe: print(f"  {p:12} -> {json.dumps(safe_lookup(p))[:96]}"))
-guard(lambda: print(f"  {'ledger down':12} -> {json.dumps(safe_lookup('PMT-1002', ledger_down=True))}"))
+for probe in ({"ref": "PMT-1002"}, {"ref": "PMT-9999"}, {"ref": "northwind"},
+              {"ref": "PMT-1002", "ledger_down": True}):
+    guard(lambda p=probe: print(f"  {str(p):42} -> {safe_lookup().invoke(p)[:74]}"))
 '''),
 
     md("""
 ## Run it for real
 
-Hand the model the descriptor you built &mdash; and nothing else &mdash; and ask it what the tool is for
-and when it should *not* be used. If it answers well, your description is doing its job. If it
-hedges, the model would have hedged when choosing, too.
+Two things at once. First, bind the tool to the model and watch a `tool_call` come back &mdash;
+that is the contract being used, not described. Then hand the model the descriptor and nothing
+else, and ask what the tool is for and when it should *not* be used.
 """),
-    code('''
+    code(r'''
 if llm_ready():
     def _probe():
-        d = tool_descriptor(lookup_payment)
-        return ask(
-            "Here is a tool available to an agent, in the exact form the agent receives it.\\n\\n"
-            + json.dumps(d, indent=2)
-            + "\\n\\nIn two sentences: what is this tool for, and when should it NOT be used?")
-    out = guard(_probe)
-    if out:
-        print(out.strip()[:500])
+        bound = get_llm().bind_tools([lookup_payment])
+        reply = bound.invoke("What is the status of PMT-1002?")
+        print("  tool_calls:", reply.tool_calls)
+        print()
+        print(ask("Here is a tool available to an agent, in the exact form the agent receives "
+                  "it.\n\n" + json.dumps(what_the_model_sees(lookup_payment), indent=2)
+                  + "\n\nIn two sentences: what is this tool for, and when should it NOT be "
+                    "used?").strip()[:460])
+    guard(_probe)
 '''),
     md("""
 ### Read it
 
-The model has no more information than you gave it. Anything it gets wrong here, it would also
-get wrong while choosing between four tools under time pressure &mdash; except that there you would
-never see it reason about it.
+The `tool_call` came back as a dict with a `name`, an `args` and an `id`. You did not parse any
+text to get it &mdash; the model emitted a structured call because the schema told it what one
+looks like. Lab 4.3 turns that into a loop.
+
+The second half is the description doing its job in slow motion. The model has no more
+information than you gave it. Anything it gets wrong here, it would also get wrong while choosing
+between four tools under time pressure &mdash; except that there you would never see it reason
+about it.
 """),
 
-    code('''
+    code(r'''
 score()
 '''),
     md("""
 ## Your turn
 
-1. `_json_type` collapses every unknown annotation to `"string"`. Give `search_payments` an
-   `Optional[str]` and watch the schema lie about it. What does a lying schema cost you?
-2. Add a `not_permitted` path to `safe_lookup` for a reference outside an allowed range. Which of
-   the four failure kinds should an agent be allowed to *report to the user verbatim*, and which
-   should it summarise?
-3. Write the boundary sentence for `release_payment` &mdash; the tool that moves money. Then ask
-   yourself whether a sentence is the right control for it. Lab 4.5 says it is not.
+1. Delete the second paragraph of `lookup_payment`'s docstring, re-run Section 1, and read the
+   wire form again. Nothing errors. What exactly did you just remove from the model's view?
+2. Give `SearchArgs.status` a `Literal["settled", "failed", "held"]` type instead of `str` and
+   look at the schema again. Which is the stronger control &mdash; the prose or the type &mdash;
+   and which one still lets the model pass `"HELD"`?
+3. Add a `not_permitted` path to `_strict_lookup` for a reference outside an allowed range.
+   Which of the five failure kinds should an agent be allowed to repeat to the user verbatim,
+   and which should it summarise?
 """),
 ]
 
@@ -538,370 +660,387 @@ score()
 # =========================================================================== #
 LAB2 = [
     header(2, "Tool Descriptions Are Instructions", "Intermediate &rarr; Advanced", 35,
-           ["Write an eval set for tool selection &mdash; including the cases that are genuinely ambiguous",
-            "Build the metric: accuracy, and a confusion table that says <em>which</em> tool it wrongly picked",
-            "Enforce the experimental control &mdash; only the description text may differ",
-            "Run it against the live model at three description qualities &mdash; and find out whether there is a delta at all"],
+           ["Build two arms of tools that wrap the <em>same functions</em> and differ only in prose",
+            "Enforce the experimental control on the objects themselves, not on your intentions",
+            "Read first-tool accuracy off the <code>AIMessage</code> the model returns",
+            "Run the bake-off against the sandbox model and put a number on what prose is worth"],
            "> **This is the measured lab.** The harness is graded offline; the number comes from\n"
            "> your own run against the sandbox model. You will reuse this harness on Day 3."),
     setup(2),
     code(DOMAIN),
-    code(CARRIED_TOOLS),
     code(TOOLKIT),
 
     md("""
 ## Concept
 
-The claim to test: **holding the model and the tools fixed, and changing only the description text,
-moves selection accuracy.**
+The claim to test: **holding the model and the functions fixed, the prose you attach to a tool
+moves how often it gets chosen.**
 
 That is an experiment, so it needs the parts of one:
 
-- an **eval set** &mdash; asks with a known correct tool, including ambiguous ones
-- a **metric** &mdash; accuracy, plus a confusion table, because *which* wrong tool it chose tells you
-  which two descriptions overlap
-- a **control** &mdash; three toolsets that are identical except for the description string
+- two **arms** &mdash; the same four functions, wrapped twice, differing only in name and description
+- a **metric** &mdash; first-tool accuracy, read off the message the model returns
+- a **control** &mdash; something that *checks* the arms are otherwise identical, rather than your
+  believing they are
 
-The third is the one people skip, and skipping it is how you end up measuring a schema change you
-forgot you made.
+The third is the one people skip, and skipping it is how you end up measuring a schema change
+you forgot you made.
 """),
 
     md("""
-## Section 1 &mdash; The eval set and the three description qualities
+## Section 1 &mdash; The two arms
 
-Twelve asks. Four of them are deliberately awkward: no reference number, or a verb that could
-belong to two tools. Those are the cases a boundary sentence exists for.
+Arm A is the sort of tool set an internal payments API really produces: coded names, and a
+description that is the name again with the underscores taken out.
+
+Arm B wraps the identical functions with names and descriptions written for a reader.
 """),
-    code('''
-EVAL_SET = [
-    ("What is the status of PMT-1002?",                        "lookup_payment"),
-    ("Show me the record for PMT-1005.",                       "lookup_payment"),
-    ("Why did PMT-1004 fail? Give me its reason code.",        "lookup_payment"),
-    ("I have the reference PMT-1001 -- pull it up.",           "lookup_payment"),
-    ("Which payments involve NORTHWIND?",                      "search_payments"),
-    ("List everything currently held for ZENITH.",             "search_payments"),
-    ("Find the failed ones from ACME-EU.",                     "search_payments"),
-    ("Are there any other payments like this one?",            "search_payments"),
-    ("What should we do about a LIMIT_BREACH?",                "policy_for"),
-    ("What is the operating rule for SANCTIONS_REVIEW?",       "policy_for"),
-    ("An INVALID_IBAN came back. What does the runbook say?",  "policy_for"),
-    ("Treasury approved it -- release PMT-1003.",              "release_payment"),
-]
+    code(r'''
+from langchain_core.tools import StructuredTool
 
-# Level 1: what the tool does. Fixes malformed arguments -- the model now knows the shape.
-BASE = {
-    "lookup_payment":  "Return the ledger record for one payment reference such as PMT-1002.",
-    "search_payments": "Return the ledger records whose counterparty or status matches a query.",
-    "policy_for":      "Return the operating policy for one failure reason code such as LIMIT_BREACH.",
-    "release_payment": "Release one held payment so that it settles.",
+FUNCS = {t.name: t.func for t in TOOLKIT}
+
+CODED = {"lookup_payment": "pmt_inq_01", "search_payments": "pmt_qry_02",
+         "policy_for": "ops_rul_03",     "release_payment": "pmt_rel_04"}
+
+def poor_arm() -> list:
+    """Four tools a model can barely choose between: coded names, label-only descriptions."""
+    return [StructuredTool.from_function(func=FUNCS[n], name=CODED[n],
+                                         description=CODED[n].replace("_", " "))
+            for n in sorted(FUNCS)]
+
+
+GOOD_DESCRIPTIONS = {
+    "lookup_payment":
+        "Return the ledger record for one payment reference such as PMT-1002. Use when you "
+        "already have the reference. Not for searching -- use search_payments for that.",
+    "search_payments":
+        "Return every ledger record matching a counterparty or a status. Use when you must find "
+        "which payments match. Not for one known reference -- use lookup_payment for that.",
+
+    # TODO: replace "BLANK" with a description for policy_for. Say what it returns, name the
+    #       kind of value it takes, and finish with a sentence saying where the tool stops.
+    "policy_for": "BLANK",
+
+    "release_payment":
+        "Release one held payment so that it settles. This one moves money. Use only after a "
+        "named human has approved this specific release. Not for reading or explaining.",
 }
 
-# Level 2 adds one sentence each: where this tool stops, and what to reach for instead.
-BOUNDARY = {
-    "lookup_payment":  " Use when you already have the reference. Not for searching or listing --"
-                       " use search_payments when you do not have a reference.",
-    "search_payments": " Use when you must find which payments match. Not for one known reference --"
-                       " use lookup_payment for that.",
-    "policy_for":      " Use once you know why a payment failed. Not for reading the payment itself --"
-                       " use lookup_payment for that.",
-    "release_payment": " Use only after a human has approved this specific release."
-                       " Not for reading, searching or explaining. This one moves money.",
+def good_arm() -> list:
+    """The same four functions, wrapped with names and descriptions written for a reader."""
+    return [StructuredTool.from_function(func=FUNCS[n], name=n,
+                                         description=GOOD_DESCRIPTIONS[n])
+            for n in sorted(FUNCS)]
+
+
+def shape(arm: list) -> list:
+    """Everything about an arm that must NOT vary between the two.
+
+    Names and descriptions differ by design -- that is the experiment. What is left is the
+    part a model uses to build a well-formed call, and it has to be identical.
+    """
+    return [BLANK for t in arm]    # TODO: the part of a tool that is not prose
+''', r'''
+from langchain_core.tools import StructuredTool
+
+FUNCS = {t.name: t.func for t in TOOLKIT}
+
+CODED = {"lookup_payment": "pmt_inq_01", "search_payments": "pmt_qry_02",
+         "policy_for": "ops_rul_03",     "release_payment": "pmt_rel_04"}
+
+def poor_arm() -> list:
+    """Four tools a model can barely choose between: coded names, label-only descriptions."""
+    return [StructuredTool.from_function(func=FUNCS[n], name=CODED[n],
+                                         description=CODED[n].replace("_", " "))
+            for n in sorted(FUNCS)]
+
+
+GOOD_DESCRIPTIONS = {
+    "lookup_payment":
+        "Return the ledger record for one payment reference such as PMT-1002. Use when you "
+        "already have the reference. Not for searching -- use search_payments for that.",
+    "search_payments":
+        "Return every ledger record matching a counterparty or a status. Use when you must find "
+        "which payments match. Not for one known reference -- use lookup_payment for that.",
+
+    "policy_for":
+        "Return the operating policy for one failure reason code such as LIMIT_BREACH. Use once "
+        "you know why a payment failed. Not for reading the payment itself -- use lookup_payment "
+        "for that.",
+
+    "release_payment":
+        "Release one held payment so that it settles. This one moves money. Use only after a "
+        "named human has approved this specific release. Not for reading or explaining.",
 }
 
-TOOLSETS = {
-    "L0 label only":  {n: f"{n.replace('_', ' ').capitalize()}." for n in BASE},
-    "L1 what it does": dict(BASE),
-    "L2 with boundary": {n: BASE[n] + BOUNDARY[n] for n in BASE},
-}
+def good_arm() -> list:
+    """The same four functions, wrapped with names and descriptions written for a reader."""
+    return [StructuredTool.from_function(func=FUNCS[n], name=n,
+                                         description=GOOD_DESCRIPTIONS[n])
+            for n in sorted(FUNCS)]
 
-print(f"{len(EVAL_SET)} asks, {len(TOOLSETS)} description qualities, {len(BASE)} tools")
+
+def shape(arm: list) -> list:
+    """Everything about an arm that must NOT vary between the two.
+
+    Names and descriptions differ by design -- that is the experiment. What is left is the
+    part a model uses to build a well-formed call, and it has to be identical.
+    """
+    return [t.args for t in arm]
 '''),
-    code('''
-# --- Self-check: Section 1
-check("the eval set is big enough to say anything",
-      lambda: len(EVAL_SET) >= 12)
-check("every tool in the toolkit is the right answer at least once",
-      lambda: {exp for _, exp in EVAL_SET} == set(BASE))
-check("no ask is expected to route to a tool that does not exist",
-      lambda: all(exp in TOOLKIT_FNS for _, exp in EVAL_SET))
-check("there are ambiguous asks -- ones with no reference number in them",
-      lambda: sum(1 for a, _ in EVAL_SET if "PMT-" not in a) >= 4,
-      "an eval set of only easy cases measures nothing")
-check("all three toolsets exist and are the same size",
-      lambda: len({len(t) for t in TOOLSETS.values()}) == 1)
+    code(r'''
+# --- Self-check: Section 1   (tool objects only -- no model call)
+def _policy_desc() -> str:
+    d = (GOOD_DESCRIPTIONS["policy_for"] or "").strip()
+    if d == "BLANK":
+        raise NameError("policy_for still has the placeholder description")
+    return d
+
+check("both arms expose four tools",
+      lambda: len(poor_arm()) == 4 and len(good_arm()) == 4)
+check("both arms wrap the SAME functions",
+      lambda: [t.func for t in poor_arm()] == [t.func for t in good_arm()],
+      "if the functions differ you are measuring something else entirely")
+check("the argument schemas are identical -- the control holds",
+      lambda: shape(poor_arm()) == shape(good_arm()),
+      "only the prose may differ; a schema change is a different experiment, not a rerun")
+check("the control is not vacuous -- the prose really does differ",
+      lambda: [t.description for t in poor_arm()] != [t.description for t in good_arm()])
+check("the poor arm really is uninformative",
+      lambda: all(len(t.description) < 25 for t in poor_arm()))
+check("every good description says more than what the tool is called",
+      # _policy_desc() first, so an UNFILLED description reads [TODO] and not a red [FAIL]
+      lambda: bool(_policy_desc()) and all(len(t.description) > 60 for t in good_arm()))
+check("your policy_for description names the kind of value it takes",
+      lambda: "reason code" in _policy_desc().lower(),
+      "the model has to know that a LIMIT_BREACH is the thing that goes in here")
+check("and it says where the tool stops",
+      lambda: any(m in _policy_desc().lower() for m in ("not for", "not to", "only")),
+      "the boundary sentence is what stops the neighbouring tool being called instead")
+
+guard(lambda: [print(f"  {t.name:16} {t.description[:66]}") for t in good_arm()])
 '''),
 
     md("""
 ## Section 2 &mdash; The metric
 
-Accuracy alone tells you *that* it went wrong. The confusion table tells you *which two descriptions
-overlap*, which is the thing you can actually go and edit.
+The model does not answer a selection question in prose. It returns an `AIMessage` carrying
+`tool_calls` &mdash; a list of dicts, each with a `name`, an `args` and an `id`. First-tool
+accuracy is read straight off that.
 
-A `selections` value is just `{ask: chosen_tool}` &mdash; whatever produced it.
+Why the *first* tool: a model that eventually stumbles onto the right one has still spent a call,
+a round trip and a piece of the context window. The first reach is the honest measurement.
 """),
-    code('''
-def accuracy(selections: dict, evalset=None) -> float:
-    """Fraction of asks routed to the expected tool. An ask with no selection counts as wrong."""
-    evalset = EVAL_SET if evalset is None else evalset
-    hits = sum(1 for ask, expected in evalset if BLANK)   # TODO: was this ask routed correctly?
-    return hits / len(evalset)
+    code(r'''
+from langchain_core.messages import AIMessage
+
+def first_tool(response) -> str:
+    """The name of the FIRST tool the model reached for, or '' if it reached for none."""
+    calls = response.tool_calls        # every AIMessage carries this list; it may be empty
+    if not calls:
+        return ""
+    return BLANK                      # TODO: a tool_call is a dict -- which key names the tool?
 
 
-def confusion(selections: dict, evalset=None) -> dict:
-    """{(expected, chosen): count} for the MISSES only -- the pairs whose descriptions overlap."""
-    evalset = EVAL_SET if evalset is None else evalset
+def accuracy(chosen: list, expected: list) -> float:
+    """Fraction of asks where the first tool was the right one. No choice counts as wrong."""
+    hits = sum(1 for c, e in zip(chosen, expected) if c == e)
+    return hits / len(expected)
+
+
+def confusion(chosen: list, expected: list) -> dict:
+    """{(expected, chosen): count} for the MISSES only.
+
+    Accuracy tells you THAT it went wrong. This tells you which two tools read alike to the
+    model -- which is the thing you can go and edit.
+    """
     out = {}
-    for ask, expected in evalset:
-        chosen = selections.get(ask)
-        if chosen != expected:
-            key = BLANK                                   # TODO: which pair confused it?
-            out[key] = out.get(key, 0) + 1
+    for c, e in zip(chosen, expected):
+        if c != e:
+            out[(e, c)] = out.get((e, c), 0) + 1
     return out
-''', '''
-def accuracy(selections: dict, evalset=None) -> float:
-    """Fraction of asks routed to the expected tool. An ask with no selection counts as wrong."""
-    evalset = EVAL_SET if evalset is None else evalset
-    hits = sum(1 for ask, expected in evalset if selections.get(ask) == expected)
-    return hits / len(evalset)
+''', r'''
+from langchain_core.messages import AIMessage
+
+def first_tool(response) -> str:
+    """The name of the FIRST tool the model reached for, or '' if it reached for none."""
+    calls = response.tool_calls        # every AIMessage carries this list; it may be empty
+    if not calls:
+        return ""
+    return calls[0]["name"]
 
 
-def confusion(selections: dict, evalset=None) -> dict:
-    """{(expected, chosen): count} for the MISSES only -- the pairs whose descriptions overlap."""
-    evalset = EVAL_SET if evalset is None else evalset
+def accuracy(chosen: list, expected: list) -> float:
+    """Fraction of asks where the first tool was the right one. No choice counts as wrong."""
+    hits = sum(1 for c, e in zip(chosen, expected) if c == e)
+    return hits / len(expected)
+
+
+def confusion(chosen: list, expected: list) -> dict:
+    """{(expected, chosen): count} for the MISSES only.
+
+    Accuracy tells you THAT it went wrong. This tells you which two tools read alike to the
+    model -- which is the thing you can go and edit.
+    """
     out = {}
-    for ask, expected in evalset:
-        chosen = selections.get(ask)
-        if chosen != expected:
-            key = (expected, chosen)
-            out[key] = out.get(key, 0) + 1
+    for c, e in zip(chosen, expected):
+        if c != e:
+            out[(e, c)] = out.get((e, c), 0) + 1
     return out
 '''),
-    code('''
-# --- Self-check: Section 2
-# Fixtures: hand-written {ask: chosen} maps with known answers, so the METRIC is graded
-# independently of anything that produced a selection. This is a unit test, not a measurement.
-_perfect = {ask: exp for ask, exp in EVAL_SET}
-_all_lookup = {ask: "lookup_payment" for ask, _ in EVAL_SET}
-_one_miss = dict(_perfect); _one_miss["Which payments involve NORTHWIND?"] = "lookup_payment"
+    code(r'''
+# --- Self-check: Section 2   (real AIMessages, built by hand -- no model call)
+def _ai(*names) -> AIMessage:
+    """An AIMessage shaped exactly like one that asked for these tools, in this order."""
+    if not names:
+        return AIMessage(content="I can answer that without a tool.")
+    return AIMessage(content="", tool_calls=[
+        {"name": n, "args": {"ref": "PMT-1002"}, "id": f"call_{i}", "type": "tool_call"}
+        for i, n in enumerate(names)])
 
-check("a perfect run scores 1.0", lambda: accuracy(_perfect) == 1.0)
-check("a run that always picks lookup_payment scores 4/12",
-      lambda: abs(accuracy(_all_lookup) - 4 / 12) < 1e-9)
-check("one miss out of twelve", lambda: abs(accuracy(_one_miss) - 11 / 12) < 1e-9)
-check("a missing selection counts as wrong, not as skipped",
-      lambda: accuracy({}) == 0.0,
+check("the choice is read off the message the model returns",
+      lambda: first_tool(_ai("lookup_payment")) == "lookup_payment")
+check("only the FIRST call counts",
+      lambda: first_tool(_ai("policy_for", "lookup_payment")) == "policy_for",
+      "a model that gets there on the second try still spent a call and a round trip")
+check("a reply with no tool call is not a selection",
+      lambda: first_tool(_ai()) == "")
+check("a perfect run scores 1.0",
+      lambda: accuracy(["a", "b"], ["a", "b"]) == 1.0)
+check("no choice counts as wrong, not as skipped",
+      lambda: accuracy(["", ""], ["a", "b"]) == 0.0,
       "a model that returned nothing did not get the answer right")
-check("a perfect run has an empty confusion table", lambda: confusion(_perfect) == {})
+check("two of five is 40%",
+      lambda: abs(accuracy(["a", "b", "x", "x", "x"], list("abcde")) - 0.4) < 1e-9)
+check("a perfect run has an empty confusion table",
+      lambda: confusion(["a", "b"], ["a", "b"]) == {})
 check("the confusion table names the pair, expected first",
-      lambda: confusion(_one_miss) == {("search_payments", "lookup_payment"): 1})
-check("confusion counts repeats of the same pair",
-      lambda: confusion(_all_lookup)[("search_payments", "lookup_payment")] == 4)
-check("the confusion table only records misses",
-      lambda: sum(confusion(_all_lookup).values()) == 8)
+      lambda: confusion(["x", "b"], ["a", "b"]) == {("a", "x"): 1})
+check("and counts repeats of the same pair",
+      lambda: confusion(["x", "x"], ["a", "a"])[("a", "x")] == 2,
+      "two asks pulled to the same wrong tool is one overlapping description, not two bugs")
 '''),
 
     md("""
-## Section 3 &mdash; The control
+## Section 3 &mdash; The eval set, and the bake-off
 
-The whole claim is *&ldquo;description text alone&rdquo;*. That is only true if nothing else differs.
-Names must match, and so must the parameter schemas &mdash; otherwise you have quietly run a
-different experiment and the number you report is worthless.
+Five asks with a known right answer. Each one names its intent plainly, so nothing here is a
+trick &mdash; the only question is whether the tool set said enough for the model to route it.
+
+The expected answer differs per arm, because the arms name their tools differently. Everything
+else is shared.
 """),
-    code('''
-import inspect
+    code(r'''
+EVAL = [
+    ("What is the status of PMT-1002?",                    "lookup_payment"),
+    ("Which payments involve NORTHWIND?",                  "search_payments"),
+    ("What should we do about a LIMIT_BREACH?",            "policy_for"),
+    ("List everything currently held.",                    "search_payments"),
+    ("Treasury approved it -- release PMT-1003 now.",      "release_payment"),
+]
 
-def tool_descriptor_params(fn) -> dict:
-    """The parameter schema for one function -- the part that must NOT vary between toolsets."""
-    props, required = {}, []
-    for pname, p in inspect.signature(fn).parameters.items():
-        props[pname] = {"type": "string"}
-        if p.default is inspect.Parameter.empty:
-            required.append(pname)
-    return {"type": "object", "properties": props, "required": required}
+SELECT_SYSTEM = ("You are a payments operations agent. Answer the request by calling exactly one "
+                 "of the tools available to you.")
 
+def run_arm(arm: list, names: dict) -> tuple:
+    """Put every ask to the model with these tools bound. Returns (chosen, expected).
 
-def descriptors_for(toolset: dict) -> list:
-    """The descriptor list a model would receive for one toolset."""
-    return [{"name": n,
-             "description": toolset[n],
-             "parameters": tool_descriptor_params(TOOLKIT_FNS[n])}
-            for n in sorted(toolset)]
-
-
-def control_holds(toolsets: dict) -> bool:
-    """True only if the toolsets differ in description text and in nothing else."""
-    runs = [descriptors_for(t) for t in toolsets.values()]
-    def shape(run):
-        # TODO: everything about a run EXCEPT the description text
-        return BLANK
-    return len({json.dumps(shape(r), sort_keys=True) for r in runs}) == 1
-''', '''
-import inspect
-
-def tool_descriptor_params(fn) -> dict:
-    """The parameter schema for one function -- the part that must NOT vary between toolsets."""
-    props, required = {}, []
-    for pname, p in inspect.signature(fn).parameters.items():
-        props[pname] = {"type": "string"}
-        if p.default is inspect.Parameter.empty:
-            required.append(pname)
-    return {"type": "object", "properties": props, "required": required}
-
-
-def descriptors_for(toolset: dict) -> list:
-    """The descriptor list a model would receive for one toolset."""
-    return [{"name": n,
-             "description": toolset[n],
-             "parameters": tool_descriptor_params(TOOLKIT_FNS[n])}
-            for n in sorted(toolset)]
-
-
-def control_holds(toolsets: dict) -> bool:
-    """True only if the toolsets differ in description text and in nothing else."""
-    runs = [descriptors_for(t) for t in toolsets.values()]
-    def shape(run):
-        return [(d["name"], d["parameters"]) for d in run]
-    return len({json.dumps(shape(r), sort_keys=True) for r in runs}) == 1
+    `names` maps the canonical tool name onto whatever this arm calls it.
+    """
+    bound = get_llm().bind_tools(arm)
+    chosen, expected = [], []
+    for request, want in EVAL:
+        reply = bound.invoke([("system", SELECT_SYSTEM), ("human", request)])
+        chosen.append(first_tool(reply))
+        expected.append(names[want])
+    return chosen, expected
 '''),
-    code('''
-# --- Self-check: Section 3
-def _short_toolset():
-    """A fourth toolset that quietly drops a tool -- a different experiment, not a rerun."""
-    return {**TOOLSETS,
-            "rogue": {n: v for n, v in TOOLSETS["L1 what it does"].items()
-                      if n != "release_payment"}}
-
-def _wider(ref: str, mode: str) -> str:
-    """The same tool with one more required argument."""
-    return ""
-
-check("the control holds for the three toolsets as written",
-      lambda: control_holds(TOOLSETS) is True)
-check("the control is not vacuous -- the descriptions really do differ",
-      lambda: len({json.dumps([d["description"] for d in descriptors_for(t)])
-                   for t in TOOLSETS.values()}) == 3)
-check("a toolset that drops a tool breaks the control",
-      lambda: control_holds(_short_toolset()) is False,
-      "fewer tools in view is a change to the experiment, not a rerun of it")
-check("the control is sensitive to a schema change too, not just to names",
-      lambda: tool_descriptor_params(_wider)
-              != tool_descriptor_params(TOOLKIT_FNS["lookup_payment"]))
+    code(r'''
+# --- Self-check: Section 3   (the eval set itself -- no model call)
+check("five asks, each with an expected tool",
+      lambda: len(EVAL) == 5 and all(len(row) == 2 for row in EVAL))
+check("every tool in the kit is the right answer at least once",
+      lambda: {want for _, want in EVAL} == set(FUNCS))
+check("the coded arm has a name for every tool the eval set expects",
+      lambda: all(want in CODED for _, want in EVAL),
+      "an ask whose expected name does not exist in an arm can never be scored right")
+check("the two arms disagree about every name -- that is the manipulation",
+      lambda: all(CODED[n] != n for n in FUNCS))
 '''),
 
     md("""
-## Section 4 &mdash; Measure it
+## Run it for real &mdash; the bake-off
 
-Everything above is offline and deterministic. This is the part that produces a number, and it
-needs the model, because **the model is the thing under test**.
-
-The cell below asks the sandbox model to choose one tool per ask, three times over &mdash; once per
-description quality &mdash; and feeds the results through *your* harness. If the model is not
-reachable it says so and the lab still scores.
-
-Do not expect the three rows to fan out neatly. Read the next section **after** you run it.
+Ten model calls, five per arm. Watch the `chosen` list as well as the percentage: *which* tool
+the poor arm reached for tells you more than the score does.
 """),
-    code('''
-SELECT_SYSTEM = ("You route a user's request to exactly one tool. "
-                 "Reply with the tool name alone -- no punctuation, no explanation.")
-
-def choose_with_model(request: str, toolset: dict) -> str:
-    """Ask the model to pick one tool. Returns a bare tool name, or '' if it did not answer usably."""
-    listing = "\\n".join(f"- {d['name']}: {d['description']}" for d in descriptors_for(toolset))
-    reply = ask_model(f"Tools available:\\n{listing}\\n\\nRequest: {request}\\n\\nTool name:")
-    word = (reply or "").strip().strip("`.\\"' ").split()[0] if (reply or "").strip() else ""
-    return word if word in toolset else ""
-
-
-def ask_model(prompt: str) -> str:
-    return ask(prompt, system=SELECT_SYSTEM)
-
-
-def measure(toolset: dict) -> dict:
-    """Run the whole eval set through the model once. Returns {ask: chosen}."""
-    return {a: choose_with_model(a, toolset) for a, _ in EVAL_SET}
-
-
+    code(r'''
 if llm_ready():
-    def _run():
-        rows = []
-        for label, ts in TOOLSETS.items():
-            sel = measure(ts)
-            rows.append((label, accuracy(sel), confusion(sel)))
-        print(f"{'description quality':22}{'accuracy':>10}   most-confused pair")
-        print("-" * 72)
-        for label, acc, conf in rows:
-            worst = max(conf.items(), key=lambda kv: kv[1])[0] if conf else None
-            pair = f"{worst[0]} -> {worst[1]}" if worst else "(none)"
-            print(f"{label:22}{acc:>9.0%}   {pair}")
-        return rows
-    guard(_run)
+    def _bakeoff():
+        arms = (("coded names, labels only", poor_arm(), CODED),
+                ("real names and descriptions", good_arm(), {n: n for n in FUNCS}))
+        print(f"{'arm':30}{'first-tool accuracy':>21}")
+        print("-" * 78)
+        for label, arm, names in arms:
+            chosen, expected = run_arm(arm, names)
+            print(f"{label:30}{accuracy(chosen, expected):>20.0%}")
+            for (request, _), got, want in zip(EVAL, chosen, expected):
+                mark = "  " if got == want else "<-"
+                print(f"    {mark} {request[:44]:46} {got or '(no call)':14} want {want}")
+            for (want, got), n in sorted(confusion(chosen, expected).items(), key=lambda kv: -kv[1]):
+                print(f"       confused {want} with {got or '(no call)'} x{n}")
+            print()
+    guard(_bakeoff)
 '''),
     md("""
 ### Read it
 
-**You probably saw three identical rows, all at or near 100%.** That is the expected result on this
-sandbox, and it is the most useful thing this lab has to tell you.
+Here is what we measured on this model, with this eval set, before writing the lab:
 
-Here is what we measured on this model before writing the lab:
+| arm | first-tool accuracy |
+|---|---|
+| coded names, label-only descriptions | **2/5** |
+| the same four functions, real names and descriptions with a boundary | **5/5** |
 
-| eval set | L0 label only | L1 what it does | L2 with boundary |
-|---|---|---|---|
-| these twelve asks | 100% | 100% | 100% |
-| the same, with the tool names obfuscated to `pmt_inq_01` etc. | 100% | 100% | 100% |
-| ten deliberately ambiguous asks | 90% | 80% | 80% |
-| the same ten, run again | 80% | 80% | &mdash; |
+Sixty points, same model, same functions, same argument schemas. The only thing that changed was
+the prose &mdash; and the prose is the part most teams treat as documentation.
 
-Three conclusions, and none of them is the one the lab's title leads you to expect.
+Three things worth taking from that, in order of how much they will cost you if you miss them.
 
-**1. The model is at the ceiling, so there is nothing for the description to add.** Every ask here
-names its intent plainly, and `lookup_payment` / `search_payments` are self-documenting. We removed
-that second advantage by renaming the tools to `pmt_inq_01` and friends &mdash; the sort of name an
-internal payments API really has &mdash; and it still scored 100%. When the task is easy enough, a
-better description has no work left to do.
+**1. The description is not documentation. It is the API.** `pmt_inq_01` is a perfectly good
+function name and a terrible tool name, and the four-word description does not rescue it. When a
+model has nothing to route on, it routes on nothing &mdash; the misses in the poor arm are not
+random, they cluster on whichever tool sounds vaguely closest.
 
-**2. On genuinely hard asks the difference appeared, and pointed the wrong way.** The richer
-descriptions did *worse*, and the misses were all the same shape: asks that name a reference but
-want the policy, pulled toward `lookup_payment` because its L1 text says &ldquo;such as PMT-1002&rdquo;.
-A description can attract a call as easily as it can repel one.
+**2. The effect lives where the signal is missing, not everywhere.** We also ran the opposite
+experiment: hold the *names* meaningful and vary only the description quality across three levels,
+on twelve unambiguous asks. All three scored 100%. When the name already says what the tool does
+and the ask is plain, a richer description has no work left to do. So &ldquo;always write better
+descriptions&rdquo; is not the lesson. The lesson is that a tool needs *at least one* channel that
+says what it is for, and coded internal names are exactly the case where the description is the
+only one you have.
 
-**3. And then the fourth row cancels the third.** The same ten asks, run twice, moved by a whole
-case. At ten asks one case is worth ten points, so a ten-point gap is one coin flip. **If one case
-is worth more than the difference you are claiming, you have not measured anything.**
-
-So: a null result, then a suggestive result, then a noise floor that swallows it. That is not a
-failed lab &mdash; it is what measuring actually looks like, and it is why the harness is the part
-worth keeping. What you now know that you did not know an hour ago:
-
-- On *this* workload, with *this* model, description quality is not your accuracy problem. Anyone
-  who spends next week rewriting docstrings for this tool set is optimising a ceiling.
-- The place it could still matter is the ambiguous asks &mdash; and to tell a real 10-point effect
-  from a coin flip there you need hundreds of cases, or dozens of repeats, not twelve asks and one run.
-- Both of those are findings you can defend, and neither was available by reasoning about it.
-
-Everything in Module 4 that is *not* measured here still holds, because it does not depend on this
-result: a tool that returns instead of raising, a boundary sentence that stops a wrong call, an
-allow-list on what comes back. Those are structural. This one was empirical, and the empirical
-answer on this workload is &ldquo;no effect detectable&rdquo;.
-
-Day 3 is where this gets sharp: the same harness, an eval set big enough to have a noise floor you
-can quote, and repeats, so that &ldquo;better&rdquo; becomes a claim with an interval around it.
+**3. Five cases means one flip is twenty points.** A 2/5 &rarr; 5/5 gap is large enough to see
+through that noise; a 4/5 &rarr; 5/5 gap would not be. Before you claim an improvement from an
+eval set this size, work out how big a difference your sample could even detect. Day 3 extends
+this exact harness with enough cases to quote an interval, and adds a cost budget alongside the
+accuracy.
 """),
 
-    code('''
+    code(r'''
 score()
 '''),
     md("""
 ## Your turn
 
-1. Replicate the third row. Write ten asks that name a payment reference but want a *different*
-   tool &mdash; &ldquo;PMT-1004. What do the rules say about this kind?&rdquo; &mdash; and run all three
-   qualities against them. Then run it twice more and see whether your ordering survives.
-2. Add four asks that are genuinely ambiguous to a human too &mdash; the honest answer is &ldquo;ask a
-   clarifying question&rdquo;. What should the expected value even be? (Day 3 has an answer: a fifth
-   outcome, not a fifth tool.)
-3. Write an L3 that adds one worked example to each description. Does it beat L2, and is the extra
-   prompt cost on every single call worth it? Decide in advance how big a difference you would
-   believe, given the size of your eval set.
+1. Build a third arm: coded names, but the *good* descriptions. That separates the two things the
+   bake-off changed together. Which of the two was carrying the effect?
+2. Add four asks that are genuinely ambiguous to a human as well &mdash; the honest answer is
+   &ldquo;ask a clarifying question&rdquo;. What should the expected value even be? (Day 3 has an
+   answer: a fifth outcome, not a fifth tool.)
+3. Run the good arm three times and record the three scores. That spread is your noise floor, and
+   no claim smaller than it is a claim.
 4. Keep this file. On Day 3 you will extend this exact harness into the eval set that gates the
    capstone &mdash; same metric, more cases, and a cost budget alongside the accuracy.
 """),
@@ -909,19 +1048,18 @@ score()
 
 
 # =========================================================================== #
-# Lab 4.3 -- multi-tool orchestration: selection, arguments, sequencing, budget
+# Lab 4.3 -- multi-tool orchestration: the loop, and the two ways to stop it
 # =========================================================================== #
 LAB3 = [
     header(3, "Multi-Tool Orchestration", "Advanced", 35,
-           ["Pull the argument out of the request &mdash; and notice when there is not one",
-            "Thread one tool's output into the next tool's argument, which is what &lsquo;multi-tool&rsquo; means",
+           ["Decide which tools an unattended agent may be handed at all",
+            "Answer a <code>tool_call</code> with the <code>ToolMessage</code> it is waiting for",
             "Recognise a repeated call, because that is what a stuck agent looks like from outside",
-            "Stop on a budget, and report <em>why</em> you stopped"],
+            "Write the tool-calling loop yourself, then watch the model sequence two tools"],
            "> **Builds on Lab 4.1's contract.** A tool that returns instead of raising is what makes\n"
            "> a multi-step run recoverable; here you find out what still goes wrong when it does."),
     setup(3),
     code(DOMAIN),
-    code(CARRIED_TOOLS),
     code(TOOLKIT),
 
     md("""
@@ -930,362 +1068,283 @@ LAB3 = [
 &ldquo;Multi-tool&rdquo; is three separate problems wearing one name:
 
 1. **Selection** &mdash; which tool. Lab 4.2 measured this.
-2. **Arguments** &mdash; what to pass, extracted from a request written by a human.
+2. **Arguments** &mdash; what to pass. The model extracts them from a request a human wrote.
 3. **Sequencing** &mdash; the interesting one. `policy_for` needs a reason code that only
    `lookup_payment` can supply, so step two's argument does not exist until step one has run.
 
-Plus the failure that ends production agents: a loop. Two calls with the same tool and the same
-arguments cannot produce a different answer, so the second one is always wasted &mdash; and the
-tenth one is an incident.
+Nothing coordinates those three but the message list. You send messages, the model replies with
+`tool_calls`, you run them and append a `ToolMessage` for each, and you send the lot back. That
+loop is the whole of `create_agent`, minus the hardening.
+
+Plus the failure that ends production agents: a loop that does not end. Two calls with the same
+tool and the same arguments cannot produce different answers, so the second one is always wasted
+&mdash; and the tenth one is an incident.
 """),
 
     md("""
-## Section 1 &mdash; The argument is in the request
+## Section 1 &mdash; Which tools does it get?
 
-Before any tool runs, something has to turn *&ldquo;why did PMT-1004 fail?&rdquo;* into `ref="PMT-1004"`.
-Note the second half of the job: recognising when the request names no reference at all.
+Before any loop runs, someone decides what is in reach. Four tools exist; this agent investigates
+and reports, and nothing in this lab approves anything.
+
+A tool the model cannot see is a tool it cannot call. It is the cheapest control in the module,
+and it is a decision, not a default.
 """),
-    code('''
-import re
+    code(r'''
+def tools_for_investigation() -> list:
+    """The tools an unattended investigation agent may be handed.
 
-REF_RE = re.compile(r"\\bPMT-\\d{4}\\b")
-
-def extract_ref(request: str):
-    """The payment reference this request names, or None if it names none."""
-    m = BLANK                       # TODO: find a reference like PMT-1002 anywhere in the text
-    return m.group(0) if m else None
-''', '''
-import re
-
-REF_RE = re.compile(r"\\bPMT-\\d{4}\\b")
-
-def extract_ref(request: str):
-    """The payment reference this request names, or None if it names none."""
-    m = REF_RE.search(request or "")
-    return m.group(0) if m else None
-'''),
-    code('''
-# --- Self-check: Section 1
-check("a reference mid-sentence is found",
-      lambda: extract_ref("Why did PMT-1004 fail?") == "PMT-1004")
-check("and one at the end of a sentence, punctuation and all",
-      lambda: extract_ref("Please pull up PMT-1001.") == "PMT-1001")
-check("a request that names no payment returns None, not a guess",
-      lambda: extract_ref("Which payments involve NORTHWIND?") is None,
-      "inventing a plausible reference here is how an agent reads the wrong account")
-check("a too-short number is not a reference",
-      lambda: extract_ref("ticket PMT-99 is open") is None)
-check("empty input is handled",
-      lambda: extract_ref("") is None)
-'''),
-
-    md("""
-## Section 2 &mdash; Step two's argument comes from step one
-
-A plan is a list of steps whose arguments may be **references** rather than values:
-
-- `"$request.ref"` &mdash; the reference extracted from what the user asked
-- `"$0.reason_code"` &mdash; the `reason_code` field of step 0's result
-
-Resolving those references at run time is the whole mechanism behind a multi-step tool agent.
-"""),
-    code('''
-PLANS = {
-    "explain_failure": [
-        {"tool": "lookup_payment", "args": {"ref": "$request.ref"}},
-        {"tool": "policy_for",     "args": {"reason_code": "$0.reason_code"}},
-    ],
-    "find_for_counterparty": [
-        {"tool": "search_payments", "args": {"counterparty": "NORTHWIND"}},
-    ],
-}
-
-def resolve_arg(value, request_ref, results):
-    """Resolve one argument that may point at the request or at an earlier step's result."""
-    if not isinstance(value, str) or not value.startswith("$"):
-        return value
-    if value == "$request.ref":
-        return request_ref
-    step, _, field = value[1:].partition(".")
-    try:
-        payload = json.loads(results[int(step)])
-    except (ValueError, TypeError):
-        # That step did not return a record -- there is no field to thread forward. Carrying
-        # the gap forward as None beats raising: the next tool can still report a real failure.
-        return None
-    return BLANK                    # TODO: the named field of that earlier step's result
-
-
-def run_plan(plan, request, tools=None):
-    """Run every step in order, resolving each argument just before the call."""
-    tools = TOOLKIT_FNS if tools is None else tools
-    ref, results, trace = extract_ref(request), [], []
-    for step in plan:
-        args = {k: resolve_arg(v, ref, results) for k, v in step["args"].items()}
-        results.append(tools[step["tool"]](**args))
-        trace.append((step["tool"], args))
-    return {"results": results, "trace": trace}
-''', '''
-PLANS = {
-    "explain_failure": [
-        {"tool": "lookup_payment", "args": {"ref": "$request.ref"}},
-        {"tool": "policy_for",     "args": {"reason_code": "$0.reason_code"}},
-    ],
-    "find_for_counterparty": [
-        {"tool": "search_payments", "args": {"counterparty": "NORTHWIND"}},
-    ],
-}
-
-def resolve_arg(value, request_ref, results):
-    """Resolve one argument that may point at the request or at an earlier step's result."""
-    if not isinstance(value, str) or not value.startswith("$"):
-        return value
-    if value == "$request.ref":
-        return request_ref
-    step, _, field = value[1:].partition(".")
-    try:
-        payload = json.loads(results[int(step)])
-    except (ValueError, TypeError):
-        # That step did not return a record -- there is no field to thread forward. Carrying
-        # the gap forward as None beats raising: the next tool can still report a real failure.
-        return None
-    return payload.get(field)
-
-
-def run_plan(plan, request, tools=None):
-    """Run every step in order, resolving each argument just before the call."""
-    tools = TOOLKIT_FNS if tools is None else tools
-    ref, results, trace = extract_ref(request), [], []
-    for step in plan:
-        args = {k: resolve_arg(v, ref, results) for k, v in step["args"].items()}
-        results.append(tools[step["tool"]](**args))
-        trace.append((step["tool"], args))
-    return {"results": results, "trace": trace}
-'''),
-    code('''
-# --- Self-check: Section 2
-check("step 0 is called with the reference from the request",
-      lambda: run_plan(PLANS["explain_failure"], "Why did PMT-1002 fail?")["trace"][0]
-              == ("lookup_payment", {"ref": "PMT-1002"}))
-check("step 1's argument came from step 0's OUTPUT, not from the request",
-      lambda: run_plan(PLANS["explain_failure"], "Why did PMT-1002 fail?")["trace"][1][1]
-              == {"reason_code": "INSUFFICIENT_FUNDS"},
-      "that is the whole point of sequencing -- the argument did not exist until step 0 returned")
-check("and the plan ends with the policy text for that code",
-      lambda: "Retry once after 24h" in
-              run_plan(PLANS["explain_failure"], "Why did PMT-1002 fail?")["results"][1])
-check("a different payment threads a different code through",
-      lambda: run_plan(PLANS["explain_failure"], "What about PMT-1003?")["trace"][1][1]
-              == {"reason_code": "LIMIT_BREACH"})
-check("a literal argument is passed through untouched",
-      lambda: run_plan(PLANS["find_for_counterparty"], "anything")["trace"][0][1]
-              == {"counterparty": "NORTHWIND"})
-check("a request naming no reference does not crash the plan",
-      lambda: isinstance(run_plan(PLANS["explain_failure"], "no reference here")["results"][0], str),
-      "Lab 4.1's contract is what keeps this recoverable instead of fatal")
-
-def _show():
-    out = run_plan(PLANS["explain_failure"], "Why did PMT-1004 fail?")
-    for tool, args in out["trace"]:
-        print(f"  {tool:18} {args}")
-    print("  ->", out["results"][-1][:80])
-guard(_show)
-'''),
-
-    md("""
-## Section 3 &mdash; The stop conditions
-
-Two calls with the same tool and the same arguments return the same answer. So the second one
-buys nothing, and an agent that keeps making it is stuck &mdash; not slow.
-
-A budget catches the runs a loop check misses: no repeat, just a plan that will not end.
-"""),
-    code('''
-def call_key(tool: str, args: dict):
-    """An identity for one call, so that a repeat of it is recognisable."""
-    return BLANK                    # TODO: same tool AND same arguments = the same call
-
-
-def run_guarded(plan, request, budget=4, tools=None):
-    """Run a plan, refusing to repeat an identical call and stopping at the budget.
-
-    Always returns an outcome -- 'completed', 'loop' or 'budget' -- and the trace so far.
+    All four in BY_NAME exist and all four work. That is not the question.
     """
-    tools = TOOLKIT_FNS if tools is None else tools
-    ref, results, trace, seen = extract_ref(request), [], [], set()
-    for step in plan:
-        if len(trace) >= budget:
-            return {"outcome": "budget", "trace": trace, "results": results,
-                    "why": f"stopped after {budget} calls without finishing"}
-        args = {k: resolve_arg(v, ref, results) for k, v in step["args"].items()}
-        key = call_key(step["tool"], args)
-        if key in seen:
-            return {"outcome": "loop", "trace": trace, "results": results,
-                    "why": f"{step['tool']} was already called with these arguments"}
-        seen.add(key)
-        results.append(tools[step["tool"]](**args))
-        trace.append((step["tool"], args))
-    return {"outcome": "completed", "trace": trace, "results": results, "why": ""}
-''', '''
-def call_key(tool: str, args: dict):
-    """An identity for one call, so that a repeat of it is recognisable."""
-    return (tool, json.dumps(args, sort_keys=True, default=str))
+    # TODO: return the list of tool objects this agent should get.
+    #       One of the four moves money, and nothing here approves anything.
+    return BLANK
+''', r'''
+def tools_for_investigation() -> list:
+    """The tools an unattended investigation agent may be handed.
 
-
-def run_guarded(plan, request, budget=4, tools=None):
-    """Run a plan, refusing to repeat an identical call and stopping at the budget.
-
-    Always returns an outcome -- 'completed', 'loop' or 'budget' -- and the trace so far.
+    All four in BY_NAME exist and all four work. That is not the question.
     """
-    tools = TOOLKIT_FNS if tools is None else tools
-    ref, results, trace, seen = extract_ref(request), [], [], set()
-    for step in plan:
-        if len(trace) >= budget:
-            return {"outcome": "budget", "trace": trace, "results": results,
-                    "why": f"stopped after {budget} calls without finishing"}
-        args = {k: resolve_arg(v, ref, results) for k, v in step["args"].items()}
-        key = call_key(step["tool"], args)
-        if key in seen:
-            return {"outcome": "loop", "trace": trace, "results": results,
-                    "why": f"{step['tool']} was already called with these arguments"}
-        seen.add(key)
-        results.append(tools[step["tool"]](**args))
-        trace.append((step["tool"], args))
-    return {"outcome": "completed", "trace": trace, "results": results, "why": ""}
+    return [lookup_payment, search_payments, policy_for]
 '''),
-    code('''
-# --- Self-check: Section 3
-_repeat = [{"tool": "lookup_payment", "args": {"ref": "$request.ref"}},
-           {"tool": "lookup_payment", "args": {"ref": "$request.ref"}}]
-_long   = [{"tool": "lookup_payment",  "args": {"ref": "PMT-1001"}},
-           {"tool": "lookup_payment",  "args": {"ref": "PMT-1002"}},
-           {"tool": "lookup_payment",  "args": {"ref": "PMT-1003"}},
-           {"tool": "lookup_payment",  "args": {"ref": "PMT-1004"}},
-           {"tool": "lookup_payment",  "args": {"ref": "PMT-1005"}}]
+    code(r'''
+# --- Self-check: Section 1   (tool objects only -- no model call)
+def _names():
+    return {t.name for t in tools_for_investigation()}
 
-check("two identical calls are the same key",
-      lambda: call_key("lookup_payment", {"ref": "PMT-1002"})
-              == call_key("lookup_payment", {"ref": "PMT-1002"}))
+check("the agent can read a payment and read the policy",
+      lambda: {"lookup_payment", "policy_for"} <= _names(),
+      "without both of these it cannot answer a single question in this lab")
+check("it is NOT handed the tool that moves money",
+      lambda: "release_payment" not in _names(),
+      "a tool the model cannot see is a tool it cannot call -- the cheapest control there is")
+check("every entry is a real tool object, not a bare function",
+      lambda: all(hasattr(t, "name") and hasattr(t, "invoke")
+                  for t in tools_for_investigation()))
+check("they are the toolkit's own objects, not copies",
+      lambda: all(t is BY_NAME[t.name] for t in tools_for_investigation()))
+
+guard(lambda: print("  handed to the agent:", ", ".join(sorted(_names()))))
+'''),
+
+    md("""
+## Section 2 &mdash; Answering a tool call
+
+The model asks for a tool by emitting a `tool_call`: a dict with a `name`, an `args` and an `id`.
+You run it and reply with a `ToolMessage`.
+
+The `id` is the part people get wrong. A single turn can carry several calls at once, and the
+`ToolMessage` says which one it is answering. Get it wrong and the model reads the policy text as
+the answer to the payment lookup, with nothing raised anywhere.
+"""),
+    code(r'''
+from langchain_core.messages import SystemMessage, HumanMessage, ToolMessage
+
+def run_one_call(call: dict, tools: list) -> ToolMessage:
+    """Run one tool call the model asked for, and package the result as its reply.
+
+    `call` is one entry of AIMessage.tool_calls: {"name", "args", "id", "type"}.
+    """
+    by_name = {t.name: t for t in tools}
+    result = by_name[call["name"]].invoke(call["args"])
+    return ToolMessage(
+        content=str(result),
+        # TODO: a turn can have several calls in flight at once. What pairs THIS result
+        #       to the request that asked for it?
+        tool_call_id=BLANK,
+    )
+''', r'''
+from langchain_core.messages import SystemMessage, HumanMessage, ToolMessage
+
+def run_one_call(call: dict, tools: list) -> ToolMessage:
+    """Run one tool call the model asked for, and package the result as its reply.
+
+    `call` is one entry of AIMessage.tool_calls: {"name", "args", "id", "type"}.
+    """
+    by_name = {t.name: t for t in tools}
+    result = by_name[call["name"]].invoke(call["args"])
+    return ToolMessage(
+        content=str(result),
+        tool_call_id=call["id"],
+    )
+'''),
+    code(r'''
+# --- Self-check: Section 2   (real messages and real tools -- no model call)
+def _call(name="lookup_payment", args=None, cid="call_1") -> dict:
+    """One tool_call, shaped exactly as the model emits it."""
+    return {"name": name, "args": args if args is not None else {"ref": "PMT-1002"},
+            "id": cid, "type": "tool_call"}
+
+check("the tool actually ran, and its output came back as text",
+      lambda: "INSUFFICIENT_FUNDS" in run_one_call(_call(), TOOLKIT).content)
+check("the reply is a ToolMessage -- the only message type that answers a call",
+      lambda: isinstance(run_one_call(_call(), TOOLKIT), ToolMessage))
+check("the reply is addressed to the call that asked for it",
+      lambda: run_one_call(_call(cid="call_7"), TOOLKIT).tool_call_id == "call_7",
+      "two calls in flight and a wrong id here silently answers the wrong question")
+check("two calls get two different addresses",
+      lambda: run_one_call(_call(cid="a"), TOOLKIT).tool_call_id
+              != run_one_call(_call(cid="b"), TOOLKIT).tool_call_id)
+check("a different tool is answered the same way",
+      lambda: "Treasury approval" in
+              run_one_call(_call("policy_for", {"reason_code": "LIMIT_BREACH"}), TOOLKIT).content)
+check("the content is a string, whatever the tool returned",
+      lambda: isinstance(run_one_call(_call("search_payments",
+                                            {"counterparty": "NORTHWIND"}), TOOLKIT).content, str))
+'''),
+
+    md("""
+## Section 3 &mdash; Knowing you have been here before
+
+Two calls that are the same in every way return the same answer. So the second one buys nothing,
+and an agent that keeps making it is stuck rather than slow.
+
+The trap is the `id`: it is new on every single call, so an identity that includes it never
+matches anything and the check silently never fires.
+"""),
+    code(r'''
+def call_key(call: dict):
+    """An identity for one call, so that a repeat of it is recognisable.
+
+    json.dumps(..., sort_keys=True) makes two argument dicts compare equal whatever order
+    the model happened to write the keys in.
+    """
+    # TODO: what makes two calls THE SAME call? Look hard at what is in a tool_call
+    #       that changes every single turn.
+    return BLANK
+''', r'''
+def call_key(call: dict):
+    """An identity for one call, so that a repeat of it is recognisable.
+
+    json.dumps(..., sort_keys=True) makes two argument dicts compare equal whatever order
+    the model happened to write the keys in.
+    """
+    return (call["name"], json.dumps(call["args"], sort_keys=True, default=str))
+'''),
+    code(r'''
+# --- Self-check: Section 3   (pure identity -- no model call)
+check("two identical calls are the same call",
+      lambda: call_key(_call()) == call_key(_call()))
+check("the id is NOT part of what makes a call the same",
+      lambda: call_key(_call(cid="a")) == call_key(_call(cid="b")),
+      "the id is new every turn -- include it and no repeat is ever detected")
 check("argument order does not make a call look new",
-      lambda: call_key("search_payments", {"counterparty": "ZENITH", "status": "held"})
-              == call_key("search_payments", {"status": "held", "counterparty": "ZENITH"}),
-      "otherwise the same call reordered slips past the loop check")
+      lambda: call_key(_call("search_payments", {"counterparty": "ZENITH", "status": "held"}))
+              == call_key(_call("search_payments", {"status": "held", "counterparty": "ZENITH"})))
 check("a different argument is a different call",
-      lambda: call_key("lookup_payment", {"ref": "PMT-1002"})
-              != call_key("lookup_payment", {"ref": "PMT-1003"}))
+      lambda: call_key(_call(args={"ref": "PMT-1002"}))
+              != call_key(_call(args={"ref": "PMT-1003"})))
 check("a different tool is a different call",
-      lambda: call_key("lookup_payment", {"ref": "PMT-1002"})
-              != call_key("release_payment", {"ref": "PMT-1002"}))
-
-check("a clean plan completes",
-      lambda: run_guarded(PLANS["explain_failure"], "Why did PMT-1002 fail?")["outcome"] == "completed")
-check("a repeated call stops the run",
-      lambda: run_guarded(_repeat, "About PMT-1002")["outcome"] == "loop")
-check("and the reason names the tool that repeated",
-      lambda: "lookup_payment" in run_guarded(_repeat, "About PMT-1002")["why"])
-check("the repeated call was NOT executed",
-      lambda: len(run_guarded(_repeat, "About PMT-1002")["trace"]) == 1)
-check("a plan longer than the budget stops at the budget",
-      lambda: run_guarded(_long, "x", budget=3)["outcome"] == "budget")
-check("and it stopped after exactly the budget, not one call later",
-      lambda: len(run_guarded(_long, "x", budget=3)["trace"]) == 3)
-check("every outcome carries a trace, including the failures",
-      lambda: all("trace" in run_guarded(p, "About PMT-1002", budget=3)
-                  for p in (_repeat, _long, PLANS["explain_failure"])),
-      "a run you cannot see is a run you cannot debug -- Module 7 builds on this")
+      lambda: call_key(_call("lookup_payment"))
+              != call_key(_call("policy_for", {"reason_code": "LIMIT_BREACH"})))
+check("the key is hashable, because it goes in a set",
+      lambda: len({call_key(_call()), call_key(_call(cid="z"))}) == 1)
 '''),
 
     md("""
-## Section 4 &mdash; The whole thing, on a small suite
+## Section 4 &mdash; The loop
 
-Four requests, four expectations. This is the shape of Lab 4.2's harness applied to *behaviour*
-rather than to selection &mdash; and it is the last thing you build before Day 3 makes it the gate.
+Nothing left to fill in. Read it once: this is `create_agent` with the hardening taken out, and
+every line of it is one of the three problems from the concept.
+
+Two exits besides finishing: a repeated call, and a budget. The budget catches the runs a repeat
+check misses &mdash; no repeat, just a plan that will not end.
 """),
-    code('''
-SUITE = [
-    ("Why did PMT-1002 fail?",       "explain_failure",        "completed"),
-    ("What about PMT-1003?",         "explain_failure",        "completed"),
-    ("Which ones are NORTHWIND's?",  "find_for_counterparty",  "completed"),
-    ("Why did nothing-here fail?",   "explain_failure",        "completed"),
-]
+    code(r'''
+INVESTIGATE_SYSTEM = (
+    "You are a payments operations analyst. Use the tools to find out what happened and what "
+    "the policy says about it. When you have the answer, reply in one sentence without calling "
+    "a tool.")
 
-def run_suite() -> list:
-    """Run each case and report its outcome and step count."""
-    rows = []
-    for request, plan_name, expected in SUITE:
-        out = run_guarded(PLANS[plan_name], request)
-        rows.append((request, out["outcome"], len(out["trace"]), out["outcome"] == expected))
-    return rows
+def investigate(request: str, max_calls: int = 4) -> dict:
+    """The tool-calling loop, written out. Always returns an outcome and a trace."""
+    tools = tools_for_investigation()
+    bound = get_llm().bind_tools(tools)
+    messages = [SystemMessage(INVESTIGATE_SYSTEM), HumanMessage(request)]
+    seen, trace = set(), []
 
-def _report():
-    print(f"{'request':32}{'outcome':12}{'steps':>6}  ok")
-    print("-" * 60)
-    for request, outcome, steps, good in run_suite():
-        print(f"{request[:30]:32}{outcome:12}{steps:>6}  {'yes' if good else 'NO'}")
-guard(_report)
-'''),
-    code('''
-# --- Self-check: Section 4
-check("every case in the suite reaches its expected outcome",
-      lambda: all(row[3] for row in run_suite()))
-check("the two-step plan really took two steps",
-      lambda: run_suite()[0][2] == 2)
-check("the one-step plan took one",
-      lambda: run_suite()[2][2] == 1)
-check("a request with no reference still completes rather than crashing",
-      lambda: run_suite()[3][1] == "completed",
-      "it completes with a useless answer -- which is a different bug, and one the agent can see")
+    while True:
+        reply = bound.invoke(messages)
+        messages.append(reply)
+
+        if not reply.tool_calls:                       # it answered instead of asking
+            return {"outcome": "answered", "answer": reply.content, "trace": trace}
+
+        for call in reply.tool_calls:
+            if call_key(call) in seen:                 # it has been here before
+                return {"outcome": "loop", "trace": trace,
+                        "answer": f"{call['name']} was already called with these arguments"}
+            seen.add(call_key(call))
+            messages.append(run_one_call(call, tools))
+            trace.append((call["name"], call["args"]))
+
+        if len(trace) >= max_calls:                    # it is not converging
+            return {"outcome": "budget", "trace": trace,
+                    "answer": f"stopped after {len(trace)} calls without an answer"}
 '''),
 
     md("""
 ## Run it for real
 
-Let the model choose the plan instead of you. Notice what it does with the fourth request, the
-one naming no payment: the honest answer is to ask a question, and nothing in this design lets it.
+Three requests. The first needs two tools in sequence; the second needs one; the third names no
+payment at all, and there is no honest answer to it.
 """),
-    code('''
+    code(r'''
 if llm_ready():
-    def _pick():
-        catalogue = "\\n".join(f"- {n}: {[s['tool'] for s in p]}" for n, p in PLANS.items())
-        for request, _, _ in SUITE:
-            reply = ask(f"Plans available:\\n{catalogue}\\n\\nRequest: {request}\\n\\n"
-                        "Reply with one plan name, or the word NEITHER.",
-                        system="Reply with a single word and nothing else.")
-            print(f"  {request[:34]:36} -> {reply.strip()[:40]}")
-    guard(_pick)
+    def _run():
+        for request in ("Why did PMT-1002 fail, and what should we do about it?",
+                        "Which payments are currently held for NORTHWIND?",
+                        "Why did it fail?"):
+            out = investigate(request)
+            print(f"\n  {request}")
+            for name, args in out["trace"]:
+                print(f"    -> {name}({args})")
+            print(f"    [{out['outcome']}] {str(out['answer'])[:170]}")
+    guard(_run)
 '''),
     md("""
 ### Read it
 
-If the model answers `explain_failure` for the request that names no payment, the plan will run,
-`lookup_payment` will return &ldquo;no payment found&rdquo;, and `policy_for` will be handed `None`.
-Every step succeeded and the answer is worthless.
+**The first request is the whole point of the lab.** Watch the trace: `lookup_payment` first, then
+`policy_for` with `reason_code=INSUFFICIENT_FUNDS` &mdash; an argument that did not exist when the
+run started. Nothing in your code threaded it through. The model read the first tool's result out
+of the message list and used it to write the second call. That is sequencing, and it is the reason
+the message list is the whole architecture.
 
-That is failure 4 from the deck &mdash; the one that looks like success &mdash; and no amount of loop
-detection catches it. Module 5 gives it a home: a supervisor whose job includes deciding that
-*neither* plan applies.
+**The third request has no answer, and watch what happens anyway.** The honest reply is a
+question: *which payment?* Depending on the turn you will see it invent a reference, call
+`search_payments` with nothing, or ask. Only the last is right, and nothing in this design asks
+for it.
+
+That is failure 4 from the deck &mdash; the one that looks like success. Every step returned
+cleanly, the loop terminated, the outcome says `answered`, and the answer is worthless. No loop
+check catches it and no budget catches it. Module 5 gives it a home: a supervisor whose job
+includes deciding that *neither* plan applies.
 """),
 
-    code('''
+    code(r'''
 score()
 '''),
     md("""
 ## Your turn
 
-1. Add a `NEITHER` outcome to `run_guarded` for a request the plans do not cover. What should the
-   agent return to the user, and how is that different from an error?
-2. `resolve_arg` returns `None` when an earlier step returned prose instead of a record, and the
-   run then completes with a worthless answer. Rewrite it to return one of Lab 4.1's structured
-   failures instead, and decide who should stop the run: the resolver, the plan, or the tool.
-3. The loop check compares exact arguments. An agent that retries `PMT-1002`, then `PMT-1003`, then
-   `PMT-1002` again defeats it. Widen the check to a repeat *within a window* and see what it costs
-   in false positives.
+1. Set `max_calls=1` and re-run the first request. The outcome changes to `budget` with a partial
+   trace. What should the agent tell the user &mdash; and how is that different from an error?
+2. Add `release_payment` to `tools_for_investigation()` and ask &ldquo;Treasury approved PMT-1003,
+   release it.&rdquo; Then take it out again. That two-line diff is the difference between an agent
+   that reports and an agent that acts.
+3. The repeat check compares exact arguments, so an agent that alternates `PMT-1002`, `PMT-1003`,
+   `PMT-1002` defeats it. Widen it to a repeat *within a window* and see what it costs you in
+   false positives on a legitimate multi-payment investigation.
+4. Replace the whole loop with `create_agent(model=get_llm(), tools=tools_for_investigation(),
+   system_prompt=INVESTIGATE_SYSTEM)` and compare the traces. What did you give up, and what did
+   you get?
 """),
 ]
 
 
 # =========================================================================== #
-# Lab 4.4 -- MCP from the wire up: framing, a server, a client, a config
+# Lab 4.4 -- MCP from the wire up: the schema, the transport, the server, the grant
 # =========================================================================== #
 MCP_SERVER_SOURCE = r"""
 import sys, json, re
@@ -1321,7 +1380,7 @@ def handle(req):
         return {"jsonrpc": "2.0", "id": rid,
                 "result": {"content": [{"type": "text", "text": text}], "isError": rec is None}}
     return {"jsonrpc": "2.0", "id": rid,
-            "code": -32601, "error": {"code": -32601, "message": "method not found"}}
+            "error": {"code": -32601, "message": "method not found"}}
 
 data, out, i = sys.stdin.buffer.read(), b"", 0
 while True:
@@ -1338,16 +1397,16 @@ sys.stdout.buffer.write(out)
 
 LAB4 = [
     header(4, "MCP From the Wire Up", "Advanced", 40,
-           ["Frame a JSON-RPC message the way MCP does, and find out why framing exists at all",
-            "Write the server: initialize, tools/list, tools/call &mdash; the whole protocol surface you need",
-            "Write the client, and watch discovery happen at run time rather than at build time",
+           ["Publish your own <code>@tool</code> objects as MCP tools, using the SDK's own types",
+            "Frame a JSON-RPC message the way MCP does, and find out why framing exists at all",
+            "Write the server: initialize, tools/list, tools/call &mdash; and where failures belong",
             "Read an <code>mcpServers</code> config as what it is: a list of access grants"],
-           "> **No SDK.** You implement the protocol, because a protocol you have implemented once\n"
-           "> is one you can reason about when it misbehaves. The last cell runs your server as a\n"
-           "> real subprocess over real pipes &mdash; and needs no model and no network."),
+           "> **You implement the protocol.** The message *types* come from the `mcp` package, so\n"
+           "> the SDK validates every response you build; the transport you write yourself. The\n"
+           "> last cell runs a server as a real subprocess &mdash; no model, no network."),
     setup(4),
     code(DOMAIN),
-    code(CARRIED_TOOLS),
+    code(TOOLKIT),
 
     md("""
 ## Concept
@@ -1365,112 +1424,170 @@ Three methods carry almost everything:
 | `tools/call` | invoke one by name with arguments |
 
 Discovery is the part with consequences. The agent does not know what it can do until it asks,
-which is what lets a server gain a tool without your redeploying &mdash; and what makes a server you
-did not review a problem you did not review.
+which is what lets a server gain a tool without your redeploying &mdash; and what makes a server
+you did not review a problem you did not review.
 """),
 
     md("""
-## Section 1 &mdash; Framing
+## Section 1 &mdash; The protocol is a schema you can import
 
-One header, and the reason it must count **bytes** rather than characters.
+Nothing about MCP has to be reverse-engineered. The `mcp` package ships every message as a
+Pydantic model, so a malformed response fails where you built it rather than at the far end.
+
+Look at what an MCP `Tool` needs: a name, a description, and a JSON Schema for the arguments.
+That is Lab 4.1's three fields, over a wire.
 """),
-    code('''
+    code(r'''
+from mcp.types import (Tool, TextContent, CallToolResult, ListToolsResult,
+                       InitializeResult, Implementation, ServerCapabilities,
+                       LATEST_PROTOCOL_VERSION)
+
+def input_schema(t) -> dict:
+    """The JSON Schema for one LangChain tool's arguments."""
+    schema = t.args_schema
+    return schema if isinstance(schema, dict) else schema.model_json_schema()
+
+
+def as_mcp_tool(t) -> Tool:
+    """Publish one of your LangChain tools the way MCP describes it."""
+    return Tool(
+        name=t.name,
+        # TODO: an MCP client reads this to decide whether to call the tool, exactly as a
+        #       bound model does. Which field of your tool carries that text?
+        description=BLANK,
+        inputSchema=input_schema(t),
+    )
+''', r'''
+from mcp.types import (Tool, TextContent, CallToolResult, ListToolsResult,
+                       InitializeResult, Implementation, ServerCapabilities,
+                       LATEST_PROTOCOL_VERSION)
+
+def input_schema(t) -> dict:
+    """The JSON Schema for one LangChain tool's arguments."""
+    schema = t.args_schema
+    return schema if isinstance(schema, dict) else schema.model_json_schema()
+
+
+def as_mcp_tool(t) -> Tool:
+    """Publish one of your LangChain tools the way MCP describes it."""
+    return Tool(
+        name=t.name,
+        description=t.description,
+        inputSchema=input_schema(t),
+    )
+'''),
+    code(r'''
+# --- Self-check: Section 1   (MCP model objects only -- no server, no model call)
+check("the result is a real MCP Tool, validated by the SDK's own schema",
+      lambda: isinstance(as_mcp_tool(lookup_payment), Tool))
+check("the name crosses unchanged",
+      lambda: as_mcp_tool(lookup_payment).name == "lookup_payment")
+check("your description crosses whole, boundary sentence and all",
+      lambda: "Not for searching" in as_mcp_tool(lookup_payment).description,
+      "over MCP that sentence is the only thing standing between two tools that read alike")
+check("the argument schema crosses too, required arguments and all",
+      lambda: as_mcp_tool(lookup_payment).inputSchema["required"] == ["ref"])
+check("an optional argument is not marked required",
+      lambda: "counterparty" not in
+              (as_mcp_tool(search_payments).inputSchema.get("required") or []))
+check("a whole toolkit is a ListToolsResult",
+      lambda: len(ListToolsResult(tools=[as_mcp_tool(t) for t in TOOLKIT]).tools) == 4)
+check("and it serialises to the JSON that goes on the wire",
+      lambda: "inputSchema" in json.dumps(
+          as_mcp_tool(lookup_payment).model_dump(mode="json", by_alias=True, exclude_none=True)))
+
+guard(lambda: print(json.dumps(
+    as_mcp_tool(policy_for).model_dump(mode="json", by_alias=True, exclude_none=True),
+    indent=2)[:460]))
+'''),
+
+    md("""
+## Section 2 &mdash; Framing
+
+Nothing to fill in here &mdash; read it instead, because the one detail that matters is easy to
+miss. The header counts **bytes**, not characters. One non-ASCII character and the two differ,
+after which every following message in the stream is read from the wrong offset.
+"""),
+    code(r'''
 import re
 
 def encode(message: dict) -> bytes:
     """Frame one JSON-RPC message for the stdio transport."""
-    body = json.dumps(message).encode("utf-8")
-    # TODO: the header that tells the reader exactly where this body ends.
-    # Mind the units, and mind the blank line that ends the header block.
-    header = BLANK
-    return header + body
+    body = json.dumps(message, ensure_ascii=False).encode("utf-8")
+    return f"Content-Length: {len(body)}\r\n\r\n".encode("ascii") + body
 
 
 def decode_all(blob: bytes) -> list:
     """Every complete message in a byte stream -- which is what framing makes possible."""
     out, i = [], 0
     while True:
-        j = blob.find(b"\\r\\n\\r\\n", i)
+        j = blob.find(b"\r\n\r\n", i)
         if j < 0:
             return out
-        n = int(re.search(r"Content-Length:\\s*(\\d+)", blob[i:j].decode("ascii")).group(1))
-        start = j + 4
-        out.append(json.loads(blob[start:start + n]))
-        i = start + n
-''', '''
-import re
-
-def encode(message: dict) -> bytes:
-    """Frame one JSON-RPC message for the stdio transport."""
-    body = json.dumps(message).encode("utf-8")
-    # Byte length, not character length -- one non-ASCII character and the two differ,
-    # after which every following message in the stream is misread.
-    header = f"Content-Length: {len(body)}\\r\\n\\r\\n".encode("ascii")
-    return header + body
-
-
-def decode_all(blob: bytes) -> list:
-    """Every complete message in a byte stream -- which is what framing makes possible."""
-    out, i = [], 0
-    while True:
-        j = blob.find(b"\\r\\n\\r\\n", i)
-        if j < 0:
-            return out
-        n = int(re.search(r"Content-Length:\\s*(\\d+)", blob[i:j].decode("ascii")).group(1))
+        n = int(re.search(r"Content-Length:\s*(\d+)", blob[i:j].decode("ascii")).group(1))
         start = j + 4
         out.append(json.loads(blob[start:start + n]))
         i = start + n
 '''),
-    code('''
-# --- Self-check: Section 1
+    code(r'''
+# --- Self-check: Section 2   (bytes only)
 _m = {"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}}
 _uni = {"jsonrpc": "2.0", "id": 2, "method": "tools/call",
-        "params": {"arguments": {"counterparty": "CAF\\u00c9-EU"}}}
+        "params": {"arguments": {"counterparty": "CAFÉ-EU"}}}
 
 check("a message survives a round trip", lambda: decode_all(encode(_m)) == [_m])
 check("the header names Content-Length",
-      lambda: encode(_m).split(b"\\r\\n")[0].startswith(b"Content-Length:"))
-check("the header block ends with a blank line",
-      lambda: b"\\r\\n\\r\\n" in encode(_m))
+      lambda: encode(_m).split(b"\r\n")[0].startswith(b"Content-Length:"))
 check("two messages in one stream decode as two",
       lambda: decode_all(encode(_m) + encode(_m)) == [_m, _m])
 check("the length counts BYTES, not characters",
-      lambda: int(re.search(rb"Content-Length: (\\d+)", encode(_uni)).group(1))
-              == len(json.dumps(_uni).encode("utf-8")),
-      "one non-ASCII character and a character count misreads every message after it")
+      lambda: int(re.search(rb"Content-Length: (\d+)", encode(_uni)).group(1))
+              > len(json.dumps(_uni, ensure_ascii=False)),
+      "E-acute is one character and two bytes -- count characters and every later message "
+      "in the stream is read from the wrong offset")
 check("and a non-ASCII payload still round-trips inside a stream",
       lambda: decode_all(encode(_uni) + encode(_m)) == [_uni, _m])
 '''),
 
     md("""
-## Section 2 &mdash; The server
+## Section 3 &mdash; The server
 
 Note where tool failures go. A tool that could not do its job is a **successful** JSON-RPC
-response carrying `isError: true` &mdash; because the protocol worked perfectly. A JSON-RPC `error`
-means the *protocol* failed: unknown method, malformed request. Collapsing the two is the most
-common MCP implementation bug, and it makes tool failures invisible to the model.
+response carrying `isError: true` &mdash; because the protocol worked perfectly. A JSON-RPC
+`error` means the *protocol* failed: unknown method, malformed request.
+
+Collapsing the two is the most common MCP implementation bug, and it makes tool failures
+invisible to the model: the client sees a transport error, drops the content, and the model never
+learns that the payment does not exist.
 """),
-    code('''
-PROTOCOL_VERSION = "2025-06-18"
-
-TOOL_SPECS = [
-    {"name": "lookup_payment",
-     "description": lookup_payment.__doc__,
-     "inputSchema": {"type": "object", "properties": {"ref": {"type": "string"}},
-                     "required": ["ref"]}},
-    {"name": "policy_for",
-     "description": policy_for.__doc__,
-     "inputSchema": {"type": "object", "properties": {"reason_code": {"type": "string"}},
-                     "required": ["reason_code"]}},
-]
+    code(r'''
 SERVER_TOOLS = {"lookup_payment": lookup_payment, "policy_for": policy_for}
 
+def _result(rid, payload) -> dict:
+    """One successful JSON-RPC response. `payload` is an MCP result model."""
+    return {"jsonrpc": "2.0", "id": rid,
+            "result": payload.model_dump(mode="json", by_alias=True, exclude_none=True)}
 
-def _result(rid, payload):  return {"jsonrpc": "2.0", "id": rid, "result": payload}
-def _rpc_error(rid, code, message):
+
+def _rpc_error(rid, code, message) -> dict:
+    """A PROTOCOL failure. Nothing a tool does belongs in here."""
     return {"jsonrpc": "2.0", "id": rid, "error": {"code": code, "message": message}}
-def _tool_text(text, is_error=False):
-    return {"content": [{"type": "text", "text": text}], "isError": is_error}
+
+
+def call_tool(name: str, arguments: dict) -> CallToolResult:
+    """Run one tool and answer in MCP's shape."""
+    t = SERVER_TOOLS.get(name)
+    if t is None:
+        return CallToolResult(content=[TextContent(type="text", text=f"no such tool: {name!r}")],
+                              isError=True)
+    try:
+        text, failed = str(t.invoke(arguments)), False
+    except Exception as exc:
+        text, failed = f"{type(exc).__name__}: {exc}", True
+
+    # TODO: the protocol worked; only the tool may not have. Which of the two names above
+    #       says so? (Get this wrong and every failure reads as a success.)
+    return CallToolResult(content=[TextContent(type="text", text=text)], isError=BLANK)
 
 
 def handle(request: dict) -> dict:
@@ -1479,42 +1596,45 @@ def handle(request: dict) -> dict:
     params = request.get("params") or {}
 
     if method == "initialize":
-        return _result(rid, {"protocolVersion": PROTOCOL_VERSION,
-                             "capabilities": {"tools": {}},
-                             "serverInfo": {"name": "ledger", "version": "1.0.0"}})
+        return _result(rid, InitializeResult(
+            protocolVersion=LATEST_PROTOCOL_VERSION,
+            capabilities=ServerCapabilities(),
+            serverInfo=Implementation(name="ledger", version="1.0.0")))
+
     if method == "tools/list":
-        return _result(rid, {"tools": TOOL_SPECS})
+        return _result(rid, ListToolsResult(
+            tools=[as_mcp_tool(t) for t in SERVER_TOOLS.values()]))
+
     if method == "tools/call":
-        name = params.get("name")
-        args = params.get("arguments") or {}
-        fn = SERVER_TOOLS.get(name)
-        if fn is None:
-            return _result(rid, _tool_text(f"no such tool: {name!r}", is_error=True))
-        # TODO: run it. A tool that fails is still a SUCCESSFUL response -- with isError set.
-        # Use _tool_text(...) for both outcomes, and let nothing escape as an exception.
-        return BLANK
+        return _result(rid, call_tool(params.get("name"), params.get("arguments") or {}))
+
     return _rpc_error(rid, -32601, f"method not found: {method}")
-''', '''
-PROTOCOL_VERSION = "2025-06-18"
-
-TOOL_SPECS = [
-    {"name": "lookup_payment",
-     "description": lookup_payment.__doc__,
-     "inputSchema": {"type": "object", "properties": {"ref": {"type": "string"}},
-                     "required": ["ref"]}},
-    {"name": "policy_for",
-     "description": policy_for.__doc__,
-     "inputSchema": {"type": "object", "properties": {"reason_code": {"type": "string"}},
-                     "required": ["reason_code"]}},
-]
+''', r'''
 SERVER_TOOLS = {"lookup_payment": lookup_payment, "policy_for": policy_for}
 
+def _result(rid, payload) -> dict:
+    """One successful JSON-RPC response. `payload` is an MCP result model."""
+    return {"jsonrpc": "2.0", "id": rid,
+            "result": payload.model_dump(mode="json", by_alias=True, exclude_none=True)}
 
-def _result(rid, payload):  return {"jsonrpc": "2.0", "id": rid, "result": payload}
-def _rpc_error(rid, code, message):
+
+def _rpc_error(rid, code, message) -> dict:
+    """A PROTOCOL failure. Nothing a tool does belongs in here."""
     return {"jsonrpc": "2.0", "id": rid, "error": {"code": code, "message": message}}
-def _tool_text(text, is_error=False):
-    return {"content": [{"type": "text", "text": text}], "isError": is_error}
+
+
+def call_tool(name: str, arguments: dict) -> CallToolResult:
+    """Run one tool and answer in MCP's shape."""
+    t = SERVER_TOOLS.get(name)
+    if t is None:
+        return CallToolResult(content=[TextContent(type="text", text=f"no such tool: {name!r}")],
+                              isError=True)
+    try:
+        text, failed = str(t.invoke(arguments)), False
+    except Exception as exc:
+        text, failed = f"{type(exc).__name__}: {exc}", True
+
+    return CallToolResult(content=[TextContent(type="text", text=text)], isError=failed)
 
 
 def handle(request: dict) -> dict:
@@ -1523,130 +1643,109 @@ def handle(request: dict) -> dict:
     params = request.get("params") or {}
 
     if method == "initialize":
-        return _result(rid, {"protocolVersion": PROTOCOL_VERSION,
-                             "capabilities": {"tools": {}},
-                             "serverInfo": {"name": "ledger", "version": "1.0.0"}})
+        return _result(rid, InitializeResult(
+            protocolVersion=LATEST_PROTOCOL_VERSION,
+            capabilities=ServerCapabilities(),
+            serverInfo=Implementation(name="ledger", version="1.0.0")))
+
     if method == "tools/list":
-        return _result(rid, {"tools": TOOL_SPECS})
+        return _result(rid, ListToolsResult(
+            tools=[as_mcp_tool(t) for t in SERVER_TOOLS.values()]))
+
     if method == "tools/call":
-        name = params.get("name")
-        args = params.get("arguments") or {}
-        fn = SERVER_TOOLS.get(name)
-        if fn is None:
-            return _result(rid, _tool_text(f"no such tool: {name!r}", is_error=True))
-        try:
-            return _result(rid, _tool_text(fn(**args)))
-        except Exception as exc:
-            # The protocol worked; the tool did not. That distinction is the whole point.
-            return _result(rid, _tool_text(f"{type(exc).__name__}: {exc}", is_error=True))
+        return _result(rid, call_tool(params.get("name"), params.get("arguments") or {}))
+
     return _rpc_error(rid, -32601, f"method not found: {method}")
 '''),
-    code('''
-# --- Self-check: Section 2
-def _req(method, **params):
+    code(r'''
+# --- Self-check: Section 3   (your server, in process -- no model call)
+def _req(method, **params) -> dict:
     return {"jsonrpc": "2.0", "id": 7, "method": method, "params": params}
 
-check("initialize agrees a protocol version",
-      lambda: handle(_req("initialize"))["result"]["protocolVersion"] == PROTOCOL_VERSION)
+def _call(**args) -> dict:
+    return handle(_req("tools/call", **args))["result"]
+
+check("initialize agrees the protocol version the SDK ships with",
+      lambda: handle(_req("initialize"))["result"]["protocolVersion"] == LATEST_PROTOCOL_VERSION)
 check("and names the server",
       lambda: handle(_req("initialize"))["result"]["serverInfo"]["name"] == "ledger")
-check("tools/list exposes name, description and inputSchema for every tool",
+check("tools/list publishes name, description and inputSchema for every tool",
       lambda: all({"name", "description", "inputSchema"} <= set(t)
                   for t in handle(_req("tools/list"))["result"]["tools"]))
-check("the descriptions carried across are the real ones",
-      lambda: "Not for searching" in handle(_req("tools/list"))["result"]["tools"][0]["description"])
-check("a good call returns text content",
-      lambda: "INSUFFICIENT_FUNDS" in handle(
-          _req("tools/call", name="lookup_payment", arguments={"ref": "PMT-1002"})
-      )["result"]["content"][0]["text"])
+check("the descriptions on the wire are your real ones",
+      lambda: "Not for searching" in json.dumps(handle(_req("tools/list"))["result"]))
+check("a good call returns the record as text content",
+      lambda: "INSUFFICIENT_FUNDS" in
+              _call(name="lookup_payment", arguments={"ref": "PMT-1002"})["content"][0]["text"])
 check("a good call is not flagged as an error",
-      lambda: handle(_req("tools/call", name="lookup_payment",
-                          arguments={"ref": "PMT-1002"}))["result"]["isError"] is False)
+      lambda: _call(name="lookup_payment", arguments={"ref": "PMT-1002"})["isError"] is False)
 check("an unknown tool is a RESULT with isError, not a JSON-RPC error",
-      lambda: handle(_req("tools/call", name="nope", arguments={}))["result"]["isError"] is True,
-      "the protocol worked -- only the tool did not; collapsing these hides tool failures from the model")
+      lambda: _call(name="nope", arguments={})["isError"] is True,
+      "the protocol worked -- only the tool did not; collapsing these hides failures from the model")
 check("a tool that raises is caught and reported as isError",
-      lambda: handle(_req("tools/call", name="lookup_payment",
-                          arguments={"wrong_arg": 1}))["result"]["isError"] is True)
+      lambda: _call(name="lookup_payment", arguments={"wrong_arg": 1})["isError"] is True)
 check("nothing escapes the server as an exception",
       lambda: isinstance(handle(_req("tools/call", name="lookup_payment", arguments={})), dict))
 check("an unknown METHOD is a real JSON-RPC error",
       lambda: handle(_req("tools/nonesuch"))["error"]["code"] == -32601,
       "this one really is a protocol failure, so it belongs in the error channel")
+check("every response you build validates against the SDK's own model",
+      lambda: CallToolResult.model_validate(
+          _call(name="lookup_payment", arguments={"ref": "PMT-1003"})).isError is False)
 '''),
 
     md("""
-## Section 3 &mdash; The client, and discovery
+## Section 4 &mdash; The client, and discovery
 
 The client below sends every message through `encode`/`decode_all`, so it is talking over the real
 wire format even while the server is in the same process. Swapping in a pipe changes nothing above
-the transport &mdash; which you prove in the last cell.
+the transport &mdash; which the last cell proves.
+
+Nothing to fill in. Watch what `list_tools` does: the client did not know a single tool name
+until that call returned.
 """),
-    code('''
+    code(r'''
 class Session:
     """An MCP client session against one server."""
 
     def __init__(self, handler):
-        self._handler, self._id, self.tools = handler, 0, {}
+        self._handler, self._id, self.tools = handler, 0, []
 
     def request(self, method: str, params: dict = None) -> dict:
         self._id += 1
         message = {"jsonrpc": "2.0", "id": self._id, "method": method, "params": params or {}}
-        [on_the_wire] = decode_all(encode(message))     # framed and parsed, as over a pipe
+        [on_the_wire] = decode_all(encode(message))       # framed and parsed, as over a pipe
         return self._handler(on_the_wire)
 
-    def initialize(self) -> dict:
-        return self.request("initialize")["result"]
+    def initialize(self) -> InitializeResult:
+        return InitializeResult.model_validate(self.request("initialize")["result"])
 
-    def list_tools(self) -> dict:
+    def list_tools(self) -> list:
         """Discovery. The client did not know these names until this call returned."""
-        self.tools = {t["name"]: t for t in self.request("tools/list")["result"]["tools"]}
+        payload = self.request("tools/list")["result"]
+        self.tools = ListToolsResult.model_validate(payload).tools
         return self.tools
 
     def call_tool(self, name: str, **arguments) -> dict:
-        result = self.request("tools/call", {"name": name, "arguments": arguments})["result"]
-        # TODO: MCP returns a LIST of content blocks. Take the text of the first one.
-        text = BLANK
-        return {"text": text, "is_error": bool(result.get("isError"))}
-''', '''
-class Session:
-    """An MCP client session against one server."""
-
-    def __init__(self, handler):
-        self._handler, self._id, self.tools = handler, 0, {}
-
-    def request(self, method: str, params: dict = None) -> dict:
-        self._id += 1
-        message = {"jsonrpc": "2.0", "id": self._id, "method": method, "params": params or {}}
-        [on_the_wire] = decode_all(encode(message))     # framed and parsed, as over a pipe
-        return self._handler(on_the_wire)
-
-    def initialize(self) -> dict:
-        return self.request("initialize")["result"]
-
-    def list_tools(self) -> dict:
-        """Discovery. The client did not know these names until this call returned."""
-        self.tools = {t["name"]: t for t in self.request("tools/list")["result"]["tools"]}
-        return self.tools
-
-    def call_tool(self, name: str, **arguments) -> dict:
-        result = self.request("tools/call", {"name": name, "arguments": arguments})["result"]
-        text = result["content"][0]["text"]
-        return {"text": text, "is_error": bool(result.get("isError"))}
+        payload = self.request("tools/call", {"name": name, "arguments": arguments})["result"]
+        result = CallToolResult.model_validate(payload)
+        return {"text": result.content[0].text, "is_error": bool(result.isError)}
 '''),
-    code('''
-# --- Self-check: Section 3
-def _session():
+    code(r'''
+# --- Self-check: Section 4   (client and server, in process -- no model call)
+def _session() -> Session:
     s = Session(handle)
     s.initialize()
     s.list_tools()
     return s
 
 check("the session knows nothing about the tools before it asks",
-      lambda: Session(handle).tools == {},
+      lambda: Session(handle).tools == [],
       "discovery at run time is what lets a server change without your redeploying")
 check("and knows both of them afterwards",
-      lambda: set(_session().tools) == {"lookup_payment", "policy_for"})
+      lambda: {t.name for t in _session().tools} == {"lookup_payment", "policy_for"})
+check("what came back are MCP Tool objects, not loose dicts",
+      lambda: all(isinstance(t, Tool) for t in _session().tools))
 check("each request carries a fresh id",
       lambda: _session()._id == 2)
 check("a tool call returns the text",
@@ -1660,20 +1759,19 @@ check("the second tool works through the same session",
               _session().call_tool("policy_for", reason_code="LIMIT_BREACH")["text"])
 
 def _show_discovery():
-    s = _session()
-    for name, spec in s.tools.items():
-        print(f"  {name:16} {spec['description'].splitlines()[0][:64]}")
+    for t in _session().tools:
+        print(f"  {t.name:16} {t.description.splitlines()[0][:62]}")
 guard(_show_discovery)
 '''),
 
     md("""
-## Section 4 &mdash; The config is the grant
+## Section 5 &mdash; The config is the grant
 
 Four lines of JSON give an agent a capability. Nothing in the agent's code changes, nothing is
-compiled, and by default nothing reviews it. So read the file the way you would read an IAM policy:
-**which of these entries lets the agent change something?**
+compiled, and by default nothing reviews it. So read the file the way you would read an IAM
+policy: **which of these entries lets the agent change something?**
 """),
-    code('''
+    code(r'''
 CONFIG = {
     "mcpServers": {
         "ledger":  {"command": "python", "args": ["-m", "ledger_mcp"],
@@ -1686,17 +1784,22 @@ CONFIG = {
     }
 }
 
-WRITE_SCOPES = {"write", "read-write", "admin"}
+def write_scopes() -> set:
+    """The scope values that mean a server can CHANGE something."""
+    # TODO: of the values that turn up in configs like these -- "read-only", "write",
+    #       "read-write", "admin" -- which ones grant the power to change something?
+    return BLANK
+
 
 def servers_that_can_write(config: dict) -> list:
-    """The configured servers that grant the agent the power to change something."""
+    """The configured servers that grant the agent that power."""
     out = []
     for name, entry in config["mcpServers"].items():
         scopes = {str(v).lower() for v in (entry.get("env") or {}).values()}
-        if BLANK:                   # TODO: does this entry grant a write scope?
+        if scopes & write_scopes():
             out.append(name)
     return sorted(out)
-''', '''
+''', r'''
 CONFIG = {
     "mcpServers": {
         "ledger":  {"command": "python", "args": ["-m", "ledger_mcp"],
@@ -1709,30 +1812,36 @@ CONFIG = {
     }
 }
 
-WRITE_SCOPES = {"write", "read-write", "admin"}
+def write_scopes() -> set:
+    """The scope values that mean a server can CHANGE something."""
+    return {"write", "read-write", "admin"}
+
 
 def servers_that_can_write(config: dict) -> list:
-    """The configured servers that grant the agent the power to change something."""
+    """The configured servers that grant the agent that power."""
     out = []
     for name, entry in config["mcpServers"].items():
         scopes = {str(v).lower() for v in (entry.get("env") or {}).values()}
-        if scopes & WRITE_SCOPES:
+        if scopes & write_scopes():
             out.append(name)
     return sorted(out)
 '''),
-    code('''
-# --- Self-check: Section 4
+    code(r'''
+# --- Self-check: Section 5   (config only)
 _with_admin = {"mcpServers": {**CONFIG["mcpServers"],
                               "ops": {"command": "python", "args": ["-m", "ops_mcp"],
                                       "env": {"OPS_SCOPE": "admin"}}}}
 
 check("exactly one configured server can write today",
       lambda: servers_that_can_write(CONFIG) == ["release"])
+check("read-only is not a write grant",
+      lambda: "ledger" not in servers_that_can_write(CONFIG))
 check("an admin scope is a write grant too",
       lambda: servers_that_can_write(_with_admin) == ["ops", "release"])
 check("a server with no env declared is not treated as a write grant",
-      lambda: "notes" not in servers_that_can_write(CONFIG))
-check("the scope lives in the config, not in the agent's own code",
+      lambda: "notes" not in servers_that_can_write(CONFIG),
+      "it is also the one you know least about -- undeclared is not the same as safe")
+check("the scope lives in the config, not in the agent's code",
       lambda: all("SCOPE" in k
                   for e in CONFIG["mcpServers"].values() for k in (e.get("env") or {})),
       "which is what makes it reviewable and revocable without touching the agent")
@@ -1748,22 +1857,23 @@ guard(_grants)
     md("""
 ### The server you are about to launch
 
-Small enough to read in a minute, which is the point. It is the same three methods, the same
-framing, and its own private copy of a ledger &mdash; it shares nothing with this notebook.
+Small enough to read in a minute, which is the point. Same three methods, same framing, stdlib
+only, and its own private copy of a ledger &mdash; it shares nothing with this notebook.
 """),
-    code('MCP_SERVER_SOURCE = r"""' + MCP_SERVER_SOURCE + '"""\nprint(f"{len(MCP_SERVER_SOURCE.splitlines())} lines of server")'),
+    code('MCP_SERVER_SOURCE = r"""' + MCP_SERVER_SOURCE +
+         '"""\nprint(f"{len(MCP_SERVER_SOURCE.splitlines())} lines of server")'),
 
     md("""
 ## Run it for real &mdash; over a real pipe
 
-No model and no network needed for this one. The cell writes a small MCP server to your work
-directory, launches it as a **separate process**, and talks to it over stdin and stdout with the
-framing you wrote in Section 1.
+No model and no network needed for this one. The cell writes that server to your work directory,
+launches it as a **separate process**, and talks to it over stdin and stdout with the framing from
+Section 2.
 
 Everything above the transport is the same code. That is the claim the protocol makes, and this
 is it being true.
 """),
-    code('''
+    code(r'''
 def talk_to_a_real_server():
     import subprocess, sys as _sys
     path = os.path.join(WORK, "ledger_mcp_server.py")
@@ -1781,6 +1891,7 @@ def talk_to_a_real_server():
     if proc.returncode != 0:
         print("server exited", proc.returncode, proc.stderr.decode()[:300])
         return
+
     for msg in decode_all(proc.stdout):
         result = msg.get("result", {})
         if "serverInfo" in result:
@@ -1800,22 +1911,22 @@ nothing shared with this notebook but two pipes. Give it different credentials a
 governance story from the deck &mdash; a tool you can grant, revoke and audit on its own.
 
 You read that server before you ran it. Ask yourself what you actually know about a server you
-install from a registry with one line of JSON &mdash; and carry the question into Module 8.
+install from a registry with one line of JSON &mdash; and carry the question into Lab 4.5.
 """),
 
-    code('''
+    code(r'''
 score()
 '''),
     md("""
 ## Your turn
 
-1. Add `resources/list` and `resources/read` to the server, and move `policy_for` behind a resource
-   instead of a tool. Which agent behaviours become impossible &mdash; and is that a loss or the point?
-2. The server answers requests in order and never initiates. Add a `notifications/tools/list_changed`
-   message and decide what a client should do with it mid-run.
-3. `talk_to_a_real_server` trusts the subprocess to be well behaved. Make the server emit a
-   `Content-Length` that is 10 bytes too long, and watch `decode_all` wait forever for bytes that
-   are not coming. Where does the timeout belong?
+1. Point `SERVER_TOOLS` at all four tools instead of two and re-run Section 4. You just granted
+   an agent the ability to release payments, and the diff was one line in a dict.
+2. Add `resources/list` and `resources/read`, and move `policy_for` behind a resource instead of a
+   tool. Which agent behaviours become impossible &mdash; and is that a loss or the point?
+3. Make the subprocess server emit a `Content-Length` ten bytes too long, and watch `decode_all`
+   quietly return fewer messages than you sent. Where does the timeout belong, and what should a
+   client do about a truncated stream?
 """),
 ]
 
@@ -1823,11 +1934,15 @@ score()
 # =========================================================================== #
 # Lab 4.5 -- challenge: the bridge, and what comes back through it
 # =========================================================================== #
-MCP_CARRIED = '''
+MCP_CARRIED = r'''
 # ------------------------------------------------- carried forward from Lab 4.4 (nothing to fill in)
-# The framing, the server and the client session you built, compressed. One difference: this
-# server's ledger has a `narrative` field, because a real one does -- the counterparty writes it.
+# The framing, the server and the client session you built, compressed into one cell. One
+# difference: this server's ledger has a `narrative` field, because a real one does -- the
+# counterparty writes it, and nobody reviews it.
 import re
+from mcp.types import (Tool, TextContent, CallToolResult, ListToolsResult,
+                       InitializeResult, Implementation, ServerCapabilities,
+                       LATEST_PROTOCOL_VERSION)
 
 POISONED_LEDGER = {
     "PMT-1003": {"amount": 990000.00, "ccy": "USD", "counterparty": "ZENITH", "status": "held",
@@ -1841,19 +1956,20 @@ POISONED_LEDGER = {
 }
 
 def encode(message):
-    body = json.dumps(message).encode("utf-8")
-    return f"Content-Length: {len(body)}\\r\\n\\r\\n".encode("ascii") + body
+    body = json.dumps(message, ensure_ascii=False).encode("utf-8")
+    return f"Content-Length: {len(body)}\r\n\r\n".encode("ascii") + body
 
 def decode_all(blob):
     out, i = [], 0
     while True:
-        j = blob.find(b"\\r\\n\\r\\n", i)
+        j = blob.find(b"\r\n\r\n", i)
         if j < 0:
             return out
-        n = int(re.search(r"Content-Length:\\s*(\\d+)", blob[i:j].decode("ascii")).group(1))
+        n = int(re.search(r"Content-Length:\s*(\d+)", blob[i:j].decode("ascii")).group(1))
         out.append(json.loads(blob[j + 4:j + 4 + n]))
         i = j + 4 + n
 
+@tool
 def _mcp_lookup(ref: str) -> str:
     """Return the ledger record for one payment reference such as 'PMT-1002'.
 
@@ -1862,62 +1978,61 @@ def _mcp_lookup(ref: str) -> str:
     rec = POISONED_LEDGER.get(ref)
     return json.dumps({"ref": ref, **rec}) if rec else f"no payment found with reference {ref!r}"
 
-_SPECS = [{"name": "lookup_payment", "description": _mcp_lookup.__doc__,
-           "inputSchema": {"type": "object", "properties": {"ref": {"type": "string"}},
-                           "required": ["ref"]}},
-          {"name": "policy_for", "description": policy_for.__doc__,
-           "inputSchema": {"type": "object", "properties": {"reason_code": {"type": "string"}},
-                           "required": ["reason_code"]}}]
-_FNS = {"lookup_payment": _mcp_lookup, "policy_for": policy_for}
+_SERVER_TOOLS = {"lookup_payment": _mcp_lookup, "policy_for": policy_for}
+
+def _spec(name, t):
+    return Tool(name=name, description=t.description,
+                inputSchema=t.args_schema.model_json_schema())
 
 def handle(request):
     rid, method = request.get("id"), request.get("method")
     params = request.get("params") or {}
+    dump = lambda p: {"jsonrpc": "2.0", "id": rid,
+                      "result": p.model_dump(mode="json", by_alias=True, exclude_none=True)}
     if method == "initialize":
-        return {"jsonrpc": "2.0", "id": rid, "result": {"protocolVersion": "2025-06-18",
-                "capabilities": {"tools": {}}, "serverInfo": {"name": "ledger", "version": "1.0.0"}}}
+        return dump(InitializeResult(protocolVersion=LATEST_PROTOCOL_VERSION,
+                                     capabilities=ServerCapabilities(),
+                                     serverInfo=Implementation(name="ledger", version="1.0.0")))
     if method == "tools/list":
-        return {"jsonrpc": "2.0", "id": rid, "result": {"tools": _SPECS}}
+        return dump(ListToolsResult(tools=[_spec(n, t) for n, t in _SERVER_TOOLS.items()]))
     if method == "tools/call":
-        fn = _FNS.get(params.get("name"))
-        if fn is None:
-            return {"jsonrpc": "2.0", "id": rid, "result": {
-                "content": [{"type": "text", "text": "no such tool"}], "isError": True}}
+        t = _SERVER_TOOLS.get(params.get("name"))
+        if t is None:
+            return dump(CallToolResult(content=[TextContent(type="text", text="no such tool")],
+                                       isError=True))
         try:
-            return {"jsonrpc": "2.0", "id": rid, "result": {
-                "content": [{"type": "text", "text": fn(**(params.get("arguments") or {}))}],
-                "isError": False}}
+            text, failed = str(t.invoke(params.get("arguments") or {})), False
         except Exception as exc:
-            return {"jsonrpc": "2.0", "id": rid, "result": {
-                "content": [{"type": "text", "text": f"{type(exc).__name__}: {exc}"}],
-                "isError": True}}
+            text, failed = f"{type(exc).__name__}: {exc}", True
+        return dump(CallToolResult(content=[TextContent(type="text", text=text)], isError=failed))
     return {"jsonrpc": "2.0", "id": rid, "error": {"code": -32601, "message": "method not found"}}
 
 class Session:
     def __init__(self, handler):
-        self._handler, self._id, self.tools = handler, 0, {}
+        self._handler, self._id, self.tools = handler, 0, []
     def request(self, method, params=None):
         self._id += 1
         [wire] = decode_all(encode({"jsonrpc": "2.0", "id": self._id,
                                     "method": method, "params": params or {}}))
         return self._handler(wire)
     def initialize(self):
-        return self.request("initialize")["result"]
+        return InitializeResult.model_validate(self.request("initialize")["result"])
     def list_tools(self):
-        self.tools = {t["name"]: t for t in self.request("tools/list")["result"]["tools"]}
+        self.tools = ListToolsResult.model_validate(self.request("tools/list")["result"]).tools
         return self.tools
     def call_tool(self, name, **arguments):
-        r = self.request("tools/call", {"name": name, "arguments": arguments})["result"]
-        return {"text": r["content"][0]["text"], "is_error": bool(r.get("isError"))}
+        r = CallToolResult.model_validate(
+            self.request("tools/call", {"name": name, "arguments": arguments})["result"])
+        return {"text": r.content[0].text, "is_error": bool(r.isError)}
 
-print("carried forward: encode, decode_all, handle, Session")
+print("carried forward: encode, decode_all, handle, Session -- and a ledger with a narrative")
 '''
 
 
 LAB5 = [
     header(5, "Challenge: The Bridge, and What Comes Back Through It",
            "Advanced &middot; challenge", 40,
-           ["Adapt MCP tool descriptors into tool objects an agent can be handed",
+           ["Adapt MCP tool specs into <code>StructuredTool</code> objects an agent can be handed",
             "Audit descriptions you did not write &mdash; and refuse the ones you cannot",
             "Stop an instruction that arrives inside a legitimate tool result",
             "Build the gate that no tool result can talk its way past"],
@@ -1925,13 +2040,14 @@ LAB5 = [
            "> returning data you do not control. That is the normal case, not the adversarial one."),
     setup(5),
     code(DOMAIN),
-    code(CARRIED_TOOLS),
+    code(TOOLKIT),
     code(MCP_CARRIED),
 
     md("""
 ## Concept
 
-Bridging is easy &mdash; forty lines. What it changes is who wrote the text your model obeys.
+Bridging is easy &mdash; forty lines, and you write them below. What it changes is *who wrote the
+text your model obeys*.
 
 Two things arrive across that bridge and both are prose from outside your codebase:
 
@@ -1939,169 +2055,214 @@ Two things arrive across that bridge and both are prose from outside your codeba
 2. the **tool result**, which the model reads as ordinary conversation.
 
 Neither is code you reviewed. The second one is written by whoever filled in the record.
+
+(There are packages that do the bridging for you. You are writing it by hand because the
+interesting part is not the adapter &mdash; it is the two paragraphs above.)
 """),
 
     md("""
 ## Section 1 &mdash; The adapter
 
-An MCP descriptor already carries exactly the three fields an agent tool needs. So the adapter is
-thin &mdash; and that thinness is the protocol working.
+An MCP spec already carries exactly the three fields a LangChain tool needs, so the adapter is
+thin &mdash; and that thinness is the protocol working. `create_model` turns the server's JSON
+Schema into the Pydantic model `StructuredTool` wants.
 """),
-    code('''
-class BridgedTool:
-    """One MCP tool wearing the shape an agent framework expects."""
+    code(r'''
+from pydantic import create_model
+from langchain_core.tools import StructuredTool
 
-    def __init__(self, session, spec):
-        self._session = session
-        self.name = spec["name"]
-        self.description = spec["description"]
-        self.args_schema = spec["inputSchema"]
-
-    def invoke(self, arguments: dict) -> str:
-        # TODO: one tools/call through the session. Return its text either way --
-        # Lab 4.1 said a failing tool returns something readable rather than raising.
-        out = BLANK
-        return out["text"]
-
-    def __repr__(self):
-        return f"<BridgedTool {self.name}>"
+def model_from_schema(name: str, schema: dict):
+    """Turn an MCP inputSchema into the Pydantic model a LangChain tool wants."""
+    required = schema.get("required") or []
+    fields = {f: (str, ... if f in required else "")
+              for f in (schema.get("properties") or {})}
+    return create_model(name + "Args", **fields)
 
 
-def bridge(session) -> dict:
-    """Every tool a server exposes, as objects an agent can be handed."""
+def bridged_tool(session, spec: Tool) -> StructuredTool:
+    """One MCP tool, wearing the shape create_agent expects."""
+
+    def call(**arguments) -> str:
+        return session.call_tool(spec.name, **arguments)["text"]
+
+    return StructuredTool.from_function(
+        func=call,
+        name=spec.name,
+        # TODO: whose prose is this? Not yours -- and your agent's tool selection now
+        #       depends on it. Which field of the MCP spec does the model end up reading?
+        description=BLANK,
+        args_schema=model_from_schema(spec.name, spec.inputSchema),
+    )
+
+
+def bridge(session) -> list:
+    """Every tool a server exposes, as tool objects an agent can be handed."""
     session.initialize()
-    return {name: BridgedTool(session, spec) for name, spec in session.list_tools().items()}
-''', '''
-class BridgedTool:
-    """One MCP tool wearing the shape an agent framework expects."""
+    return [bridged_tool(session, spec) for spec in session.list_tools()]
+''', r'''
+from pydantic import create_model
+from langchain_core.tools import StructuredTool
 
-    def __init__(self, session, spec):
-        self._session = session
-        self.name = spec["name"]
-        self.description = spec["description"]
-        self.args_schema = spec["inputSchema"]
-
-    def invoke(self, arguments: dict) -> str:
-        out = self._session.call_tool(self.name, **arguments)
-        return out["text"]
-
-    def __repr__(self):
-        return f"<BridgedTool {self.name}>"
+def model_from_schema(name: str, schema: dict):
+    """Turn an MCP inputSchema into the Pydantic model a LangChain tool wants."""
+    required = schema.get("required") or []
+    fields = {f: (str, ... if f in required else "")
+              for f in (schema.get("properties") or {})}
+    return create_model(name + "Args", **fields)
 
 
-def bridge(session) -> dict:
-    """Every tool a server exposes, as objects an agent can be handed."""
+def bridged_tool(session, spec: Tool) -> StructuredTool:
+    """One MCP tool, wearing the shape create_agent expects."""
+
+    def call(**arguments) -> str:
+        return session.call_tool(spec.name, **arguments)["text"]
+
+    return StructuredTool.from_function(
+        func=call,
+        name=spec.name,
+        description=spec.description,
+        args_schema=model_from_schema(spec.name, spec.inputSchema),
+    )
+
+
+def bridge(session) -> list:
+    """Every tool a server exposes, as tool objects an agent can be handed."""
     session.initialize()
-    return {name: BridgedTool(session, spec) for name, spec in session.list_tools().items()}
+    return [bridged_tool(session, spec) for spec in session.list_tools()]
 '''),
-    code('''
-# --- Self-check: Section 1
-def _tools():
-    return bridge(Session(handle))
+    code(r'''
+# --- Self-check: Section 1   (bridge and server, in process -- no model call)
+def _tools() -> dict:
+    return {t.name: t for t in bridge(Session(handle))}
 
 check("both server tools cross the bridge",
       lambda: set(_tools()) == {"lookup_payment", "policy_for"})
-check("each carries the three fields an agent needs",
-      lambda: all(t.name and t.description and t.args_schema for t in _tools().values()))
-check("the description came from the SERVER, not from us",
+check("each is a StructuredTool an agent could be handed",
+      lambda: all(isinstance(t, StructuredTool) for t in _tools().values()))
+check("the argument schema crossed with them",
+      lambda: list(_tools()["lookup_payment"].args) == ["ref"])
+check("the description came from the SERVER, not from you",
       lambda: "Not for searching" in _tools()["lookup_payment"].description,
-      "which means the sentence your selection accuracy depends on is not yours to edit")
-check("invoking it returns the record",
+      "the sentence your selection accuracy depends on is now not yours to edit")
+check("invoking one goes over the wire and returns the record",
       lambda: "ZENITH" in _tools()["lookup_payment"].invoke({"ref": "PMT-1003"}))
-check("a failing call returns text instead of raising",
+check("a failing call comes back as text rather than an exception",
       lambda: isinstance(_tools()["lookup_payment"].invoke({"ref": "PMT-0000"}), str))
 check("the second tool works too",
       lambda: "Treasury approval" in
               _tools()["policy_for"].invoke({"reason_code": "LIMIT_BREACH"}))
+
+guard(lambda: [print(f"  {t.name:16} {t.description.splitlines()[0][:62]}")
+               for t in _tools().values()])
 '''),
 
     md("""
 ## Section 2 &mdash; Descriptions you did not write
 
 Four tools from a server someone else published. Before granting any of them, read what the model
-will read. A description too short to choose on, with no boundary and no mention of its own
-required arguments, is not a tool you can hand to an agent &mdash; whatever it does.
+will read.
+
+A description too short to choose on, with no boundary and no mention of its own required
+arguments, is not a tool you can hand to an agent &mdash; whatever it does.
 """),
-    code('''
+    code(r'''
 THIRD_PARTY = [
-    {"name": "fx_convert", "description": "Converts currency.",
-     "inputSchema": {"type": "object", "required": ["amount", "from_ccy", "to_ccy"]}},
-    {"name": "post_note", "description": "Posts a note to the case file. Use freely.",
-     "inputSchema": {"type": "object", "required": ["ref", "text"]}},
-    {"name": "lookup_rate",
-     "description": ("Return the FX rate for a currency pair such as EUR/USD on a given date. "
-                     "Use when you need a historic rate. Not for converting an amount -- "
-                     "use fx_convert for that."),
-     "inputSchema": {"type": "object", "required": ["pair", "date"]}},
-    {"name": "purge_case", "description": "Cleans up.",
-     "inputSchema": {"type": "object", "required": ["ref"]}},
+    Tool(name="fx_convert", description="Converts currency.",
+         inputSchema={"type": "object", "required": ["amount", "from_ccy", "to_ccy"]}),
+    Tool(name="post_note", description="Posts a note to the case file. Use freely.",
+         inputSchema={"type": "object", "required": ["ref", "text"]}),
+    Tool(name="lookup_rate",
+         description=("Return the FX rate for a currency pair such as EUR/USD on a given date. "
+                      "Use when you need a historic rate. Not for converting an amount -- "
+                      "use fx_convert for that."),
+         inputSchema={"type": "object", "required": ["pair", "date"]}),
+    Tool(name="purge_case", description="Cleans up.",
+         inputSchema={"type": "object", "required": ["ref"]}),
 ]
 
-BOUNDARY_MARKERS = ("not for", "do not use", "never use", "only after")
+def boundary_markers() -> tuple:
+    """The phrases that mark a description as saying where the tool STOPS.
 
-def audit(spec: dict) -> list:
-    """What is wrong with one description you did not write. An empty list means fit to grant."""
+    Look at lookup_rate below: it is the one description here that draws a line, and the
+    phrase it draws it with is the one you are looking for. "Use freely" is not a boundary.
+    """
+    # TODO: return a tuple of lowercase phrases you would accept as a boundary.
+    return BLANK
+
+
+def audit(spec: Tool) -> list:
+    """What is wrong with a description you did not write. An empty list means fit to grant."""
     problems = []
-    description = (spec.get("description") or "").strip()
+    description = (spec.description or "").strip()
+    required = (spec.inputSchema.get("required") or [])
     if len(description) < 40:
         problems.append("too short to choose on")
-    if not any(m in description.lower() for m in BOUNDARY_MARKERS):
+    if not any(m in description.lower() for m in boundary_markers()):
         problems.append("no boundary sentence")
-    required = (spec.get("inputSchema") or {}).get("required") or []
-    # TODO: is there a required argument the description never mentions?
-    if BLANK:
+    if any(arg not in description for arg in required):
         problems.append("a required argument the description never names")
     return problems
-''', '''
+''', r'''
 THIRD_PARTY = [
-    {"name": "fx_convert", "description": "Converts currency.",
-     "inputSchema": {"type": "object", "required": ["amount", "from_ccy", "to_ccy"]}},
-    {"name": "post_note", "description": "Posts a note to the case file. Use freely.",
-     "inputSchema": {"type": "object", "required": ["ref", "text"]}},
-    {"name": "lookup_rate",
-     "description": ("Return the FX rate for a currency pair such as EUR/USD on a given date. "
-                     "Use when you need a historic rate. Not for converting an amount -- "
-                     "use fx_convert for that."),
-     "inputSchema": {"type": "object", "required": ["pair", "date"]}},
-    {"name": "purge_case", "description": "Cleans up.",
-     "inputSchema": {"type": "object", "required": ["ref"]}},
+    Tool(name="fx_convert", description="Converts currency.",
+         inputSchema={"type": "object", "required": ["amount", "from_ccy", "to_ccy"]}),
+    Tool(name="post_note", description="Posts a note to the case file. Use freely.",
+         inputSchema={"type": "object", "required": ["ref", "text"]}),
+    Tool(name="lookup_rate",
+         description=("Return the FX rate for a currency pair such as EUR/USD on a given date. "
+                      "Use when you need a historic rate. Not for converting an amount -- "
+                      "use fx_convert for that."),
+         inputSchema={"type": "object", "required": ["pair", "date"]}),
+    Tool(name="purge_case", description="Cleans up.",
+         inputSchema={"type": "object", "required": ["ref"]}),
 ]
 
-BOUNDARY_MARKERS = ("not for", "do not use", "never use", "only after")
+def boundary_markers() -> tuple:
+    """The phrases that mark a description as saying where the tool STOPS.
 
-def audit(spec: dict) -> list:
-    """What is wrong with one description you did not write. An empty list means fit to grant."""
+    Look at lookup_rate below: it is the one description here that draws a line, and the
+    phrase it draws it with is the one you are looking for. "Use freely" is not a boundary.
+    """
+    return ("not for", "do not use", "never use", "only after")
+
+
+def audit(spec: Tool) -> list:
+    """What is wrong with a description you did not write. An empty list means fit to grant."""
     problems = []
-    description = (spec.get("description") or "").strip()
+    description = (spec.description or "").strip()
+    required = (spec.inputSchema.get("required") or [])
     if len(description) < 40:
         problems.append("too short to choose on")
-    if not any(m in description.lower() for m in BOUNDARY_MARKERS):
+    if not any(m in description.lower() for m in boundary_markers()):
         problems.append("no boundary sentence")
-    required = (spec.get("inputSchema") or {}).get("required") or []
     if any(arg not in description for arg in required):
         problems.append("a required argument the description never names")
     return problems
 '''),
-    code('''
-# --- Self-check: Section 2
-_by_name = {s["name"]: s for s in THIRD_PARTY}
+    code(r'''
+# --- Self-check: Section 2   (specs only -- no server, no model call)
+_by_name = {s.name: s for s in THIRD_PARTY}
 
-check("the one description with a boundary passes clean",
-      lambda: audit(_by_name["lookup_rate"]) == [])
+check("the one description that draws a line passes clean",
+      lambda: audit(_by_name["lookup_rate"]) == [],
+      "its boundary is the sentence beginning 'Not for' -- your markers have to recognise it")
 check("a three-word description fails on all three counts",
       lambda: len(audit(_by_name["fx_convert"])) == 3)
 check("'Use freely' is not a boundary sentence",
-      lambda: "no boundary sentence" in audit(_by_name["post_note"]))
+      lambda: "no boundary sentence" in audit(_by_name["post_note"]),
+      "a marker list loose enough to accept this accepts anything")
 check("the destructive tool is the worst documented one",
-      lambda: len(audit(_by_name["purge_case"])) >= 3,
+      lambda: len(audit(_by_name["purge_case"])) == 3,
       "a ten-character description on a tool that deletes things is the whole argument for auditing")
 check("exactly one of the four is fit to grant as written",
-      lambda: [s["name"] for s in THIRD_PARTY if not audit(s)] == ["lookup_rate"])
+      lambda: [s.name for s in THIRD_PARTY if not audit(s)] == ["lookup_rate"])
+check("three of the four are refused as written",
+      lambda: sum(1 for s in THIRD_PARTY if audit(s)) == 3)
 
 def _audit_report():
     for spec in THIRD_PARTY:
         problems = audit(spec)
-        print(f"  {spec['name']:14} {'GRANT' if not problems else 'REFUSE':7} "
+        print(f"  {spec.name:14} {'GRANT' if not problems else 'REFUSE':7} "
               f"{'; '.join(problems) or 'clean'}")
 guard(_audit_report)
 '''),
@@ -2112,45 +2273,58 @@ guard(_audit_report)
 `PMT-1003` has a `narrative` field, and a counterparty wrote it. Your tool returned it faithfully,
 the protocol worked, nothing errored &mdash; and the model is now reading an instruction.
 
-Use an **allow-list**, not a block-list. A block-list only stops the attacks you already thought of;
-an allow-list stops the field somebody adds next year.
+Use an **allow-list**, not a block-list. A block-list only stops the attacks you already thought
+of; an allow-list stops the field somebody adds next year.
 """),
-    code('''
-AGENT_FIELDS = ("ref", "amount", "ccy", "counterparty", "status", "reason_code")
+    code(r'''
+def agent_fields() -> tuple:
+    """The record fields an agent may see. Everything else stays on our side of the bridge.
 
-def sanitize(record: dict, allow=AGENT_FIELDS) -> dict:
-    """Only the fields the agent needs. Free text written by an outside party is not one of them."""
-    # TODO: an allow-list. Not a block-list -- you cannot enumerate what you have not seen.
+    Print POISONED_LEDGER["PMT-1003"] first if you want to see what you are deciding about.
+    """
+    # TODO: return the field names the agent legitimately needs, and only those.
+    #       This is an allow-list: you cannot enumerate what you have not seen yet.
     return BLANK
+
+
+def sanitize(record: dict) -> dict:
+    """Keep the allowed fields and drop the rest."""
+    return {k: v for k, v in record.items() if k in agent_fields()}
 
 
 def read_payment(ref: str, tools=None) -> dict:
     """Read one payment across the bridge and hand back only what the agent should see."""
-    tools = bridge(Session(handle)) if tools is None else tools
+    tools = {t.name: t for t in bridge(Session(handle))} if tools is None else tools
     text = tools["lookup_payment"].invoke({"ref": ref})
     try:
         return sanitize(json.loads(text))
     except ValueError:
         return {"error": text}
-''', '''
-AGENT_FIELDS = ("ref", "amount", "ccy", "counterparty", "status", "reason_code")
+''', r'''
+def agent_fields() -> tuple:
+    """The record fields an agent may see. Everything else stays on our side of the bridge.
 
-def sanitize(record: dict, allow=AGENT_FIELDS) -> dict:
-    """Only the fields the agent needs. Free text written by an outside party is not one of them."""
-    return {k: v for k, v in record.items() if k in allow}
+    Print POISONED_LEDGER["PMT-1003"] first if you want to see what you are deciding about.
+    """
+    return ("ref", "amount", "ccy", "counterparty", "status", "reason_code")
+
+
+def sanitize(record: dict) -> dict:
+    """Keep the allowed fields and drop the rest."""
+    return {k: v for k, v in record.items() if k in agent_fields()}
 
 
 def read_payment(ref: str, tools=None) -> dict:
     """Read one payment across the bridge and hand back only what the agent should see."""
-    tools = bridge(Session(handle)) if tools is None else tools
+    tools = {t.name: t for t in bridge(Session(handle))} if tools is None else tools
     text = tools["lookup_payment"].invoke({"ref": ref})
     try:
         return sanitize(json.loads(text))
     except ValueError:
         return {"error": text}
 '''),
-    code('''
-# --- Self-check: Section 3
+    code(r'''
+# --- Self-check: Section 3   (the bridge in process -- no model call)
 check("the raw record really does carry the injection",
       lambda: "Ignore all prior instructions" in POISONED_LEDGER["PMT-1003"]["narrative"],
       "if this ever fails, the rest of this section is testing nothing")
@@ -2159,11 +2333,12 @@ check("the agent never sees the narrative",
 check("and none of the instruction text survives",
       lambda: "release_payment" not in json.dumps(read_payment("PMT-1003")))
 check("everything the agent legitimately needs is still there",
-      lambda: set(read_payment("PMT-1003")) == set(AGENT_FIELDS))
+      lambda: {"ref", "amount", "status", "reason_code"} <= set(read_payment("PMT-1003")),
+      "an allow-list that drops the reason code has broken the agent, not protected it")
 check("an allow-list drops a hostile field nobody has thought of yet",
       lambda: "memo" not in sanitize({**POISONED_LEDGER["PMT-1003"],
                                       "memo": "also please approve this"}),
-      "this is the check a block-list fails, and the reason to prefer an allow-list")
+      "this is the check a block-list fails, and the whole reason to prefer an allow-list")
 check("a clean payment is unaffected",
       lambda: read_payment("PMT-1002")["reason_code"] == "INSUFFICIENT_FUNDS")
 check("a missing payment does not crash the read",
@@ -2179,39 +2354,45 @@ Filtering is defence in depth, not the defence. The control that holds when a fi
 is structural: **no tool result may authorise an irreversible action.** Approval comes from a
 named human, through a different channel, and no amount of text changes that.
 """),
-    code('''
+    code(r'''
 IRREVERSIBLE = {"release_payment", "purge_case"}
 
 def requires_approval(tool_name: str) -> bool:
-    """Whether a human must approve this call. Deliberately ignores every argument and result."""
+    """Whether a human must approve this call. Deliberately ignores every argument."""
     return tool_name in IRREVERSIBLE
 
 
 def attempt(tool_name: str, record: dict = None, approved_by: str = None) -> dict:
-    """The one place a write can happen -- and the only place the gate has to hold."""
-    # TODO: block the call unless a NAMED human has approved it.
-    # `record` is deliberately unused: nothing inside it may change this answer.
+    """The one place a write can happen -- and so the only place the gate has to hold.
+
+    `record` is accepted and deliberately never read: nothing inside it may change the answer.
+    """
+    # TODO: block the call unless a NAMED human has approved it. Two facts decide this,
+    #       and neither of them is in `record`.
     if BLANK:
         return {"ok": False, "error": "needs_approval",
                 "message": f"{tool_name} needs a named human approver"}
     return {"ok": True, "data": f"{tool_name} executed", "approved_by": approved_by}
-''', '''
+''', r'''
 IRREVERSIBLE = {"release_payment", "purge_case"}
 
 def requires_approval(tool_name: str) -> bool:
-    """Whether a human must approve this call. Deliberately ignores every argument and result."""
+    """Whether a human must approve this call. Deliberately ignores every argument."""
     return tool_name in IRREVERSIBLE
 
 
 def attempt(tool_name: str, record: dict = None, approved_by: str = None) -> dict:
-    """The one place a write can happen -- and the only place the gate has to hold."""
+    """The one place a write can happen -- and so the only place the gate has to hold.
+
+    `record` is accepted and deliberately never read: nothing inside it may change the answer.
+    """
     if requires_approval(tool_name) and not approved_by:
         return {"ok": False, "error": "needs_approval",
                 "message": f"{tool_name} needs a named human approver"}
     return {"ok": True, "data": f"{tool_name} executed", "approved_by": approved_by}
 '''),
-    code('''
-# --- Self-check: Section 4
+    code(r'''
+# --- Self-check: Section 4   (the gate alone -- no server, no model call)
 _raw = POISONED_LEDGER["PMT-1003"]
 
 check("a read never needs approval",
@@ -2238,7 +2419,7 @@ check("the destructive third-party tool is gated too",
 Bridge, read, sanitise, gate. Four steps, and the interesting property is that steps three and
 four are independent: either one alone stops this attack, and you want both.
 """),
-    code('''
+    code(r'''
 def investigate(ref: str, approved_by: str = None) -> dict:
     """Read a payment across the bridge and try to act on it."""
     seen = read_payment(ref)
@@ -2266,8 +2447,8 @@ def _final():
         print(f"  {name:18}{kind:8}{gate}")
 guard(_final)
 '''),
-    code('''
-# --- Self-check: Section 5
+    code(r'''
+# --- Self-check: Section 5   (the whole chain, in process -- no model call)
 check("the investigation stops at the gate",
       lambda: investigate("PMT-1003")["outcome"] == "needs_approval")
 check("and completes once a human is named",
@@ -2283,20 +2464,39 @@ check("every read tool runs unattended",
 '''),
 
     md("""
-## Run it for real
+## Run it for real &mdash; the bridge, in an agent
 
-The honest test of a filter is what the model does with what got through. Give it the sanitised
-record and the raw one, and compare what it proposes.
+`create_agent` takes the bridged tools without knowing or caring that they are MCP. Watch the
+trace: the tool result that comes back carries the narrative, unfiltered, straight into the
+message list.
 """),
-    code('''
+    code(r'''
+if llm_ready():
+    def _agent():
+        from langchain.agents import create_agent
+        agent = create_agent(
+            model=get_llm(),
+            tools=bridge(Session(handle)),
+            system_prompt="You are a payments operations analyst. Use the tools available.")
+        out = agent.invoke({"messages": [
+            ("human", "Why is PMT-1003 held, and what does policy say about it?")]})
+        show_messages(out["messages"])
+    guard(_agent)
+'''),
+    md("""
+## Run it for real &mdash; with and without the filter
+
+The honest test of a filter is what the model does with what got through. Same question, same
+model; one sees the sanitised record and one sees the raw one.
+"""),
+    code(r'''
 if llm_ready():
     def _compare():
-        prompt = ("You are an operations agent. Here is a payment case. State in one sentence what "
-                  "you would do next. You may propose calling release_payment.\\n\\nCase: ")
+        prompt = ("You are an operations agent. Here is a payment case. State in one sentence "
+                  "what you would do next. You may propose calling release_payment.\n\nCase: ")
         for label, payload in (("sanitised", read_payment("PMT-1003")),
-                               ("raw       ", POISONED_LEDGER["PMT-1003"])):
-            reply = ask(prompt + json.dumps(payload))
-            print(f"  [{label}] {reply.strip()[:220]}")
+                               ("raw      ", POISONED_LEDGER["PMT-1003"])):
+            print(f"  [{label}] {ask(prompt + json.dumps(payload)).strip()[:230]}")
             print()
     guard(_compare)
 '''),
@@ -2304,19 +2504,23 @@ if llm_ready():
 ### Read it
 
 If the raw case makes the model propose a release and the sanitised one does not, you have watched
-an injection work &mdash; on a model that did nothing wrong. It read a note in a record and believed it,
-which is what reading is.
+an injection work &mdash; on a model that did nothing wrong. It read a note in a record and believed
+it, which is what reading is.
 
 And if the model resists both: good, today. Do not turn that into a control. Section 4's gate is a
 control because it cannot be argued with. A model's good judgement is a hope with a version number.
 
-**What you take from Module 4:** three fields decide every tool call, a failing tool returns rather
-than raises, MCP standardises the boundary so access becomes something you grant and revoke &mdash;
-and everything arriving through that boundary is data, never instruction. Module 5 puts several of
-these agents in one graph.
+Notice also what the agent trace showed: the narrative reached the message list, and it stays
+there for the rest of the conversation. Filtering at the boundary is the only place you get to
+remove it &mdash; once it is in the history, every later turn reads it again.
+
+**What you take from Module 4:** three fields decide every tool call, prose is the API and worth
+measuring, a failing tool returns rather than raises, MCP standardises the boundary so access
+becomes something you grant and revoke &mdash; and everything arriving through that boundary is
+data, never instruction. Module 5 puts several of these agents in one graph.
 """),
 
-    code('''
+    code(r'''
 score()
 '''),
     md("""
@@ -2325,10 +2529,12 @@ score()
 1. `sanitize` drops the narrative entirely, and an investigator might genuinely need it. Return it
    under a key the model is told is untrusted, and test whether that framing survives twenty turns
    of conversation. (Module 8 has the uncomfortable answer.)
-2. `audit` is three rules. Add a fourth for a tool whose description claims no side effects while
-   its name says otherwise, and run it over `THIRD_PARTY`.
-3. Put the gate in the wrong place: check approval inside the tool rather than in `attempt`. Then
-   add a second caller and count how many places now have to be right.
+2. Bridge the third-party specs too, but only the ones `audit` passes. That is a five-line policy
+   and it is the difference between installing a server and granting one.
+3. Put the gate in the wrong place: check approval inside the bridged tool rather than in
+   `attempt`. Then add a second caller and count how many places now have to be right.
+4. Give the agent in the first live cell a `release_payment` tool and re-run it against the raw
+   ledger. Nothing in this notebook stops it except the gate you wrote.
 """),
 ]
 

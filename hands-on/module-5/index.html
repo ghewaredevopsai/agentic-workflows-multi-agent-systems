@@ -43,34 +43,39 @@ footer a{color:#c7d2fe;text-decoration:none}
       <strong>Self-check</strong> cell under each section. It prints <code>[PASS]</code>,
       <code>[FAIL]</code> or <code>[TODO]</code>, and the last cell prints your
       <code>Score</code>.</p>
-    <p><strong>Your score never depends on a live model.</strong> Graded cells are plain Python.
-      Cells marked <strong>Run it for real</strong> do call the sandbox model &mdash; if it is
-      unreachable they print how to fix it rather than crashing, so <em>Run All</em> is always safe
-      on an untouched notebook.</p>
+    <p><strong>You write real LangGraph code in every lab.</strong> The <strong>Self-check</strong>
+      cells assert on the objects you build &mdash; a compiled <code>StateGraph</code>, a declared
+      reducer, a checkpointed interrupt &mdash; so they are deterministic and never need the model.
+      Cells marked <strong>Run it for real</strong> do call the sandbox model; if it is unreachable
+      they print how to fix it rather than crashing, so <em>Run All</em> is always safe on an
+      untouched notebook.</p>
     <p><strong>The same case file throughout</strong> &mdash; payment exceptions on a small synthetic
-      ledger, now worked by several specialists at once. The specialists are deterministic stand-ins,
-      so a graph's structure <em>and</em> its cost can be graded exactly; the <strong>Run it for real</strong>
-      cells put the sandbox model behind the same interfaces.</p>
+      ledger, now worked by several specialists at once. The specialists are deterministic functions
+      over state, used as graph <em>nodes</em>, so a graph's structure <em>and</em> its cost can be
+      asserted exactly and offline; the <strong>Run it for real</strong> cells put the sandbox model
+      behind the same interfaces.</p>
   </div>
 
       <div class="lab">
-    <div class="tags">30 min<span class="lvl">Intermediate &rarr; Advanced</span></div>
+    <div class="tags">35 min<span class="lvl">Intermediate &rarr; Advanced</span></div>
     <h3><a href="lab-5-01-supervisor-as-router.ipynb">Lab 5.1 &mdash; The Supervisor Is a Router</a></h3>
     <p>A supervisor picks a worker the way an agent picks a tool. So measure it the same way.</p>
     <ul>
       <li>Build a rule-based supervisor and score it honestly</li>
-      <li>Read the confusion table &mdash; every miss lands on the default</li>
+      <li>Read the confusion table &mdash; every miss lands on the fallback</li>
       <li>Price a misroute: everything downstream of it was wasted</li>
+      <li>Wire it into a real <code>StateGraph</code> with <code>add_conditional_edges</code></li>
     </ul>
-    <div class="sol">2 blanks &middot; 18 checks &middot; solution: <code>solutions/lab-5-01-supervisor-as-router.ipynb</code></div>
+    <div class="sol">3 blanks &middot; 26 checks &middot; solution: <code>solutions/lab-5-01-supervisor-as-router.ipynb</code></div>
   </div>
 
   <div class="lab">
-    <div class="tags">35 min<span class="lvl">Advanced</span></div>
+    <div class="tags">40 min<span class="lvl">Advanced</span></div>
     <h3><a href="lab-5-02-decomposition-and-handoffs.ipynb">Lab 5.2 &mdash; Decomposition, Distribution and Handoffs</a></h3>
     <p>Four agents, but only two ever run together &mdash; and the handoff drops the constraint.</p>
     <ul>
       <li>Level a dependency graph into execution waves</li>
+      <li>Compile those dependencies into a real <code>StateGraph</code>, edge by edge</li>
       <li>Build the handoff payload and decide what crosses it</li>
       <li>Reproduce the bug where both agents are right and the answer is wrong</li>
     </ul>
@@ -80,39 +85,40 @@ footer a{color:#c7d2fe;text-decoration:none}
   <div class="lab">
     <div class="tags">40 min<span class="lvl">Advanced</span></div>
     <h3><a href="lab-5-03-parallel-reducers-disagreement.ipynb">Lab 5.3 &mdash; Parallel Execution, Reducers and Disagreement</a></h3>
-    <p>A whole specialist's findings vanish, nothing raises, and the summary still reads fine.</p>
+    <p>A whole specialist's findings vanish, nothing raises, and the summary still reads fine &mdash; unless you declared a reducer.</p>
     <ul>
-      <li>Watch a parallel branch's work disappear into a plain dict update</li>
+      <li>Watch a parallel branch's work disappear into a hand-rolled dict update</li>
+      <li>Watch LangGraph refuse to do the same thing, and read the error it gives you</li>
       <li>Declare a reducer per key, and add the CI check that catches the next one</li>
       <li>Settle a disagreement by authority and provenance, not by counting</li>
     </ul>
-    <div class="sol">3 blanks &middot; 25 checks &middot; solution: <code>solutions/lab-5-03-parallel-reducers-disagreement.ipynb</code></div>
+    <div class="sol">3 blanks &middot; 28 checks &middot; solution: <code>solutions/lab-5-03-parallel-reducers-disagreement.ipynb</code></div>
   </div>
 
   <div class="lab">
-    <div class="tags">35 min<span class="lvl">Advanced</span></div>
+    <div class="tags">40 min<span class="lvl">Advanced</span></div>
     <h3><a href="lab-5-04-human-in-the-loop.ipynb">Lab 5.4 &mdash; Human-in-the-Loop as an Orchestration Mechanism</a></h3>
     <p>Interrupt, approve, time out, escalate &mdash; all four are checkpointing with a person in it.</p>
     <ul>
-      <li>Stop before the irreversible node and checkpoint the evidence</li>
+      <li>Stop a compiled graph with <code>interrupt_before</code> and a checkpointer</li>
       <li>Open the gate for a named human &mdash; an identity, not a boolean</li>
       <li>Climb an escalation ladder that terminates</li>
-      <li>Prove the one property of a gate: at the gate, &ldquo;no&rdquo; is still free</li>
+      <li>Rewind into the gate, and find out who the interrupt really belongs to</li>
     </ul>
-    <div class="sol">3 blanks &middot; 28 checks &middot; solution: <code>solutions/lab-5-04-human-in-the-loop.ipynb</code></div>
+    <div class="sol">3 blanks &middot; 31 checks &middot; solution: <code>solutions/lab-5-04-human-in-the-loop.ipynb</code></div>
   </div>
 
   <div class="lab">
-    <div class="tags">40 min<span class="lvl">Advanced &middot; challenge</span></div>
+    <div class="tags">45 min<span class="lvl">Advanced &middot; challenge</span></div>
     <h3><a href="lab-5-05-challenge-the-scorecard.ipynb">Lab 5.5 &mdash; Challenge: The Scorecard</a></h3>
     <p>Not a graph &mdash; an argument about whether to build one, with numbers a risk owner can dispute.</p>
     <ul>
       <li>State the ground truth before measuring anything</li>
-      <li>Score a single agent and a four-specialist graph on the same cases</li>
-      <li>Price both, including the context re-sent at every hop</li>
+      <li>Score a single agent and a four-node <code>StateGraph</code> on the same cases</li>
+      <li>Price both with and without the context re-sent at every hop</li>
       <li>Compute the breakeven &mdash; and let &ldquo;don't&rdquo; be a real answer</li>
     </ul>
-    <div class="sol">2 blanks &middot; 21 checks &middot; solution: <code>solutions/lab-5-05-challenge-the-scorecard.ipynb</code></div>
+    <div class="sol">3 blanks &middot; 26 checks &middot; solution: <code>solutions/lab-5-05-challenge-the-scorecard.ipynb</code></div>
   </div>
 
   <div class="note">

@@ -38,7 +38,9 @@ CELL_TIMEOUT = int(os.environ.get("LAB_CELL_TIMEOUT", "120"))
 # cluster -- where all of them are set -- so the run stops being free and deterministic.
 for v in ("LAB_LLM_BASE_URL", "LAB_LLM_MODEL",
           "OPENAI_BASE_URL", "OPENAI_API_BASE", "OPENAI_MODEL",
-          "LITELLM_BASE_URL", "LITELLM_MODEL"):
+          "LITELLM_BASE_URL", "LITELLM_MODEL",
+          "LANGFUSE_BASE_URL", "LANGFUSE_HOST",
+          "LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY"):
     os.environ.pop(v, None)
 
 import nbformat

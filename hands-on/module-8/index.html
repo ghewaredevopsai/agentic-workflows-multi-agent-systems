@@ -43,15 +43,20 @@ footer a{color:#c7d2fe;text-decoration:none}
       <strong>Self-check</strong> cell under each section. It prints <code>[PASS]</code>,
       <code>[FAIL]</code> or <code>[TODO]</code>, and the last cell prints your
       <code>Score</code>.</p>
-    <p><strong>Your score never depends on a live model.</strong> Graded cells are plain Python.
-      Cells marked <strong>Run it for real</strong> do call the sandbox model &mdash; if it is
+    <p><strong>You write real Pydantic, LangChain and LangGraph code in every lab.</strong> The
+      <strong>Self-check</strong> cells assert on the objects you build &mdash; a contract that
+      refuses, a <code>@tool</code> that refuses, a compiled graph with an approval gate in it.
+      Refusal is deterministic, so those checks never depend on a live model. Cells marked
+      <strong>Run it for real</strong> put your guardrail in front of the sandbox model; if it is
       unreachable they print how to fix it rather than crashing, so <em>Run All</em> is always safe
       on an untouched notebook.</p>
     <p><strong>Controls, not measurements.</strong> A measurement tells you how often something
-      happens; a control decides what happens. Everything graded here is stdlib and runs offline,
-      because a control you can only test by running the model is not much of a control. The
-      <strong>Run it for real</strong> cells put the sandbox model on the other side &mdash; as a
-      detector, as a source of malformed output, and as your red-team opponent.</p>
+      happens; a control decides what happens. The interesting assertion about a guardrail is what
+      it <em>refuses</em> &mdash; feed a poisoned or malformed object to the contract and watch it
+      be rejected &mdash; and that is exactly the assertion that needs no endpoint. The
+      <strong>Run it for real</strong> cells put the sandbox model on the other side: as a
+      detector, as a source of malformed output, as an agent meeting a gate, and as your red-team
+      opponent.</p>
   </div>
 
             <div class="lab">
@@ -60,24 +65,24 @@ footer a{color:#c7d2fe;text-decoration:none}
     <p>60% detection, 10% false alarms &mdash; and a five-minute paraphrase that beats it at any threshold.</p>
     <ul>
       <li>Build a keyword detector and measure BOTH error rates</li>
-      <li>Find the legitimate requests it blocks</li>
-      <li>Sweep the threshold and pick a point against a stated budget</li>
+      <li>Write the schema a model-judged detector may answer in</li>
+      <li>Put the detector inside the <code>@tool</code> that uses the untrusted text</li>
       <li>Write the bypass, and see how little effort it took</li>
     </ul>
-    <div class="sol">4 blanks &middot; 22 checks &middot; solution: <code>solutions/lab-8-01-measure-the-detector.ipynb</code></div>
+  <div class="sol">3 blanks &middot; 29 checks &middot; solution: <code>solutions/lab-8-01-measure-the-detector.ipynb</code></div>
   </div>
 
   <div class="lab">
     <div class="tags">35 min<span class="lvl">Advanced</span></div>
     <h3><a href="lab-8-02-contracts-between-hops.ipynb">Lab 8.2 &mdash; Contracts Between Every Hop</a></h3>
-    <p>The same hostile response through two validators. Only one of them tells you something happened.</p>
+    <p>Two parsers, the same constructor call, the same hostile JSON. Only one of them refuses it.</p>
     <ul>
-      <li>A contract that rejects rather than coerces</li>
-      <li>Watch coercion turn an attack into a clean, valid decision</li>
-      <li>Validate between two agents you wrote yourself</li>
+      <li>A Pydantic contract that rejects rather than coerces</li>
+      <li>Choose the output parser that validates &mdash; one of the two does not</li>
+      <li>Put the contract on every edge of a compiled <code>StateGraph</code></li>
       <li>Decide what a violation does: retry, escalate, or stop</li>
     </ul>
-    <div class="sol">2 blanks &middot; 18 checks &middot; solution: <code>solutions/lab-8-02-contracts-between-hops.ipynb</code></div>
+  <div class="sol">3 blanks &middot; 27 checks &middot; solution: <code>solutions/lab-8-02-contracts-between-hops.ipynb</code></div>
   </div>
 
   <div class="lab">
@@ -85,12 +90,12 @@ footer a{color:#c7d2fe;text-decoration:none}
     <h3><a href="lab-8-03-data-boundaries.ipynb">Lab 8.3 &mdash; Data Boundaries: Prompt, Trace, Vector Store</a></h3>
     <p>You built a tracer yesterday. Today you find out it is a customer database nobody classified.</p>
     <ul>
-      <li>Redact on the way in, with Module 4's allow-list</li>
-      <li>Prove the trace holds no customer data</li>
-      <li>Check what went into the index &mdash; the store you cannot un-write</li>
+      <li>Decide the boundary once, then put it in the tool</li>
+      <li>Point the same decision at a real LangChain callback handler</li>
+      <li>Check <code>Document</code>s before they are embedded &mdash; the store you cannot un-write</li>
       <li>Give every store a retention number somebody chose</li>
     </ul>
-    <div class="sol">3 blanks &middot; 20 checks &middot; solution: <code>solutions/lab-8-03-data-boundaries.ipynb</code></div>
+  <div class="sol">2 blanks &middot; 24 checks &middot; solution: <code>solutions/lab-8-03-data-boundaries.ipynb</code></div>
   </div>
 
   <div class="lab">
@@ -99,11 +104,11 @@ footer a{color:#c7d2fe;text-decoration:none}
     <p>&ldquo;Is it secure?&rdquo; has no answer. &ldquo;What could an attacker do with it?&rdquo; is a list you can shorten.</p>
     <ul>
       <li>Classify every tool: read, reversible write, irreversible</li>
-      <li>Compute blast radius, and shrink it with least privilege</li>
-      <li>Find out what actually breaks when you do</li>
+      <li>Build the approval gate as a routing node &mdash; no checkpointer needed</li>
+      <li>Compute blast radius, shrink it, and find out what breaks</li>
       <li>Produce a grant a reviewer can approve in a minute</li>
     </ul>
-    <div class="sol">3 blanks &middot; 24 checks &middot; solution: <code>solutions/lab-8-04-blast-radius.ipynb</code></div>
+  <div class="sol">3 blanks &middot; 32 checks &middot; solution: <code>solutions/lab-8-04-blast-radius.ipynb</code></div>
   </div>
 
   <div class="lab">
@@ -111,12 +116,12 @@ footer a{color:#c7d2fe;text-decoration:none}
     <h3><a href="lab-8-05-challenge-red-team.ipynb">Lab 8.5 &mdash; Challenge: Red-Team Your Own System</a></h3>
     <p>Nine attacks, four layers, two survivors &mdash; and only one of them can do any damage.</p>
     <ul>
-      <li>Assemble the defence you built over three days</li>
-      <li>Record which layer stopped each attempt</li>
-      <li>Separate a clever bypass from an actual risk</li>
-      <li>Write the residual down, because there always is one</li>
+      <li>Assemble the four layers; two of them are objects you built</li>
+      <li>Record which layer stopped each attempt, and which never fired</li>
+      <li>Separate a clever bypass from an actual incident</li>
+      <li>Write the refusal clause that took a reviewer from 0/3 to 3/3</li>
     </ul>
-    <div class="sol">2 blanks &middot; 26 checks &middot; solution: <code>solutions/lab-8-05-challenge-red-team.ipynb</code></div>
+  <div class="sol">3 blanks &middot; 37 checks &middot; solution: <code>solutions/lab-8-05-challenge-red-team.ipynb</code></div>
   </div>
 
   <div class="note">

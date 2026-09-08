@@ -41,15 +41,19 @@ footer a{color:#c7d2fe;text-decoration:none}
   <div class="how">
     <p><strong>How these labs work.</strong> Fill every <code>BLANK</code>, then run the
       <strong>Self-check</strong> cell under each section. It prints <code>[PASS]</code>,
-      <code>[FAIL]</code> or <code>[TODO]</code>, and the last cell prints your
-      <code>Score</code>.</p>
-    <p><strong>Your score never depends on a live model.</strong> Graded cells are plain Python.
-      Cells marked <strong>Run it for real</strong> do call the sandbox model &mdash; if it is
-      unreachable they print how to fix it rather than crashing, so <em>Run All</em> is always safe
-      on an untouched notebook.</p>
+      <code>[FAIL]</code> or <code>[TODO]</code>, and the last cell prints a
+      <code>Self-check</code> tally. The score line is feedback, not a grade.</p>
+    <p><strong>You write real LangChain and MCP code in every lab.</strong> The
+      <strong>Self-check</strong> cells assert on the objects you build &mdash; a <code>@tool</code>,
+      an argument schema, a <code>ToolMessage</code>, an <code>mcp.types.Tool</code> &mdash; so they
+      are deterministic and do not need the model. Cells marked <strong>Run it for real</strong> put
+      your code in front of the sandbox model; if it is unreachable they print how to fix it rather
+      than crashing, so <em>Run All</em> is always safe on an untouched notebook.</p>
     <p><strong>The same case file as Day 1</strong> &mdash; payment exceptions on a small synthetic
       ledger, now reached through tools the agent chooses, and then through tools it did not write.
-      Lab 4.4 needs no model and no network: it launches your own MCP server as a real subprocess.</p>
+      Labs 4.4 and 4.5 need no model and no network for a single graded check: the MCP server,
+      the client and the bridge all run in this process, and one cell launches a server as a real
+      subprocess over real pipes.</p>
   </div>
 
     <div class="lab">
@@ -57,49 +61,54 @@ footer a{color:#c7d2fe;text-decoration:none}
     <h3><a href="lab-4-01-the-tool-contract.ipynb">Lab 4.1 &mdash; The Tool Contract</a></h3>
     <p>Three fields cross the boundary to the model. Everything else you wrote stays behind.</p>
     <ul>
-      <li>Build the descriptor a model actually receives</li>
+      <li>See the exact JSON a <code>@tool</code> becomes on the wire</li>
+      <li>Write the argument descriptions the model reads to fill a call in</li>
       <li>Decide which failures are worth a retry &mdash; and which never are</li>
-      <li>Turn a tool that raises into one the agent can act on</li>
+      <li>Wire <code>handle_tool_error</code> so a failing tool returns instead of raising</li>
     </ul>
-    <div class="sol">3 blanks &middot; 18 checks &middot; solution: <code>solutions/lab-4-01-the-tool-contract.ipynb</code></div>
+    <div class="sol">3 blanks &middot; 25 checks &middot; solution: <code>solutions/lab-4-01-the-tool-contract.ipynb</code></div>
   </div>
 
   <div class="lab">
     <div class="tags">35 min<span class="lvl">Intermediate &rarr; Advanced</span></div>
     <h3><a href="lab-4-02-descriptions-are-instructions.ipynb">Lab 4.2 &mdash; Tool Descriptions Are Instructions</a></h3>
-    <p>The measured lab: build the harness offline, then find out what description quality is
-      actually worth on this model &mdash; including the possibility that the answer is nothing.</p>
+    <p>The measured lab: two arms wrapping the same four functions, differing only in prose.
+      Sixty points of first-tool accuracy sit between them.</p>
     <ul>
-      <li>An eval set with the ambiguous cases in it</li>
-      <li>Accuracy, and a confusion table that names the overlapping pair</li>
-      <li>The experimental control &mdash; only the description may differ</li>
-      <li>Read a null result, and work out what your sample size can even detect</li>
+      <li>Two arms built with <code>StructuredTool</code> over identical functions</li>
+      <li>The control, checked on the objects rather than assumed</li>
+      <li>First-tool accuracy off the <code>AIMessage</code>, and a confusion table with it</li>
+      <li>Run the bake-off, and work out what your sample size can even detect</li>
     </ul>
-    <div class="sol">3 blanks &middot; 17 checks &middot; solution: <code>solutions/lab-4-02-descriptions-are-instructions.ipynb</code></div>
+    <div class="sol">3 blanks &middot; 21 checks &middot; solution: <code>solutions/lab-4-02-descriptions-are-instructions.ipynb</code></div>
   </div>
 
   <div class="lab">
     <div class="tags">35 min<span class="lvl">Advanced</span></div>
     <h3><a href="lab-4-03-multi-tool-orchestration.ipynb">Lab 4.3 &mdash; Multi-Tool Orchestration</a></h3>
-    <p>Step two's argument does not exist until step one has run. That is what multi-tool means.</p>
+    <p>Step two's argument does not exist until step one has run. The message list is the only
+      thing that coordinates them.</p>
     <ul>
-      <li>Extract the argument &mdash; and notice when there is not one</li>
-      <li>Thread one tool's output into the next tool's input</li>
+      <li>Decide which tools an unattended agent may be handed at all</li>
+      <li>Answer a <code>tool_call</code> with the <code>ToolMessage</code> it is waiting for</li>
       <li>Recognise a repeated call, and stop on a budget</li>
+      <li>Write the tool-calling loop, then watch the model sequence two tools</li>
     </ul>
-    <div class="sol">3 blanks &middot; 26 checks &middot; solution: <code>solutions/lab-4-03-multi-tool-orchestration.ipynb</code></div>
+    <div class="sol">3 blanks &middot; 16 checks &middot; solution: <code>solutions/lab-4-03-multi-tool-orchestration.ipynb</code></div>
   </div>
 
   <div class="lab">
     <div class="tags">40 min<span class="lvl">Advanced</span></div>
     <h3><a href="lab-4-04-mcp-from-the-wire-up.ipynb">Lab 4.4 &mdash; MCP From the Wire Up</a></h3>
-    <p>No SDK. Frame the messages, write the server, write the client, then run it over a real pipe.</p>
+    <p>Publish your own tools over MCP. The message types come from the <code>mcp</code> package;
+      the transport and the server you write yourself.</p>
     <ul>
+      <li>Your <code>@tool</code> objects as <code>mcp.types.Tool</code>, validated by the SDK</li>
       <li>Content-Length framing, and why it counts bytes</li>
       <li>initialize, tools/list, tools/call &mdash; and where tool failures belong</li>
       <li>Read an <code>mcpServers</code> config as a list of access grants</li>
     </ul>
-    <div class="sol">4 blanks &middot; 27 checks &middot; solution: <code>solutions/lab-4-04-mcp-from-the-wire-up.ipynb</code></div>
+    <div class="sol">3 blanks &middot; 36 checks &middot; solution: <code>solutions/lab-4-04-mcp-from-the-wire-up.ipynb</code></div>
   </div>
 
   <div class="lab">
@@ -107,12 +116,12 @@ footer a{color:#c7d2fe;text-decoration:none}
     <h3><a href="lab-4-05-challenge-bridge-and-boundary.ipynb">Lab 4.5 &mdash; Challenge: The Bridge, and What Comes Back Through It</a></h3>
     <p>Forty lines bridge MCP into an agent. The hard part is the prose that arrives with it.</p>
     <ul>
-      <li>Adapt MCP descriptors into tool objects an agent can be handed</li>
+      <li>Adapt MCP specs into <code>StructuredTool</code> objects an agent can be handed</li>
       <li>Audit descriptions you did not write, and refuse the ones you cannot</li>
       <li>Stop an instruction hidden in a legitimate tool result</li>
       <li>Build the gate no tool result can talk past</li>
     </ul>
-    <div class="sol">4 blanks &middot; 31 checks &middot; solution: <code>solutions/lab-4-05-challenge-bridge-and-boundary.ipynb</code></div>
+    <div class="sol">4 blanks &middot; 33 checks &middot; solution: <code>solutions/lab-4-05-challenge-bridge-and-boundary.ipynb</code></div>
   </div>
 
   <div class="note">
