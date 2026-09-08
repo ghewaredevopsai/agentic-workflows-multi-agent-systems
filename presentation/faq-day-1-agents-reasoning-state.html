@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Day 1 FAQ &amp; Quick Revision &mdash; Agentic Workflows &amp; Multi-Agent Systems</title>
+<style>
+  :root{
+    --ink-900:#1e1b4b; --ink-800:#312e81; --ind-600:#4338ca;
+    --ind-300:#818cf8; --ind-50:#eef2ff;
+    --amber:#fbbf24; --amber-d:#b45309; --teal:#0d9488; --red:#b91c1c;
+    --bg:#f5f6fb; --ink:#1e1f33; --muted:#5b5f7a; --line:#d8dcf0;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;scroll-padding-top:150px;}
+  body{margin:0;padding:0;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;
+    background:var(--bg);color:var(--ink);line-height:1.5;}
+  a{color:var(--ind-600);}
+
+  .banner{background:linear-gradient(135deg,#312e81 0%,#1e1b4b 100%);color:#fff;
+    padding:clamp(26px,5vw,52px) clamp(20px,5vw,80px) clamp(22px,4vw,40px);}
+  .banner .kicker{display:flex;align-items:center;gap:10px;font-size:clamp(.7rem,1.1vw,.85rem);
+    font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--amber);margin-bottom:10px;}
+  .banner .kicker .dot{width:8px;height:8px;border-radius:50%;background:var(--amber);}
+  .banner h1{font-size:clamp(1.8rem,4.6vw,3.1rem);margin:0 0 6px;line-height:1.08;}
+  .banner h1 .accent{color:var(--amber);}
+  .banner .subtitle{font-size:clamp(1rem,1.9vw,1.4rem);color:#c7cbf0;margin:4px 0 0;font-weight:500;max-width:70ch;}
+  .banner .rule{width:120px;height:4px;background:var(--amber);margin:20px 0;border-radius:2px;}
+  .banner .meta{display:flex;flex-wrap:wrap;gap:10px;}
+  .banner .trainer{margin-top:22px;font-size:clamp(.85rem,1.4vw,1.02rem);color:#a9adda;}
+  .banner .trainer b{color:#fff;}
+  .banner a{color:var(--amber);}
+  .pill{display:inline-block;padding:5px 14px;border-radius:12px;font-size:.82rem;font-weight:700;letter-spacing:.02em;}
+  .pill.gold{background:var(--amber);color:var(--ink-900);}
+  .pill.ind{background:var(--ind-600);color:#fff;}
+  .pill.teal{background:var(--teal);color:#fff;}
+  .pill.ghost{background:transparent;border:1px solid rgba(255,255,255,.3);color:#c7cbf0;}
+
+  .toplinks{position:fixed;top:12px;right:16px;z-index:60;display:flex;gap:8px;}
+  .toplinks a{font-size:.74rem;text-decoration:none;background:rgba(255,255,255,.92);
+    border:1px solid var(--line);color:var(--ink-800);padding:6px 13px;border-radius:14px;font-weight:600;}
+  .toplinks a:hover{background:#fff;}
+
+  .controls{position:sticky;top:0;z-index:50;background:rgba(245,246,251,.94);backdrop-filter:blur(6px);
+    border-bottom:1px solid var(--line);padding:12px clamp(20px,5vw,80px);}
+  .controls .search{position:relative;margin-bottom:10px;display:flex;align-items:center;}
+  .controls .search svg{position:absolute;left:12px;width:15px;height:15px;opacity:.55;pointer-events:none;}
+  .controls .search input{width:100%;padding:9px 14px 9px 36px;border:1px solid var(--line);border-radius:20px;
+    font-size:.95rem;background:#fff;color:var(--ink);}
+  .controls .search input:focus{outline:2px solid var(--ind-300);border-color:var(--ind-600);}
+  .chips{display:flex;flex-wrap:wrap;gap:7px;}
+  .chips a{text-decoration:none;font-size:.76rem;font-weight:700;padding:5px 11px;border-radius:14px;
+    background:#fff;border:1px solid var(--line);color:var(--ind-600);white-space:nowrap;}
+  .chips a:hover{background:var(--ind-50);border-color:var(--ind-300);}
+  .noresult{display:none;padding:24px clamp(20px,5vw,80px);color:var(--muted);font-size:1.05rem;}
+
+  .wrap{padding:8px clamp(20px,5vw,80px) 60px;max-width:1080px;margin:0 auto;}
+  .dayband{margin:38px 0 4px;font-size:.78rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--amber-d);border-bottom:2px solid var(--amber);padding-bottom:6px;}
+  .dayband:first-of-type{margin-top:14px;}
+  .day-header{margin:20px 0 14px;padding:12px 18px;border-radius:8px;
+    background:linear-gradient(135deg,#312e81 0%,#1e1b4b 100%);color:#fff;
+    display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;}
+  .day-header .tag{font-size:.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--amber);}
+  .day-header h2{margin:0;font-size:clamp(1.15rem,2.4vw,1.6rem);}
+  .day-header .cnt{margin-left:auto;font-size:.78rem;color:#a9adda;font-weight:600;}
+
+  details.faq{background:#fff;border:1px solid var(--line);border-left:4px solid var(--ind-600);
+    border-radius:8px;margin:10px 0;box-shadow:0 1px 4px rgba(30,27,75,.06);overflow:hidden;}
+  details.faq[open]{border-left-color:var(--amber);box-shadow:0 3px 12px rgba(30,27,75,.10);}
+  details.faq summary{cursor:pointer;list-style:none;padding:15px 20px;font-size:clamp(1rem,1.6vw,1.16rem);
+    font-weight:700;color:var(--ink-800);display:flex;align-items:flex-start;gap:12px;}
+  details.faq summary::-webkit-details-marker{display:none;}
+  details.faq summary .q{flex:0 0 auto;width:26px;height:26px;border-radius:6px;background:var(--ind-50);
+    color:var(--ind-600);font-size:.9rem;display:flex;align-items:center;justify-content:center;font-weight:800;}
+  details.faq[open] summary .q{background:var(--amber);color:var(--ink-900);}
+  details.faq summary .tw{margin-left:auto;flex:0 0 auto;color:var(--muted);font-weight:400;transition:transform .2s;}
+  details.faq[open] summary .tw{transform:rotate(180deg);color:var(--amber-d);}
+  details.faq summary:hover{background:#fafbff;}
+  .faq-body{padding:2px 20px 20px 58px;font-size:clamp(.92rem,1.3vw,1.04rem);color:#26273f;}
+  .faq-body p{margin:10px 0;}
+  .faq-body ul,.faq-body ol{margin:10px 0;padding-left:22px;}
+  .faq-body li{margin-bottom:6px;}
+  .faq-body b{color:var(--ink-800);}
+  @media(max-width:640px){.faq-body{padding-left:20px;}}
+
+  .quick{background:var(--ind-50);border:1px solid var(--ind-300);border-left:4px solid var(--amber);
+    border-radius:8px;padding:12px 16px;margin:6px 0 14px;font-size:.98rem;}
+  .quick b{color:var(--ink-800);}
+  .quick .lbl{display:inline-block;font-size:.68rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;
+    color:var(--amber-d);background:#fff;border:1px solid var(--amber);border-radius:10px;padding:1px 8px;margin-right:8px;}
+
+  table{border-collapse:collapse;width:100%;font-size:.92rem;background:#fff;margin:12px 0;
+    box-shadow:0 1px 4px rgba(30,27,75,.07);border-radius:6px;overflow:hidden;}
+  th,td{border:1px solid var(--line);padding:8px 12px;text-align:left;vertical-align:top;}
+  thead th{background:var(--ink-800);color:#fff;font-weight:600;}
+  tbody tr:nth-child(even){background:var(--ind-50);}
+  .tbl-scroll{overflow-x:auto;}
+
+  .terminal{background:#1e1b4b;color:#e0e7ff;border-radius:8px;padding:15px 18px;margin:12px 0;
+    font-family:'SFMono-Regular',Consolas,Menlo,monospace;font-size:clamp(.74rem,1.1vw,.92rem);
+    line-height:1.6;box-shadow:0 4px 16px rgba(0,0,0,.28);overflow-x:auto;white-space:pre-wrap;}
+  .terminal .com{color:#7f86b8;} .terminal .kw{color:#a5b4fc;} .terminal .str{color:#7dd3fc;}
+  .terminal .out{color:#5eead4;} .terminal .hi{color:var(--amber);font-weight:700;}
+  code.inl{font-family:'SFMono-Regular',Consolas,Menlo,monospace;background:#eef0fb;border:1px solid var(--line);
+    border-radius:4px;padding:1px 6px;font-size:.88em;color:#3730a3;}
+
+  .footer{margin-top:20px;padding:18px clamp(20px,5vw,80px);border-top:1px solid var(--line);
+    background:#fff;font-size:.78rem;color:var(--muted);display:flex;flex-wrap:wrap;gap:10px;
+    justify-content:space-between;align-items:center;}
+  .footer .brand{font-weight:600;color:var(--ink-800);}
+  .footer a{text-decoration:none;}
+
+  @media print{
+    .toplinks,.controls{display:none!important;}
+    body{background:#fff;}
+    details.faq{break-inside:avoid;box-shadow:none;border:1px solid #bbb;}
+    details.faq .faq-body{display:block!important;}
+    .terminal{background:#f4f4fb;color:#222;box-shadow:none;}
+    .terminal .com,.terminal .kw,.terminal .str,.terminal .out,.terminal .hi{color:#222;}
+  }
+</style>
+</head>
+<body>
+
+<div class="toplinks">
+  <a href="../course-outline-agentic-workflows-multi-agent-systems.html">&#8962; Course outline</a>
+  <a href="../resources/video-resources.html">Videos</a>
+</div>
+
+<header class="banner">
+  <div class="kicker"><span class="dot"></span> Agentic Workflows &amp; Multi-Agent Systems &nbsp;&middot;&nbsp; Participant Reference</div>
+  <h1>Day 1 FAQ &amp; <span class="accent">Quick Revision</span></h1>
+  <p class="subtitle">The questions that actually come up in the room on Day 1 &mdash; and the ones
+    whose answers surprised us when we measured them.</p>
+  <div class="rule"></div>
+  <div class="meta">
+    <span class="pill gold">Advanced</span>
+    <span class="pill ind">Modules 1&ndash;3</span>
+    <span class="pill teal">32 questions</span>
+    <span class="pill ghost">Searchable</span>
+  </div>
+  <p class="trainer">Trainer: <b>Rajesh Gheware</b> &middot;
+    <a href="https://devops.gheware.com" target="_blank" rel="noopener">devops.gheware.com</a></p>
+</header>
+
+<div class="controls">
+  <div class="search">
+    <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5" fill="none"
+      stroke="#5b5f7a" stroke-width="2"/><line x1="12.8" y1="12.8" x2="18" y2="18"
+      stroke="#5b5f7a" stroke-width="2" stroke-linecap="round"/></svg>
+    <input id="q" type="search" autocomplete="off" aria-label="Search the FAQ"
+      placeholder="Search the FAQ (e.g. reducer, create_agent, thread_id, poisoning, tool description)&hellip;">
+  </div>
+  <nav class="chips" aria-label="Jump to a section">
+    <a href="#setup">Setup</a>
+    <a href="#m1">M1 &middot; Agents</a>
+    <a href="#m2">M2 &middot; Planning</a>
+    <a href="#m3">M3 &middot; Memory &amp; State</a>
+  </nav>
+</div>
+
+<p class="noresult" id="noresult">No questions match that search. Try a different word.</p>
+
+<div class="wrap">
+
+  <div class="dayband">Day 1 &mdash; The Agent Loop: Reasoning, Memory &amp; State</div>
+
+  <div class="day-header" id="setup">
+    <span class="tag">Day 1 &middot; Practical</span>
+    <h2>Setup &amp; the sandbox</h2>
+    <span class="cnt">4 questions</span>
+  </div>
+  <details class="faq" id="setup-which-model">
+    <summary><span class="q">Q</span><span>Which model are we using, and why not GPT-4 or Claude?</span><span class="tw">&#9660;</span></summary>
+    <div class="faq-body">
+      <div class="quick"><span class="lbl">Quick answer</span>The sandbox serves <b>one open-weights model</b> through an OpenAI-compatible gateway, and it is already wired into your notebook. Nothing to install, no key to register.</div>
+      <p>Every notebook reads three environment variables that are injected into your sandbox, so <code class='inl'>ChatOpenAI(...)</code> and <code class='inl'>create_agent(...)</code> simply work. No lab hardcodes an endpoint &mdash; that is deliberate, so the same notebooks run anywhere.</p>
+      <p><b>Why not a frontier model?</b> Because the point of Day 1 is architecture, not model quality. Every result you measure today &mdash; the tool-description gap, the coordination tax, the parser drift &mdash; is a property of how you built the thing, and it reproduces on any competent model. A stronger model would paper over some of them, which is exactly what you do not want while you are learning to see them.</p>
+      <p><b>One thing to know:</b> the <code class='inl'>opencode</code> CLI in your terminal does <i>not</i> use the same gateway. It runs on its own free models. So terminal behaviour and notebook behaviour are not comparable.</p>
+    </div>
+  </details>
+  <details class="faq" id="setup-export-lines">
+    <summary><span class="q">Q</span><span>A cell printed <code class='inl'>export LAB_LLM_BASE_URL=&hellip;</code> instead of running. What happened?</span><span class="tw">&#9660;</span></summary>
+    <div class="faq-body">
+      <div class="quick"><span class="lbl">Quick answer</span>Your model settings were not visible to that kernel. The cell told you exactly which two variables to set rather than failing with a stack trace.</div>
+      <p>Every live cell in every lab is guarded. If the endpoint is not configured it prints the <code class='inl'>export</code> lines it needs and carries on, so <i>Run All</i> never dies halfway. Open a terminal in the sandbox, run <code class='inl'>env | grep -i llm</code>, and set what is missing.</p>
+      <p><b>Good news:</b> most self-check cells do not need the model at all &mdash; they assert on the objects you built (a bound tool, a compiled graph, a validated schema). You can fill in every blank and pass every check while your access is being sorted out. You will only miss the <b>Run it for real</b> cells, which are the interesting half.</p>
+    </div>
+  </details>
+  <details class="faq" id="setup-why-slow">
+    <summary><span class="q">Q</span><span>Why is the model sometimes very slow, and why do the labs turn &ldquo;thinking&rdquo; off?</span><span class="tw">&#9660;</span></summary>
+    <div class="faq-body">
+      <div class="quick"><span class="lbl">Quick answer</span>The served model reasons before it answers, and that reasoning is billed as output tokens. Measured on this sandbox: <b>24.1s and 980 tokens with thinking on, 0.7s and 29 tokens with it off &mdash; for the same one-line answer</b>.</div>
+      <p>The labs pass a vendor-specific flag through <code class='inl'>extra_body</code> to turn it off, because you make a lot of calls today and a 34&times; latency difference would eat the session. The standard <code class='inl'>reasoning_effort</code> parameter is ignored by this backend, which is a useful thing to know about self-hosted models generally.</p>
+      <p><b>It is a trade, not a free win.</b> On the capstone's own eval set, turning thinking off took accuracy down until the prompts were rewritten as an explicit ordered procedure. That is why several labs give the model a numbered procedure rather than a vague instruction.</p>
+    </div>
+  </details>
+  <details class="faq" id="setup-run-at-home">
+    <summary><span class="q">Q</span><span>Can I run these labs after the course, on my own machine?</span><span class="tw">&#9660;</span></summary>
+    <div class="faq-body">
+      <div class="quick"><span class="lbl">Quick answer</span>Yes. Point the three environment variables at any OpenAI-compatible endpoint &mdash; a hosted provider, a gateway, or Ollama with its OpenAI shim.</div>
+      <p>The labs and solutions are generated from a single source and verified two ways: every solution must score full marks, and every untouched lab must survive <i>Run All</i> without an uncaught exception. Both checks run offline.</p>
+      <p>Package set: <code class='inl'>langchain</code> 1.x, <code class='inl'>langchain-openai</code>, <code class='inl'>langgraph</code> 1.x and <code class='inl'>pydantic</code> 2.x. The labs are written against LangChain 1.x specifically &mdash; see the <code class='inl'>create_agent</code> question below for why that matters.</p>
+    </div>
+  </details>
+  <div class="day-header" id="m1">
+    <span class="tag">Day 1 &middot; Module 1</span>
+    <h2>Agents vs. Multi-Agent Systems</h2>
+    <span class="cnt">9 questions</span>
+  </div>
+  <details class="faq" id="m1-what-makes-an-agent">
+    <summary><span class="q">Q</span><span>What actually makes something an &ldquo;agent&rdquo; rather than a chatbot with tools bolted on?</span><span class="tw">&#9660;</span></summary>
+    <div class="faq-body">
+      <div class="quick"><span class="lbl">Quick answer</span>One thing: <b>the model's output decides what happens next</b>. If your code decides the order of steps, it is a workflow with an LLM in it &mdash; often the better build, but not an agent.</div>
+      <p>The useful test is the flowchart test: if you can draw the flow and it does not change with the input, you do not need an agent. Control flow has moved from your code into the model, and that single move is the whole trade &mdash; flexibility in exchange for predictability, testability and a much larger surface for things to go wrong.</p>
+      <p>Everything else people call &ldquo;agentic&rdquo; &mdash; tools, memory, planning &mdash; are patches over specific limitations of a model call: it is stateless, it cannot act, it cannot verify. Ask of any proposed component: <b>which gap does it close?</b> If the answer is none, it is decoration.</p>
+    </div>
+  </details>
+  <details class="faq" id="m1-when-not-to">
+    <summary><span class="q">Q</span><span>When should I <i>not</i> build an agent?</span><span class="tw">&#9660;</span></summary>
+    <div class="faq-body">
+      <div class="quick"><span class="lbl">Quick answer</span>Whenever the steps are the same every time. A workflow is cheaper, testable and predictable, and &ldquo;when to build neither&rdquo; is the question that saves the most money.</div>
+      <p>The rubric from Lab 1.5 asks four questions in a fixed order and stops at the first that decides &mdash; the order is the design, because asking about elegance before need is how teams talk themselves into a supervisor:</p>
+      <ol><li><b>Are the steps the same every time?</b> &rarr; a workflow, no agent.</li><li><b>Can one agent hold all the tools?</b> &rarr; one agent. This is the default and a dozen tools is roughly the ceiling.</li><li><b>Do the parts need separate authority</b> &mdash; different credentials, independent audit, independent deployment? &rarr; supervisor and workers.</li><li>Otherwise &rarr; peers that negotiate. Rare, and expensive.</li></ol>
+      <p>Then the measurement gets a veto. A rubric that evidence cannot overrule is a preference with a flowchart.</p>
+    </div>
+  </details>
+  <details class="faq" id="m1-create-agent-name">
+    <summary><span class="q">Q</span><span>Is <code class='inl'>create_agent</code> the same as <code class='inl'>create_react_agent</code>? My snippet raises <code class='inl'>TypeError</code>.</span><span class="tw">&#9660;</span></summary>
+    <div class="faq-body">
+      <div class="quick"><span class="lbl">Quick answer</span>LangChain 1.x replaced <code class='inl'>create_react_agent</code> with <code class='inl'>create_agent</code>, and the keyword is <b><code class='inl'>system_prompt=</code>, not <code class='inl'>prompt=</code></b>. The older names are all over the internet.</div>
+      <div class='terminal'><span class='com'># what raises TypeError on langchain 1.4</span>
+agent = create_agent(model=llm, tools=TOOLS, <span class='str'>prompt</span>=SYSTEM)
+
+<span class='com'># what works</span>
+agent = create_agent(model=llm, tools=TOOLS, <span class='kw'>system_prompt</span>=SYSTEM)</div>
+      <p><code class='inl'>prompt=</code> was the 1.0-preview spelling. It is not deprecated &mdash; it is gone, and you get <code class='inl'>TypeError: create_agent() got an unexpected keyword argument 'prompt'</code>. Same story for <code class='inl'>create_react_agent</code> and the Langfuse v2 callback API: removed, not deprecated.</p>
+    </div>
+  </details>
+  <details class="faq" id="m1-why-hand-roll">
+    <summary><span class="q">Q</span><span>If <code class='inl'>create_agent</code> does all of it, why did Lab 1.1 make me write the loop by hand?</span><span class="tw">&#9660;</span></summary>
+    <div class="faq-body">
+      <div class="quick"><span class="lbl">Quick answer</span>So that you know what you are handing over. You write it <b>once</b>; in production you call <code class='inl'>create_agent</code>.</div>
+      <p>The loop you wrote is the loop it runs: ask the model, execute whatever it asked for, feed the results back as <code class='inl'>ToolMessage</code>, stop when it answers without a tool call. What <code class='inl'>create_agent</code> adds is the part that is tedious and easy to get wrong &mdash; the step budget, the dispatch, pairing results to requests by <code class='inl'>tool_call_id</code>, and a tool that raises not aborting the run.</p>
+      <p>It also earns you two things you will need this afternoon: you can read a <code class='inl'>tool_calls</code> trace when something misbehaves, and you understand why <code class='inl'>bind_tools</code> makes the loop safe &mdash; the tool name is checked against the tools you passed and the arguments against their schema, before your code sees them.</p>
+    </div>
+  </details>
+  <details class="faq" id="m1-token-tax">
+    <summary><span class="q">Q</span><span>Does splitting into several agents really cost 3&ndash;10&times; the tokens?</span><span class="tw">&#9660;</span></summary>
+    <div class="faq-body">
+      <div class="quick"><span class="lbl">Quick answer</span><b>Not reliably, and on this workload not at all.</b> Measured in Lab 1.4: tokens came out level (9,794 against 9,720). What doubled was <b>model calls</b>, latency rose by half, and the pass rate fell.</div>
+      <p>The reason is worth understanding rather than memorising: specialists get shorter prompts, so the per-call saving offsets the extra calls. Which axis the coordination tax lands on depends on how you split, and the only way to know is to measure your own.</p>
+      <div class='tbl-scroll'><table><thead><tr><th>Axis</th><th>Single agent</th><th>Supervisor + 3 workers</th></tr></thead><tbody><tr><td>Tokens</td><td>9,794</td><td>9,720 &mdash; level</td></tr><tr><td>Model calls</td><td>14</td><td>28 &mdash; 2&times;</td></tr><tr><td>Wall time</td><td>14.1s</td><td>21.3s</td></tr><tr><td>Pass rate</td><td>5/5</td><td>0&ndash;3/5 across runs</td></tr></tbody></table></div>
+      <p>So the argument against splitting is rarely the bill. It is the calls, the latency, and above all the accuracy.</p>
+    </div>
+  </details>
+  <details class="faq" id="m1-supervisor-worse">
+    <summary><span class="q">Q</span><span>Our supervisor arm scored <i>worse</i> than the single agent. Did we build it wrong?</span><span class="tw">&#9660;</span></summary>
+    <div class="faq-body">
+      <div class="quick"><span class="lbl">Quick answer</span>Almost certainly not &mdash; that is the expected result on a task this size, and it is the point of the lab.</div>
+      <p>Lab 1.4 audits the obvious suspect and clears it: the reason code survives the handoff intact, 5/5, both with a typed contract and with a substring search. So the data is not being mangled.</p>
+      <p>What is lost is <b>context</b>, not data. The single agent holds the ledger record, the policy text and the approval flag <i>in one context</i> when it composes its answer. The supervisor holds three separate summaries, each written by a worker that could not see the question. Every fact is present somewhere in the system; no single agent ever holds them all at once.</p>
+      <p>That is also why typing one handoff does not rescue the score. Typing an edge makes it assertable, which is how you ruled it out &mdash; it does nothing about the fragmentation, because the fragmentation <i>is</i> the architecture. Module 5's shared typed state is the real fix.</p>
+    </div>
+  </details>
+  <details class="faq" id="m1-tool-descriptions">
+    <summary><span class="q">Q</span><span>Why did rewriting the tool descriptions make such a difference?</span><span class="tw">&#9660;</span></summary>
+    <div class="faq-body">
+      <div class="quick"><span class="lbl">Quick answer</span>Because the description is the <b>only</b> thing the model reads when choosing. Measured in Lab 1.3: same model, same five functions, same five questions &mdash; <b>2/5 to 5/5</b> on first-tool accuracy, from the descriptions alone.</div>
+      <p>Three parts of a <code class='inl'>@tool</code> function are read by the model and by nothing else: the <b>name</b> (from the function), the <b>description</b> (from the docstring) and the <b>argument schema</b> (from the type hints). Everything else is for you.</p>
+      <p>The half people skip is saying what the tool is <b>not</b> for. &ldquo;Returns the ledger record for one reference. <i>Not for searching.</i>&rdquo; disambiguates against every other lookup tool you will ever add. A description that only says what a tool does gets it called when it should not be.</p>
+      <p>Practical order of operations: <b>before you change the model, rewrite the descriptions.</b> It is the cheapest accuracy in the course.</p>
+    </div>
+  </details>
+  <details class="faq" id="m1-structured-none">
+    <summary><span class="q">Q</span><span>I used <code class='inl'>response_format</code> and <code class='inl'>result[&quot;structured_response&quot;]</code> came back <code class='inl'>None</code>.</span><span class="tw">&#9660;</span></summary>
+    <div class="faq-body">
+      <div class="quick"><span class="lbl">Quick answer</span>That happens, intermittently, and <b>nothing is raised</b>. The model answered in prose instead of calling the schema tool, so there is no object to give you.</div>
+      <p><code class='inl'>response_format=Verdict</code> asks the agent to finish by calling a tool that fills <code class='inl'>Verdict</code>. A model that decides to reply in a sentence instead leaves the field empty. Your caller must handle it &mdash; treat a missing object as a failure to answer, not as an error-free run.</p>
+      <p>The wider lesson, which Module 8 pushes on: <b>a contract fixes the shape, not the truth</b>. Even when you get a well-formed <code class='inl'>Verdict</code>, the values in it can be wrong. In Lab 1.3 the ordered procedure in the system prompt is what makes <code class='inl'>needs_human</code> come out right &mdash; remove it and watch.</p>
+    </div>
+  </details>
+  <details class="faq" id="m1-how-many-tools">
+    <summary><span class="q">Q</span><span>How many tools can one agent hold before I have to split it?</span><span class="tw">&#9660;</span></summary>
+    <div class="faq-body">
+      <div class="quick"><span class="lbl">Quick answer</span>Roughly a dozen is the working ceiling, and the real limit is not the count &mdash; it is whether the descriptions still disambiguate.</div>
+      <p>Adding a tool whose description overlaps an existing one costs you more than adding a tool in a new area. Before splitting, try the cheaper fixes: sharpen the two descriptions that collide, or merge two near-duplicate tools into one with an argument.</p>
+      <p>And split for the reason the rubric names, not for tidiness. Different credentials, independent auditability, or one worker that has to be deployable on its own are real reasons. &ldquo;It felt cleaner&rdquo; is what the coordination tax is charged for.</p>
+    </div>
+  </details>
+  <div class="day-header" id="m2">
+    <span class="tag">Day 1 &middot; Module 2</span>
+    <h2>Agentic Planning &amp; Reasoning</h2>
+    <span class="cnt">9 questions</span>
+  </div>
+  <details class="faq" id="m2-what-is-lcel">
+    <summary><span class="q">Q</span><span>What is LCEL, and why is everything joined with a <code class='inl'>|</code>?</span><span class="tw">&#9660;</span></summary>
+    <div class="faq-body">
+      <div class="quick"><span class="lbl">Quick answer</span>It composes a prompt, a model and a parser into <b>one runnable</b> with a shared interface: <code class='inl'>.invoke()</code> for one, <code class='inl'>.batch()</code> for many, <code class='inl'>.stream()</code> to watch.</div>
+      <div class='terminal'>chain = prompt <span class='kw'>|</span> model <span class='kw'>|</span> StrOutputParser()
+chain.invoke({<span class='str'>&quot;payment&quot;</span>: rec})   <span class='com'># one case</span>
+chain.batch([...])                <span class='com'># the whole eval set, concurrently</span></div>
+      <p>Each stage has a clear job: the template turns variables into messages, the model returns an <code class='inl'>AIMessage</code>, the parser pulls out a plain string. Swap the parser and you change what the chain returns without touching anything else.</p>
+      <p><code class='inl'>.batch()</code> is the one to remember. It sends the cases concurrently, which is the difference between an eval set people re-run on every change and one that was run once and quoted for a year.</p>
+    </div>
+  </details>
+  <details class="faq" id="m2-cot-worth-it">
+    <summary><span class="q">Q</span><span>Chain-of-Thought made it slower. Is it worth it?</span><span class="tw">&#9660;</span></summary>
+    <div class="faq-body">
+      <div class="quick"><span class="lbl">Quick answer</span>Sometimes, and the honest answer is <b>measure it on your task</b> &mdash; which takes about five minutes with <code class='inl'>.batch()</code> and an eval set.</div>
+      <p>CoT tends to earn its keep exactly where an answer needs two facts joined &mdash; the reason code <i>and</i> what policy says about it &mdash; and to do nothing at all where one lookup was enough. In the Lab 2.5 bake-off it scored highest and still did not win, because a cheaper arm cleared the acceptance bar.</p>
+      <p>One trap: if you score the whole reply rather than the final answer, CoT will look better simply by mentioning more words. That is why the labs mark the answer with <code class='inl'>ACTION:</code> and score only what follows it.</p>
+    </div>
+  </details>
+  <details class="faq" id="m2-why-learn-parser">
+    <summary><span class="q">Q</span><span>If <code class='inl'>bind_tools</code> exists, why did we hand-write a ReAct text parser at all?</span><span class="tw">&#9660;</span></summary>
+    <div class="faq-body">
+      <div class="quick"><span class="lbl">Quick answer</span>So you can recognise the failure mode, and because you will meet models with no tool-calling API. In production you should <b>not</b> write one.</div>
+      <p>The classic ReAct formulation asks the model to emit <code class='inl'>Thought / Action / Action Input</code> as text, which means you must parse it. Every parser is a contract the model never signed. Lab 2.2 collects eight ways a fluent writer legitimately drifts out of the format &mdash; markdown fences, bold headings, numbered steps, answering in clean JSON.</p>
+      <p>Then it shows the version with no parser in it: <code class='inl'>bind_tools</code> sends the tool <i>schema</i>, and what comes back is already structured &mdash; name, args, id &mdash; validated before your code sees it. Keep the parser in your notes for the day you meet a model without that API, and know what you would be taking on: not eight formatting cases, but every argument your tools accept, forever.</p>
+    </div>
+  </details>
+  <details class="faq" id="m2-parser-passed-wrong">
+    <summary><span class="q">Q</span><span>My parser succeeded on every reply and the agent still got the answer wrong. How?</span><span class="tw">&#9660;</span></summary>
+    <div class="faq-body">
+      <div class="quick"><span class="lbl">Quick answer</span>The <b>format</b> held and the <b>argument</b> drifted. Measured in Lab 2.2: under a prompt that had aged towards &ldquo;be thorough&rdquo;, <b>4/4 replies parsed and 0/4 were usable</b>.</div>
+      <div class='terminal'><span class='com'># strict instruction</span>
+Action Input: PMT-1003                       <span class='out'>4/4 parsed &middot; 4/4 usable</span>
+
+<span class='com'># after six months of well-meaning prompt edits</span>
+Action Input: {<span class='str'>&quot;payment_id&quot;</span>: <span class='str'>&quot;PMT-1003&quot;</span>}      <span class='hi'>4/4 parsed &middot; 0/4 usable</span></div>
+      <p>The regex is delighted. The tool name is right. The argument is a JSON object with a key your tool has never heard of, so the lookup returns nothing, the agent concludes the payment does not exist, and <b>nothing anywhere reports an error</b>.</p>
+      <p>This is worse than a parse failure, because a parse failure is loud. Your parser cannot catch it either &mdash; validating arguments was never its job. <code class='inl'>bind_tools</code> rejects it at the boundary against the tool's schema.</p>
+    </div>
+  </details>
+  <details class="faq" id="m2-json-parser-validates">
+    <summary><span class="q">Q</span><span>Does <code class='inl'>JsonOutputParser(pydantic_object=Verdict)</code> validate against that model?</span><span class="tw">&#9660;</span></summary>
+    <div class="faq-body">
+      <div class="quick"><span class="lbl">Quick answer</span><b>No.</b> It uses the schema only to write the format instructions in your prompt. What you get back is a <code class='inl'>dict</code>, unchecked.</div>
+      <p>This surprises almost everyone, because you passed it a Pydantic model. Measured directly:</p>
+      <div class='terminal'>JsonOutputParser     {<span class='str'>&quot;reason_code&quot;</span>:&quot;SR&quot;, <span class='str'>&quot;needs_human&quot;</span>:&quot;maybe&quot;}   <span class='hi'>-&gt; dict, accepted</span>
+PydanticOutputParser same input                             <span class='out'>-&gt; OutputParserException</span></div>
+      <p>Two required fields missing and a string where a boolean belongs, and it sailed through. If you want the schema enforced, use <code class='inl'>PydanticOutputParser</code> (which raises) or <code class='inl'>with_structured_output</code> (which also constrains the generation).</p>
+    </div>
+  </details>
+  <details class="faq" id="m2-which-parser">
+    <summary><span class="q">Q</span><span>Which output parser should I actually use?</span><span class="tw">&#9660;</span></summary>
+    <div class="faq-body">
+      <div class="quick"><span class="lbl">Quick answer</span><code class='inl'>with_structured_output</code> when the model supports it; a chain with <code class='inl'>PydanticOutputParser</code> when it does not.</div>
+      <div class='tbl-scroll'><table><thead><tr><th>Parser</th><th>You get back</th><th>Validated?</th></tr></thead><tbody><tr><td><code class='inl'>StrOutputParser</code></td><td>str</td><td>n/a</td></tr><tr><td><code class='inl'>JsonOutputParser</code></td><td>dict</td><td><b>No</b></td></tr><tr><td><code class='inl'>PydanticOutputParser</code></td><td>your object</td><td>Yes &mdash; raises</td></tr><tr><td><code class='inl'>with_structured_output</code></td><td>your object</td><td>Yes, and constrains generation</td></tr></tbody></table></div>
+      <p>Both forms work for the Lab 2.3 plan &mdash; each returned a validated <code class='inl'>Plan</code> 3/3 on this model. Prefer the structured-output route because the stack shapes the generation as well as checking the result. If you take the parser route, pair it with <code class='inl'>OutputFixingParser</code> (now in <code class='inl'>langchain_classic.output_parsers</code>) so a drifted reply gets one repair attempt rather than an exception.</p>
+    </div>
+  </details>
+  <details class="faq" id="m2-retry-or-replan">
+    <summary><span class="q">Q</span><span>Retry or re-plan &mdash; how do I tell which one a failure deserves?</span><span class="tw">&#9660;</span></summary>
+    <div class="faq-body">
+      <div class="quick"><span class="lbl">Quick answer</span>Ask whether the <b>world</b> misbehaved or the <b>plan</b> was wrong. Retry the world. Re-plan the plan. Never retry a plan.</div>
+      <p>A timeout, a 503, a rate limit: transient. Retry, with a bound. &ldquo;No such tool&rdquo;, &ldquo;no payment found&rdquo;, an invalid argument: the plan was wrong, and retrying it is a loop that burns budget and finishes nowhere. The reference bug looks like this, and it is everywhere:</p>
+      <div class='terminal'><span class='kw'>except</span> Exception:
+    retry()          <span class='com'># what kind of exception? nobody asked</span></div>
+      <p>Lab 2.3 also validates the plan <i>before</i> running it, which matters because the model regularly invents a step naming a tool that does not exist. That is not the model misbehaving; it is what planners do. Catching it before execution is the whole value of a typed plan.</p>
+    </div>
+  </details>
+  <details class="faq" id="m2-stop-reflecting">
+    <summary><span class="q">Q</span><span>How many reflection rounds should I run?</span><span class="tw">&#9660;</span></summary>
+    <div class="faq-body">
+      <div class="quick"><span class="lbl">Quick answer</span>Until the critic stops finding anything &mdash; and give it a way to say so. Typically a large gain on round one, a small one on round two, noise after that.</div>
+      <p>The failure mode is built into the request: a critic asked to find faults will find faults, because that is what you asked for. If it has no way to pass, it will invent something and you will loop forever, getting worse.</p>
+      <p>So the instruction must include the exit: <i>&ldquo;If there is nothing material to fix, reply with exactly: NO ISSUES&rdquo;</i>. Then stop on that. Try it on an answer that is already correct and count the rounds before it starts inventing &mdash; that number is your real ceiling.</p>
+    </div>
+  </details>
+  <details class="faq" id="m2-which-architecture">
+    <summary><span class="q">Q</span><span>Which reasoning architecture should I default to?</span><span class="tw">&#9660;</span></summary>
+    <div class="faq-body">
+      <div class="quick"><span class="lbl">Quick answer</span>The cheapest one that clears a bar you wrote down <b>before</b> you ran anything. Very often that is a direct answer.</div>
+      <p>Write three clauses first: a minimum pass rate, any case that is disqualifying however good the average, and how long a caller will wait. Then run all four arms over one eval set.</p>
+      <p>In Lab 2.5 that rule rejects ReAct at 80% while accepting Reflection at the same 80% &mdash; because ReAct got the sanctions case wrong and the bar named that case as disqualifying. A pass rate is an average; averaging is exactly what hides the case you cannot afford to lose.</p>
+      <p>Once an arm clears the bar, extra quality is something you are paying for and not using. So the cheapest that clears wins, and only a tie on cost is settled by pass rate.</p>
+    </div>
+  </details>
+  <div class="day-header" id="m3">
+    <span class="tag">Day 1 &middot; Module 3</span>
+    <h2>Memory, State &amp; the LangGraph Substrate</h2>
+    <span class="cnt">10 questions</span>
+  </div>
+  <details class="faq" id="m3-when-langgraph">
+    <summary><span class="q">Q</span><span>When do I need LangGraph instead of <code class='inl'>create_agent</code>?</span><span class="tw">&#9660;</span></summary>
+    <div class="faq-body">
+      <div class="quick"><span class="lbl">Quick answer</span>When you need to <b>see, steer or resume</b> the state. Not before.</div>
+      <p><code class='inl'>create_agent</code> is enough for one loop over one set of tools where a crash mid-run is acceptable. Reach for a graph when state must be explicit and inspectable, the run must survive a restart, there are branches or cycles or parallel paths, or a human must approve a step mid-run.</p>
+      <p>Note the honest framing: you are not dropping to LangGraph <i>for the graph</i>. You are doing it for <b>the state the graph forces you to declare</b> &mdash; and a declared state is one you can assert on, resume, and show an auditor.</p>
+    </div>
+  </details>
+  <details class="faq" id="m3-trim-notimplemented">
+    <summary><span class="q">Q</span><span><code class='inl'>trim_messages</code> raised <code class='inl'>NotImplementedError</code>. What did I do wrong?</span><span class="tw">&#9660;</span></summary>
+    <div class="faq-body">
+      <div class="quick"><span class="lbl">Quick answer</span>Nothing. You passed <code class='inl'>token_counter=llm</code>, and <code class='inl'>langchain-openai</code> can only count for models <code class='inl'>tiktoken</code> has an encoding for. A gateway-served model is not one.</div>
+      <div class='terminal'><span class='com'># raises on any self-hosted or gateway-served model</span>
+trim_messages(msgs, max_tokens=200, token_counter=<span class='str'>llm</span>)
+
+<span class='com'># works: a plain function over the message text</span>
+trim_messages(msgs, max_tokens=200, token_counter=<span class='kw'>count_tokens_approximately</span>)</div>
+      <p>This is not a quirk of our sandbox &mdash; it is what happens to every model that is not on <code class='inl'>tiktoken</code>'s list, and it tends to show up under load rather than in development. Lab 3.1 teaches it deliberately.</p>
+      <p>While you are there: use <code class='inl'>strategy=&quot;last&quot;</code> and <code class='inl'>include_system=True</code>. Trimming that drops the standing instruction is the worst possible trim.</p>
+    </div>
+  </details>
+  <details class="faq" id="m3-what-is-a-reducer">
+    <summary><span class="q">Q</span><span>What is a reducer, and when do I actually need one?</span><span class="tw">&#9660;</span></summary>
+    <div class="faq-body">
+      <div class="quick"><span class="lbl">Quick answer</span>A reducer says <b>how two writes to the same state key merge</b>. The default is replace. You need one on any key more than one node writes.</div>
+      <div class='terminal'>findings: list                      <span class='com'># default: replace</span>
+findings: Annotated[list, add]     <span class='com'># declared: append</span></div>
+      <p>With the default, node B's write silently discards node A's. No error, no warning. Combine default-replace with parallel branches &mdash; three workers writing one key &mdash; and you have silent data loss that looks like the agents simply did not find anything.</p>
+      <p>The rule is short enough to remember: <b>any key more than one node writes needs a declared reducer.</b> Keys only one node owns are fine on the default.</p>
+    </div>
+  </details>
+  <details class="faq" id="m3-findings-vanished">
+    <summary><span class="q">Q</span><span>Two of my nodes wrote to the same key and the earlier findings vanished.</span><span class="tw">&#9660;</span></summary>
+    <div class="faq-body">
+      <div class="quick"><span class="lbl">Quick answer</span>That is the default reducer doing exactly what it says. See the question above &mdash; declare one.</div>
+      <p>It is worth reproducing once on purpose, because the symptom is so unhelpful: the run completes, the state is well-formed, and the answer is composed from a third of the evidence. Nothing distinguishes it from a run where the tools genuinely found nothing.</p>
+      <p>Lab 3.3's self-check runs a real two-node graph and asserts both findings survive, which is the cheapest possible regression test for this and takes no model at all.</p>
+    </div>
+  </details>
+  <details class="faq" id="m3-what-checkpointer-buys">
+    <summary><span class="q">Q</span><span>What does a checkpointer actually buy me?</span><span class="tw">&#9660;</span></summary>
+    <div class="faq-body">
+      <div class="quick"><span class="lbl">Quick answer</span>It writes the full state after <b>every node</b>, under a <code class='inl'>thread_id</code>. Four capabilities fall out of that one fact.</div>
+      <div class='tbl-scroll'><table><thead><tr><th>You get</th><th>Because</th></tr></thead><tbody><tr><td><b>Resume</b></td><td>the pod restarts at step 3 of 4 and continues rather than starting over</td></tr><tr><td><b>Human in the loop</b></td><td><code class='inl'>interrupt_before</code> stops the graph, you decide, then resume</td></tr><tr><td><b>Time travel</b></td><td>invoke from an older checkpoint's config and take a different path</td></tr><tr><td><b>Audit trail</b></td><td><code class='inl'>get_state_history()</code> &mdash; what was known, and when</td></tr></tbody></table></div>
+      <p>Be precise about the approval one, though. A checkpointer is what lets you <b>pause and resume</b> a run. It is not the only way to build a gate &mdash; a service that returns a recommendation with a <code class='inl'>requires_approval</code> flag and has no write tool at all is a perfectly good gate, and that is what the capstone does. It simply cannot resume mid-run.</p>
+    </div>
+  </details>
+  <details class="faq" id="m3-rewind-paused-again">
+    <summary><span class="q">Q</span><span>I rewound to an earlier checkpoint and the graph paused again instead of finishing. Bug?</span><span class="tw">&#9660;</span></summary>
+    <div class="faq-body">
+      <div class="quick"><span class="lbl">Quick answer</span>No &mdash; and this surprises everyone. <code class='inl'>interrupt_before</code> is a property of the <b>compiled graph</b>, not of a particular run, so every path through it pauses.</div>
+      <div class='terminal'>app.invoke(<span class='kw'>None</span>, older_checkpoint_config)
+app.get_state(cfg).next   <span class='out'>-&gt; ('write_note',)</span>   <span class='com'># paused at the gate again</span>
+answer                    <span class='out'>-&gt; None</span></div>
+      <p>The replay runs forward from where you sent it and stops at the gate exactly as the first run did. If you want it to finish, resume it again. Two other things worth knowing while you are here: resuming passes <code class='inl'>None</code> as the input &mdash; that means <i>carry on</i>, not <i>start again</i> &mdash; and a config carrying only a <code class='inl'>thread_id</code> points at <i>now</i>, so a rewind needs the older checkpoint's own config.</p>
+    </div>
+  </details>
+  <details class="faq" id="m3-thread-id">
+    <summary><span class="q">Q</span><span>Is <code class='inl'>thread_id</code> just a session id?</span><span class="tw">&#9660;</span></summary>
+    <div class="faq-body">
+      <div class="quick"><span class="lbl">Quick answer</span>Close enough &mdash; and getting it wrong is the commonest way agent memory leaks between users.</div>
+      <p>Each <code class='inl'>thread_id</code> is a separate conversation with its own history. Key it by the thing that should be isolated: a case, a ticket, a user session. In Lab 3.1 two threads hold two different client contacts and neither leaks into the other &mdash; with no code of yours managing either.</p>
+      <p>Now picture the same code with a constant <code class='inl'>thread_id</code>. Every case appends to one history, and the second client's question gets answered with the first client's details. It is a one-line bug with a regulatory-incident shape.</p>
+    </div>
+  </details>
+  <details class="faq" id="m3-shared-or-private">
+    <summary><span class="q">Q</span><span>Shared state or private state for a multi-agent system?</span><span class="tw">&#9660;</span></summary>
+    <div class="faq-body">
+      <div class="quick"><span class="lbl">Quick answer</span>Mixed, in practice: <b>shared facts, private drafts</b>. Shared is cheap and consistent; private contains a mistake but re-sends context and duplicates work.</div>
+      <p>Shared state is what stops the context fragmentation Lab 1.4 measured &mdash; agents that cannot see each other's work produce worse answers than one agent that can. So the answer to poisoning is not to retreat into isolation.</p>
+      <p>The discipline is about what earns a place in the shared record. An agent's uncertain working notes belong in its own scratch area, where they can be inspected and not believed. The shared findings list is what every other agent treats as fact, so the bar for entering it should be higher than &ldquo;an agent said so&rdquo;.</p>
+    </div>
+  </details>
+  <details class="faq" id="m3-three-agents-agree">
+    <summary><span class="q">Q</span><span>Three agents independently agreed. Isn't that corroboration?</span><span class="tw">&#9660;</span></summary>
+    <div class="faq-body">
+      <div class="quick"><span class="lbl">Quick answer</span>No &mdash; it is an <b>echo</b>. If the first agent was wrong, every later agent was correct <i>given what it was told</i>, and the critic was checking consistency rather than truth.</div>
+      <p>This is what makes context poisoning different from an ordinary bug. Nothing errors. No exception, no anomaly in the trace, no disagreement to investigate. There is just a confident answer built on one bad input, and three concurring agents reading as evidence.</p>
+      <p>A consistency check cannot catch a bad premise. If you want a critic that can, it has to be able to go back to the source &mdash; or to refuse.</p>
+    </div>
+  </details>
+  <details class="faq" id="m3-provenance-not-enough">
+    <summary><span class="q">Q</span><span>We added provenance to every finding and it still got poisoned. What actually stops it?</span><span class="tw">&#9660;</span></summary>
+    <div class="faq-body">
+      <div class="quick"><span class="lbl">Quick answer</span><b>Permission to refuse.</b> Measured in Lab 3.5 on identical poisoned evidence: <b>3/3 flagged the inconsistency with a refusal clause in the prompt, 0/3 without it</b>.</div>
+      <p>Provenance is not verification &mdash; every finding in the poisoned run passes the trustworthiness check, because the wrong one is correctly attributed to a real source. What provenance buys you is the ability to <b>trace and quarantine</b> once you know a source was wrong: drop that source, re-decide on what survives. That is recovery, and it is worth having.</p>
+      <p>Prevention is one sentence in the system prompt:</p>
+      <div class='terminal'>&hellip; if the evidence is inconsistent or insufficient,
+<span class='kw'>say so instead of deciding</span>.</div>
+      <p>With it, the reviewer notices that a settled payment needs no next action and says the evidence is inconsistent. Without it, it does what it was asked &mdash; decides &mdash; and closes the case. The model could catch the poisoning all along; what it lacked was permission. <b>An agent told only to decide will decide, on whatever it has, every time.</b></p>
+    </div>
+  </details>
+
+</div>
+
+<div class="footer">
+  <span class="brand">&copy; 2026 Gheware DevOps &amp; Agentic AI</span>
+  <span><a href="https://devops.gheware.com">devops.gheware.com</a> &middot; Trainer: Rajesh Gheware
+    &middot; Questions: <a href="mailto:dev@gheware.com">dev@gheware.com</a></span>
+</div>
+
+<script>
+(function(){
+  var input = document.getElementById('q'),
+      noresult = document.getElementById('noresult'),
+      items = Array.prototype.slice.call(document.querySelectorAll('details.faq')),
+      groups = Array.prototype.slice.call(document.querySelectorAll('.day-header')),
+      bands = Array.prototype.slice.call(document.querySelectorAll('.dayband'));
+
+  function norm(s){ return s.toLowerCase().replace(/\s+/g, ' '); }
+
+  input.addEventListener('input', function(){
+    var term = norm(input.value).trim();
+    var anyVisible = false;
+    items.forEach(function(d){
+      var hit = term === '' || norm(d.textContent).indexOf(term) !== -1;
+      d.style.display = hit ? '' : 'none';
+      if(hit){ anyVisible = true; if(term !== '') d.open = true; }
+      if(term === '') d.open = false;
+    });
+    groups.forEach(function(h){
+      var n = h.nextElementSibling, show = false;
+      while(n && !n.classList.contains('day-header') && !n.classList.contains('dayband')){
+        if(n.tagName === 'DETAILS' && n.style.display !== 'none'){ show = true; break; }
+        n = n.nextElementSibling;
+      }
+      h.style.display = show ? '' : 'none';
+    });
+    bands.forEach(function(b){
+      var n = b.nextElementSibling, show = false;
+      while(n && !n.classList.contains('dayband')){
+        if(n.classList && n.classList.contains('day-header') && n.style.display !== 'none'){ show = true; break; }
+        n = n.nextElementSibling;
+      }
+      b.style.display = show ? '' : 'none';
+    });
+    noresult.style.display = anyVisible ? 'none' : 'block';
+  });
+
+  // Printing: a closed <details> hides its children whatever the stylesheet says, so a
+  // printed copy would be questions with no answers. Open everything, then restore.
+  function openAllForPrint(){
+    items.forEach(function(d){ d.dataset.wasOpen = d.open ? '1' : ''; d.open = true; });
+  }
+  function restoreAfterPrint(){
+    items.forEach(function(d){ d.open = d.dataset.wasOpen === '1'; });
+  }
+  window.addEventListener('beforeprint', openAllForPrint);
+  window.addEventListener('afterprint', restoreAfterPrint);
+  if(window.matchMedia){
+    var mq = window.matchMedia('print');
+    (mq.addEventListener ? mq.addEventListener.bind(mq, 'change') : mq.addListener.bind(mq))(
+      function(e){ (e.matches ? openAllForPrint : restoreAfterPrint)(); });
+  }
+
+  if(location.hash){
+    var t = document.querySelector(location.hash);
+    if(t && t.tagName === 'DETAILS') t.open = true;
+  }
+  document.addEventListener('click', function(e){
+    var a = e.target.closest('a[href^="#"]');
+    if(!a) return;
+    var t = document.querySelector(a.getAttribute('href'));
+    if(t && t.tagName === 'DETAILS') t.open = true;
+  });
+})();
+</script>
+</body>
+</html>
