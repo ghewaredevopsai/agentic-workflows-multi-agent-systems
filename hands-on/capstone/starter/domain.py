@@ -4,9 +4,9 @@ Regenerate with `_generators/gen_capstone.py`. Everything here is invented; ther
 real institution, counterparty or payment anywhere in this course.
 
 Three things live here because three consumers need to agree on them: your service, the
-eval set, and the acceptance harness. The rule that decides the right answer is Lab 5.5's,
-unchanged -- this file just carries more cases so that the gate on the other side of it
-means something.
+eval set, and the acceptance harness. The rule that decides the right answer is stated in
+`_generators/gen_capstone.py`; this file just carries the cases, so that the gate on the
+other side of it means something.
 """
 
 # Counterparties under sanctions screening. A listed counterparty is held whatever the

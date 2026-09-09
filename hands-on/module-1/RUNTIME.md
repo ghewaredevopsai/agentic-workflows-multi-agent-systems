@@ -23,7 +23,7 @@ the endpoint is read from the environment, so the admin can point it anywhere wi
 | `chromadb` (1.x) | **all of Module 6** | the vector store. ⚠️ its `DefaultEmbeddingFunction` downloads a MiniLM ONNX model on first call and there is **no egress** &mdash; the labs never use it, they supply their own `Embeddings` subclass |
 | `langchain-chroma` (1.x) | **all of Module 6** | `Chroma` vector store wrapper; passes `embedding_function=None` through, so Chroma's default is never constructed |
 | `langchain-text-splitters` (1.x) | Module 6, lab 6.1 | `MarkdownHeaderTextSplitter`, `RecursiveCharacterTextSplitter` |
-| `langgraph-checkpoint` / `-sqlite` | Module 5, lab 5.4 | checkpointer behind `interrupt_before` / `update_state` / `get_state_history` |
+| `langgraph-checkpoint` / `-sqlite` | Module 3, labs 3.6&ndash;3.8 | checkpointer behind `interrupt_before` / `update_state` / `get_state_history` |
 | `fastapi`, `uvicorn` | Module 9, labs 9.1&ndash;9.3 | the service boundary. Graded cells assert on `app.routes` and call handlers directly &mdash; **no server is ever started**, and `TestClient`/`httpx` is deliberately not relied on |
 | `langfuse` (4.x) | Modules 7 and 9, labs 7.2 and 9.4 | **no graded cell touches it**; every Langfuse cell is guarded and returns when unconfigured |
 | `kubernetes` | Module 9 | present in the image; graded cells never need an API server |

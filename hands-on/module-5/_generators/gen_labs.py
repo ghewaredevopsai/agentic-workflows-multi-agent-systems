@@ -7,28 +7,44 @@ carries both variants, so a blank can never drift from the answer that grades it
 
     python3 gen_labs.py          # writes ../lab-5-0N-*.ipynb and ../solutions/
 
-Design rules (revised 2026-09-09 -- framework-forward, matching the Day 1 rebuild):
-  * The participant writes REAL LangGraph code in every lab. A module called
-    "Multi-Agent Orchestration" that builds no StateGraph teaches people to hand-roll
-    a graph engine, which is what this module used to do.
-  * Self-checks assert on framework OBJECTS -- a compiled StateGraph, a declared
-    reducer, a checkpointed interrupt, a replayed checkpoint. All of that is
-    deterministic and needs no endpoint. Only model INVOCATION needs the gateway, and
-    that lives in "Run it for real" cells, which are observed, not scored.
-  * Nodes in a graded graph are plain functions over state. The specialists in
-    AGENTKIT are exactly that, so a graph's structure AND its cost are exact offline.
-  * Blank the DECISION, give the mechanics. If the answer is a comprehension, a slice
-    or a set operation, it is written out; the blank is which object, which constant,
-    which ordering, which reducer, which verdict.
+Rebuilt 2026-09-10 as THREE REAL SYSTEMS, one per lab, matching the three slides the
+Module 5 deck now carries. The old five labs taught the orchestration primitives one at
+a time -- topologies, decomposition, reducers, HITL, a scorecard -- and Modules 1 and 3
+had already taught every one of them. So the module was a recap with more code in it.
+Now each lab is a system a participant recognises, built end to end:
+
+    5.1  a support desk that triages itself      supervisor -> one of N workers
+    5.2  a research brief written in parallel    plan -> N researchers -> reducer -> writer
+    5.3  an incident responder that stops        cycle with a budget -> escalate to a human
+
+Derived from the flagship (../../../agentic-ai/hands-on): session-9 lab01 supervisor/worker
+for 5.1, session-8 lab02/lab03 parallel execution and custom reducers plus session-9 lab06
+aggregation and conflict for 5.2, and session-8 lab04/lab05 error handling and retry with
+backoff for 5.3.
+
+Design rules (unchanged from the Day 1 rebuild):
+  * The participant writes REAL LangGraph code in every lab.
+  * Self-checks assert on framework OBJECTS -- a compiled StateGraph, a declared reducer,
+    a routing key, a real invoke of a real graph. All of that is deterministic and needs
+    no endpoint. Only model INVOCATION needs the gateway, and that lives in "Run it for
+    real" cells, which are observed, not scored.
+  * Nodes in a graded graph are plain functions over state, so a graph's structure AND its
+    behaviour are exact offline.
+  * Blank the DECISION, give the mechanics. If the answer is a comprehension, a slice or a
+    set operation, it is written out; the blank is which node, which key, which reducer,
+    which way out.
   * "BLANK" marks a blank; an unfilled blank raises NameError and prints [TODO].
     NOT three underscores: IPython PREDEFINES _, __ and ___ as its output history
     (they start as ""), so under a real Jupyter kernel that token is a defined empty
     string, not an undefined name. The NameError never fires, [TODO] silently becomes
-    [FAIL], and a blank used as a loop guard is falsy forever -- lab 1.1 spun in
-    `while True` until the pod was OOM-killed.
+    [FAIL], and a blank used as a loop guard is falsy forever.
   * Blanks live INSIDE function bodies. A module-level `x = BLANK` crashes the cell
-    instead of reporting [TODO]. Compiling a graph whose NODE BODY holds a blank is
-    fine -- compilation does not call the node -- but invoking it at module level is not.
+    instead of reporting [TODO], and so does a blank in a TypedDict class body --
+    `Annotated[int, BLANK]` is evaluated when the class is created. Compiling a graph
+    whose NODE BODY holds a blank is fine; invoking it at module level is not.
+  * No node may be named after a setup helper (ask, check, guard, score, llm_ready,
+    get_llm). A node called `ask` shadowed the model helper in Module 3 and only the
+    live verifier caught it.
 """
 import json, os, re, sys
 
@@ -93,10 +109,9 @@ def header(num, title, level, minutes, bullets, note):
 
 > **How this lab works.** You write real LangGraph code. Fill every `BLANK`, then run the
 > **Self-check** cell under each section &mdash; those assert on the *objects you built*
-> (a compiled `StateGraph`, a declared reducer, a checkpointed interrupt), so they are
-> deterministic and never depend on the model. Cells marked **Run it for real** put your work
-> in front of the sandbox model; that is the part worth watching. The score line is feedback,
-> not a grade.
+> (a compiled `StateGraph`, a declared reducer, a routing key), so they are deterministic
+> and never depend on the model. Cells marked **Run it for real** put your work in front of
+> the sandbox model; that is the part worth watching. The score line is feedback, not a grade.
 
 {note}
 """)
@@ -208,266 +223,344 @@ def setup(num, extra=""):
     return code(SETUP_COMMON.format(num=num) + extra)
 
 
-# --------------------------------------------------------------------------- #
-# the shared synthetic domain -- one use case runs through all five labs
-# --------------------------------------------------------------------------- #
-DOMAIN = '''
+SCORE = code('''
+score()
+''')
+
+
+# =========================================================================== #
+# Lab 5.1 -- a support desk that triages itself
+# =========================================================================== #
+DESK_CASE = '''
 # ------------------------------------------------- the case file (synthetic, self-contained)
-# One domain runs through all five Module 5 labs -- the same payment exceptions, now worked
-# by several agents at once, and finally priced against the single agent from Day 1.
-# Nothing here is real data and nothing leaves this notebook.
+# A customer support desk for a SaaS product. One queue in, three specialists behind it.
+# This case file is Module 5 lab 5.1 only -- 5.2 and 5.3 are different systems.
 
-LEDGER = {
-    "PMT-1001": {"amount": 250000.00, "ccy": "USD", "counterparty": "NORTHWIND",
-                 "status": "settled",  "value_date": "2026-09-01", "reason_code": None},
-    "PMT-1002": {"amount":  48250.75, "ccy": "EUR", "counterparty": "ACME-EU",
-                 "status": "failed",   "value_date": "2026-09-02", "reason_code": "INSUFFICIENT_FUNDS"},
-    "PMT-1003": {"amount": 990000.00, "ccy": "USD", "counterparty": "ZENITH",
-                 "status": "held",     "value_date": "2026-09-02", "reason_code": "LIMIT_BREACH"},
-    "PMT-1004": {"amount":   1200.00, "ccy": "GBP", "counterparty": "ACME-UK",
-                 "status": "failed",   "value_date": "2026-09-03", "reason_code": "INVALID_IBAN"},
-    "PMT-1005": {"amount": 750000.00, "ccy": "USD", "counterparty": "NORTHWIND",
-                 "status": "held",     "value_date": "2026-09-03", "reason_code": "SANCTIONS_REVIEW"},
+SPECIALISTS = ("billing", "tech", "account")
+
+DESK = {
+    "billing": "Charges, refunds, invoices, plan and price changes.",
+    "tech":    "Errors, outages, failing API calls, anything broken.",
+    "account": "Seats, owners, permissions, sign-in and access.",
 }
 
-POLICY = {
-    "INSUFFICIENT_FUNDS": "Retry once after 24h. If it fails again, notify the client desk. No manual funding.",
-    "LIMIT_BREACH":       "Payments above USD 500,000 need Treasury approval before release.",
-    "INVALID_IBAN":       "Return to originator with code R04. Never repair beneficiary details in-house.",
-    "SANCTIONS_REVIEW":   "Hold. Compliance decides. Operations must not release or cancel.",
-}
+# Twelve tickets with a known correct specialist. The last four name no keyword at all --
+# their intent is only implied, which is exactly where a rule table runs out and the reason
+# anyone reaches for a model.
+TICKETS = [
+    ("I was charged twice for March.",                              "billing"),
+    ("Can I get an invoice with our VAT number on it?",             "billing"),
+    ("We want to downgrade to the starter plan.",                   "billing"),
+    ("Your API returns 500 on every /sync call since 09:00.",       "tech"),
+    ("The export button throws an error and nothing downloads.",    "tech"),
+    ("Webhooks stopped firing after your deploy.",                  "tech"),
+    ("Please add two more seats for the new joiners.",              "account"),
+    ("Move the workspace owner to priya@example.com.",              "account"),
+    # intent implied, no keyword names it
+    ("Nobody on my team can get in this morning.",                  "account"),
+    ("We were told this would be free until June.",                 "billing"),
+    ("Everything was fine yesterday and now nothing loads.",        "tech"),
+    ("Someone who left in May can still see our data.",             "account"),
+]
 
-# Which reason codes may an agent resolve on its own, and which need a human?
-NEEDS_HUMAN = {"LIMIT_BREACH", "SANCTIONS_REVIEW"}
-
-print(f"{len(LEDGER)} payments, {len(POLICY)} policy rules loaded")
+print(f"{len(TICKETS)} tickets, {len(DESK)} specialists")
 '''
 
-
-# the specialists, used as LangGraph NODES in every lab from here on
-AGENTKIT = '''
-# ------------------------------------------------- the specialists, as LangGraph nodes
-# Each one takes the graph state and returns a PARTIAL state -- exactly the node shape from
-# Module 3 -- and reports what it spent. They are deterministic, so a graph's structure AND
-# its cost can be asserted offline and exactly. The "Run it for real" cells put the sandbox
-# model behind the same interface.
-
-SANCTIONS_WATCH = {"NORTHWIND"}
-
-COST = {"supervisor": 120, "ledger": 380, "policy": 420, "sanctions": 90, "writer": 610}
-
-
-def agent_ledger(state: dict) -> dict:
-    """Read the payment named in the state."""
-    ref = state.get("ref")
-    record = LEDGER.get(ref)
-    if record is None:
-        return {"problems": [f"no payment on file with reference {ref!r}"],
-                "tokens": COST["ledger"]}
-    return {"facts": {"ref": ref, **record},
-            "findings": [{"by": "ledger", "source": "ledger",
-                          "claim": f"{ref} is {record['status']} "
-                                   f"for {record['amount']:,.2f} {record['ccy']}"}],
-            "tokens": COST["ledger"]}
-
-
-def agent_policy(state: dict) -> dict:
-    """Say what the operating policy is for whatever went wrong."""
-    code = (state.get("facts") or {}).get("reason_code")
-    if code is None:
-        return {"problems": ["policy ran before the reason code existed"],
-                "tokens": COST["policy"]}
-    return {"findings": [{"by": "policy", "source": "policy",
-                          "claim": POLICY.get(code, f"no policy on file for {code}")}],
-            "needs_human": code in NEEDS_HUMAN,
-            "tokens": COST["policy"]}
-
-
-def agent_sanctions(state: dict) -> dict:
-    """A set-membership test. No model needed, and none used -- note the cost column."""
-    counterparty = (state.get("facts") or {}).get("counterparty")
-    listed = counterparty in SANCTIONS_WATCH
-    return {"findings": [{"by": "sanctions", "source": "watchlist",
-                          "claim": f"{counterparty} is "
-                                   f"{'ON the watchlist' if listed else 'not on the watchlist'}"}],
-            "blocked": listed,
-            "tokens": COST["sanctions"]}
-
-
-def agent_writer(state: dict) -> dict:
-    """Turn whatever findings arrived into one recommendation."""
-    findings = state.get("findings") or []
-    if (state.get("facts") or {}).get("status") == "settled":
-        action = "no action"                      # nothing to release; it already went
-    elif state.get("blocked") or state.get("needs_human"):
-        action = "hold for a human"
-    else:
-        action = "release"
-    return {"recommendation": action,
-            "rationale": [f["claim"] for f in findings],
-            "tokens": COST["writer"]}
-
-
-AGENTS = {"ledger": agent_ledger, "policy": agent_policy,
-          "sanctions": agent_sanctions, "writer": agent_writer}
-print("specialists:", ", ".join(AGENTS))
-'''
-
-
-# =========================================================================== #
-# Lab 5.1 -- the supervisor is a router, so measure it like one
-# =========================================================================== #
 LAB1 = [
-    header(1, "The Supervisor Is a Router", "Intermediate &rarr; Advanced", 35,
-           ["Build a rule-based supervisor, and measure its routing accuracy honestly",
-            "Read the confusion table &mdash; and notice where every unrecognised request piles up",
-            "Price a misroute: the wasted tokens are everything downstream of the mistake",
-            "Wire the supervisor into a real <code>StateGraph</code> with <code>add_conditional_edges</code>"],
-           "> **Module 3's graph, with several workers in it.** A supervisor picks a specialist the\n"
-           "> way an agent picks a tool &mdash; so it is a conditional edge, and it has an accuracy."),
+    header(1, "A Support Desk That Triages Itself", "Intermediate &rarr; Advanced", 35,
+           ["Build the supervisor/worker graph: one queue in, three specialists, one reply out",
+            "Wire the supervisor as a real <code>add_conditional_edges</code>, not an <code>if</code> statement",
+            "Score the router against twelve labelled tickets &mdash; a supervisor is a classifier",
+            "Swap in a model-routed supervisor and score that on the same twelve"],
+           "> **The system on slide 2.** Tickets arrive on one queue; a supervisor reads each one and\n"
+           "> picks a specialist; one specialist runs; a `resolve` node writes the reply."),
     setup(1),
-    code(DOMAIN),
-    code(AGENTKIT),
+    code(DESK_CASE),
 
     md("""
 ## Concept
 
 A supervisor decides which specialist handles a request. In LangGraph that is one thing: a
-**conditional edge** out of a supervisor node. `add_conditional_edges(node, fn, path_map)` calls
-`fn(state)`, which returns a key of `path_map`, and the graph goes there.
+**conditional edge** out of a supervisor node.
 
-Which makes the supervisor a classifier with a known correct answer &mdash; so it has an accuracy,
-and almost nobody measures it.
+`add_conditional_edges(source, fn, path_map)` needs two different things, and people mix them up:
 
-It is worth measuring because a misroute is the most expensive mistake in the graph: everything
-spent downstream of it answered the wrong question. The supervisor's own call is the cheapest one
-in the system, so &ldquo;save money on the router&rdquo; is usually a bad trade.
+| | |
+|---|---|
+| `fn` | a function of **state** that returns a **key** |
+| `path_map` | `{key: node name}` &mdash; which node each key means |
+
+Which makes the supervisor a classifier with a known correct answer. So it has an accuracy, and
+almost nobody measures it &mdash; even though a misroute wastes every token spent downstream of it.
 """),
 
     md("""
-## Section 1 &mdash; A rule-based supervisor
+## Section 1 &mdash; The graph
 
-Keywords, in order, with a fallback. Unglamorous, free, instant, and identical every time &mdash;
-and right far more often than people expect.
-
-The mechanics are written out. The decision left to you is the **fallback**, because every
-request the table does not recognise ends up there, which makes that one line the router's
-entire failure mode.
+Three worker nodes, a supervisor node that writes its decision **into state**, and a `resolve`
+node that all three feed. Two decisions are yours: the **fallback** (every ticket the keyword
+table does not recognise ends up there, which makes that one line the router's whole failure
+mode) and which function is the **routing adapter**.
 """),
     code('''
-SPECIALISTS = ("ledger", "policy", "sanctions", "writer")
+from typing import Annotated
+from typing_extensions import TypedDict
+from operator import add
+from langgraph.graph import StateGraph, START, END
+
+
+class DeskState(TypedDict):
+    ticket: str                       # what the customer wrote
+    route: str | None                 # the supervisor's decision, readable afterwards
+    answer: str | None                # the specialist's reply
+    trail: Annotated[list, add]       # append: every node leaves a mark
+
 
 # Order matters: the most specific group goes first.
-ROUTING_KEYWORDS = [
-    ("sanctions", ("sanction", "embargo", "screening")),
-    ("policy",    ("policy", "runbook", "rule", "limit", "breach", "allowed", "permitted")),
-    ("writer",    ("draft", "write", "note", "letter", "summar")),
-    ("ledger",    ("status", "amount", "record", "look up", "reference", "pull")),
+KEYWORDS = [
+    ("billing", ("charge", "charged", "invoice", "refund", "plan", "price", "vat")),
+    ("tech",    ("error", "500", "api", "webhook", "broken", "throws", "down")),
+    ("account", ("seat", "owner", "permission", "access", "sign-in")),
 ]
 
-def route_by_rule(request: str) -> str:
+def route_by_keyword(ticket: str) -> str:
     """The first keyword group that matches wins."""
-    low = (request or "").lower()
-    for specialist, keywords in ROUTING_KEYWORDS:
-        if any(k in low for k in keywords):
+    low = (ticket or "").lower()
+    for specialist, words in KEYWORDS:
+        if any(w in low for w in words):
             return specialist
-    # Nothing matched. Every unrecognised request in the system lands here, so choose on
-    # purpose: which specialist can still do useful work knowing nothing but the reference?
-    return BLANK          # TODO: the fallback specialist, named from SPECIALISTS
+    # Nothing matched. Every unrecognised ticket in the system lands here, so choose on
+    # purpose: which desk would you rather a stranger's ticket landed on by accident?
+    return BLANK                      # TODO: the fallback, named from SPECIALISTS
+
+
+def supervisor(state: DeskState) -> dict:
+    """A node like any other. It decides, and it writes the decision down."""
+    choice = route_by_keyword(state["ticket"])
+    return {"route": choice, "trail": [f"supervisor -> {choice}"]}
+
+
+def make_worker(name: str):
+    """Three specialists that differ only in who they are. Deterministic, so the graph
+    can be asserted exactly offline; the model shows up in the live cell below."""
+    def worker(state: DeskState) -> dict:
+        return {"answer": f"[{name}] {DESK[name]} Re: {state['ticket'][:40]}",
+                "trail": [f"{name} handled it"]}
+    return worker
+
+
+def resolve(state: DeskState) -> dict:
+    return {"trail": ["resolved"]}
+
+
+def pick_specialist(state: DeskState) -> str:
+    """The adapter: takes STATE, returns a KEY of the path map."""
+    return state["route"]
+
+
+def build_desk():
+    g = StateGraph(DeskState)
+    g.add_node("supervisor", supervisor)
+    for name in SPECIALISTS:
+        g.add_node(name, make_worker(name))
+    g.add_node("resolve", resolve)
+
+    g.add_edge(START, "supervisor")
+    g.add_conditional_edges("supervisor", BLANK, {n: n for n in SPECIALISTS})
+    #                                     ^ TODO: which function above routes here?
+    #   route_by_keyword takes a ticket STRING, so it is not the one.
+    for name in SPECIALISTS:
+        g.add_edge(name, "resolve")
+    g.add_edge("resolve", END)
+    return g.compile()
+
+
+def fresh(ticket: str) -> dict:
+    return {"ticket": ticket, "route": None, "answer": None, "trail": []}
 ''', '''
-SPECIALISTS = ("ledger", "policy", "sanctions", "writer")
+from typing import Annotated
+from typing_extensions import TypedDict
+from operator import add
+from langgraph.graph import StateGraph, START, END
+
+
+class DeskState(TypedDict):
+    ticket: str                       # what the customer wrote
+    route: str | None                 # the supervisor's decision, readable afterwards
+    answer: str | None                # the specialist's reply
+    trail: Annotated[list, add]       # append: every node leaves a mark
+
 
 # Order matters: the most specific group goes first.
-ROUTING_KEYWORDS = [
-    ("sanctions", ("sanction", "embargo", "screening")),
-    ("policy",    ("policy", "runbook", "rule", "limit", "breach", "allowed", "permitted")),
-    ("writer",    ("draft", "write", "note", "letter", "summar")),
-    ("ledger",    ("status", "amount", "record", "look up", "reference", "pull")),
+KEYWORDS = [
+    ("billing", ("charge", "charged", "invoice", "refund", "plan", "price", "vat")),
+    ("tech",    ("error", "500", "api", "webhook", "broken", "throws", "down")),
+    ("account", ("seat", "owner", "permission", "access", "sign-in")),
 ]
 
-def route_by_rule(request: str) -> str:
+def route_by_keyword(ticket: str) -> str:
     """The first keyword group that matches wins."""
-    low = (request or "").lower()
-    for specialist, keywords in ROUTING_KEYWORDS:
-        if any(k in low for k in keywords):
+    low = (ticket or "").lower()
+    for specialist, words in KEYWORDS:
+        if any(w in low for w in words):
             return specialist
-    # Nothing matched. The ledger read is the only step that needs no other findings first,
-    # so an unrecognised request is at least started rather than answered wrongly.
-    return "ledger"
+    # Nothing matched. Tech is the least damaging place to land a stranger: it reads the
+    # ticket and can hand it on, where billing would be answering about money it has not read.
+    return "tech"
+
+
+def supervisor(state: DeskState) -> dict:
+    """A node like any other. It decides, and it writes the decision down."""
+    choice = route_by_keyword(state["ticket"])
+    return {"route": choice, "trail": [f"supervisor -> {choice}"]}
+
+
+def make_worker(name: str):
+    """Three specialists that differ only in who they are. Deterministic, so the graph
+    can be asserted exactly offline; the model shows up in the live cell below."""
+    def worker(state: DeskState) -> dict:
+        return {"answer": f"[{name}] {DESK[name]} Re: {state['ticket'][:40]}",
+                "trail": [f"{name} handled it"]}
+    return worker
+
+
+def resolve(state: DeskState) -> dict:
+    return {"trail": ["resolved"]}
+
+
+def pick_specialist(state: DeskState) -> str:
+    """The adapter: takes STATE, returns a KEY of the path map."""
+    return state["route"]
+
+
+def build_desk():
+    g = StateGraph(DeskState)
+    g.add_node("supervisor", supervisor)
+    for name in SPECIALISTS:
+        g.add_node(name, make_worker(name))
+    g.add_node("resolve", resolve)
+
+    g.add_edge(START, "supervisor")
+    g.add_conditional_edges("supervisor", pick_specialist, {n: n for n in SPECIALISTS})
+    for name in SPECIALISTS:
+        g.add_edge(name, "resolve")
+    g.add_edge("resolve", END)
+    return g.compile()
+
+
+def fresh(ticket: str) -> dict:
+    return {"ticket": ticket, "route": None, "answer": None, "trail": []}
 '''),
     code('''
-# --- Self-check: Section 1
-check("an explicit sanctions request routes to sanctions",
-      lambda: route_by_rule("Run the embargo check on ZENITH.") == "sanctions")
-check("a policy question routes to policy",
-      lambda: route_by_rule("What is the runbook for an INVALID_IBAN return?") == "policy")
-check("a lookup routes to the ledger",
-      lambda: route_by_rule("What is the status of PMT-1001?") == "ledger")
-check("a drafting request routes to the writer",
-      lambda: route_by_rule("Draft the customer note for PMT-1002.") == "writer")
+# --- Self-check: Section 1   (a REAL compiled graph, really running -- still no model)
+def _run(ticket: str) -> dict:
+    return build_desk().invoke(fresh(ticket))
+
+check("the desk compiles",
+      lambda: build_desk() is not None)
 check("the fallback is a specialist that actually exists",
-      lambda: route_by_rule("zzzz nothing matches here zzzz") in SPECIALISTS,
-      "a conditional edge that returns a key the path map does not have is a runtime error")
-check("the fallback is the one step that needs no prior findings",
-      lambda: route_by_rule("zzzz nothing matches here zzzz") == "ledger",
-      "policy needs a reason code, sanctions needs a counterparty, the writer needs findings")
-check("every rule points at a specialist that exists",
-      lambda: all(s in SPECIALISTS for s, _ in ROUTING_KEYWORDS))
+      lambda: route_by_keyword("zzzz nothing here zzzz") in SPECIALISTS,
+      "a conditional edge returning a key the path map does not have is a runtime error")
+check("a billing ticket reaches the billing agent",
+      lambda: _run("I was charged twice for March.")["route"] == "billing")
+check("an outage reaches the tech agent",
+      lambda: _run("Your API returns 500 on every /sync call.")["route"] == "tech")
+check("the decision is written into state, not hidden in control flow",
+      lambda: _run("Please add two more seats.")["route"] == "account",
+      "a routing decision you cannot read back afterwards is one you cannot audit")
+check("exactly ONE specialist runs per ticket",
+      lambda: sum(1 for m in _run("Please add two more seats.")["trail"]
+                  if "handled it" in m) == 1,
+      "a conditional edge picks one path; fanning out to all three is Lab 5.2's shape")
+check("and every ticket still reaches resolve",
+      lambda: _run("Everything was fine yesterday.")["trail"][-1] == "resolved")
+
+def _trace():
+    for chunk in build_desk().stream(fresh("Move the workspace owner to priya@example.com.")):
+        for node, update in chunk.items():
+            print(f"  {node:12} -> {list(update)}")
+guard(_trace)
 '''),
 
     md("""
-## Section 2 &mdash; Measure it
+## Section 2 &mdash; Score the supervisor
 
-Fifteen requests with a known correct specialist. Four of them state their intent only by
-implication &mdash; no keyword names it &mdash; because those are the cases a rule table cannot reach and
-the reason anyone reaches for a model. This whole section is given: nothing here is a design
-decision, it is the harness.
+Twelve tickets with a known correct specialist. The harness is given &mdash; nothing in it is a
+design decision. What *is* a decision is the last line: the bar a router has to clear before you
+would put it in front of customers. Pick a number you would defend in a review, not one that
+makes your router pass.
 """),
     code('''
-ROUTE_EVAL = [
-    ("Is PMT-1005 clear of sanctions screening?",                  "sanctions"),
-    ("Run the embargo check on ZENITH.",                           "sanctions"),
-    ("PMT-1003 breached the limit -- what does policy say?",       "policy"),
-    ("What is the runbook for an INVALID_IBAN return?",            "policy"),
-    ("Are we allowed to retry this one automatically?",            "policy"),
-    ("What is the status of PMT-1001?",                            "ledger"),
-    ("Look up the amount on reference PMT-1004.",                  "ledger"),
-    ("Pull the record for PMT-1002.",                              "ledger"),
-    ("Draft the customer note for PMT-1002.",                      "writer"),
-    ("Write up the case summary for the file.",                    "writer"),
-    ("Summarise why this payment is held and what happens next.",  "writer"),
-    # the four whose intent is implied, not stated
-    ("Who is the counterparty on PMT-1003, and is that name a problem?",       "sanctions"),
-    ("Is there anything about ZENITH we should worry about before releasing?", "sanctions"),
-    ("This one has been sitting for three days. What are we supposed to do?",  "policy"),
-    ("Tell the client what happened and why.",                                 "writer"),
-]
-
 def selections(router) -> dict:
-    """{request: chosen specialist} for the whole eval set."""
-    return {request: router(request) for request, _ in ROUTE_EVAL}
+    """{ticket: chosen specialist} over the whole eval set."""
+    return {ticket: router(ticket) for ticket, _ in TICKETS}
 
 
 def accuracy(sel: dict) -> float:
     """Fraction routed to the expected specialist. No selection counts as wrong."""
-    return sum(1 for r, expected in ROUTE_EVAL if sel.get(r) == expected) / len(ROUTE_EVAL)
+    return sum(1 for t, want in TICKETS if sel.get(t) == want) / len(TICKETS)
 
 
 def confusion(sel: dict) -> dict:
-    """{(expected, chosen): count} over the misses -- the pairs whose boundaries overlap."""
+    """{(expected, chosen): count} over the misses only."""
     out = {}
-    for request, expected in ROUTE_EVAL:
-        chosen = sel.get(request)
-        if chosen != expected:
-            out[(expected, chosen)] = out.get((expected, chosen), 0) + 1
+    for ticket, want in TICKETS:
+        got = sel.get(ticket)
+        if got != want:
+            out[(want, got)] = out.get((want, got), 0) + 1
     return out
 
 
+def clears_the_bar(acc: float) -> bool:
+    """Would you ship a supervisor that routes this well? Decide the bar and defend it.
+
+    Anything you can argue for above 0.6 and up to 0.95 passes the self-check -- the check
+    is that you HAVE a bar, not that you picked the number this notebook would have picked.
+    """
+    return acc >= BLANK               # TODO: your acceptance bar, as a fraction
+
+
 def _report():
-    sel = selections(route_by_rule)
-    print(f"rule-based supervisor: {accuracy(sel):.0%} on {len(ROUTE_EVAL)} requests\\n")
-    for (expected, chosen), n in sorted(confusion(sel).items(), key=lambda kv: -kv[1]):
-        print(f"  {n}x  should have been {expected:10} -> went to {chosen}")
+    sel = selections(route_by_keyword)
+    print(f"rule-based supervisor: {accuracy(sel):.0%} on {len(TICKETS)} tickets\\n")
+    for (want, got), n in sorted(confusion(sel).items(), key=lambda kv: -kv[1]):
+        print(f"  {n}x  should have been {want:8} -> went to {got}")
+guard(_report)
+''', '''
+def selections(router) -> dict:
+    """{ticket: chosen specialist} over the whole eval set."""
+    return {ticket: router(ticket) for ticket, _ in TICKETS}
+
+
+def accuracy(sel: dict) -> float:
+    """Fraction routed to the expected specialist. No selection counts as wrong."""
+    return sum(1 for t, want in TICKETS if sel.get(t) == want) / len(TICKETS)
+
+
+def confusion(sel: dict) -> dict:
+    """{(expected, chosen): count} over the misses only."""
+    out = {}
+    for ticket, want in TICKETS:
+        got = sel.get(ticket)
+        if got != want:
+            out[(want, got)] = out.get((want, got), 0) + 1
+    return out
+
+
+def clears_the_bar(acc: float) -> bool:
+    """Would you ship a supervisor that routes this well? Decide the bar and defend it.
+
+    0.85 here: at 12 tickets that is one miss allowed, and a support desk can absorb one
+    handoff in eight. Below that the specialists spend their day forwarding.
+    """
+    return acc >= 0.85
+
+
+def _report():
+    sel = selections(route_by_keyword)
+    print(f"rule-based supervisor: {accuracy(sel):.0%} on {len(TICKETS)} tickets\\n")
+    for (want, got), n in sorted(confusion(sel).items(), key=lambda kv: -kv[1]):
+        print(f"  {n}x  should have been {want:8} -> went to {got}")
 guard(_report)
 '''),
     code('''
@@ -476,2261 +569,876 @@ _rule = None
 def rule_selections():
     global _rule
     if _rule is None:
-        _rule = selections(route_by_rule)
+        _rule = selections(route_by_keyword)
     return _rule
 
 check("the eval set covers every specialist",
-      lambda: {e for _, e in ROUTE_EVAL} == set(SPECIALISTS))
-check("it contains requests whose intent is only implied",
-      lambda: sum(1 for r, _ in ROUTE_EVAL
-                  if not any(k in r.lower() for _, ks in ROUTING_KEYWORDS for k in ks)) >= 4,
-      "an eval set of keyword-shaped requests measures the keywords, not the routing")
+      lambda: {w for _, w in TICKETS} == set(SPECIALISTS))
+check("it contains tickets whose intent is only implied",
+      lambda: sum(1 for t, _ in TICKETS
+                  if not any(w in t.lower() for _, ws in KEYWORDS for w in ws)) >= 3,
+      "an eval set of keyword-shaped tickets measures the keywords, not the routing")
 check("the rule supervisor gets most of it right",
       lambda: accuracy(rule_selections()) > 0.6)
 check("but not all of it -- there is headroom to argue about",
       lambda: accuracy(rule_selections()) < 1.0)
 check("every miss lands on the FALLBACK, not on a random specialist",
-      lambda: {chosen for _, chosen in confusion(rule_selections())} == {"ledger"},
-      "a rule router's failure mode is its fallback -- that is where unrecognised intent piles up")
-check("so the confusion table names one problem, not four",
-      lambda: len({chosen for _, chosen in confusion(rule_selections())}) == 1)
-'''),
-
-    md("""
-## Section 3 &mdash; What a misroute costs
-
-The supervisor's own call is the cheapest thing in the graph. The specialist it wakes up is not.
-Price the mistake and the argument about which model to route with settles itself.
-"""),
-    code('''
-# COST came with the specialists. The supervisor is charged too -- routing is not free.
-
-def cost_of(chosen: str) -> int:
-    """Tokens for one routing decision plus the specialist it woke up."""
-    return COST["supervisor"] + COST.get(chosen, 0)
-
-
-def wasted_tokens(sel: dict) -> int:
-    """Tokens spent answering the wrong question."""
-    total = 0
-    for request, expected in ROUTE_EVAL:
-        chosen = sel.get(request)
-        if chosen and chosen != expected:
-            # A misroute wastes the specialist's work. Does it waste the routing call that
-            # caused it as well, or is that a sunk cost you would have paid anyway?
-            total += BLANK          # TODO: what one misroute cost you
-    return total
-
-
-def spent_tokens(sel: dict) -> int:
-    """Everything the run spent, right or wrong."""
-    return sum(cost_of(sel[r]) for r, _ in ROUTE_EVAL if sel.get(r))
-''', '''
-# COST came with the specialists. The supervisor is charged too -- routing is not free.
-
-def cost_of(chosen: str) -> int:
-    """Tokens for one routing decision plus the specialist it woke up."""
-    return COST["supervisor"] + COST.get(chosen, 0)
-
-
-def wasted_tokens(sel: dict) -> int:
-    """Tokens spent answering the wrong question."""
-    total = 0
-    for request, expected in ROUTE_EVAL:
-        chosen = sel.get(request)
-        if chosen and chosen != expected:
-            # The whole hop is wasted: you paid to choose wrongly and then paid the wrong
-            # specialist. Charging only the specialist flatters the router that caused it.
-            total += cost_of(chosen)
-    return total
-
-
-def spent_tokens(sel: dict) -> int:
-    """Everything the run spent, right or wrong."""
-    return sum(cost_of(sel[r]) for r, _ in ROUTE_EVAL if sel.get(r))
-'''),
-    code('''
-# --- Self-check: Section 3
-_perfect = {r: e for r, e in ROUTE_EVAL}
-
-check("a perfect router wastes nothing",
-      lambda: wasted_tokens(_perfect) == 0)
-check("the waste is the supervisor call plus the specialist it woke up",
-      lambda: wasted_tokens({**_perfect,
-                             "Tell the client what happened and why.": "ledger"})
-              == COST["supervisor"] + COST["ledger"],
-      "the routing call is part of the mistake, not a sunk cost -- you would not have made it")
-check("misrouting to the writer costs more than misrouting to sanctions",
-      lambda: cost_of("writer") > cost_of("sanctions"),
-      "the cost of a mistake depends on which specialist you woke up, not on the mistake")
-check("the rule router wastes a real fraction of what it spends",
-      lambda: 0 < wasted_tokens(rule_selections()) < spent_tokens(rule_selections()))
-check("cheapening the supervisor cannot recover that waste",
-      lambda: wasted_tokens(rule_selections()) > COST["supervisor"] * len(ROUTE_EVAL),
-      "even a FREE supervisor would not save what the misroutes already cost -- that is the whole point")
-
-def _price():
-    sel = rule_selections()
-    spent, wasted = spent_tokens(sel), wasted_tokens(sel)
-    print(f"  spent   {spent:>6} tokens")
-    print(f"  wasted  {wasted:>6} tokens  ({wasted / spent:.0%} of the bill)")
-    print(f"  the supervisor's own calls were only {COST['supervisor'] * len(ROUTE_EVAL)} of that")
-guard(_price)
-'''),
-
-    md("""
-## Section 4 &mdash; The supervisor as a real conditional edge
-
-Everything above was a function returning a string. Now make it a graph.
-
-`add_conditional_edges(source, fn, path_map)` needs two different things and people mix them up:
-
-| | |
-|---|---|
-| `fn` | a function of **state** that returns a **key** |
-| `path_map` | `{key: node name}` &mdash; which node each key means |
-
-`route_by_rule` is *not* `fn`: it takes a request string, not a state. Write the one-line adapter
-that is.
-"""),
-    code('''
-from typing import Annotated
-from typing_extensions import TypedDict
-from operator import add
-from langgraph.graph import StateGraph, START, END
-
-class RouterState(TypedDict):
-    request: str                              # what the user asked for
-    ref: str                                  # the payment the request is about
-    route: str | None                         # the supervisor's decision, written into state
-    facts: dict | None
-    findings: Annotated[list, add]            # append: every node's findings survive
-    problems: Annotated[list, add]
-    tokens: Annotated[int, add]               # add: the bill is the sum, not the last write
-    blocked: bool
-    needs_human: bool
-    recommendation: str | None
-    rationale: list
-
-
-def supervisor_node(state: RouterState) -> dict:
-    """The supervisor is a node like any other. It decides, and it charges for deciding."""
-    return {"route": route_by_rule(state["request"]), "tokens": COST["supervisor"]}
-
-
-def choose_specialist(state: RouterState) -> str:
-    """The adapter: takes STATE, returns a KEY of the path map."""
-    return state["route"]
-
-
-def build_router_graph():
-    g = StateGraph(RouterState)
-    g.add_node("supervisor", supervisor_node)
-    for name in SPECIALISTS:
-        g.add_node(name, AGENTS[name])        # the specialists, unchanged, as nodes
-    g.add_edge(START, "supervisor")
-    g.add_conditional_edges("supervisor", BLANK, {n: n for n in SPECIALISTS})
-    #                                     ^ TODO: which function above does the routing here?
-    for name in SPECIALISTS:
-        g.add_edge(name, END)
-    return g.compile()
-
-
-def fresh_router_state(request: str, ref: str = "PMT-1005") -> dict:
-    return {"request": request, "ref": ref, "route": None, "facts": None,
-            "findings": [], "problems": [], "tokens": 0, "blocked": False,
-            "needs_human": False, "recommendation": None, "rationale": []}
-''', '''
-from typing import Annotated
-from typing_extensions import TypedDict
-from operator import add
-from langgraph.graph import StateGraph, START, END
-
-class RouterState(TypedDict):
-    request: str                              # what the user asked for
-    ref: str                                  # the payment the request is about
-    route: str | None                         # the supervisor's decision, written into state
-    facts: dict | None
-    findings: Annotated[list, add]            # append: every node's findings survive
-    problems: Annotated[list, add]
-    tokens: Annotated[int, add]               # add: the bill is the sum, not the last write
-    blocked: bool
-    needs_human: bool
-    recommendation: str | None
-    rationale: list
-
-
-def supervisor_node(state: RouterState) -> dict:
-    """The supervisor is a node like any other. It decides, and it charges for deciding."""
-    return {"route": route_by_rule(state["request"]), "tokens": COST["supervisor"]}
-
-
-def choose_specialist(state: RouterState) -> str:
-    """The adapter: takes STATE, returns a KEY of the path map."""
-    return state["route"]
-
-
-def build_router_graph():
-    g = StateGraph(RouterState)
-    g.add_node("supervisor", supervisor_node)
-    for name in SPECIALISTS:
-        g.add_node(name, AGENTS[name])        # the specialists, unchanged, as nodes
-    g.add_edge(START, "supervisor")
-    g.add_conditional_edges("supervisor", choose_specialist, {n: n for n in SPECIALISTS})
-    for name in SPECIALISTS:
-        g.add_edge(name, END)
-    return g.compile()
-
-
-def fresh_router_state(request: str, ref: str = "PMT-1005") -> dict:
-    return {"request": request, "ref": ref, "route": None, "facts": None,
-            "findings": [], "problems": [], "tokens": 0, "blocked": False,
-            "needs_human": False, "recommendation": None, "rationale": []}
-'''),
-    code('''
-# --- Self-check: Section 4   (a REAL compiled graph, running -- still no model)
-def _via_graph(request: str) -> dict:
-    return build_router_graph().invoke(fresh_router_state(request))
-
-check("the supervisor graph compiles",
-      lambda: build_router_graph() is not None)
-check("the supervisor's decision is written into state, not hidden in control flow",
-      lambda: _via_graph("What is the status of PMT-1005?")["route"] == "ledger",
-      "a routing decision you cannot read back is one you cannot audit")
-check("and the ledger node really ran",
-      lambda: _via_graph("What is the status of PMT-1005?")["facts"]["ref"] == "PMT-1005")
-check("a sanctions request reaches the sanctions specialist",
-      lambda: _via_graph("Run the embargo check on ZENITH.")["route"] == "sanctions")
-check("exactly one specialist runs per request",
-      lambda: len(_via_graph("Run the embargo check on ZENITH.")["findings"]) == 1,
-      "a conditional edge picks ONE path; fanning out to all four is a different design "
-      "and Lab 5.2 costs it")
-check("but that specialist had no case facts to work with",
-      lambda: _via_graph("Run the embargo check on ZENITH.")["blocked"] is False,
-      "nothing read the payment first, so the screen had no counterparty -- ordering is Lab 5.2")
-check("the run is charged for the routing decision as well as the specialist",
-      lambda: _via_graph("What is the status of PMT-1005?")["tokens"]
-              == COST["supervisor"] + COST["ledger"],
-      "that total is the Annotated[int, add] reducer on `tokens` doing the adding")
-check("the graph agrees with the function it was built from",
-      lambda: all(_via_graph(r)["route"] == route_by_rule(r) for r, _ in ROUTE_EVAL[:4]))
-
-def _trace():
-    for chunk in build_router_graph().stream(
-            fresh_router_state("Summarise why PMT-1005 is held and what happens next.")):
-        for node, update in chunk.items():
-            print(f"  {node:12} -> {list(update)}")
-guard(_trace)
-'''),
-
-    md("""
-## Run it for real &mdash; the model behind the same interface
-
-Same eval set, same metric, same confusion table, same conditional edge. The only thing that
-changes is the function inside `route_with_model`.
-"""),
-    code('''
-ROUTE_SYSTEM = ("You route one operations request to exactly one specialist. "
-                "Reply with the specialist's name alone -- no punctuation, no explanation.")
-
-SPECIALIST_DESCRIPTIONS = {
-    "ledger":    "Reads one payment record: status, amount, counterparty, reason code.",
-    "policy":    "Says what the operating policy or runbook requires for a failure reason.",
-    "sanctions": "Screens a counterparty name against the watchlist.",
-    "writer":    "Turns findings into a summary or a customer-facing note.",
-}
-
-def route_with_model(request: str) -> str:
-    """Ask the model to pick a specialist. Anything unrecognised falls back to the rules."""
-    listing = "\\n".join(f"- {n}: {d}" for n, d in SPECIALIST_DESCRIPTIONS.items())
-    reply = ask(f"Specialists:\\n{listing}\\n\\nRequest: {request}\\n\\nSpecialist:",
-                system=ROUTE_SYSTEM)
-    word = (reply or "").strip().strip("`.\\"' ").split()
-    return word[0] if word and word[0] in SPECIALIST_DESCRIPTIONS else route_by_rule(request)
-
-
-if llm_ready():
-    def _compare():
-        rule = rule_selections()
-        model = selections(route_with_model)
-        print(f"{'router':16}{'accuracy':>10}{'wasted tokens':>16}")
-        print("-" * 44)
-        print(f"{'rule-based':16}{accuracy(rule):>9.0%}{wasted_tokens(rule):>16}")
-        print(f"{'model':16}{accuracy(model):>9.0%}{wasted_tokens(model):>16}")
-        print()
-        for (expected, chosen), n in sorted(confusion(model).items(), key=lambda kv: -kv[1]):
-            print(f"  model: {n}x  {expected} -> {chosen}")
-    guard(_compare)
-'''),
-    md("""
-### Read it
-
-Three things to look at, and the second is the one that decides your design:
-
-1. **Did the model beat the rule table?** If not, the rules are free and deterministic, and you
-   have your answer.
-2. **Where did the model's misses land?** The rule router's misses all pile up on the fallback,
-   which is one problem you can name. If the model's misses are scattered across four specialists,
-   that is four overlapping descriptions &mdash; and Module 4 told you how to fix each one.
-3. **Run it twice.** If the same request routes differently on the second run, you have met
-   Module 7's opening problem a day early.
-
-The usual production answer is neither: rules for the requests you can name, a model only for the
-ones that fall through &mdash; which is exactly what `route_with_model`'s fallback line already does.
-And note that swapping routers changed **no graph code at all**: the conditional edge does not
-care where the key came from.
-"""),
-
-    code('''
-score()
-'''),
-    md("""
-## Your turn
-
-1. Make the hybrid explicit: try the rules, and call the model *only* when nothing matched.
-   Measure its accuracy and its cost, and decide whether the saving is worth the second code path.
-2. `route_by_rule` returns the first match, so a request mentioning both a policy and a draft goes
-   to policy. Have `choose_specialist` return a **list** of keys instead &mdash; `add_conditional_edges`
-   accepts that and dispatches to all of them. What have you just committed to paying?
-3. Add a fifth key to the path map: `clarify` &mdash; requests where the honest answer is a question
-   back to the user. What does that do to your accuracy, and is the drop real?
-"""),
-]
-
-
-# =========================================================================== #
-# Lab 5.2 -- decomposition, distribution, and what a handoff drops
-# =========================================================================== #
-LAB2 = [
-    header(2, "Decomposition, Distribution and Handoffs", "Advanced", 40,
-           ["Level a dependency graph into execution waves &mdash; what may run at once, and what may not",
-            "Compile those dependencies into a real <code>StateGraph</code>, edge by edge",
-            "Build the handoff payload, and decide what crosses it",
-            "Reproduce the bug where both agents are right and the answer is wrong"],
-           "> **Builds on Lab 5.1's supervisor.** Routing picked <em>who</em>. This lab is about\n"
-           "> <em>in what order</em>, and what each one is told when its turn comes."),
-    setup(2),
-    code(DOMAIN),
-    code(AGENTKIT),
-
-    md("""
-## Concept
-
-Two ideas that get run together and should not be:
-
-- **Decomposition** is a dependency graph. It tells you what *may* run at the same time. Nothing
-  about wanting four agents makes four agents able to start.
-- **Distribution** is a handoff. It carries exactly what you put in the message &mdash; and by default
-  it drops the reasoning, the constraints and the failure history.
-
-In LangGraph the first one is edges and the second one is state. The second produces the bug in
-Section 4, where both agents behave correctly and the recommendation is still wrong.
-"""),
-
-    md("""
-## Section 1 &mdash; What may run at once
-
-Level the dependency graph into waves. Everything in one wave is independent; the number of waves
-is the critical path, and no amount of parallelism shortens it. This is given whole &mdash; it is
-arithmetic on the spec, and the spec is the interesting part.
-"""),
-    code('''
-TASKS = {
-    "read":      {"agent": "ledger",    "needs": []},
-    "policy":    {"agent": "policy",    "needs": ["read"]},
-    "screen":    {"agent": "sanctions", "needs": ["read"]},
-    "recommend": {"agent": "writer",    "needs": ["policy", "screen"]},
-}
-
-def waves(tasks: dict = None) -> list:
-    """Group tasks into execution waves. Everything within a wave may run at the same time."""
-    tasks = TASKS if tasks is None else tasks
-    done, out, remaining = set(), [], dict(tasks)
-    while remaining:
-        ready = [name for name, t in remaining.items()
-                 if all(need in done for need in t["needs"])]
-        if not ready:
-            raise ValueError(f"circular dependency among {sorted(remaining)}")
-        out.append(sorted(ready))
-        done |= set(ready)
-        for name in ready:
-            remaining.pop(name)
-    return out
-'''),
-    code('''
-# --- Self-check: Section 1
-_cycle = {"a": {"agent": "ledger", "needs": ["b"]}, "b": {"agent": "policy", "needs": ["a"]}}
-
-def raises(fn, exc) -> bool:
-    """True if fn() raises exc, False if it raises anything else or nothing at all.
-
-    NameError is deliberately re-raised: a helper that swallows it turns an unfilled
-    blank into a [FAIL] instead of a [TODO], which is a lie about what went wrong.
-    """
-    try:
-        fn()
-    except NameError:
-        raise
-    except exc:
-        return True
-    except Exception:
-        return False
-    return False
-
-check("four tasks resolve into three waves",
-      lambda: len(waves()) == 3)
-check("nothing can start before the payment is read",
-      lambda: waves()[0] == ["read"])
-check("policy and screening are independent, so they share a wave",
-      lambda: waves()[1] == ["policy", "screen"])
-check("the recommendation waits for both",
-      lambda: waves()[2] == ["recommend"])
-check("every task appears exactly once",
-      lambda: sorted(t for w in waves() for t in w) == sorted(TASKS))
-check("the widest wave is two, so four agents never run four-abreast",
-      lambda: max(len(w) for w in waves()) == 2,
-      "the critical path is three hops whatever you spend on parallelism")
-check("a circular dependency is refused rather than looping forever",
-      lambda: raises(lambda: waves(_cycle), ValueError))
-'''),
-
-    md("""
-## Section 2 &mdash; Compile the dependencies into a graph
-
-`waves()` told you the shape. LangGraph wants it as edges, and it works out the waves for itself:
-nodes with no unmet predecessor run **in the same superstep**.
-
-One edge per dependency. The only thing to get right is which way it points.
-"""),
-    code('''
-from typing import Annotated
-from typing_extensions import TypedDict
-from operator import add
-from langgraph.graph import StateGraph, START, END
-
-class CaseState(TypedDict):
-    ref: str
-    facts: dict | None
-    findings: Annotated[list, add]        # two nodes write this in one superstep -- see Lab 5.3
-    problems: Annotated[list, add]
-    tokens: Annotated[int, add]
-    blocked: bool
-    needs_human: bool
-    recommendation: str | None
-    rationale: list
-
-
-def build_from_tasks(tasks: dict = None):
-    """Turn the dependency spec into a compiled graph. The `needs` ARE the edges."""
-    tasks = TASKS if tasks is None else tasks
-    g = StateGraph(CaseState)
-    for name, t in tasks.items():
-        g.add_node(name, AGENTS[t["agent"]])
-    for name, t in tasks.items():
-        if not t["needs"]:
-            g.add_edge(START, name)               # nothing to wait for
-        for need in t["needs"]:
-            # An edge runs FROM the task that must finish TO the task that was waiting.
-            g.add_edge(need, BLANK)               # TODO: which end is the waiting task?
-    for name in tasks:
-        if not any(name in t["needs"] for t in tasks.values()):
-            g.add_edge(name, END)                 # nothing waits on it, so it is a leaf
-    return g.compile()
-
-
-def fresh_case(ref: str) -> dict:
-    return {"ref": ref, "facts": None, "findings": [], "problems": [], "tokens": 0,
-            "blocked": False, "needs_human": False, "recommendation": None, "rationale": []}
-''', '''
-from typing import Annotated
-from typing_extensions import TypedDict
-from operator import add
-from langgraph.graph import StateGraph, START, END
-
-class CaseState(TypedDict):
-    ref: str
-    facts: dict | None
-    findings: Annotated[list, add]        # two nodes write this in one superstep -- see Lab 5.3
-    problems: Annotated[list, add]
-    tokens: Annotated[int, add]
-    blocked: bool
-    needs_human: bool
-    recommendation: str | None
-    rationale: list
-
-
-def build_from_tasks(tasks: dict = None):
-    """Turn the dependency spec into a compiled graph. The `needs` ARE the edges."""
-    tasks = TASKS if tasks is None else tasks
-    g = StateGraph(CaseState)
-    for name, t in tasks.items():
-        g.add_node(name, AGENTS[t["agent"]])
-    for name, t in tasks.items():
-        if not t["needs"]:
-            g.add_edge(START, name)               # nothing to wait for
-        for need in t["needs"]:
-            # An edge runs FROM the task that must finish TO the task that was waiting.
-            g.add_edge(need, name)
-    for name in tasks:
-        if not any(name in t["needs"] for t in tasks.values()):
-            g.add_edge(name, END)                 # nothing waits on it, so it is a leaf
-    return g.compile()
-
-
-def fresh_case(ref: str) -> dict:
-    return {"ref": ref, "facts": None, "findings": [], "problems": [], "tokens": 0,
-            "blocked": False, "needs_human": False, "recommendation": None, "rationale": []}
-'''),
-    code('''
-# --- Self-check: Section 2   (a REAL compiled graph, running -- no model)
-def ran(ref: str = "PMT-1005") -> dict:
-    return build_from_tasks().invoke(fresh_case(ref))
-
-check("the graph compiles from the dependency spec alone",
-      lambda: build_from_tasks() is not None)
-check("all three fact-finding specialists contributed",
-      lambda: {f["by"] for f in ran()["findings"]} == {"ledger", "policy", "sanctions"})
-check("policy saw the reason code, so it ran AFTER the ledger read",
-      lambda: ran()["problems"] == [],
-      "'policy ran before the reason code existed' is what an edge pointing the wrong way "
-      "looks like from inside a node")
-check("the writer ran last, and had every finding in hand",
-      lambda: len(ran()["rationale"]) == 3)
-check("the sanctions case is held",
-      lambda: ran()["recommendation"] == "hold for a human")
-check("the bill is the sum of all four specialists",
-      lambda: ran()["tokens"] == COST["ledger"] + COST["policy"]
-                               + COST["sanctions"] + COST["writer"],
-      "Annotated[int, add] again -- without it the last node to write would set the total")
-check("a settled payment needs no action",
-      lambda: ran("PMT-1001")["recommendation"] == "no action")
-check("a payment that does not exist does not crash the graph",
-      lambda: ran("PMT-0000")["problems"] != [],
-      "the whole graph must survive one specialist finding nothing")
-
-def _trace():
-    for chunk in build_from_tasks().stream(fresh_case("PMT-1005")):
-        print("  superstep ->", sorted(chunk))
-    print("\\n  waves() said:", waves())
-guard(_trace)
-'''),
-
-    md("""
-## Section 3 &mdash; The handoff payload
-
-An edge decides *when* an agent runs. It does not decide what the agent knows: that is state, and
-in a real system it is a message you build by hand. What crosses is whatever you put in the dict,
-and nothing else.
-"""),
-    code('''
-def handoff(state: dict, to_agent: str, task: str) -> dict:
-    """The message one agent sends another. ONLY what is in this dict crosses."""
-    message = {"to": to_agent, "task": task, "facts": state.get("facts")}
-    # A handoff silently drops three things: the reasoning, the constraints, and the failure
-    # history. Two of those three are in this graph's state already. Add them, defaulting each
-    # to an empty list so the receiving agent always finds the key.
-    message.update(BLANK)     # TODO: a dict of the two the receiving agent cannot do without
-    return message
-''', '''
-def handoff(state: dict, to_agent: str, task: str) -> dict:
-    """The message one agent sends another. ONLY what is in this dict crosses."""
-    message = {"to": to_agent, "task": task, "facts": state.get("facts")}
-    message.update({"constraints":   state.get("constraints") or [],
-                    "already_tried": state.get("already_tried") or []})
-    return message
-'''),
-    code('''
-# --- Self-check: Section 3
-_rich = {"ref": "PMT-1005",
-         "facts": {"ref": "PMT-1005", "reason_code": "SANCTIONS_REVIEW"},
-         "constraints": ["Do not release PMT-1005 without a human decision"],
-         "already_tried": ["auto-retry failed at 09:14"]}
-
-check("the task and the facts cross",
-      lambda: handoff(_rich, "policy", "decide")["task"] == "decide"
-              and handoff(_rich, "policy", "decide")["facts"]["reason_code"] == "SANCTIONS_REVIEW")
-check("the constraints cross",
-      lambda: handoff(_rich, "policy", "decide")["constraints"] ==
-              ["Do not release PMT-1005 without a human decision"])
-check("the failure history crosses, so the next agent does not retry it",
-      lambda: handoff(_rich, "policy", "decide")["already_tried"] == ["auto-retry failed at 09:14"])
-check("a state with no constraints still hands over the key, empty",
-      lambda: handoff({"facts": {}}, "policy", "x")["constraints"] == [],
-      "a missing key and an empty list read very differently to the code on the other side")
-check("the receiving agent is named",
-      lambda: handoff(_rich, "sanctions", "screen")["to"] == "sanctions")
-'''),
-
-    md("""
-## Section 4 &mdash; Both agents right, answer wrong
-
-Triage establishes that a payment must not be released. It hands off. The policy agent recommends
-releasing it. Neither agent malfunctioned.
-
-Triage here is the first wave of your graph, run on its own &mdash; `build_from_tasks` takes any
-sub-spec, so a one-task graph is a legitimate graph.
-"""),
-    code('''
-def triage(ref: str) -> dict:
-    """Wave 1 by itself: read the payment, then say what must not happen to it."""
-    state = build_from_tasks({"read": TASKS["read"]}).invoke(fresh_case(ref))
-    if (state.get("facts") or {}).get("reason_code") in NEEDS_HUMAN:
-        state["constraints"] = [f"Do not release {ref} without a human decision"]
-    return state
-
-
-def policy_from_handoff(message: dict) -> dict:
-    """A policy agent that knows only what the handoff told it -- the realistic case."""
-    constraints = message.get("constraints") or []
-    if any("do not release" in c.lower() for c in constraints):
-        # A constraint from upstream outranks the policy text. Say so, and say what instead.
-        return {"recommendation": BLANK,          # TODO: what does a forbidden release become?
-                "why": "a constraint forbids release"}
-    code = (message.get("facts") or {}).get("reason_code")
-    return {"recommendation": "release", "why": POLICY.get(code, "no policy on file")}
-
-
-def investigate(ref: str, carry_constraints: bool = True) -> dict:
-    """Triage, hand off, decide. Flip carry_constraints to drop one key from the message."""
-    message = handoff(triage(ref), "policy", f"decide whether {ref} can be released")
-    if not carry_constraints:
-        message.pop("constraints", None)          # the bug, made explicit
-    return policy_from_handoff(message)
-''', '''
-def triage(ref: str) -> dict:
-    """Wave 1 by itself: read the payment, then say what must not happen to it."""
-    state = build_from_tasks({"read": TASKS["read"]}).invoke(fresh_case(ref))
-    if (state.get("facts") or {}).get("reason_code") in NEEDS_HUMAN:
-        state["constraints"] = [f"Do not release {ref} without a human decision"]
-    return state
-
-
-def policy_from_handoff(message: dict) -> dict:
-    """A policy agent that knows only what the handoff told it -- the realistic case."""
-    constraints = message.get("constraints") or []
-    if any("do not release" in c.lower() for c in constraints):
-        # A constraint from upstream outranks the policy text. Say so, and say what instead.
-        return {"recommendation": "hold for a human",
-                "why": "a constraint forbids release"}
-    code = (message.get("facts") or {}).get("reason_code")
-    return {"recommendation": "release", "why": POLICY.get(code, "no policy on file")}
-
-
-def investigate(ref: str, carry_constraints: bool = True) -> dict:
-    """Triage, hand off, decide. Flip carry_constraints to drop one key from the message."""
-    message = handoff(triage(ref), "policy", f"decide whether {ref} can be released")
-    if not carry_constraints:
-        message.pop("constraints", None)          # the bug, made explicit
-    return policy_from_handoff(message)
-'''),
-    code('''
-# --- Self-check: Section 4
-check("triage picks up the constraint from the reason code",
-      lambda: triage("PMT-1005")["constraints"] != [])
-check("carrying the constraint, the sanctions case is held",
-      lambda: investigate("PMT-1005")["recommendation"] == "hold for a human")
-check("DROPPING IT, the very same case is released",
-      lambda: investigate("PMT-1005", carry_constraints=False)["recommendation"] == "release",
-      "this is the bug: nothing errored, and both agents did exactly what they were asked")
-check("the two runs disagree on the same payment",
-      lambda: investigate("PMT-1005")["recommendation"]
-              != investigate("PMT-1005", carry_constraints=False)["recommendation"])
-check("the limit-breach case is protected the same way",
-      lambda: investigate("PMT-1003")["recommendation"] == "hold for a human")
-check("a case with no constraint is unaffected either way",
-      lambda: investigate("PMT-1002")["recommendation"]
-              == investigate("PMT-1002", carry_constraints=False)["recommendation"],
-      "the dropped constraint only changes the cases where a constraint existed -- which is why it hides")
-check("the held recommendation says which constraint stopped it",
-      lambda: "constraint" in investigate("PMT-1005")["why"])
-
-def _both_ways():
-    for ref in ("PMT-1005", "PMT-1003", "PMT-1002"):
-        with_c = investigate(ref)["recommendation"]
-        without = investigate(ref, carry_constraints=False)["recommendation"]
-        flag = "  <-- DIFFERENT" if with_c != without else ""
-        print(f"  {ref}   carried: {with_c:18} dropped: {without:18}{flag}")
-guard(_both_ways)
-'''),
-
-    md("""
-## Run it for real
-
-Give the model the two handoff messages &mdash; one with the constraint, one without &mdash; and ask it
-for a recommendation. It is not being tested. Your message is.
-"""),
-    code('''
-if llm_ready():
-    def _ask_both():
-        full = handoff(triage("PMT-1005"), "policy",
-                       "decide whether PMT-1005 can be released")
-        thin = {k: v for k, v in full.items() if k != "constraints"}
-        for label, message in (("with constraint", full), ("without      ", thin)):
-            reply = ask("You are the policy agent. Given this handoff, reply in one sentence with "
-                        "your recommendation.\\n\\n" + json.dumps(message, default=str))
-            print(f"  [{label}] {reply.strip()[:180]}")
-            print()
-    guard(_ask_both)
-'''),
-    md("""
-### Read it
-
-If the two replies differ, you have watched a correct agent reach a wrong conclusion because of
-what it was not told. No prompt engineering fixes that, and no stronger model does either &mdash; the
-information was not in the room.
-
-**The rule:** a handoff carries the task, the findings, the constraints and what has already been
-tried. Three of those four are the ones people forget, and each has its own signature bug &mdash;
-paying twice, breaking a rule it never saw, and retrying what already failed.
-
-And note the division of labour in the graph you built. **Edges decided the order; state decided
-the knowledge.** Getting the edges right does nothing at all for a message that leaves the
-constraint out.
-"""),
-
-    code('''
-score()
-'''),
-    md("""
-## Your turn
-
-1. Add the third dropped thing &mdash; the reasoning &mdash; and measure what carrying it costs in
-   tokens against what re-deriving it costs. One of those is a bill and one is a risk.
-2. Point `build_from_tasks` at a spec where `recommend` needs only `policy`. Run it and watch the
-   writer produce a recommendation with the sanctions screen still in flight. Which finding is
-   missing from `rationale`, and would you have noticed in a log?
-3. Turn `TASKS` into two specs &mdash; one for high-value payments and one for low &mdash; and let
-   Lab 5.1's supervisor choose between them. That is routing by value, and Lab 5.5 prices it.
-"""),
-]
-
-
-# =========================================================================== #
-# Lab 5.3 -- parallel execution, reducers, and disagreement
-# =========================================================================== #
-LAB3 = [
-    header(3, "Parallel Execution, Reducers and Disagreement", "Advanced", 40,
-           ["Lose a whole specialist's work to a hand-rolled merge, silently",
-            "Watch LangGraph refuse to do the same thing, and read the error it gives you",
-            "Declare a reducer per key and prove every branch's findings survive",
-            "Settle a disagreement by authority and provenance rather than by headcount"],
-           "> **Module 3's reducers, with consequences.** There a lost key was a puzzle.\n"
-           "> Here it is a compliance finding that never reached the recommendation."),
-    setup(3),
-    code(DOMAIN),
-    code(AGENTKIT),
-
-    md("""
-## Concept
-
-Two nodes in the same superstep both return `{"findings": [...]}`. What happens next depends
-entirely on what you declared:
-
-| You wrote | What happens |
-|---|---|
-| your own `dict.update` merge | the second overwrites the first, **silently** |
-| `findings: list` in a LangGraph state | LangGraph **refuses** &mdash; one value per key per step |
-| `findings: Annotated[list, add]` | both survive, in whatever order they finished |
-
-The first row is the dangerous one, and it is what people write when they orchestrate agents by
-hand. The summary still reads perfectly &mdash; a summary of one finding reads exactly as well as a
-summary of two &mdash; and **nothing in your logs will show it**. Only a test that counts.
-"""),
-
-    md("""
-## Section 1 &mdash; Watch it disappear, twice
-
-First by hand, then through the framework. Both given: the point of this section is to see the
-difference, not to write it.
-"""),
-    code('''
-def fan_out(state: dict, agent_names) -> list:
-    """Run several agents on the SAME input state. None of them sees the others' output."""
-    return [(name, AGENTS[name](dict(state))) for name in agent_names]
-
-
-def merge_naive(state: dict, partials: list) -> dict:
-    """Last write wins. This is what a hand-rolled orchestrator does by default."""
-    out = dict(state)
-    for _, partial in partials:
-        out.update(partial)
-    return out
-
-
-def base_state(ref: str = "PMT-1005") -> dict:
-    """Everything wave 1 established, ready for the parallel wave."""
-    seed = {"ref": ref, "tokens": 0}
-    return {**seed, **agent_ledger(seed)}
-
-
-def _by_hand():
-    partials = fan_out(base_state(), ["policy", "sanctions"])
-    returned = sum(len(p.get("findings") or []) for _, p in partials)
-    merged = merge_naive(base_state(), partials)
-    print(f"  the two specialists returned  {returned} findings")
-    print(f"  the merged state contains     {len(merged.get('findings') or [])}")
-    print(f"  errors raised                 0")
-    for f in merged.get("findings") or []:
-        print(f"    survivor: [{f['by']}] {f['claim'][:56]}")
-guard(_by_hand)
-'''),
-    code('''
-from typing import Annotated
-from typing_extensions import TypedDict
-from operator import add
-from langgraph.graph import StateGraph, START, END
-
-class LooseState(TypedDict):
-    """The same state with NO reducer anywhere. Note what LangGraph does about that."""
-    ref: str
-    facts: dict | None
-    findings: list
-    problems: list
-    tokens: int
-    blocked: bool
-    needs_human: bool
-
-
-def fan_out_graph(state_cls):
-    """ledger, then policy and sanctions IN PARALLEL, then stop.
-
-    Two edges out of one node is the whole of parallelism in LangGraph: both targets have
-    their predecessor satisfied, so both run in the same superstep.
-    """
-    g = StateGraph(state_cls)
-    g.add_node("ledger", agent_ledger)
-    g.add_node("policy", agent_policy)
-    g.add_node("sanctions", agent_sanctions)
-    g.add_edge(START, "ledger")
-    g.add_edge("ledger", "policy")
-    g.add_edge("ledger", "sanctions")
-    g.add_edge("policy", END)
-    g.add_edge("sanctions", END)
-    return g.compile()
-
-
-def blank_case(ref: str = "PMT-1005") -> dict:
-    return {"ref": ref, "facts": None, "findings": [], "problems": [], "tokens": 0,
-            "blocked": False, "needs_human": False}
-
-
-def parallel_outcome(state_cls) -> str:
-    """Run the fan-out and report what happened: an exception name, or what survived."""
-    try:
-        out = fan_out_graph(state_cls).invoke(blank_case())
-        return f"kept {len(out['findings'])} of 3 findings"
-    except Exception as exc:
-        return type(exc).__name__
-
-
-guard(lambda: print("  with no reducer declared, LangGraph says:", parallel_outcome(LooseState)))
-'''),
-    code('''
-# --- Self-check: Section 1
-def _partials():
-    return fan_out(base_state(), ["policy", "sanctions"])
-
-check("both specialists really did return a finding",
-      lambda: sum(len(p.get("findings") or []) for _, p in _partials()) == 2)
-check("neither of them raised",
-      lambda: all(isinstance(p, dict) for _, p in _partials()))
-check("but the hand-rolled merge keeps only one",
-      lambda: len(merge_naive(base_state(), _partials()).get("findings") or []) == 1,
-      "one specialist's entire contribution is gone, and nothing said so")
-check("the survivor is whichever one ran last -- an ordering accident",
-      lambda: merge_naive(base_state(), _partials())["findings"][0]["by"] == "sanctions")
-check("the token count is wrong too, and in the cheaper direction",
-      lambda: merge_naive(base_state(), _partials())["tokens"] == COST["sanctions"],
-      "you will under-report your own spend, which is the one bug nobody reports")
-check("LangGraph does NOT quietly do the same thing",
-      lambda: parallel_outcome(LooseState) != "kept 3 of 3 findings",
-      "an un-annotated key written twice in one superstep is an error, not a coin toss -- "
-      "print parallel_outcome(LooseState) to see exactly which one")
-'''),
-
-    md("""
-## Section 2 &mdash; Declare a reducer per key
-
-A reducer says how two writes to the same key combine. `operator.add` appends lists and sums
-counters, so those two are written for you.
-
-The interesting one is `blocked`. Two screens ran in parallel and reached different answers; the
-reducer is where you decide, **in advance**, which answer a system like this must take.
-"""),
-    code('''
-def any_blocker(old: bool, new: bool) -> bool:
-    """The reducer for `blocked` and `needs_human`.
-
-    Two branches ran at the same time. One came back saying stop; the other saw nothing wrong.
-    Reducers must also be safe in either order -- you do not control which branch finishes first.
-    """
-    return BLANK          # TODO: combine the two so the right one wins, either way round
-
-
-class MergedState(TypedDict):
-    ref: str
-    facts: dict | None
-    findings: Annotated[list, add]              # append: every branch's findings survive
-    problems: Annotated[list, add]
-    tokens: Annotated[int, add]                 # sum: the bill is not the last write
-    blocked: Annotated[bool, any_blocker]       # your rule, applied by the framework
-    needs_human: Annotated[bool, any_blocker]
-''', '''
-def any_blocker(old: bool, new: bool) -> bool:
-    """The reducer for `blocked` and `needs_human`.
-
-    Two branches ran at the same time. One came back saying stop; the other saw nothing wrong.
-    Reducers must also be safe in either order -- you do not control which branch finishes first.
-    """
-    return bool(old) or bool(new)      # one blocker is enough to block, whichever arrives first
-
-
-class MergedState(TypedDict):
-    ref: str
-    facts: dict | None
-    findings: Annotated[list, add]              # append: every branch's findings survive
-    problems: Annotated[list, add]
-    tokens: Annotated[int, add]                 # sum: the bill is not the last write
-    blocked: Annotated[bool, any_blocker]       # your rule, applied by the framework
-    needs_human: Annotated[bool, any_blocker]
-'''),
-    code('''
-# --- Self-check: Section 2   (the same graph, the same nodes, a different state class)
-def reduced():
-    return fan_out_graph(MergedState).invoke(blank_case())
-
-check("the reducer keeps a blocker whichever branch it arrives from",
-      lambda: any_blocker(True, False) is True and any_blocker(False, True) is True,
-      "a reducer you can apply in either order is one that survives a scheduler you "
-      "do not control")
-check("and an all-clear stays clear",
-      lambda: any_blocker(False, False) is False)
-check("with reducers declared, the same graph runs at all",
-      lambda: reduced() is not None)
-check("all three specialists' findings survive",
-      lambda: len(reduced()["findings"]) == 3)
-check("...so all three are represented",
-      lambda: {f["by"] for f in reduced()["findings"]} == {"ledger", "policy", "sanctions"})
-check("the spend is the sum of all three, not whichever wrote last",
-      lambda: reduced()["tokens"] == COST["ledger"] + COST["policy"] + COST["sanctions"])
-check("one blocker is enough to block",
-      lambda: reduced()["blocked"] is True)
-check("EVERY key the parallel specialists write is declared on the state",
-      lambda: {k for _, p in _partials() for k in p} <= set(MergedState.__annotations__),
-      "this is the check to run in CI -- a new specialist writing a new key is the next "
-      "silent loss, or the next InvalidUpdateError in production")
-'''),
-
-    md("""
-## Section 3 &mdash; The test that catches it
-
-No log line shows a lost finding. What shows it is asserting that everyone you dispatched came
-back. Given whole, because the value is in running it against both merges.
-"""),
-    code('''
-def contributed(state: dict) -> set:
-    """Which specialists actually appear in the merged findings."""
-    return {f["by"] for f in (state.get("findings") or [])}
-
-
-def everyone_came_back(state: dict, dispatched) -> bool:
-    """The assertion that catches a silent parallel loss: count what came back."""
-    return set(dispatched) <= contributed(state)
-
-
-def missing(state: dict, dispatched) -> set:
-    """Who was dispatched and is not in the findings."""
-    return set(dispatched) - contributed(state)
-'''),
-    code('''
-# --- Self-check: Section 3
-_dispatched = ["ledger", "policy", "sanctions"]
-
-check("the reducer-backed graph passes the test",
-      lambda: everyone_came_back(reduced(), _dispatched) is True)
-check("the hand-rolled merge FAILS it",
-      lambda: everyone_came_back(merge_naive(base_state(), _partials()),
-                                 ["policy", "sanctions"]) is False,
-      "this single assertion is the whole defence against the bug in Section 1")
-check("and the failure names who went missing",
-      lambda: missing(merge_naive(base_state(), _partials()),
-                      ["policy", "sanctions"]) == {"policy"})
-check("nothing is missing from a correct merge",
-      lambda: missing(reduced(), _dispatched) == set())
-check("a specialist that returned no finding at all is also caught",
-      lambda: everyone_came_back(reduced(), _dispatched + ["writer"]) is False,
-      "'it ran and found nothing' and 'its result was dropped' both need to surface")
-'''),
-
-    md("""
-## Section 4 &mdash; When they disagree
-
-Three specialists say release. One, quoting the watchlist it read, says hold. Counting opinions
-gets you the wrong answer confidently &mdash; which is Module 3's poisoning lab with a quorum.
-"""),
-    code('''
-CONFLICT = [
-    {"by": "writer",    "source": "inference", "verdict": "release",
-     "claim": "nothing in the case looks unusual"},
-    {"by": "policy",    "source": "policy",    "verdict": "release",
-     "claim": "policy permits release once funded"},
-    {"by": "ledger",    "source": "ledger",    "verdict": "release",
-     "claim": "no block flag recorded against the payment"},
-    {"by": "sanctions", "source": "watchlist", "verdict": "hold",
-     "claim": "NORTHWIND is ON the watchlist"},
-]
-
-# Declared in advance, per question. On a sanctions question, compliance wins by definition.
-AUTHORITY = {"sanctions": 3, "policy": 2, "ledger": 1, "writer": 0}
-
-# Sources something other than a model can re-read.
-CHECKABLE_SOURCES = {"ledger", "policy", "watchlist"}
-
-
-def by_majority(findings: list) -> str:
-    """The tempting rule. It counts opinions, and opinions are not evidence."""
-    votes = {}
-    for f in findings:
-        votes[f["verdict"]] = votes.get(f["verdict"], 0) + 1
-    return max(votes, key=votes.get)
-
-
-def by_authority(findings: list, authority: dict = None) -> str:
-    """The declared expert on this question wins, whatever the others think."""
-    authority = AUTHORITY if authority is None else authority
-    # max() needs a key. Ranking by how many agree is by_majority, which you already have.
-    top = max(findings, key=lambda f: BLANK)   # TODO: rank one finding, by what?
-    return top["verdict"]
-
-
-def checkable(finding: dict) -> bool:
-    """Can this claim be settled by re-reading a source, rather than by asking again?"""
-    return finding["source"] in CHECKABLE_SOURCES
-
-
-def settle(findings: list) -> str:
-    """The rule THIS system uses when its specialists disagree about a release."""
-    # One of the two rules above releases a watchlisted payment. Choose the other, and be
-    # able to say why -- "three of the four said so" is not a reason a regulator accepts.
-    return BLANK(findings)                     # TODO: by_majority or by_authority?
-''', '''
-CONFLICT = [
-    {"by": "writer",    "source": "inference", "verdict": "release",
-     "claim": "nothing in the case looks unusual"},
-    {"by": "policy",    "source": "policy",    "verdict": "release",
-     "claim": "policy permits release once funded"},
-    {"by": "ledger",    "source": "ledger",    "verdict": "release",
-     "claim": "no block flag recorded against the payment"},
-    {"by": "sanctions", "source": "watchlist", "verdict": "hold",
-     "claim": "NORTHWIND is ON the watchlist"},
-]
-
-# Declared in advance, per question. On a sanctions question, compliance wins by definition.
-AUTHORITY = {"sanctions": 3, "policy": 2, "ledger": 1, "writer": 0}
-
-# Sources something other than a model can re-read.
-CHECKABLE_SOURCES = {"ledger", "policy", "watchlist"}
-
-
-def by_majority(findings: list) -> str:
-    """The tempting rule. It counts opinions, and opinions are not evidence."""
-    votes = {}
-    for f in findings:
-        votes[f["verdict"]] = votes.get(f["verdict"], 0) + 1
-    return max(votes, key=votes.get)
-
-
-def by_authority(findings: list, authority: dict = None) -> str:
-    """The declared expert on this question wins, whatever the others think."""
-    authority = AUTHORITY if authority is None else authority
-    top = max(findings, key=lambda f: authority.get(f["by"], 0))
-    return top["verdict"]
-
-
-def checkable(finding: dict) -> bool:
-    """Can this claim be settled by re-reading a source, rather than by asking again?"""
-    return finding["source"] in CHECKABLE_SOURCES
-
-
-def settle(findings: list) -> str:
-    """The rule THIS system uses when its specialists disagree about a release."""
-    # Compliance is the declared expert on a release question, so authority decides it.
-    return by_authority(findings)
-'''),
-    code('''
-# --- Self-check: Section 4
-check("three of the four say release",
-      lambda: sum(1 for f in CONFLICT if f["verdict"] == "release") == 3)
-check("so the majority rule releases a watchlisted payment",
-      lambda: by_majority(CONFLICT) == "release",
-      "confidently, unanimously among the three, and wrong")
-check("authority holds it",
-      lambda: by_authority(CONFLICT) == "hold")
-check("an agent with no declared authority ranks below every one that has it",
-      lambda: by_authority(CONFLICT + [{"by": "stranger", "source": "inference",
-                                        "verdict": "release", "claim": "looks fine"}]) == "hold")
-check("authority is declared in advance, not derived from the case",
-      lambda: set(AUTHORITY) >= {f["by"] for f in CONFLICT},
-      "a rule chosen while looking at one disagreement is a rule fitted to that disagreement")
-check("the rule you chose holds the watchlisted payment",
-      lambda: settle(CONFLICT) == "hold")
-check("...and it is not the headcount rule",
-      lambda: settle(CONFLICT) != by_majority(CONFLICT))
-check("exactly one finding rests on nothing re-readable",
-      lambda: [f["by"] for f in CONFLICT if not checkable(f)] == ["writer"])
-check("and the dissenting finding is one of the checkable ones",
-      lambda: checkable(next(f for f in CONFLICT if f["verdict"] == "hold")) is True,
-      "which is why you can settle this by reading the watchlist rather than by taking a vote")
-
-def _settle():
-    print(f"  {'rule':14}{'verdict':10}")
-    print("  " + "-" * 26)
-    print(f"  {'majority':14}{by_majority(CONFLICT):10}")
-    print(f"  {'authority':14}{by_authority(CONFLICT):10}")
-    print()
-    for f in sorted(CONFLICT, key=lambda f: -AUTHORITY.get(f["by"], 0)):
-        mark = "checkable" if checkable(f) else "not checkable"
-        print(f"  {f['by']:10} {f['verdict']:8} {mark:14} {f['claim'][:44]}")
-guard(_settle)
-'''),
-
-    md("""
-## Run it for real
-
-Hand the model the four findings and ask it to settle them. Then hand it the same four with the
-sources removed. The question is whether provenance changes its answer &mdash; and whether you would
-be willing to depend on that.
-"""),
-    code('''
-if llm_ready():
-    def _judge():
-        def render(findings, with_sources):
-            return "\\n".join(
-                (f"- [{f['by']}, source={f['source']}] {f['claim']} -> {f['verdict']}"
-                 if with_sources else f"- {f['claim']} -> {f['verdict']}")
-                for f in findings)
-        for label, sourced in (("with sources   ", True), ("without sources", False)):
-            reply = ask("Four agents disagree about whether one payment may be released. "
-                        "Give the verdict and one sentence of reasoning.\\n\\n"
-                        + render(CONFLICT, sourced))
-            print(f"  [{label}] {reply.strip()[:200]}")
-            print()
-    guard(_judge)
-'''),
-    md("""
-### Read it
-
-If removing the sources flips the answer to *release*, provenance did the work &mdash; and that is
-good news, because provenance is something you control. If the model holds either way, do not
-turn that into a control: `by_authority` is four lines and cannot be argued out of its answer.
-
-**What you take from this lab:** declare a reducer for every key two branches can write &mdash; the
-framework will tell you when you have not, but only in the branches you actually exercise; assert
-that everyone you dispatched came back; and settle disagreements on authority and sources rather
-than on a headcount.
-"""),
-
-    code('''
-score()
-'''),
-    md("""
-## Your turn
-
-1. Add a fourth node to `fan_out_graph` that writes a key `MergedState` does not declare. Does
-   LangGraph reject the update, ignore it, or accept it? Whatever it does, decide how you would
-   have found out in production.
-2. `by_authority` breaks ties arbitrarily. Two equal-authority agents disagreeing is a real case:
-   decide whether it escalates or falls back to provenance, and write it.
-3. `any_blocker` ORs, so one blocker blocks. Build the opposite case &mdash; a key where OR is wrong
-   &mdash; and say what that tells you about choosing a reducer from the data type alone.
-"""),
-]
-
-
-# =========================================================================== #
-# Lab 5.4 -- human-in-the-loop: interrupt, approve, time out, escalate
-# =========================================================================== #
-LAB4 = [
-    header(4, "Human-in-the-Loop as an Orchestration Mechanism", "Advanced", 40,
-           ["Stop a compiled graph before the irreversible node with <code>interrupt_before</code>",
-            "Resume it, recording an identity rather than a boolean",
-            "Time out, and climb an escalation ladder that actually terminates",
-            "Rewind into the gate and find out who the interrupt really belongs to"],
-           "> **Module 3's checkpointing, applied.** You can only pause a run whose state you can\n"
-           "> write down and pick up again &mdash; an approval gate is that mechanism with a person in it."),
-    setup(4),
-    code(DOMAIN),
-    code(AGENTKIT),
-
-    md("""
-## Concept
-
-Human-in-the-loop appears twice in this course. Here it is an **orchestration mechanism**: a way
-to pause a graph, ask, and carry on. In Module 8 the same machinery is a **safety control**.
-
-Four parts, and the one people leave out is the third:
-
-| | |
-|---|---|
-| **interrupt** | `compile(interrupt_before=[...])` &mdash; stop before a named node, state saved |
-| **approve** | `update_state` who said yes, then `invoke(None, cfg)` to carry on |
-| **timeout** | a gate with no deadline is a run that waits until Monday |
-| **escalate** | expiry is not refusal and not approval &mdash; it is a different queue |
-
-One thing that is **not** true: &ldquo;an approval gate needs a checkpointer&rdquo;. A gate that
-simply refuses to act without a named approver needs nothing at all &mdash; you will build one in
-Section 1's `node_release`. What needs a checkpointer is **pause and resume**: stopping now and
-finishing later, from another process, after the person replies.
-"""),
-
-    md("""
-## Section 1 &mdash; Interrupt before the irreversible node
-
-The graph from Lab 5.2, with one more node on the end that actually changes something. The
-checkpointer writes the state after every node; `interrupt_before` says where not to walk past.
-"""),
-    code('''
-from typing import Annotated
-from typing_extensions import TypedDict
-from operator import add
-from langgraph.graph import StateGraph, START, END
-from langgraph.checkpoint.memory import InMemorySaver
-
-RELEASED = set()          # the irreversible side effect, so we can prove whether it happened
-
-GATED_NODES = ["release"]  # nodes that may not run unattended
-
-
-class GateState(TypedDict):
-    ref: str
-    facts: dict | None
-    findings: Annotated[list, add]
-    problems: Annotated[list, add]
-    tokens: Annotated[int, add]
-    blocked: bool
-    needs_human: bool
-    recommendation: str | None
-    rationale: list
-    approved_by: str | None
-    released: bool
-
-
-def node_release(state: GateState) -> dict:
-    """The one node that changes the world. It refuses unless a PERSON is named.
-
-    This much needs no checkpointer: it is a gate because the tool will not fire without
-    an approver in state. The checkpointer is what lets the person answer tomorrow.
-    """
-    who = state.get("approved_by")
-    if not isinstance(who, str) or not who.strip():
-        return {"released": False, "tokens": 10,
-                "problems": ["release refused: no named human approver"]}
-    RELEASED.add(state["ref"])
-    return {"released": True, "tokens": 40}
-
-
-def node_release_unattended(state: GateState) -> dict:
-    """The same action with the review moved to the END of the run. It just goes."""
-    RELEASED.add(state["ref"])
-    return {"released": True, "tokens": 40}
-
-
-def build(checkpointer=None, gate: bool = True):
-    g = StateGraph(GateState)
-    g.add_node("read", agent_ledger)
-    g.add_node("policy", agent_policy)
-    g.add_node("screen", agent_sanctions)
-    g.add_node("recommend", agent_writer)
-    g.add_node("release", node_release if gate else node_release_unattended)
-    g.add_edge(START, "read")
-    g.add_edge("read", "policy")
-    g.add_edge("read", "screen")
-    g.add_edge("policy", "recommend")
-    g.add_edge("screen", "recommend")
-    g.add_edge("recommend", "release")
-    g.add_edge("release", END)
-    # An approval gate is a place the graph is not allowed to walk past on its own.
-    return g.compile(checkpointer=checkpointer,
-                     interrupt_before=BLANK if gate else [])
-    #                                 ^ TODO: the nodes a human must see BEFORE they run
-
-
-def cfg(thread_id: str) -> dict:
-    """A thread is one case. Two cases must never share one."""
-    return {"configurable": {"thread_id": thread_id}}
-
-
-def fresh_gate(ref: str) -> dict:
-    return {"ref": ref, "facts": None, "findings": [], "problems": [], "tokens": 0,
-            "blocked": False, "needs_human": False, "recommendation": None,
-            "rationale": [], "approved_by": None, "released": False}
-
-
-def pending(app, thread: str):
-    """What is this thread waiting to do?"""
-    return app.get_state(cfg(thread)).next
-''', '''
-from typing import Annotated
-from typing_extensions import TypedDict
-from operator import add
-from langgraph.graph import StateGraph, START, END
-from langgraph.checkpoint.memory import InMemorySaver
-
-RELEASED = set()          # the irreversible side effect, so we can prove whether it happened
-
-GATED_NODES = ["release"]  # nodes that may not run unattended
-
-
-class GateState(TypedDict):
-    ref: str
-    facts: dict | None
-    findings: Annotated[list, add]
-    problems: Annotated[list, add]
-    tokens: Annotated[int, add]
-    blocked: bool
-    needs_human: bool
-    recommendation: str | None
-    rationale: list
-    approved_by: str | None
-    released: bool
-
-
-def node_release(state: GateState) -> dict:
-    """The one node that changes the world. It refuses unless a PERSON is named.
-
-    This much needs no checkpointer: it is a gate because the tool will not fire without
-    an approver in state. The checkpointer is what lets the person answer tomorrow.
-    """
-    who = state.get("approved_by")
-    if not isinstance(who, str) or not who.strip():
-        return {"released": False, "tokens": 10,
-                "problems": ["release refused: no named human approver"]}
-    RELEASED.add(state["ref"])
-    return {"released": True, "tokens": 40}
-
-
-def node_release_unattended(state: GateState) -> dict:
-    """The same action with the review moved to the END of the run. It just goes."""
-    RELEASED.add(state["ref"])
-    return {"released": True, "tokens": 40}
-
-
-def build(checkpointer=None, gate: bool = True):
-    g = StateGraph(GateState)
-    g.add_node("read", agent_ledger)
-    g.add_node("policy", agent_policy)
-    g.add_node("screen", agent_sanctions)
-    g.add_node("recommend", agent_writer)
-    g.add_node("release", node_release if gate else node_release_unattended)
-    g.add_edge(START, "read")
-    g.add_edge("read", "policy")
-    g.add_edge("read", "screen")
-    g.add_edge("policy", "recommend")
-    g.add_edge("screen", "recommend")
-    g.add_edge("recommend", "release")
-    g.add_edge("release", END)
-    # An approval gate is a place the graph is not allowed to walk past on its own.
-    return g.compile(checkpointer=checkpointer,
-                     interrupt_before=GATED_NODES if gate else [])
-
-
-def cfg(thread_id: str) -> dict:
-    """A thread is one case. Two cases must never share one."""
-    return {"configurable": {"thread_id": thread_id}}
-
-
-def fresh_gate(ref: str) -> dict:
-    return {"ref": ref, "facts": None, "findings": [], "problems": [], "tokens": 0,
-            "blocked": False, "needs_human": False, "recommendation": None,
-            "rationale": [], "approved_by": None, "released": False}
-
-
-def pending(app, thread: str):
-    """What is this thread waiting to do?"""
-    return app.get_state(cfg(thread)).next
-'''),
-    code('''
-# --- Self-check: Section 1   (a real checkpointed graph hitting a real interrupt -- no model)
-def started(thread: str = "g1", ref: str = "PMT-1005"):
-    """A fresh saver, a fresh thread, run until it stops."""
-    RELEASED.clear()
-    app = build(checkpointer=InMemorySaver())
-    app.invoke(fresh_gate(ref), cfg(thread))
-    return app
-
-check("the run stops instead of finishing",
-      lambda: pending(started(), "g1") == ("release",))
-check("NOTHING WAS RELEASED",
-      lambda: (started(), "PMT-1005" not in RELEASED)[1] is True,
-      "the point of interrupting BEFORE the node rather than after it")
-check("everything before the gate did run",
-      lambda: len(started().get_state(cfg("g1")).values["findings"]) == 3)
-check("so the human is looking at evidence, not at a blank form",
-      lambda: started().get_state(cfg("g1")).values["recommendation"] == "hold for a human")
-check("the checkpointer wrote a checkpoint per step, not one at the end",
-      lambda: len(list(started().get_state_history(cfg("g1")))) >= 4,
-      "that is what makes resuming, rewinding and auditing possible at all")
-def _ungated():
-    """The same graph compiled with no interrupt at all."""
-    RELEASED.clear()
-    app = build(checkpointer=InMemorySaver(), gate=False)
-    app.invoke(fresh_gate("PMT-1002"), cfg("g0"))
-    return app
-
-check("an ungated build runs straight through to the end",
-      lambda: pending(_ungated(), "g0") == (),
-      "nothing pending means nothing stopped it -- and PMT-1002 has now been released")
-check("two cases on two threads do not see each other",
-      lambda: started("gA").get_state(cfg("gB")).values in ({}, None),
-      "one thread per case is the whole of the isolation you get")
-'''),
-
-    md("""
-## Section 2 &mdash; Approval is an identity, not a boolean
-
-Resuming is two calls. First write what the human decided into the checkpoint with
-`update_state`; then `invoke(None, cfg)` &mdash; **`None` means carry on**, not start again.
-
-`node_release` above already refuses anything that is not a name. So the only question left is
-what an approval has to put into state for it to be satisfied.
-"""),
-    code('''
-def resume_unapproved(app, thread: str) -> dict:
-    """Carry on with nothing written. The release node decides what to do about that."""
-    return app.invoke(None, cfg(thread))
-
-
-def approve(app, thread: str, approved_by: str) -> dict:
-    """Record WHO approved, then carry on.
-
-    'approved: true' answers none of the questions an auditor asks -- who, and on what
-    evidence. So the caller must hand over a name, and the name goes into the state that
-    the release node reads.
-    """
-    if not isinstance(approved_by, str) or not approved_by.strip():
-        raise ValueError("an approval needs a named human")
-    app.update_state(cfg(thread), BLANK)   # TODO: the state update node_release is waiting for
-    return app.invoke(None, cfg(thread))
-''', '''
-def resume_unapproved(app, thread: str) -> dict:
-    """Carry on with nothing written. The release node decides what to do about that."""
-    return app.invoke(None, cfg(thread))
-
-
-def approve(app, thread: str, approved_by: str) -> dict:
-    """Record WHO approved, then carry on.
-
-    'approved: true' answers none of the questions an auditor asks -- who, and on what
-    evidence. So the caller must hand over a name, and the name goes into the state that
-    the release node reads.
-    """
-    if not isinstance(approved_by, str) or not approved_by.strip():
-        raise ValueError("an approval needs a named human")
-    app.update_state(cfg(thread), {"approved_by": approved_by})
-    return app.invoke(None, cfg(thread))
-'''),
-    code('''
-# --- Self-check: Section 2   (real update_state, real resume -- no model)
-def _unapproved():
-    return resume_unapproved(started("s2a"), "s2a")
-
-def _approved(who="ops-duty-manager"):
-    app = started("s2b")
-    return app, approve(app, "s2b", who)
-
-def _refused_with(who):
-    """Approving with something that is not a name must leave the world unchanged."""
-    app = started("s2c")
-    try:
-        approve(app, "s2c", who)
-    except NameError:
-        raise
-    except ValueError:
-        pass
-    return "PMT-1005" not in RELEASED
-
-check("resuming with nothing written does not release",
-      lambda: _unapproved()["released"] is False)
-check("...and it says why, in state a person can read",
-      lambda: any("no named human approver" in p for p in _unapproved()["problems"]))
-check("a bare True is not an approver",
-      lambda: _refused_with(True) is True,
-      "'approved: true' cannot answer 'who approved this, and on what evidence?'")
-check("nor is an empty string",
-      lambda: _refused_with("   ") is True)
-check("a named human opens the gate",
-      lambda: _approved()[1]["released"] is True)
-check("and the payment actually went",
-      lambda: (_approved(), "PMT-1005" in RELEASED)[1] is True)
-check("the approver's name is on the final state, not just a flag",
-      lambda: _approved()[1]["approved_by"] == "ops-duty-manager")
-check("after resuming there is nothing pending",
-      lambda: pending(_approved()[0], "s2b") == ())
-check("the work done before the pause was kept, not redone",
-      lambda: _approved()[1]["tokens"]
-              == COST["ledger"] + COST["policy"] + COST["sanctions"] + COST["writer"] + 40,
-      "a pause is not a rollback -- the checkpoint carried the findings and the bill across")
-'''),
-
-    md("""
-## Section 3 &mdash; Timeout, and a ladder that ends
-
-A gate with no deadline is a run that waits for someone who has gone home. The ladder is given;
-the decision is what the deadline passing actually *means*.
-"""),
-    code('''
-ESCALATION = ["ops-duty-manager", "treasury-lead", "head-of-operations"]
-
-def escalate(current, ladder=None):
-    """Who to ask next. None means the ladder is exhausted and a person must own it manually."""
-    ladder = ESCALATION if ladder is None else ladder
-    if current is None:
-        return ladder[0]
-    if current not in ladder:
-        return None
-    i = ladder.index(current)
-    return ladder[i + 1] if i + 1 < len(ladder) else None
-
-
-def gate_status(waited_s: int, deadline_s: int, approver=None) -> str:
-    """What to do with a gate that has been waiting."""
-    if isinstance(approver, str) and approver.strip():
-        return "approved"
-    if waited_s < deadline_s:
-        return "waiting"
-    # The deadline passed and nobody answered. That is not a yes, and it is not a no.
-    return BLANK          # TODO: one word, and it must not be "approved" or "refused"
-''', '''
-ESCALATION = ["ops-duty-manager", "treasury-lead", "head-of-operations"]
-
-def escalate(current, ladder=None):
-    """Who to ask next. None means the ladder is exhausted and a person must own it manually."""
-    ladder = ESCALATION if ladder is None else ladder
-    if current is None:
-        return ladder[0]
-    if current not in ladder:
-        return None
-    i = ladder.index(current)
-    return ladder[i + 1] if i + 1 < len(ladder) else None
-
-
-def gate_status(waited_s: int, deadline_s: int, approver=None) -> str:
-    """What to do with a gate that has been waiting."""
-    if isinstance(approver, str) and approver.strip():
-        return "approved"
-    if waited_s < deadline_s:
-        return "waiting"
-    # The deadline passed and nobody answered. That is not a yes, and it is not a no --
-    # it is a different queue, and someone further up owns it now.
-    return "escalate"
-'''),
-    code('''
-# --- Self-check: Section 3
-check("an unopened gate starts at the bottom of the ladder",
-      lambda: escalate(None) == "ops-duty-manager")
-check("and climbs one rung at a time",
-      lambda: escalate("ops-duty-manager") == "treasury-lead")
-check("the ladder TERMINATES",
-      lambda: escalate("head-of-operations") is None,
-      "an escalation path that loops is a gate that never resolves")
-check("someone outside the ladder cannot be escalated from",
-      lambda: escalate("a-passing-colleague") is None)
-check("inside the deadline the gate simply waits",
-      lambda: gate_status(waited_s=30, deadline_s=900) == "waiting")
-check("an approval short-circuits the deadline entirely",
-      lambda: gate_status(waited_s=99999, deadline_s=900, approver="treasury-lead") == "approved")
-check("expiry is neither approval nor refusal",
-      lambda: gate_status(waited_s=901, deadline_s=900) not in ("approved", "refused"),
-      "a timeout that auto-approves is not a gate; one that auto-refuses loses real work")
-check("and what it is instead is something the ladder can act on",
-      lambda: gate_status(waited_s=901, deadline_s=900) == "escalate")
-
-def _ladder():
-    who, waited = None, 0
-    while True:
-        who = escalate(who)
-        if who is None:
-            print("  ladder exhausted -- this case now belongs to a person, not to the graph")
-            break
-        waited += 900
-        print(f"  after {waited // 60:>3} min -> ask {who}  ({gate_status(waited, 900)})")
-guard(_ladder)
-'''),
-
-    md("""
-## Section 4 &mdash; Placement, and who the interrupt belongs to
-
-Two questions decide whether you built a gate or a notification.
-
-**Where is it?** At the moment the human says no, has anything irreversible already happened?
-
-**Whose is it?** Rewind to an earlier checkpoint and replay. A run-scoped interrupt would sail
-through; a graph-scoped one stops again. Find out which you have &mdash; this catches people out.
-"""),
-    code('''
-def no_is_free(gate: bool, ref: str = "PMT-1005") -> bool:
-    """Run it, have nobody approve, and ask whether anything happened anyway."""
-    RELEASED.clear()
-    app = build(checkpointer=InMemorySaver(), gate=gate)
-    app.invoke(fresh_gate(ref), cfg("placement"))
-    return ref not in RELEASED
-
-
-def checkpoint_before(app, thread: str, node: str):
-    """The config of the checkpoint at which `node` was the next thing to run."""
-    for snap in app.get_state_history(cfg(thread)):
-        if snap.next == (node,):
-            return snap.config      # a config carrying that checkpoint_id, not just the thread
-    return None
-
-
-def rewind_and_replay(thread: str = "rw"):
-    """Approve once, then go back to before the recommendation and run it again."""
-    app = started(thread)
-    approve(app, thread, "ops-duty-manager")            # it completed, once
-    back = checkpoint_before(app, thread, "recommend")
-    app.invoke(None, back)                              # replay from the older checkpoint
-    return app
-''', '''
-def no_is_free(gate: bool, ref: str = "PMT-1005") -> bool:
-    """Run it, have nobody approve, and ask whether anything happened anyway."""
-    RELEASED.clear()
-    app = build(checkpointer=InMemorySaver(), gate=gate)
-    app.invoke(fresh_gate(ref), cfg("placement"))
-    return ref not in RELEASED
-
-
-def checkpoint_before(app, thread: str, node: str):
-    """The config of the checkpoint at which `node` was the next thing to run."""
-    for snap in app.get_state_history(cfg(thread)):
-        if snap.next == (node,):
-            return snap.config      # a config carrying that checkpoint_id, not just the thread
-    return None
-
-
-def rewind_and_replay(thread: str = "rw"):
-    """Approve once, then go back to before the recommendation and run it again."""
-    app = started(thread)
-    approve(app, thread, "ops-duty-manager")            # it completed, once
-    back = checkpoint_before(app, thread, "recommend")
-    app.invoke(None, back)                              # replay from the older checkpoint
-    return app
-'''),
-    code('''
-# --- Self-check: Section 4
-check("with the gate before the write, saying nothing costs nothing",
-      lambda: no_is_free(gate=True) is True)
-check("with the review after the write, the payment already went",
-      lambda: no_is_free(gate=False) is False,
-      "the reviewer sees a complete, sourced summary of something they can no longer stop")
-check("both runs showed the reviewer exactly the same evidence",
-      lambda: len(started("cmp").get_state(cfg("cmp")).values["findings"]) == 3,
-      "quality of evidence was never the difference -- placement was")
-check("checkpoint_before finds a real point in the past",
-      lambda: checkpoint_before(started("cb"), "cb", "recommend") is not None)
-check("what it returns addresses a checkpoint, not just the thread",
-      lambda: "checkpoint_id" in checkpoint_before(started("cb2"), "cb2",
-                                                   "recommend")["configurable"],
-      "a config with only a thread_id points at NOW, which is not a rewind")
-check("rewinding into a gated graph PAUSES AT THE GATE AGAIN",
-      lambda: pending(rewind_and_replay("rw1"), "rw1") == ("release",),
-      "the interrupt belongs to the compiled graph, not to a run -- every path through it "
-      "pauses, including a replay of one that was already approved")
-check("and the earlier approval did not come back with the rewind",
-      lambda: rewind_and_replay("rw2").get_state(cfg("rw2")).values["approved_by"] is None,
-      "you rewound to a checkpoint that predates the approval, so the person decides again")
-
-def _placement():
-    for label, gate in (("before the write", True), ("after the write ", False)):
-        free = no_is_free(gate=gate)
-        print(f"  gate {label}:  'no' still free? {'yes -- a gate' if free else 'NO -- a notification'}")
-    app = rewind_and_replay("rw3")
-    print(f"\\n  after the rewind the thread is pending: {pending(app, 'rw3')}")
-guard(_placement)
-'''),
-
-    md("""
-## Run it for real
-
-Render the checkpoint the way a human reviewer would see it and ask the model to write the
-approval request. What you are judging is whether the state you checkpointed contains enough for
-a person to say no.
-"""),
-    code('''
-if llm_ready():
-    def _brief():
-        app = started("brief")
-        values = app.get_state(cfg("brief")).values
-        evidence = "\\n".join(f"- [{f['by']}, source={f['source']}] {f['claim']}"
-                             for f in values["findings"])
-        reply = ask("Write a short approval request for a duty manager. State what is being asked, "
-                    "the evidence for and against, and what happens if they do nothing.\\n\\n"
-                    f"Action awaiting approval: {pending(app, 'brief')} {values['ref']}\\n"
-                    f"Agent recommendation: {values.get('recommendation')}\\n"
-                    f"Findings:\\n{evidence}")
-        print(reply.strip()[:600])
-    guard(_brief)
-'''),
-    md("""
-### Read it
-
-If the model has to hedge or invent, your checkpoint is missing something a reviewer needs &mdash;
-and that is a state design problem, not a prompt problem. A good approval request is mostly a
-rendering of state you already had.
-
-**Section 4 is the one to look at twice.** The replay ran forward and stopped at the gate again,
-even though that thread had already been approved once. The interrupt is a property of the
-**compiled graph**, not of a run: every path through it pauses. People who assume otherwise build
-a &ldquo;replay for audit&rdquo; feature and are surprised to find it asking for approvals.
-
-**What you take from this lab:** interrupt before the node, not after it; record an identity
-rather than a boolean; give every gate a deadline and a ladder that ends; and remember that the
-refusal in `node_release` needed no checkpointer at all &mdash; the checkpointer bought you *later*,
-not *safer*.
-"""),
-
-    code('''
-score()
-'''),
-    md("""
-## Your turn
-
-1. Swap `InMemorySaver` for `SqliteSaver` pointed at a file under `WORK`. Run to the gate,
-   restart the kernel, rebuild against the same file and resume. That is recovery after a crash,
-   and it is why in-memory is a development convenience only.
-2. Gate on a **condition** rather than always: pause only when `needs_human` is true.
-   `interrupt_before` is static, so this belongs in a conditional edge to a node that interrupts.
-   Confirm PMT-1002 runs straight through.
-3. `approve` trusts its caller for the name. Where does that name actually have to come from for
-   the audit trail to mean anything, and what stops an agent from supplying it?
-"""),
-]
-
-
-# =========================================================================== #
-# Lab 5.5 -- challenge: the scorecard, and when the answer is "don't"
-# =========================================================================== #
-LAB5 = [
-    header(5, "Challenge: The Scorecard", "Advanced &middot; challenge", 45,
-           ["State the ground truth &mdash; what the right recommendation actually is, and why",
-            "Run a single agent and a four-node <code>StateGraph</code> over the same cases",
-            "Price both: quality, tokens, and the critical path &mdash; and check the multiple",
-            "Turn it into a decision that names what a wrong answer costs"],
-           "> **The module's deliverable.** Not a graph &mdash; an argument about whether to build one,\n"
-           "> with numbers in it that a risk owner can agree or disagree with."),
-    setup(5),
-    code(DOMAIN),
-    code(AGENTKIT),
-
-    md("""
-## Concept
-
-You have a single agent from Day 1 and a graph from this module. The question is not which is
-more sophisticated. It is whether the errors the graph prevents are worth the tokens it burns.
-
-**What is graded here** is the scorecard machinery: the ground truth, the metric, the cost model
-and the decision rule. The graph is a real compiled `StateGraph` and the single agent is a plain
-function, both deterministic, so the comparison is exact and repeatable offline. Point the same
-machinery at your own system and only the numbers move.
-"""),
-
-    md("""
-## Section 1 &mdash; Ground truth
-
-Before measuring anything, say what the right answer is. Two cases are added here: a watchlisted
-counterparty whose reason code says nothing whatever about sanctions. Those are the cases that
-separate the two designs, and real case files are full of them.
-"""),
-    code('''
-EXTRA = {
-    "PMT-1006": {"amount": 62000.00, "ccy": "USD", "counterparty": "NORTHWIND",
-                 "status": "failed", "value_date": "2026-09-03",
-                 "reason_code": "INSUFFICIENT_FUNDS"},
-    "PMT-1007": {"amount":  8400.00, "ccy": "GBP", "counterparty": "NORTHWIND",
-                 "status": "failed", "value_date": "2026-09-03",
-                 "reason_code": "INVALID_IBAN"},
-}
-LEDGER.update(EXTRA)          # the specialists read LEDGER, so the new cases must be in it
-CASES = dict(LEDGER)
-
-
-def expected_recommendation(record: dict) -> str:
-    """The correct answer for one payment, independent of any agent."""
-    if record["status"] == "settled":
-        return "no action"
-    # Two independent conditions each force a hold. One is about why the payment failed;
-    # the other is about who is being paid, and no reason code ever hints at it.
-    if BLANK:                          # TODO: the two conditions, either of which holds it
-        return "hold for a human"
-    return "release"
-
-
-def eval_cases() -> list:
-    """The cases paired with their ground-truth answers. Built on demand, not at import:
-    a module-level call into a function with a blank in it crashes the whole cell."""
-    return [(ref, expected_recommendation(rec)) for ref, rec in sorted(CASES.items())]
-''', '''
-EXTRA = {
-    "PMT-1006": {"amount": 62000.00, "ccy": "USD", "counterparty": "NORTHWIND",
-                 "status": "failed", "value_date": "2026-09-03",
-                 "reason_code": "INSUFFICIENT_FUNDS"},
-    "PMT-1007": {"amount":  8400.00, "ccy": "GBP", "counterparty": "NORTHWIND",
-                 "status": "failed", "value_date": "2026-09-03",
-                 "reason_code": "INVALID_IBAN"},
-}
-LEDGER.update(EXTRA)          # the specialists read LEDGER, so the new cases must be in it
-CASES = dict(LEDGER)
-
-
-def expected_recommendation(record: dict) -> str:
-    """The correct answer for one payment, independent of any agent."""
-    if record["status"] == "settled":
-        return "no action"
-    # Two independent conditions each force a hold. One is about why the payment failed;
-    # the other is about who is being paid, and no reason code ever hints at it.
-    if record["reason_code"] in NEEDS_HUMAN or record["counterparty"] in SANCTIONS_WATCH:
-        return "hold for a human"
-    return "release"
-
-
-def eval_cases() -> list:
-    """The cases paired with their ground-truth answers. Built on demand, not at import:
-    a module-level call into a function with a blank in it crashes the whole cell."""
-    return [(ref, expected_recommendation(rec)) for ref, rec in sorted(CASES.items())]
-'''),
-    code('''
-# --- Self-check: Section 1
-check("a settled payment needs no action",
-      lambda: expected_recommendation(CASES["PMT-1001"]) == "no action")
-check("a sanctions review is held",
-      lambda: expected_recommendation(CASES["PMT-1005"]) == "hold for a human")
-check("so is a limit breach",
-      lambda: expected_recommendation(CASES["PMT-1003"]) == "hold for a human")
-check("an ordinary funding failure to an unlisted party is released",
-      lambda: expected_recommendation(CASES["PMT-1002"]) == "release")
-check("a watchlisted counterparty is held even when its reason code is mundane",
-      lambda: expected_recommendation(CASES["PMT-1006"]) == "hold for a human",
-      "nothing in INSUFFICIENT_FUNDS hints at sanctions -- the counterparty is the whole reason")
-check("and again for the second one",
-      lambda: expected_recommendation(CASES["PMT-1007"]) == "hold for a human")
-check("the eval set covers all three outcomes",
-      lambda: {e for _, e in eval_cases()} == {"no action", "hold for a human", "release"})
-check("seven cases in total",
-      lambda: len(eval_cases()) == 7)
-'''),
-
-    md("""
-## Section 2 &mdash; The two designs
-
-The single agent reads the payment, consults policy when there is a reason code, and screens the
-counterparty **only when something in the case points at sanctions**. That is not a strawman: it
-is what one prompt with a step budget does &mdash; it follows the happy path the case suggests.
-
-The graph does not get to choose. Every specialist is on an unconditional edge, so every
-specialist runs. That is the whole of its advantage, and the whole of its cost.
-"""),
-    code('''
-from typing import Annotated
-from typing_extensions import TypedDict
-from operator import add
-from langgraph.graph import StateGraph, START, END
-
-class ScoreState(TypedDict):
-    ref: str
-    facts: dict | None
-    findings: Annotated[list, add]
-    problems: Annotated[list, add]
-    tokens: Annotated[int, add]
-    blocked: bool
-    needs_human: bool
-    recommendation: str | None
-    rationale: list
-
-
-def build_scorecard_graph():
-    """Every specialist, every time."""
-    g = StateGraph(ScoreState)
-    g.add_node("read", agent_ledger)
-    g.add_node("policy", agent_policy)
-    g.add_node("screen", agent_sanctions)
-    g.add_node("recommend", agent_writer)
-    g.add_edge(START, "read")
-    g.add_edge("read", "policy")
-    # The single agent screens only when the case points at sanctions. An unconditional edge
-    # is the entire difference between the two designs -- so it has to be to the right node.
-    g.add_edge("read", BLANK)          # TODO: which specialist must run whether the case
-    #                                          looks like it needs one or not?
-    g.add_edge("policy", "recommend")
-    g.add_edge("screen", "recommend")
-    g.add_edge("recommend", END)
-    return g.compile()
-
-
-def fresh_score(ref: str) -> dict:
-    return {"ref": ref, "facts": None, "findings": [], "problems": [], "tokens": 0,
-            "blocked": False, "needs_human": False, "recommendation": None, "rationale": []}
-
-
-def single_agent(ref: str) -> dict:
-    """One agent, one context. Reads, consults policy, screens only if prompted to."""
-    record = CASES.get(ref)
-    used = ["ledger"]
-    if record is None:
-        return {"recommendation": "no action", "used": used, "dispatches": 0}
-    needs_human = False
-    if record["reason_code"]:
-        used.append("policy")
-        needs_human = record["reason_code"] in NEEDS_HUMAN
-    if record["reason_code"] == "SANCTIONS_REVIEW":     # the only prompt it ever gets
-        used.append("sanctions")
-        needs_human = needs_human or record["counterparty"] in SANCTIONS_WATCH
-    used.append("writer")
-    if record["status"] == "settled":
-        action = "no action"
-    elif needs_human:
-        action = "hold for a human"
-    else:
-        action = "release"
-    return {"recommendation": action, "used": used, "dispatches": 0}
-
-
-def graph_agent(ref: str) -> dict:
-    """Supervisor plus four specialists, as a compiled graph. Four dispatches, every time."""
-    out = build_scorecard_graph().invoke(fresh_score(ref))
-    return {"recommendation": out["recommendation"],
-            "used": ["ledger", "policy", "sanctions", "writer"], "dispatches": 4}
-''', '''
-from typing import Annotated
-from typing_extensions import TypedDict
-from operator import add
-from langgraph.graph import StateGraph, START, END
-
-class ScoreState(TypedDict):
-    ref: str
-    facts: dict | None
-    findings: Annotated[list, add]
-    problems: Annotated[list, add]
-    tokens: Annotated[int, add]
-    blocked: bool
-    needs_human: bool
-    recommendation: str | None
-    rationale: list
-
-
-def build_scorecard_graph():
-    """Every specialist, every time."""
-    g = StateGraph(ScoreState)
-    g.add_node("read", agent_ledger)
-    g.add_node("policy", agent_policy)
-    g.add_node("screen", agent_sanctions)
-    g.add_node("recommend", agent_writer)
-    g.add_edge(START, "read")
-    g.add_edge("read", "policy")
-    # The single agent screens only when the case points at sanctions. An unconditional edge
-    # is the entire difference between the two designs -- so it has to be to the right node.
-    g.add_edge("read", "screen")
-    g.add_edge("policy", "recommend")
-    g.add_edge("screen", "recommend")
-    g.add_edge("recommend", END)
-    return g.compile()
-
-
-def fresh_score(ref: str) -> dict:
-    return {"ref": ref, "facts": None, "findings": [], "problems": [], "tokens": 0,
-            "blocked": False, "needs_human": False, "recommendation": None, "rationale": []}
-
-
-def single_agent(ref: str) -> dict:
-    """One agent, one context. Reads, consults policy, screens only if prompted to."""
-    record = CASES.get(ref)
-    used = ["ledger"]
-    if record is None:
-        return {"recommendation": "no action", "used": used, "dispatches": 0}
-    needs_human = False
-    if record["reason_code"]:
-        used.append("policy")
-        needs_human = record["reason_code"] in NEEDS_HUMAN
-    if record["reason_code"] == "SANCTIONS_REVIEW":     # the only prompt it ever gets
-        used.append("sanctions")
-        needs_human = needs_human or record["counterparty"] in SANCTIONS_WATCH
-    used.append("writer")
-    if record["status"] == "settled":
-        action = "no action"
-    elif needs_human:
-        action = "hold for a human"
-    else:
-        action = "release"
-    return {"recommendation": action, "used": used, "dispatches": 0}
-
-
-def graph_agent(ref: str) -> dict:
-    """Supervisor plus four specialists, as a compiled graph. Four dispatches, every time."""
-    out = build_scorecard_graph().invoke(fresh_score(ref))
-    return {"recommendation": out["recommendation"],
-            "used": ["ledger", "policy", "sanctions", "writer"], "dispatches": 4}
-'''),
-    code('''
-# --- Self-check: Section 2   (a real compiled graph over every case -- no model)
-check("the scorecard graph compiles",
-      lambda: build_scorecard_graph() is not None)
-check("the screen runs even when the reason code says nothing about sanctions",
-      lambda: any(f["by"] == "sanctions"
-                  for f in build_scorecard_graph().invoke(fresh_score("PMT-1006"))["findings"]),
-      "that unconditional edge IS the design difference this lab is about to price")
-check("so the graph catches the watchlisted counterparty",
-      lambda: graph_agent("PMT-1006")["recommendation"] == "hold for a human")
-check("and the single agent does not, because nothing told it to look",
-      lambda: single_agent("PMT-1006")["recommendation"] == "release")
-check("on the case that DOES point at sanctions, both agree",
-      lambda: single_agent("PMT-1005")["recommendation"]
-              == graph_agent("PMT-1005")["recommendation"] == "hold for a human")
-
-def _side_by_side():
-    print(f"  {'case':10}{'expected':18}{'single':18}{'graph':18}")
-    print("  " + "-" * 62)
-    for ref, expected in eval_cases():
-        s, g = single_agent(ref)["recommendation"], graph_agent(ref)["recommendation"]
-        flag = "" if s == expected else "   <-- single is wrong"
-        print(f"  {ref:10}{expected:18}{s:18}{g:18}{flag}")
-guard(_side_by_side)
-'''),
-
-    md("""
-## Section 3 &mdash; Score and price them
-
-Quality is agreement with the ground truth. Cost is what each design woke up, plus &mdash; and this
-is the assumption that does all the work &mdash; the case context re-sent to every specialist you
-dispatch. Make that assumption visible, then vary it.
-"""),
-    code('''
-CONTEXT_TOKENS = 600      # the case file re-sent at each hop: payment, policy text, findings
-
-def run_cost(result: dict, context_tokens: int = CONTEXT_TOKENS) -> int:
-    """Tokens for one case.
-
-    A single agent holds ONE context and reuses it across its own turns. A graph re-sends the
-    case context to every specialist it dispatches, and pays a supervisor to route each time.
-    The re-sending is where a cost multiple comes from -- not from the agents themselves.
-    """
-    specialists = sum(COST[a] for a in result["used"])
-    dispatches = result.get("dispatches", 0)
-    contexts = dispatches if dispatches else 1
-    return specialists + context_tokens * contexts + COST["supervisor"] * dispatches
-
-
-def evaluate(design, context_tokens: int = CONTEXT_TOKENS) -> dict:
-    """Run one design over every case. Returns correct count, accuracy and total tokens."""
-    correct, tokens, misses = 0, 0, []
-    for ref, expected in eval_cases():
-        result = design(ref)
-        tokens += run_cost(result, context_tokens)
-        if result["recommendation"] == expected:
-            correct += 1
-        else:
-            misses.append((ref, expected, result["recommendation"]))
-    return {"correct": correct, "accuracy": correct / len(eval_cases()),
-            "tokens": tokens, "misses": misses}
-
-
-def critical_path(design_name: str) -> int:
-    """Supersteps on the critical path -- what parallelism can and cannot shorten."""
-    return 2 if design_name == "single" else 3
-'''),
-    code('''
-# --- Self-check: Section 3
-_cache = {}
-def S():
-    if "s" not in _cache:
-        _cache["s"] = evaluate(single_agent)
-    return _cache["s"]
-def G():
-    if "g" not in _cache:
-        _cache["g"] = evaluate(graph_agent)
-    return _cache["g"]
-
-check("the graph gets every case right",
-      lambda: G()["correct"] == len(eval_cases()))
-check("the single agent does not",
-      lambda: S()["correct"] < len(eval_cases()))
-check("and it misses exactly the two watchlisted-but-mundane cases",
-      lambda: sorted(r for r, _, _ in S()["misses"]) == ["PMT-1006", "PMT-1007"],
-      "the cases where nothing in the reason code told it to look")
-check("both of its misses are the dangerous direction -- releasing when it should hold",
-      lambda: all(got == "release" and want == "hold for a human"
-                  for _, want, got in S()["misses"]))
-check("with the case context re-sent at every hop, the graph costs about twice as much",
-      lambda: 1.5 < G()["tokens"] / S()["tokens"] < 3.0)
-check("with nothing re-sent, the two bills are close -- the multiple IS the re-sending",
-      lambda: evaluate(graph_agent, 0)["tokens"] / evaluate(single_agent, 0)["tokens"] < 1.6,
-      "measured on this sandbox the token totals for one agent and several came out level "
-      "(9,794 vs 9,720); what doubled was the number of CALLS. Do not quote a 3-10x token "
-      "multiple you have not measured on your own prompts")
-check("the graph's critical path is longer, and no parallelism shortens it",
-      lambda: critical_path("graph") > critical_path("single"))
-
-def _score():
-    s, g = S(), G()
-    print(f"  {'':18}{'single':>12}{'graph':>12}")
-    print("  " + "-" * 42)
-    print(f"  {'accuracy':18}{s['accuracy']:>11.0%}{g['accuracy']:>12.0%}")
-    print(f"  {'tokens':18}{s['tokens']:>12}{g['tokens']:>12}")
-    print(f"  {'cost multiple':18}{'1.0x':>12}{g['tokens'] / s['tokens']:>11.1f}x")
-    print(f"  {'...with no re-send':18}"
-          f"{'1.0x':>12}"
-          f"{evaluate(graph_agent, 0)['tokens'] / evaluate(single_agent, 0)['tokens']:>11.1f}x")
-    print(f"  {'critical path':18}{critical_path('single'):>12}{critical_path('graph'):>12}")
-guard(_score)
-'''),
-
-    md("""
-## Section 4 &mdash; The decision
-
-Two numbers finish the argument, and neither is technical: what one wrong recommendation costs to
-put right, and what a token costs. Put your own figures in.
-"""),
-    code('''
-TOKEN_PRICE = 0.0000006      # currency per token -- substitute your own
-ERROR_COST  = 2500.0         # what putting one wrong recommendation right costs you
-
-def verdict(single: dict, graph: dict,
-            error_cost: float = ERROR_COST, token_price: float = TOKEN_PRICE) -> dict:
-    """Ship the graph only if the errors it prevents are worth more than the tokens it burns."""
-    errors_prevented = graph["correct"] - single["correct"]
-    value_saved = errors_prevented * error_cost
-    extra_spend = (graph["tokens"] - single["tokens"]) * token_price
-    return {"errors_prevented": errors_prevented,
-            "value_saved": round(value_saved, 4),
-            "extra_spend": round(extra_spend, 4),
-            # The whole module comes down to one comparison between those two numbers.
-            # "don't" has to be a real possible answer, or this is not a decision rule.
-            "decision": BLANK}      # TODO: "ship the graph" or "don't", from the numbers above
-
-
-def breakeven_error_cost(single: dict, graph: dict,
-                         token_price: float = TOKEN_PRICE) -> float:
-    """How expensive one error has to be before the graph pays for itself."""
-    prevented = graph["correct"] - single["correct"]
-    if prevented <= 0:
-        return float("inf")
-    return (graph["tokens"] - single["tokens"]) * token_price / prevented
-''', '''
-TOKEN_PRICE = 0.0000006      # currency per token -- substitute your own
-ERROR_COST  = 2500.0         # what putting one wrong recommendation right costs you
-
-def verdict(single: dict, graph: dict,
-            error_cost: float = ERROR_COST, token_price: float = TOKEN_PRICE) -> dict:
-    """Ship the graph only if the errors it prevents are worth more than the tokens it burns."""
-    errors_prevented = graph["correct"] - single["correct"]
-    value_saved = errors_prevented * error_cost
-    extra_spend = (graph["tokens"] - single["tokens"]) * token_price
-    return {"errors_prevented": errors_prevented,
-            "value_saved": round(value_saved, 4),
-            "extra_spend": round(extra_spend, 4),
-            "decision": "ship the graph" if value_saved > extra_spend else "don't"}
-
-
-def breakeven_error_cost(single: dict, graph: dict,
-                         token_price: float = TOKEN_PRICE) -> float:
-    """How expensive one error has to be before the graph pays for itself."""
-    prevented = graph["correct"] - single["correct"]
-    if prevented <= 0:
-        return float("inf")
-    return (graph["tokens"] - single["tokens"]) * token_price / prevented
-'''),
-    code('''
-# --- Self-check: Section 4
-check("the graph prevents two errors on this eval set",
-      lambda: verdict(S(), G())["errors_prevented"] == 2)
-check("at a realistic error cost, ship it",
-      lambda: verdict(S(), G())["decision"] == "ship the graph")
-check("if an error costs almost nothing, do not",
-      lambda: verdict(S(), G(), error_cost=0.0001)["decision"] == "don't",
-      "the same graph, the same quality gain, the opposite answer -- the economics decide")
-check("the breakeven is a number you can quote",
-      lambda: 0 < breakeven_error_cost(S(), G()) < ERROR_COST)
-check("and the decision flips either side of it",
-      lambda: verdict(S(), G(), error_cost=breakeven_error_cost(S(), G()) * 2)["decision"]
-              == "ship the graph"
-          and verdict(S(), G(), error_cost=breakeven_error_cost(S(), G()) / 2)["decision"]
-              == "don't")
-check("a graph that prevents nothing never pays, at any error cost",
-      lambda: breakeven_error_cost(G(), G()) == float("inf"),
-      "two designs of equal quality are decided on cost alone, and the cheaper one wins")
+      lambda: {got for _, got in confusion(rule_selections())} == {route_by_keyword("zzzz")},
+      "a rule router's failure mode IS its fallback -- unrecognised intent all piles up there")
+check("your acceptance bar is a real bar",
+      lambda: clears_the_bar(1.0) and not clears_the_bar(0.5),
+      "a bar nothing can clear is not a bar, and neither is one a coin flip clears")
+check("and it is a number a support desk could live with",
+      lambda: clears_the_bar(0.95) and not clears_the_bar(0.6),
+      "at 0.6 two tickets in five reach the wrong desk and get forwarded by hand")
 
 def _verdict():
-    v = verdict(S(), G())
-    print(f"  errors prevented per {len(eval_cases())} cases : {v['errors_prevented']}")
-    print(f"  value saved                     : {v['value_saved']}")
-    print(f"  extra spend                     : {v['extra_spend']}")
-    print(f"  breakeven cost of one error     : {breakeven_error_cost(S(), G()):.4f}")
-    print()
-    print(f"  DECISION: {v['decision']}")
-    print()
-    print("  Read it as: the graph pays for itself as long as one wrong recommendation")
-    print(f"  costs more than {breakeven_error_cost(S(), G()):.4f} to put right.")
+    acc = accuracy(rule_selections())
+    print(f"rule-based router: {acc:.0%} -> "
+          f"{'clears your bar' if clears_the_bar(acc) else 'does NOT clear your bar'}")
 guard(_verdict)
 '''),
 
     md("""
-## Run it for real
+## Run it for real &mdash; a model-routed supervisor
 
-Everything above is deterministic, which is what makes it repeatable. Now run the same seven cases
-through the model twice and see how stable the answer is &mdash; because a quality number from a
-single run of a non-deterministic system is an anecdote.
+Same graph, same eval set, same metric. The only thing that changes is the function inside
+`route_with_model`. What the model gets to read is `DESK` &mdash; three one-line descriptions,
+which is the entire difference between the two routers.
 """),
     code('''
+ROUTE_SYSTEM = ("You route one customer support ticket to exactly one specialist desk. "
+                "Reply with the desk's name alone -- no punctuation, no explanation.")
+
+def route_with_model(ticket: str) -> str:
+    """Ask the model to pick a desk. Anything unrecognised falls back to the keywords."""
+    listing = "\\n".join(f"- {n}: {d}" for n, d in DESK.items())
+    reply = ask(f"Desks:\\n{listing}\\n\\nTicket: {ticket}\\n\\nDesk:", system=ROUTE_SYSTEM)
+    word = (reply or "").strip().strip("`.\\"' ").lower().split()
+    return word[0] if word and word[0] in DESK else route_by_keyword(ticket)
+
+
+def _bake_off():
+    rule = rule_selections()
+    model = selections(route_with_model)
+    print(f"{'supervisor':16}{'accuracy':>10}   clears your bar?")
+    print("-" * 46)
+    for label, sel in (("rule-based", rule), ("model", model)):
+        acc = accuracy(sel)
+        print(f"{label:16}{acc:>9.0%}   {'yes' if clears_the_bar(acc) else 'no'}")
+    print()
+    for (want, got), n in sorted(confusion(model).items(), key=lambda kv: -kv[1]):
+        print(f"  model missed {n}x: {want} -> {got}")
+    print("\\nAnd the model-routed supervisor inside the real graph:")
+    # The graph is unchanged. Only the function the supervisor node calls is different.
+    global route_by_keyword
+    keep, route_by_keyword = route_by_keyword, route_with_model
+    try:
+        out = build_desk().invoke(fresh("Nobody on my team can get in this morning."))
+        print(f"  route={out['route']}  trail={out['trail']}")
+    finally:
+        route_by_keyword = keep
+
 if llm_ready():
-    def _stability():
-        def model_recommendation(ref):
-            rec = CASES[ref]
-            reply = ask("You are a payments operations agent. Reply with exactly one of: "
-                        "no action / hold for a human / release.\\n\\n"
-                        f"Payment: {json.dumps(rec)}\\n"
-                        f"Reference: {ref}\\n"
-                        f"Watchlisted counterparties: {sorted(SANCTIONS_WATCH)}\\n"
-                        f"Reason codes that require a human: {sorted(NEEDS_HUMAN)}",
-                        system="Reply with the phrase alone.")
-            return (reply or "").strip().lower().rstrip(".")
-        for run in (1, 2):
-            correct = sum(1 for ref, expected in eval_cases()
-                          if model_recommendation(ref) == expected)
-            print(f"  run {run}: {correct}/{len(eval_cases())} correct")
-    guard(_stability)
+    guard(_bake_off)
 '''),
-    md("""
-### Read it
 
-If the two runs disagree, you have just met Module 7's opening problem: the same input, twice, two
-different answers. That does not invalidate the scorecard &mdash; it tells you the scorecard needs
-repeats and a confidence interval, which is Day 3's work.
-
-**And look hard at the two cost rows.** With the case context re-sent at every hop the graph costs
-roughly double; with nothing re-sent the two bills are within half a multiple of each other. The
-&ldquo;multi-agent costs 3&ndash;10x&rdquo; figure you will read online is a claim about context
-management, not about agents &mdash; measured on this sandbox the token totals came out level and it
-was the **call count** that doubled. Measure your own before you quote anyone's.
-
-**What you take from Module 5:** a supervisor is a conditional edge you can measure; a handoff
-carries only what you put in it; parallel branches lose findings unless you declare a reducer;
-disagreement is settled by authority and provenance, not by counting; the human is a node with a
-deadline and an escalation ladder; and the graph earns its place with a number or it does not earn
-it at all.
-"""),
-
-    code('''
-score()
-'''),
+    SCORE,
     md("""
 ## Your turn
 
-1. Route by value: run the graph only above a threshold and the single agent below it. Find the
-   threshold that maximises value, and check whether it is one you would defend to a regulator.
-2. `single_agent` misses the two cases nothing prompted it to look at. Fix it with one sentence of
-   prompt &mdash; &ldquo;always screen the counterparty&rdquo; &mdash; and re-score. If that closes the gap, the
-   honest answer for this workload is that you never needed the graph.
-3. The scorecard has no row for operating cost: five nodes are five things to trace, alert on and
-   page someone about. Add that row in whatever unit you can defend, and see whether the decision
-   survives it.
+1. The four implied-intent tickets are where the rule table loses. Add keywords until it wins
+   all twelve &mdash; then write down how many keywords you added, and ask whether a desk with
+   real tickets could keep that table current.
+2. Route the ambiguous tickets to a model and the obvious ones to the keyword table. Score the
+   hybrid. It is usually the cheapest thing that clears the bar, and nobody builds it.
+3. Add a fourth key to the path map &mdash; `escalate` &mdash; for tickets the supervisor is not
+   confident about, and decide what "not confident" means when the router is a keyword table.
+"""),
+]
+
+
+# =========================================================================== #
+# Lab 5.2 -- a research brief written by several agents at once
+# =========================================================================== #
+BRIEF_CASE = '''
+# ------------------------------------------------- the case file (synthetic, self-contained)
+# A vendor due-diligence brief. Three questions, three sources each, one report.
+# This case file is Module 5 lab 5.2 only -- 5.1 and 5.3 are different systems.
+
+BRIEF = "Should we adopt Vendor X for document storage?"
+
+# Each source carries WHERE it came from and how much weight that origin deserves.
+# authority: 3 = a signed contract, 2 = a filed report, 1 = the vendor's own marketing.
+SOURCES = {
+    "pricing": [
+        {"claim": "list price is 18 USD per seat per month", "source": "order form",  "authority": 3},
+        {"claim": "20% discount above 500 seats",            "source": "order form",  "authority": 3},
+        {"claim": "cheapest in its class",                   "source": "vendor site", "authority": 1},
+    ],
+    "security": [
+        {"claim": "data is stored in the EU only",           "source": "vendor site", "authority": 1},
+        {"claim": "data may be replicated to us-east-1",     "source": "signed DPA",  "authority": 3},
+        {"claim": "SOC 2 Type II, audited 2026-03",          "source": "audit report", "authority": 2},
+    ],
+    "support": [
+        {"claim": "99.9% uptime commitment",                 "source": "order form",  "authority": 3},
+        {"claim": "4-hour response on P1",                   "source": "order form",  "authority": 3},
+        {"claim": "24/7 human support",                      "source": "vendor site", "authority": 1},
+    ],
+}
+
+# The two that cannot both be true. Data residency is the decision the whole brief turns on.
+CONFLICT = ("data is stored in the EU only", "data may be replicated to us-east-1")
+
+print(f"brief: {BRIEF}\\n{sum(len(v) for v in SOURCES.values())} claims across "
+      f"{len(SOURCES)} questions")
+'''
+
+LAB2 = [
+    header(2, "A Research Brief Written by Several Agents at Once", "Advanced", 35,
+           ["Fan out from one planner to three researchers that run in a single superstep",
+            "Meet <code>InvalidUpdateError</code> for real, then declare the reducer that fixes it",
+            "Resolve a disagreement between two sources &mdash; by authority, not by vote",
+            "Carry provenance into the report, so every line can be traced back"],
+           "> **The system on slide 3.** A planner splits the brief, three researchers work at the\n"
+           "> same time, a declared reducer merges what they return, and a writer produces one report."),
+    setup(2),
+    code(BRIEF_CASE),
+
+    md("""
+## Concept
+
+Fanning out is easy: give three nodes the same predecessor and LangGraph runs them in one
+**superstep**. Merging is the part that is a design decision.
+
+Every one of those three nodes returns a partial state. If they all write the same key, LangGraph
+needs to be told what "both" means &mdash; and if you never told it, it does **not** quietly keep
+the last one. It raises `InvalidUpdateError`. Silent loss is what a hand-rolled `dict.update` does,
+and a hand-rolled merge is what most people write first.
+
+So: the framework protects the keys you declared, and only those.
+"""),
+
+    md("""
+## Section 1 &mdash; Fan out, and declare the merge
+
+Two graphs, built from the same nodes. The first leaves `notes` un-annotated and is here to fail
+in front of you. The second is yours to finish: pick the **reducer** that makes three parallel
+writes into one list.
+"""),
+    code('''
+from typing import Annotated
+from typing_extensions import TypedDict
+from langgraph.graph import StateGraph, START, END
+
+QUESTIONS = ("pricing", "security", "support")
+
+
+# ---- the graph that does NOT work, so you can see what it does instead of being told
+class NaiveState(TypedDict):
+    brief: str
+    notes: list                       # no reducer -- three nodes are about to write it
+
+
+def naive_researcher(topic: str):
+    def node(state: NaiveState) -> dict:
+        return {"notes": [c["claim"] for c in SOURCES[topic]]}
+    return node
+
+
+def collision() -> str:
+    """Run the un-annotated fan-out and report what actually happens."""
+    g = StateGraph(NaiveState)
+    for q in QUESTIONS:
+        g.add_node(q, naive_researcher(q))
+        g.add_edge(START, q)
+        g.add_edge(q, END)
+    try:
+        out = g.compile().invoke({"brief": BRIEF, "notes": []})
+        return f"no error -- {len(out['notes'])} of 9 claims survived"
+    except Exception as exc:
+        return f"{type(exc).__name__}: {str(exc).splitlines()[0][:90]}"
+
+
+# ---- the graph that does
+def merge_findings(existing: list, incoming: list) -> list:
+    """The merge rule for `findings`. A reducer is just this: (existing, incoming) -> combined.
+
+    LangGraph calls it once per writer, so three researchers in one superstep call it three
+    times. Decide what "both" means -- keep everything, keep the newest, keep the first?
+    Only one of those lets the writer see all nine claims.
+    """
+    return BLANK                       # TODO: combine the two lists
+
+
+class BriefState(TypedDict):
+    brief: str
+    questions: list
+    # Three researchers finish in the same superstep and all write this key. The merge rule
+    # is declared here, once, and it holds for every future writer of the key.
+    findings: Annotated[list, merge_findings]
+    report: list
+
+
+def plan(state: BriefState) -> dict:
+    """Split the brief. Real planners ask a model; this one is fixed so the graph is exact."""
+    return {"questions": list(QUESTIONS)}
+
+
+RESEARCH_SECONDS = 0.15          # stands in for the reading a real researcher would do
+
+def make_researcher(topic: str):
+    def researcher(state: BriefState) -> dict:
+        time.sleep(RESEARCH_SECONDS)
+        return {"findings": [{"question": topic, **c} for c in SOURCES[topic]]}
+    return researcher
+
+
+def build_brief_graph(writer):
+    g = StateGraph(BriefState)
+    g.add_node("plan", plan)
+    for q in QUESTIONS:
+        g.add_node(q, make_researcher(q))
+    g.add_node("writer", writer)
+
+    g.add_edge(START, "plan")
+    for q in QUESTIONS:
+        g.add_edge("plan", q)          # fan out: one superstep, three nodes
+        g.add_edge(q, "writer")        # fan in
+    g.add_edge("writer", END)
+    return g.compile()
+
+
+def fresh_brief() -> dict:
+    return {"brief": BRIEF, "questions": [], "findings": [], "report": []}
+''', '''
+from typing import Annotated
+from typing_extensions import TypedDict
+from langgraph.graph import StateGraph, START, END
+
+QUESTIONS = ("pricing", "security", "support")
+
+
+# ---- the graph that does NOT work, so you can see what it does instead of being told
+class NaiveState(TypedDict):
+    brief: str
+    notes: list                       # no reducer -- three nodes are about to write it
+
+
+def naive_researcher(topic: str):
+    def node(state: NaiveState) -> dict:
+        return {"notes": [c["claim"] for c in SOURCES[topic]]}
+    return node
+
+
+def collision() -> str:
+    """Run the un-annotated fan-out and report what actually happens."""
+    g = StateGraph(NaiveState)
+    for q in QUESTIONS:
+        g.add_node(q, naive_researcher(q))
+        g.add_edge(START, q)
+        g.add_edge(q, END)
+    try:
+        out = g.compile().invoke({"brief": BRIEF, "notes": []})
+        return f"no error -- {len(out['notes'])} of 9 claims survived"
+    except Exception as exc:
+        return f"{type(exc).__name__}: {str(exc).splitlines()[0][:90]}"
+
+
+# ---- the graph that does
+def merge_findings(existing: list, incoming: list) -> list:
+    """The merge rule for `findings`. A reducer is just this: (existing, incoming) -> combined.
+
+    LangGraph calls it once per writer, so three researchers in one superstep call it three
+    times. Concatenation keeps every writer's findings, in arrival order -- which is exactly
+    what `operator.add` does on a list, and why you usually see `Annotated[list, add]`.
+    """
+    return existing + incoming
+
+
+class BriefState(TypedDict):
+    brief: str
+    questions: list
+    # Three researchers finish in the same superstep and all write this key. The merge rule
+    # is declared here, once, and it holds for every future writer of the key.
+    findings: Annotated[list, merge_findings]
+    report: list
+
+
+def plan(state: BriefState) -> dict:
+    """Split the brief. Real planners ask a model; this one is fixed so the graph is exact."""
+    return {"questions": list(QUESTIONS)}
+
+
+RESEARCH_SECONDS = 0.15          # stands in for the reading a real researcher would do
+
+def make_researcher(topic: str):
+    def researcher(state: BriefState) -> dict:
+        time.sleep(RESEARCH_SECONDS)
+        return {"findings": [{"question": topic, **c} for c in SOURCES[topic]]}
+    return researcher
+
+
+def build_brief_graph(writer):
+    g = StateGraph(BriefState)
+    g.add_node("plan", plan)
+    for q in QUESTIONS:
+        g.add_node(q, make_researcher(q))
+    g.add_node("writer", writer)
+
+    g.add_edge(START, "plan")
+    for q in QUESTIONS:
+        g.add_edge("plan", q)          # fan out: one superstep, three nodes
+        g.add_edge(q, "writer")        # fan in
+    g.add_edge("writer", END)
+    return g.compile()
+
+
+def fresh_brief() -> dict:
+    return {"brief": BRIEF, "questions": [], "findings": [], "report": []}
+'''),
+    code('''
+# --- Self-check: Section 1   (real graphs, really running -- still no model)
+def _noop_writer(state: BriefState) -> dict:
+    return {}
+
+def _collect() -> dict:
+    return build_brief_graph(_noop_writer).invoke(fresh_brief())
+
+check("the un-annotated fan-out does NOT silently drop two of the three",
+      lambda: "InvalidUpdate" in collision(),
+      "LangGraph refuses the ambiguous write; silent loss is what a hand-rolled merge does")
+check("the graph with a declared merge rule compiles",
+      lambda: build_brief_graph(_noop_writer) is not None)
+check("all nine claims survive the merge",
+      lambda: len(_collect()["findings"]) == 9,
+      "the reducer decides this: without one there is no answer, with the wrong one there are three")
+check("every question is represented",
+      lambda: {f["question"] for f in _collect()["findings"]} == set(QUESTIONS))
+check("provenance survived the merge too",
+      lambda: all("source" in f and "authority" in f for f in _collect()["findings"]),
+      "a merged claim you cannot trace is a claim you cannot defend")
+
+def _supersteps():
+    print(collision(), "\\n")
+    # `values` mode emits the state once per SUPERSTEP, not once per node -- which is how
+    # you can see the three researchers land together rather than one after another.
+    for i, snap in enumerate(build_brief_graph(_noop_writer).stream(fresh_brief(),
+                                                                    stream_mode="values")):
+        print(f"  after step {i}: {len(snap['findings'])} findings")
+    t0 = time.time()
+    build_brief_graph(_noop_writer).invoke(fresh_brief())
+    print(f"\\n  three researchers x {RESEARCH_SECONDS}s of work each, "
+          f"whole graph: {time.time() - t0:.2f}s")
+    print("  ^ nine findings arrive in ONE step, and the clock reads one researcher, not three.")
+    print("    Note what did NOT change: the same nine claims were paid for either way.")
+guard(_supersteps)
+'''),
+
+    md("""
+## Section 2 &mdash; The writer, and the disagreement
+
+Two of the nine claims cannot both be true: the vendor's site says data stays in the EU, the
+signed DPA says it may be replicated to `us-east-1`. Two sources say EU-ish things and one says
+otherwise, so **a vote gets this wrong**.
+
+Agreement is not truth &mdash; three researchers given the same marketing page agree confidently,
+because they inherited the error rather than each finding it. Authority and provenance are
+checkable; a vote is not.
+"""),
+    code('''
+def resolve_conflict(claims: list[dict]) -> dict:
+    """Two claims contradict each other. Return the one the report should carry.
+
+    Given: `claims` are the contradicting findings, each already carrying `source`,
+    `authority` (higher is stronger) and `agreeing` (how many researchers said it).
+    """
+    return max(claims, key=lambda c: c[BLANK])    # TODO: what decides it
+
+
+def writer(state: BriefState) -> dict:
+    """Turn the merged findings into report lines, one per claim, conflict resolved."""
+    findings = state["findings"]
+    contested = [f for f in findings if f["claim"] in CONFLICT]
+    for f in contested:
+        f["agreeing"] = sum(1 for g in findings if g["claim"] == f["claim"])
+    winner = resolve_conflict(contested)["claim"] if contested else None
+
+    lines = []
+    for f in findings:
+        if f["claim"] in CONFLICT and f["claim"] != winner:
+            continue                                   # the losing side of the conflict
+        # A line nobody can trace is a line nobody can defend, so carry the origin
+        # through from the finding into the report.
+        lines.append(f"{f['question']}: {f['claim']}  [{f[BLANK]}]")
+        #                                               ^ TODO: which field makes it traceable
+    return {"report": lines}
+''', '''
+def resolve_conflict(claims: list[dict]) -> dict:
+    """Two claims contradict each other. Return the one the report should carry.
+
+    Given: `claims` are the contradicting findings, each already carrying `source`,
+    `authority` (higher is stronger) and `agreeing` (how many researchers said it).
+
+    Authority, not agreement. The signed DPA outranks the marketing page even when the
+    marketing page is repeated more often -- repetition is not evidence.
+    """
+    return max(claims, key=lambda c: c["authority"])
+
+
+def writer(state: BriefState) -> dict:
+    """Turn the merged findings into report lines, one per claim, conflict resolved."""
+    findings = state["findings"]
+    contested = [f for f in findings if f["claim"] in CONFLICT]
+    for f in contested:
+        f["agreeing"] = sum(1 for g in findings if g["claim"] == f["claim"])
+    winner = resolve_conflict(contested)["claim"] if contested else None
+
+    lines = []
+    for f in findings:
+        if f["claim"] in CONFLICT and f["claim"] != winner:
+            continue                                   # the losing side of the conflict
+        # A line nobody can trace is a line nobody can defend, so carry the origin
+        # through from the finding into the report.
+        lines.append(f"{f['question']}: {f['claim']}  [{f['source']}]")
+    return {"report": lines}
+'''),
+    code('''
+# --- Self-check: Section 2
+_EU, _US = CONFLICT
+
+def _report():
+    return build_brief_graph(writer).invoke(fresh_brief())["report"]
+
+check("the signed DPA beats the vendor's own site",
+      lambda: resolve_conflict([
+          {"claim": _EU, "source": "vendor site", "authority": 1, "agreeing": 2},
+          {"claim": _US, "source": "signed DPA",  "authority": 3, "agreeing": 1},
+      ])["claim"] == _US,
+      "authority is checkable; a show of hands is not")
+check("and still beats it when the weaker claim has MORE voices",
+      lambda: resolve_conflict([
+          {"claim": _EU, "source": "vendor site", "authority": 1, "agreeing": 9},
+          {"claim": _US, "source": "signed DPA",  "authority": 3, "agreeing": 1},
+      ])["claim"] == _US,
+      "if agreement decided it, three agents fed one bad page would carry the report")
+check("the report keeps one side of the conflict, not both",
+      lambda: sum(1 for line in _report() if _EU in line or _US in line) == 1)
+check("and it is the side the contract says",
+      lambda: any(_US in line for line in _report()))
+check("every line names where it came from",
+      lambda: all(any(f"[{s}]" in line for s in
+                      ("order form", "vendor site", "signed DPA", "audit report"))
+                  for line in _report()),
+      "provenance is the whole reason the merge kept those fields")
+check("the report is shorter than the findings by exactly the losing claim",
+      lambda: len(_report()) == 8)
+
+def _show():
+    for line in _report():
+        print("  " + line)
+guard(_show)
+'''),
+
+    md("""
+## Run it for real &mdash; the writer becomes an agent
+
+The graph does not change at all. `writer` is swapped for a node that hands the merged findings
+to the model and asks for two paragraphs &mdash; and the same conflict is still in the input, so
+watch whether the model resolves it the way your rule did, or splits the difference.
+"""),
+    code('''
+WRITER_SYSTEM = ("You write a short vendor due-diligence note for a procurement committee. "
+                 "Two paragraphs, no bullet points. Every factual sentence must name its "
+                 "source in square brackets. If two sources contradict each other, say so "
+                 "explicitly and follow the contractual one.")
+
+def llm_writer(state: BriefState) -> dict:
+    findings = state["findings"]
+    listing = "\\n".join(f"- ({f['question']}) {f['claim']}  [source: {f['source']}]"
+                        for f in findings)
+    note = ask(f"Question: {state['brief']}\\n\\nFindings:\\n{listing}", system=WRITER_SYSTEM)
+    return {"report": [note]}
+
+
+def _write_for_real():
+    out = build_brief_graph(llm_writer).invoke(fresh_brief())
+    print(textwrap.fill(out["report"][0], 96))
+    print("\\n--- did it notice the contradiction? ---")
+    body = out["report"][0].lower()
+    print("  mentions replication to us-east-1:", "us-east-1" in body)
+    print("  mentions the DPA               :", "dpa" in body)
+
+if llm_ready():
+    guard(_write_for_real)
+'''),
+
+    SCORE,
+    md("""
+## Your turn
+
+1. Add a fourth researcher &mdash; `legal` &mdash; with claims that contradict `pricing`. You should
+   not have to touch the reducer, the writer or the state to do it. If you did, the merge rule was
+   in the wrong place.
+2. Replace `max(..., key=authority)` with a real tie-break: what happens when two claims have the
+   same authority? Decide, and write the check that would have caught the old behaviour.
+3. Time the fan-out against the same three researchers in a row. Tokens will not move; wall clock
+   will. Say out loud which budget you just spent, because they are not the same budget.
+"""),
+]
+
+
+# =========================================================================== #
+# Lab 5.3 -- an incident responder that knows when to stop
+# =========================================================================== #
+INCIDENT_CASE = '''
+# ------------------------------------------------- the case file (synthetic, self-contained)
+# Three production incidents and the runbook for each. `heals_on_attempt` makes the fake
+# remediation deterministic, so retry behaviour is exact offline -- no sleeping, no luck.
+# This case file is Module 5 lab 5.3 only -- 5.1 and 5.2 are different systems.
+
+INCIDENTS = {
+    "INC-901": {"symptom": "checkout p99 above 2s",     "service": "checkout",
+                "heals_on_attempt": 2},        # a flap: the second try holds
+    "INC-902": {"symptom": "payment webhooks 500ing",   "service": "webhook",
+                "heals_on_attempt": 1},        # the runbook works first time
+    "INC-903": {"symptom": "disk 96% on db-primary",    "service": "db",
+                "heals_on_attempt": None},     # no safe fix exists -- a human must decide
+}
+
+RUNBOOK = {
+    "checkout": "recycle the slowest pod in the checkout deployment",
+    "webhook":  "replay the dead-letter queue for the last 15 minutes",
+    "db":       "extend the volume -- capacity changes need a human",
+}
+
+def apply_fix(ref: str, attempt: int) -> bool:
+    """The remediation, standing in for kubectl. Deterministic on purpose."""
+    heals = INCIDENTS[ref]["heals_on_attempt"]
+    return heals is not None and attempt >= heals
+
+print(f"{len(INCIDENTS)} incidents, {len(RUNBOOK)} runbook entries")
+'''
+
+LAB3 = [
+    header(3, "An Incident Responder That Knows When to Stop", "Advanced", 35,
+           ["Build the retry cycle: an edge that points backwards, and the budget that ends it",
+            "Route the three ways out of <code>verify</code> &mdash; and see which one is the infinite loop",
+            "Prove a never-healing incident terminates, rather than hoping it does",
+            "Write the escalation handoff: what an on-call human needs at 3am"],
+           "> **The system on slide 4.** An alert is triaged against a runbook, a fix is attempted and\n"
+           "> verified, failures cycle back with backoff, and a spent budget hands off to a human."),
+    setup(3),
+    code(INCIDENT_CASE),
+
+    md("""
+## Concept
+
+A cycle is just an edge pointing at a node that has already run. What makes it safe is not the
+edge &mdash; it is the **budget**, and where the budget lives.
+
+A per-node retry count multiplies: three nodes with three attempts each is twenty-seven calls, and
+people write per-node counts because that is where the code is. A budget that belongs to the
+**run**, decremented by every attempt, is the only thing standing between a bug and a bill.
+
+Then the part worth arguing about: running out of attempts is **not an error**. It is a routing
+decision, and the way out is a node.
+"""),
+
+    md("""
+## Section 1 &mdash; The cycle, and the way out of it
+
+`verify` has three ways out and they all have to exist in the path map. Two of them are yours:
+which key the failure-but-attempts-remain case returns, and which node the retry edge points
+back at.
+"""),
+    code('''
+from typing import Annotated
+from typing_extensions import TypedDict
+from operator import add
+from langgraph.graph import StateGraph, START, END
+
+
+class IncidentState(TypedDict):
+    ref: str
+    symptom: str
+    runbook_step: str | None
+    attempts: int                     # NOT annotated: each attempt sets it, nothing merges
+    budget: int                       # a property of the RUN, set once at the top
+    healthy: bool
+    outcome: str | None
+    handoff: dict | None
+    log: Annotated[list, add]         # append: what was tried, and what happened each time
+
+
+def triage(state: IncidentState) -> dict:
+    """Match the symptom to the runbook. One lookup; a real one would ask a model."""
+    step = RUNBOOK[INCIDENTS[state["ref"]]["service"]]
+    return {"runbook_step": step, "log": [f"triaged: {step}"]}
+
+
+def backoff(attempt: int) -> float:
+    """1s, 2s, 4s in production. Scaled down here so the lab does not sleep for a minute."""
+    return 0.01 * (2 ** (attempt - 1))
+
+
+def remediate(state: IncidentState) -> dict:
+    """Attempt the runbook step. Charges one attempt against the run's budget."""
+    attempt = state["attempts"] + 1
+    time.sleep(backoff(attempt))
+    worked = apply_fix(state["ref"], attempt)
+    return {"attempts": attempt, "healthy": worked,
+            "log": [f"attempt {attempt}/{state['budget']}: "
+                    f"{'held' if worked else 'did not hold'}"]}
+
+
+def verify(state: IncidentState) -> dict:
+    """Did it hold? Separate from remediate because checking is not fixing."""
+    return {"log": [f"verified: {'healthy' if state['healthy'] else 'still failing'}"]}
+
+
+def next_step(state: IncidentState) -> str:
+    """Which way out of verify. Every key returned here must exist in the path map."""
+    if state["healthy"]:
+        return "resolved"
+    if state["attempts"] >= state["budget"]:
+        # Out of attempts, and still broken. One of the remaining keys is the infinite loop.
+        return BLANK                  # TODO: where does a run with no attempts left go?
+    return "retry"
+
+
+def resolved(state: IncidentState) -> dict:
+    return {"outcome": "resolved", "log": ["closed"]}
+''', '''
+from typing import Annotated
+from typing_extensions import TypedDict
+from operator import add
+from langgraph.graph import StateGraph, START, END
+
+
+class IncidentState(TypedDict):
+    ref: str
+    symptom: str
+    runbook_step: str | None
+    attempts: int                     # NOT annotated: each attempt sets it, nothing merges
+    budget: int                       # a property of the RUN, set once at the top
+    healthy: bool
+    outcome: str | None
+    handoff: dict | None
+    log: Annotated[list, add]         # append: what was tried, and what happened each time
+
+
+def triage(state: IncidentState) -> dict:
+    """Match the symptom to the runbook. One lookup; a real one would ask a model."""
+    step = RUNBOOK[INCIDENTS[state["ref"]]["service"]]
+    return {"runbook_step": step, "log": [f"triaged: {step}"]}
+
+
+def backoff(attempt: int) -> float:
+    """1s, 2s, 4s in production. Scaled down here so the lab does not sleep for a minute."""
+    return 0.01 * (2 ** (attempt - 1))
+
+
+def remediate(state: IncidentState) -> dict:
+    """Attempt the runbook step. Charges one attempt against the run's budget."""
+    attempt = state["attempts"] + 1
+    time.sleep(backoff(attempt))
+    worked = apply_fix(state["ref"], attempt)
+    return {"attempts": attempt, "healthy": worked,
+            "log": [f"attempt {attempt}/{state['budget']}: "
+                    f"{'held' if worked else 'did not hold'}"]}
+
+
+def verify(state: IncidentState) -> dict:
+    """Did it hold? Separate from remediate because checking is not fixing."""
+    return {"log": [f"verified: {'healthy' if state['healthy'] else 'still failing'}"]}
+
+
+def next_step(state: IncidentState) -> str:
+    """Which way out of verify. Every key returned here must exist in the path map."""
+    if state["healthy"]:
+        return "resolved"
+    if state["attempts"] >= state["budget"]:
+        # Out of attempts, and still broken. Returning "retry" here is the infinite loop:
+        # the budget test would never be reached again with a different answer.
+        return "escalate"
+    return "retry"
+
+
+def resolved(state: IncidentState) -> dict:
+    return {"outcome": "resolved", "log": ["closed"]}
+'''),
+
+    md("""
+## Section 2 &mdash; The handoff
+
+`escalate` is the node the graph reaches when it has run out of safe things to try. A page that
+says *"automation failed"* is a page. A page that says what was tried, and what happened each
+time, is a **case** &mdash; and the difference is one key of state.
+"""),
+    code('''
+def escalate(state: IncidentState) -> dict:
+    """Assemble the case a human can act on. Every piece of it is already in state."""
+    return {"outcome": "escalated",
+            "handoff": {
+                "incident":       state["ref"],
+                "symptom":        state["symptom"],
+                "runbook_step":   state["runbook_step"],
+                "attempts_spent": state["attempts"],
+                # A page that says "it failed" wastes the first ten minutes of the call.
+                # Which key holds what was actually tried, and what happened each time?
+                "what_happened":  state[BLANK],       # TODO
+            },
+            "log": ["escalated to the on-call"]}
+
+
+def build_responder():
+    g = StateGraph(IncidentState)
+    g.add_node("triage", triage)
+    g.add_node("remediate", remediate)
+    g.add_node("verify", verify)
+    g.add_node("resolved", resolved)
+    g.add_node("escalate", escalate)
+
+    g.add_edge(START, "triage")
+    g.add_edge("triage", "remediate")
+    g.add_edge("remediate", "verify")
+    g.add_conditional_edges("verify", next_step, {
+        "resolved": "resolved",
+        "escalate": "escalate",
+        # The backwards edge. Pointing it at the wrong node re-triages every attempt --
+        # correct, but it pays for the diagnosis again on every retry.
+        "retry":    BLANK,            # TODO: which node does a retry go back to?
+    })
+    g.add_edge("resolved", END)
+    g.add_edge("escalate", END)
+    return g.compile()
+
+
+def fresh_incident(ref: str, budget: int = 3) -> dict:
+    inc = INCIDENTS[ref]
+    return {"ref": ref, "symptom": inc["symptom"], "runbook_step": None,
+            "attempts": 0, "budget": budget, "healthy": False,
+            "outcome": None, "handoff": None, "log": []}
+''', '''
+def escalate(state: IncidentState) -> dict:
+    """Assemble the case a human can act on. Every piece of it is already in state."""
+    return {"outcome": "escalated",
+            "handoff": {
+                "incident":       state["ref"],
+                "symptom":        state["symptom"],
+                "runbook_step":   state["runbook_step"],
+                "attempts_spent": state["attempts"],
+                # The log is the whole reason it was annotated with a reducer: every node
+                # appended to it, so it is the narrative of the run.
+                "what_happened":  state["log"],
+            },
+            "log": ["escalated to the on-call"]}
+
+
+def build_responder():
+    g = StateGraph(IncidentState)
+    g.add_node("triage", triage)
+    g.add_node("remediate", remediate)
+    g.add_node("verify", verify)
+    g.add_node("resolved", resolved)
+    g.add_node("escalate", escalate)
+
+    g.add_edge(START, "triage")
+    g.add_edge("triage", "remediate")
+    g.add_edge("remediate", "verify")
+    g.add_conditional_edges("verify", next_step, {
+        "resolved": "resolved",
+        "escalate": "escalate",
+        # Back to remediate, not to triage: the runbook step has not changed, so
+        # re-triaging would pay for the diagnosis again on every single attempt.
+        "retry":    "remediate",
+    })
+    g.add_edge("resolved", END)
+    g.add_edge("escalate", END)
+    return g.compile()
+
+
+def fresh_incident(ref: str, budget: int = 3) -> dict:
+    inc = INCIDENTS[ref]
+    return {"ref": ref, "symptom": inc["symptom"], "runbook_step": None,
+            "attempts": 0, "budget": budget, "healthy": False,
+            "outcome": None, "handoff": None, "log": []}
+'''),
+    code('''
+# --- Self-check: both sections   (a real graph with a real cycle -- still no model)
+def _respond(ref: str, budget: int = 3) -> dict:
+    return build_responder().invoke(fresh_incident(ref, budget))
+
+check("the responder compiles, cycle and all",
+      lambda: build_responder() is not None)
+check("the runbook fix that works first time resolves in one attempt",
+      lambda: (_respond("INC-902")["outcome"], _respond("INC-902")["attempts"]) == ("resolved", 1))
+check("the flap resolves on the SECOND attempt -- the cycle really ran",
+      lambda: (_respond("INC-901")["outcome"], _respond("INC-901")["attempts"]) == ("resolved", 2))
+check("the incident with no safe fix terminates instead of looping",
+      lambda: _respond("INC-903")["outcome"] == "escalated",
+      "returning 'retry' when the budget is spent is an infinite loop, not a retry")
+check("and it stops at exactly the budget, not one past it",
+      lambda: _respond("INC-903")["attempts"] == 3)
+check("the budget belongs to the run, so lowering it lowers the bill",
+      lambda: _respond("INC-903", budget=1)["attempts"] == 1)
+check("the handoff carries what was tried, not just that it failed",
+      lambda: len(_respond("INC-903")["handoff"]["what_happened"]) >= 5,
+      "the on-call needs the narrative -- that is what the annotated log was for")
+check("the handoff names every attempt and its outcome",
+      lambda: sum(1 for line in _respond("INC-903")["handoff"]["what_happened"]
+                  if line.startswith("attempt ")) == 3)
+check("a resolved incident writes no handoff at all",
+      lambda: _respond("INC-902")["handoff"] is None)
+
+def _trace():
+    for ref in INCIDENTS:
+        out = _respond(ref)
+        print(f"  {ref}  {out['outcome']:10} after {out['attempts']} attempt(s)")
+    print()
+    for line in _respond("INC-903")["log"]:
+        print("   ", line)
+guard(_trace)
+'''),
+
+    md("""
+## Run it for real &mdash; the page a human receives
+
+The handoff is a dict. A person at 3am wants three sentences. This is the one node in the graph
+that genuinely needs a model, which is worth noticing: the routing, the retrying and the budget
+were all better off without one.
+"""),
+    code('''
+PAGE_SYSTEM = ("You are writing an on-call page. Three sentences, no greeting, no bullet "
+               "points: what is broken, what automation already tried and what happened, "
+               "and the single decision you need the human to make. Never invent a fact "
+               "that is not in the handoff.")
+
+def _page_the_human():
+    out = build_responder().invoke(fresh_incident("INC-903"))
+    handoff = out["handoff"]
+    print(json.dumps(handoff, indent=2)[:500], "\\n")
+    page = ask(f"Handoff:\\n{json.dumps(handoff, indent=2)}", system=PAGE_SYSTEM)
+    print("--- the page ---")
+    print(textwrap.fill(page, 96))
+
+if llm_ready():
+    guard(_page_the_human)
+'''),
+
+    SCORE,
+    md("""
+## Your turn
+
+1. Give `triage` a second runbook step to try when the first one fails twice. You will find the
+   retry edge now points at the wrong node &mdash; which is the honest reason that blank was a
+   decision and not a formality.
+2. Make the budget a *token* budget rather than an attempt count, decremented by what each node
+   actually spent. Then ask which of the two a finance team would rather you enforced.
+3. `escalate` is a node, so it can do more than write a dict: have it decide *who* to page from
+   the service in the incident. Then say what happens when that lookup is wrong at 3am.
 """),
 ]
 
@@ -2739,11 +1447,9 @@ score()
 # main
 # =========================================================================== #
 LABS = [
-    ("lab-5-01-supervisor-as-router",           LAB1),
-    ("lab-5-02-decomposition-and-handoffs",     LAB2),
-    ("lab-5-03-parallel-reducers-disagreement", LAB3),
-    ("lab-5-04-human-in-the-loop",              LAB4),
-    ("lab-5-05-challenge-the-scorecard",        LAB5),
+    ("lab-5-01-support-desk-triage",     LAB1),
+    ("lab-5-02-parallel-research-brief", LAB2),
+    ("lab-5-03-incident-responder",      LAB3),
 ]
 
 

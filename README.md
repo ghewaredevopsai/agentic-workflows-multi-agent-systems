@@ -1,6 +1,6 @@
 # Agentic Workflows & Multi-Agent Systems
 
-**3 days · Advanced · 9 modules · 48 labs · capstone**
+**3 days · Advanced · 9 modules · 46 labs · capstone**
 
 Course material for an instructor-led course by Rajesh Gheware (Gheware UniGPS Solutions LLP).
 Participants build, evaluate and operate multi-agent systems — and learn when *not* to build one.
@@ -48,7 +48,10 @@ Each notebook is self-contained and self-grading:
 - One synthetic case file runs through every lab in a module, and later labs carry forward
   earlier labs' code. Each module picks a domain everyone already knows, so the only unfamiliar
   thing in a notebook is the framework: a support-ticket queue in Module 1, an employee help desk
-  in Module 2, HR leave requests in Module 3, and payment exceptions from Module 4 to the capstone.
+  in Module 2, HR leave requests in Module 3, and payment exceptions in Module 4 and from Module 6
+  to the capstone. **Module 5 is the exception**: each of its three labs is a whole system, so
+  each carries its own small case file &mdash; a customer support desk, a vendor research brief,
+  and a production incident.
 
 **One lab is deliberately different.** Lab 4.1 is a *walkthrough*: there is nothing to fill in
 and nothing to score, and its solution notebook is the same file. It exists so you watch a real

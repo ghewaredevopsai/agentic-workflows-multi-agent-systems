@@ -118,7 +118,8 @@ async def ask_json(system, prompt, usage, retries=1):
 # policy  : what to retrieve, and note the query is built from the CASE, not from the
 #           user's words -- Lab 6.2
 # decide  : the recommendation, grounded in the two above
-# critic  : a second opinion that may overturn the first -- Lab 5.3
+# critic  : a second opinion that may overturn the first -- Lab 5.2 resolved a
+#           disagreement by authority rather than by vote; same problem, your rule
 #
 # Read the eval set before you write these. Seven of the forty-five cases turn on a rule
 # that is not in the reason code, and an agent that never screens the counterparty gets

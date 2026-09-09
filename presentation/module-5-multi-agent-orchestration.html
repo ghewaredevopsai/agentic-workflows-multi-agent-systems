@@ -130,7 +130,7 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
 <marker id="at" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#0d9488"/></marker>
 </defs></svg>
 
-<div class="slide title" data-sec="Title" data-notes="Module 1 asked when to use more than one agent and gave a rubric. This module is where they can finally answer it with evidence rather than intuition -- they build the graph, price it, and measure it against the single agent they already have.">
+<div class="slide title" data-sec="Title" data-notes="Three slides, and they are three systems rather than three concepts. Say that up front: the shapes -- supervisor, fan-out, cycle -- were built in Module 3, and the rubric for when to use more than one agent was Module 1. Neither is repeated here. What this module does is show three real systems that are built out of them, and then hand the room the bench for the rest of the session. Open by asking which of the three they have already been asked to build. In most rooms it is the first, and someone always has the third in production without calling it an agent.">
   <h1>Multi-Agent Collaboration &amp; Orchestration</h1>
   <div class="sub">Module 5 &middot; Day 2 &mdash; Tools, MCP, Orchestration &amp; Agentic RAG</div>
   <div class="rule"></div>
@@ -140,972 +140,169 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
   </div>
 </div>
 
-<div class="slide" data-sec="Orientation" data-notes="Close the loop opened in Module 1. The decision rubric was theory then because nobody could build the alternative yet. Now they can, so the rubric becomes a measurement. Say plainly that this module's honest conclusion is sometimes 'one agent was fine' -- and that finding that out cheaply is the point.">
-  <h2>Module 1 asked the question. Now you can answer it.</h2>
+<div class="slide" data-sec="Support triage" data-notes="Use case one, and the one everybody recognises. Walk it left to right: tickets arrive on one queue, a supervisor node reads each and picks a specialist, one specialist runs, and a resolve node writes the reply. The whole multi-agent part is the one call to add_conditional_edges -- fn takes STATE and returns a KEY, path_map says which node each key means, and people mix those two up constantly. The point to press: a supervisor is a classifier, so it has an accuracy, and almost nobody measures it. A router that misroutes one ticket in five wastes every token spent downstream of the mistake, and the routing call is the cheapest one in the graph -- so cheapening the router is usually the wrong trade. Lab 5.1 builds exactly this graph, scores the rule-based router against a labelled eval set, then swaps in a model-routed supervisor and scores that. Ask the room how their own service desk routes today; it is almost always keywords, and it is usually better than they expect.">
+  <h2>A support desk that triages itself</h2>
   <div class="body">
-    <svg width="1180" height="420" viewBox="0 0 1180 420" role="img" aria-label="From Module 1's rubric to Module 5's measurement">
-      <rect x="50" y="70" width="330" height="150" rx="8" fill="#f8f8fd" stroke="#cbd5e1" stroke-width="2"/>
-      <text x="215" y="102" text-anchor="middle" class="lbl">Module 1</text>
-      <text x="215" y="138" text-anchor="middle" class="bx">A decision rubric</text>
-      <text x="215" y="172" text-anchor="middle" class="bd">one agent, many, or neither</text>
-      <text x="215" y="200" text-anchor="middle" class="bds no">answered from judgement</text>
+    <svg width="1180" height="400" viewBox="0 0 1180 400" role="img" aria-label="Support tickets arrive on one queue, a supervisor node routes each to a billing, technical or account specialist, and a resolve node closes the ticket">
+      <text x="644" y="48" text-anchor="middle" class="bds" font-weight="700" fill="#4338ca">add_conditional_edges(supervisor, route, path_map)</text>
 
-      <rect x="425" y="70" width="330" height="150" rx="8" fill="#f8f8fd" stroke="#cbd5e1" stroke-width="2"/>
-      <text x="590" y="102" text-anchor="middle" class="lbl">Modules 2&ndash;4</text>
-      <text x="590" y="138" text-anchor="middle" class="bx">One agent, fully built</text>
-      <text x="590" y="172" text-anchor="middle" class="bd">reasoning, state, tools, MCP</text>
-      <text x="590" y="200" text-anchor="middle" class="bds">and an eval harness for it</text>
+      <rect x="20" y="104" width="230" height="58" rx="5" fill="#f8f8fd" stroke="#cbd5e1" stroke-width="1.8"/>
+      <text x="135" y="139" text-anchor="middle" class="bds">charged twice in March</text>
+      <rect x="20" y="176" width="230" height="58" rx="5" fill="#f8f8fd" stroke="#cbd5e1" stroke-width="1.8"/>
+      <text x="135" y="211" text-anchor="middle" class="bds">API returns 500 on /sync</text>
+      <rect x="20" y="248" width="230" height="58" rx="5" fill="#f8f8fd" stroke="#cbd5e1" stroke-width="1.8"/>
+      <text x="135" y="283" text-anchor="middle" class="bds">move the billing owner</text>
 
-      <rect x="800" y="70" width="330" height="150" rx="8" fill="#eef2ff" stroke="#4338ca" stroke-width="2.5"/>
-      <text x="965" y="102" text-anchor="middle" class="lbl">Module 5</text>
-      <text x="965" y="138" text-anchor="middle" class="bx">The same rubric</text>
-      <text x="965" y="172" text-anchor="middle" class="bd">now answered with numbers</text>
-      <text x="965" y="200" text-anchor="middle" class="bds ok">quality &middot; cost &middot; latency</text>
+      <line x1="254" y1="211" x2="282" y2="211" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
 
-      <line x1="385" y1="145" x2="420" y2="145" stroke="#94a3b8" stroke-width="2" marker-end="url(#ag)"/>
-      <line x1="760" y1="145" x2="795" y2="145" stroke="#4338ca" stroke-width="2.5" marker-end="url(#ai)"/>
+      <rect x="290" y="170" width="170" height="82" rx="6" fill="#eef2ff" stroke="#4338ca" stroke-width="2.5"/>
+      <text x="375" y="203" text-anchor="middle" class="bx">supervisor</text>
+      <text x="375" y="229" text-anchor="middle" class="bds">classify the ticket</text>
 
-      <rect x="180" y="262" width="820" height="130" rx="6" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
-      <text x="590" y="296" text-anchor="middle" class="bxs am">You already have the baseline. That is what makes this module honest.</text>
-      <text x="590" y="330" text-anchor="middle" class="bd">Every graph you build today gets compared against one agent doing the same job,</text>
-      <text x="590" y="358" text-anchor="middle" class="bd">on ground truth you state yourself &mdash; not against a demo, and not against a hope</text>
-      <text x="590" y="382" text-anchor="middle" class="bds">Sometimes the graph loses. Lab 5.5 is designed so that finding out costs you an afternoon.</text>
-    </svg>
-  </div>
-</div>
-
-<div class="slide div" data-sec="Topologies" data-notes="Part one: the shapes. Keep this section brisk -- most of the room has seen the pictures. The value is in what each shape costs, not in what each shape is.">
-  <div class="k">Part one</div>
-  <h1>Shapes, and what each one costs</h1>
-</div>
-
-<div class="slide" data-sec="Topologies" data-notes="Four shapes, and the column that matters is the last one. Ask the room which of these they have in production; then ask who can name, for their system, which agent decided a given outcome. The hierarchical column is where large organisations end up and where debugging stops being possible without tracing.">
-  <h2>Four shapes, and the question each one makes hard</h2>
-  <div class="body">
-    <svg width="1180" height="430" viewBox="0 0 1180 430" role="img" aria-label="Single agent, supervisor-worker, network and hierarchical topologies compared">
-      <rect x="40" y="50" width="262" height="180" rx="8" fill="#f8f8fd" stroke="#cbd5e1" stroke-width="2"/>
-      <text x="171" y="78" text-anchor="middle" class="lbl">Single</text>
-      <circle cx="171" cy="128" r="24" fill="#4338ca"/>
-      <text x="171" y="134" text-anchor="middle" font-size="15" fill="#fff">A</text>
-      <text x="171" y="186" text-anchor="middle" class="bd">one context, one trace</text>
-      <text x="171" y="212" text-anchor="middle" class="bds ok">cheapest, and the baseline</text>
-
-      <rect x="318" y="50" width="262" height="180" rx="8" fill="#eef2ff" stroke="#4338ca" stroke-width="2.5"/>
-      <text x="449" y="78" text-anchor="middle" class="lbl">Supervisor / worker</text>
-      <circle cx="449" cy="112" r="18" fill="#4338ca"/>
-      <text x="449" y="117" text-anchor="middle" font-size="14" fill="#fff">S</text>
-      <circle cx="405" cy="168" r="15" fill="#818cf8"/><circle cx="449" cy="168" r="15" fill="#818cf8"/><circle cx="493" cy="168" r="15" fill="#818cf8"/>
-      <line x1="443" y1="128" x2="410" y2="154" stroke="#94a3b8" stroke-width="1.6"/>
-      <line x1="449" y1="130" x2="449" y2="152" stroke="#94a3b8" stroke-width="1.6"/>
-      <line x1="455" y1="128" x2="488" y2="154" stroke="#94a3b8" stroke-width="1.6"/>
-      <text x="449" y="206" text-anchor="middle" class="bd">one place decides</text>
-      <text x="449" y="224" text-anchor="middle" class="bds ok">start here</text>
-
-      <rect x="596" y="50" width="262" height="180" rx="8" fill="#f8f8fd" stroke="#cbd5e1" stroke-width="2"/>
-      <text x="727" y="78" text-anchor="middle" class="lbl">Network (peer-to-peer)</text>
-      <circle cx="690" cy="112" r="15" fill="#818cf8"/><circle cx="764" cy="112" r="15" fill="#818cf8"/>
-      <circle cx="690" cy="168" r="15" fill="#818cf8"/><circle cx="764" cy="168" r="15" fill="#818cf8"/>
-      <g stroke="#94a3b8" stroke-width="1.4">
-        <line x1="705" y1="112" x2="749" y2="112"/><line x1="705" y1="168" x2="749" y2="168"/>
-        <line x1="690" y1="127" x2="690" y2="153"/><line x1="764" y1="127" x2="764" y2="153"/>
-        <line x1="702" y1="123" x2="752" y2="157"/><line x1="752" y1="123" x2="702" y2="157"/>
+      <g stroke="#4338ca" stroke-width="2" fill="none">
+        <line x1="464" y1="211" x2="566" y2="126" marker-end="url(#ai)"/>
+        <line x1="464" y1="211" x2="566" y2="211" marker-end="url(#ai)"/>
+        <line x1="464" y1="211" x2="566" y2="296" marker-end="url(#ai)"/>
       </g>
-      <text x="727" y="206" text-anchor="middle" class="bd">anyone hands to anyone</text>
-      <text x="727" y="224" text-anchor="middle" class="bds no">no single place decides</text>
 
-      <rect x="874" y="50" width="262" height="180" rx="8" fill="#f8f8fd" stroke="#cbd5e1" stroke-width="2"/>
-      <text x="1005" y="78" text-anchor="middle" class="lbl">Hierarchical</text>
-      <circle cx="1005" cy="100" r="14" fill="#4338ca"/>
-      <circle cx="967" cy="146" r="12" fill="#818cf8"/><circle cx="1043" cy="146" r="12" fill="#818cf8"/>
-      <circle cx="947" cy="188" r="9" fill="#c7d2fe"/><circle cx="987" cy="188" r="9" fill="#c7d2fe"/>
-      <circle cx="1023" cy="188" r="9" fill="#c7d2fe"/><circle cx="1063" cy="188" r="9" fill="#c7d2fe"/>
-      <g stroke="#94a3b8" stroke-width="1.4">
-        <line x1="999" y1="112" x2="972" y2="134"/><line x1="1011" y1="112" x2="1038" y2="134"/>
-        <line x1="961" y1="157" x2="950" y2="178"/><line x1="973" y1="157" x2="984" y2="178"/>
-        <line x1="1037" y1="157" x2="1026" y2="178"/><line x1="1049" y1="157" x2="1060" y2="178"/>
+      <rect x="574" y="91" width="248" height="66" rx="6" fill="#f8f8fd" stroke="#818cf8" stroke-width="2"/>
+      <text x="698" y="117" text-anchor="middle" class="bxs">billing_agent</text>
+      <text x="698" y="141" text-anchor="middle" class="bds">refunds and invoices</text>
+      <rect x="574" y="178" width="248" height="66" rx="6" fill="#f8f8fd" stroke="#818cf8" stroke-width="2"/>
+      <text x="698" y="204" text-anchor="middle" class="bxs">tech_agent</text>
+      <text x="698" y="228" text-anchor="middle" class="bds">errors and outages</text>
+      <rect x="574" y="265" width="248" height="66" rx="6" fill="#f8f8fd" stroke="#818cf8" stroke-width="2"/>
+      <text x="698" y="291" text-anchor="middle" class="bxs">account_agent</text>
+      <text x="698" y="315" text-anchor="middle" class="bds">seats and access</text>
+
+      <g stroke="#4338ca" stroke-width="2" fill="none">
+        <line x1="822" y1="124" x2="872" y2="205" marker-end="url(#ai)"/>
+        <line x1="822" y1="211" x2="872" y2="211" marker-end="url(#ai)"/>
+        <line x1="822" y1="298" x2="872" y2="217" marker-end="url(#ai)"/>
       </g>
-      <text x="1005" y="212" text-anchor="middle" class="bd">teams of teams</text>
 
-      <text x="590" y="272" text-anchor="middle" class="lbl">The question that gets harder left to right</text>
-      <rect x="150" y="290" width="880" height="118" rx="6" fill="#fef2f2" stroke="#b91c1c" stroke-width="2"/>
-      <text x="590" y="326" text-anchor="middle" class="bx no">&ldquo;Which agent caused this outcome?&rdquo;</text>
-      <text x="590" y="358" text-anchor="middle" class="bd">Trivial on the left. On the right it needs a trace &mdash; which is why Module 7 exists,</text>
-      <text x="590" y="384" text-anchor="middle" class="bd">and why adopting a topology you cannot debug is a decision, not an accident.</text>
+      <rect x="880" y="178" width="142" height="66" rx="6" fill="#eef2ff" stroke="#4338ca" stroke-width="2.5"/>
+      <text x="951" y="204" text-anchor="middle" class="bxs">resolve</text>
+      <text x="951" y="228" text-anchor="middle" class="bds">reply, close</text>
+
+      <line x1="1022" y1="211" x2="1052" y2="211" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
+      <rect x="1060" y="187" width="94" height="48" rx="5" fill="#fff" stroke="#94a3b8" stroke-width="1.8"/>
+      <text x="1107" y="217" text-anchor="middle" class="bxs">END</text>
+
+      <text x="590" y="380" text-anchor="middle" class="bds" fill="#64748b">Where you have seen it &mdash; first-line triage on a service desk: Zendesk, Jira Service Management, an internal support queue.</text>
     </svg>
   </div>
+  <div class="take"><b>A supervisor is a classifier.</b> Its choice is a value in state, so you can ask which agent answered &mdash; and measure how often it picked wrong. <b>Lab 5.1</b> scores it.</div>
 </div>
 
-<div class="slide" data-sec="Topologies" data-notes="The reframing slide for this module. A supervisor is a router, so routing accuracy is measurable exactly the way tool selection was in Lab 4.2 -- same harness, same confusion table, and Lab 5.1 brings fifteen requests of its own. Four of them state their intent only by implication, which is where a rule table runs out. Almost nobody measures any of this, and a supervisor that misroutes 20% of cases wastes every downstream token. The rule-based column is not a strawman: it is often right.">
-  <h2>A supervisor is a router &mdash; so measure it like one</h2>
+<div class="slide" data-sec="Report writer" data-notes="Use case two: the shape changes from one-of-N to all-of-N. A planner splits the brief into questions, the researchers run in the same superstep, and a writer turns whatever came back into one document. The thing to spend time on is the box in the middle, because it is where the bug lives. Three nodes returning findings in one superstep all write the same state key. If that key carries no reducer, LangGraph raises InvalidUpdateError -- it does not silently drop two of the three. Say that plainly, because most rooms expect silent loss: silent loss is what a hand-rolled dict.update does, and a hand-rolled merge is what people write before they know about Annotated. So the framework protects the keys you declared, and only those. Second point, if there is time: parallelism buys latency, not tokens. The same work is still paid for, just sooner -- if the bill is the problem, fanning out will not help at all. Lab 5.2 builds it, including the un-annotated twin that raises, so they see the error rather than being told about it.">
+  <h2>A research brief written by several agents at once</h2>
   <div class="body">
-    <svg width="1180" height="430" viewBox="0 0 1180 430" role="img" aria-label="Rule-based routing compared with LLM routing">
-      <rect x="50" y="48" width="500" height="268" rx="8" fill="#f0fdf9" stroke="#0d9488" stroke-width="2.5"/>
-      <text x="300" y="78" text-anchor="middle" class="lbl">Rule-based</text>
-      <text x="300" y="112" text-anchor="middle" class="bx">if reason_code in SANCTIONS: compliance</text>
-      <text x="76" y="152" class="bd">&bull; free, instant, and the same every time</text>
-      <text x="76" y="186" class="bd">&bull; you can read it, test it, and show an auditor</text>
-      <text x="76" y="220" class="bd">&bull; a wrong route is a bug you can fix once</text>
-      <text x="76" y="254" class="bd am">&bull; breaks on anything the table did not foresee</text>
-      <text x="300" y="294" text-anchor="middle" class="bds ok">right whenever the categories are known and stable</text>
+    <svg width="1180" height="410" viewBox="0 0 1180 410" role="img" aria-label="A brief is split by a planner into three questions, three researchers run in parallel and write findings through a declared reducer, and a writer produces one report">
+      <text x="590" y="48" text-anchor="middle" class="bds" font-weight="700" fill="#4338ca">one superstep &mdash; the three researchers run together</text>
 
-      <rect x="630" y="48" width="500" height="268" rx="8" fill="#f8f8fd" stroke="#94a3b8" stroke-width="2"/>
-      <text x="880" y="78" text-anchor="middle" class="lbl">LLM-routed</text>
-      <text x="880" y="112" text-anchor="middle" class="bx">&ldquo;which specialist should handle this?&rdquo;</text>
-      <text x="656" y="152" class="bd">&bull; handles the case nobody enumerated</text>
-      <text x="656" y="186" class="bd">&bull; costs a model call before any work begins</text>
-      <text x="656" y="220" class="bd">&bull; can route differently for the same input twice</text>
-      <text x="656" y="254" class="bd am">&bull; its worker descriptions are Module 4 all over again</text>
-      <text x="880" y="294" text-anchor="middle" class="bds">right when the input is open-ended</text>
+      <rect x="20" y="178" width="192" height="76" rx="6" fill="#f8f8fd" stroke="#cbd5e1" stroke-width="1.8"/>
+      <text x="116" y="208" text-anchor="middle" class="bxs">the brief</text>
+      <text x="116" y="232" text-anchor="middle" class="bds">adopt vendor X?</text>
 
-      <rect x="150" y="336" width="880" height="82" rx="6" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
-      <text x="590" y="366" text-anchor="middle" class="bxs am">Routing accuracy is the same measurement you built in Lab 4.2</text>
-      <text x="590" y="394" text-anchor="middle" class="bds">an eval set, accuracy, and a confusion table &mdash; on which a rule router's misses pile up in</text>
-      <text x="590" y="412" text-anchor="middle" class="bds">one place, its fallback. A misroute wastes every token downstream, so it is the cheapest fix</text>
-    </svg>
-  </div>
-</div>
+      <line x1="216" y1="216" x2="244" y2="216" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
 
-<div class="slide" data-sec="Topologies" data-notes="The slide that saves them a week of debugging. A handoff feels like passing a task; what actually crosses is whatever you put in the message. The three things on the right are dropped by default, and each one produces a characteristic bug: repeated work, violated constraints, and confidently repeating a failure.">
-  <h2>What a handoff actually transfers</h2>
-  <div class="body">
-    <svg width="1180" height="424" viewBox="0 0 1180 424" role="img" aria-label="What crosses a handoff and what is silently dropped">
-      <rect x="60" y="60" width="200" height="96" rx="8" fill="#eef2ff" stroke="#4338ca" stroke-width="2.5"/>
-      <text x="160" y="98" text-anchor="middle" class="bxs">Triage agent</text>
-      <text x="160" y="128" text-anchor="middle" class="bds">has done the work</text>
+      <rect x="252" y="178" width="150" height="76" rx="6" fill="#eef2ff" stroke="#4338ca" stroke-width="2.5"/>
+      <text x="327" y="208" text-anchor="middle" class="bx">plan</text>
+      <text x="327" y="232" text-anchor="middle" class="bds">3 questions</text>
 
-      <rect x="920" y="60" width="200" height="96" rx="8" fill="#eef2ff" stroke="#4338ca" stroke-width="2.5"/>
-      <text x="1020" y="98" text-anchor="middle" class="bxs">Policy agent</text>
-      <text x="1020" y="128" text-anchor="middle" class="bds">starts from what it is told</text>
-
-      <line x1="266" y1="108" x2="914" y2="108" stroke="#4338ca" stroke-width="3" marker-end="url(#ai)"/>
-      <text x="590" y="94" text-anchor="middle" class="bxs">handoff</text>
-
-      <rect x="120" y="192" width="440" height="196" rx="8" fill="#f0fdf9" stroke="#0d9488" stroke-width="2.5"/>
-      <text x="340" y="224" text-anchor="middle" class="lbl">Crosses, because you sent it</text>
-      <text x="148" y="264" class="bd ok">&#10003;&nbsp; the task &mdash; &ldquo;can PMT-1003 be released?&rdquo;</text>
-      <text x="148" y="300" class="bd ok">&#10003;&nbsp; the findings so far &mdash; status, amount, reason code</text>
-      <text x="148" y="336" class="bd ok">&#10003;&nbsp; who is asking, and for what outcome</text>
-      <text x="340" y="372" text-anchor="middle" class="bds">this is the part everyone remembers</text>
-
-      <rect x="620" y="192" width="440" height="196" rx="8" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
-      <text x="840" y="224" text-anchor="middle" class="lbl no">Dropped, unless you send it</text>
-      <text x="648" y="264" class="bd no">&#10007;&nbsp; the <tspan font-weight="600">reasoning</tspan> &mdash; so it re-derives, and pays again</text>
-      <text x="648" y="300" class="bd no">&#10007;&nbsp; the <tspan font-weight="600">constraints</tspan> &mdash; so it breaks a rule it never saw</text>
-      <text x="648" y="336" class="bd no">&#10007;&nbsp; the <tspan font-weight="600">failure history</tspan> &mdash; so it retries what failed</text>
-      <text x="840" y="372" text-anchor="middle" class="bds no">each one has its own signature bug</text>
-    </svg>
-  </div>
-</div>
-
-<div class="slide" data-sec="Topologies" data-notes="Module 1's edge count, now with the consequence spelled out. The point is not that peer-to-peer is wrong -- it is that it removes the one place where a decision could have been logged, approved or stopped. If they want peer-to-peer, they need Module 7's tracing first, not afterwards.">
-  <h2>Peer-to-peer removes the place where control lives</h2>
-  <div class="body">
-    <svg width="1180" height="424" viewBox="0 0 1180 424" role="img" aria-label="Supervisor as a chokepoint versus peer-to-peer with no chokepoint">
-      <text x="300" y="44" text-anchor="middle" class="lbl">Through a supervisor</text>
-      <circle cx="300" cy="106" r="26" fill="#4338ca"/>
-      <text x="300" y="112" text-anchor="middle" font-size="14" fill="#fff">S</text>
-      <circle cx="180" cy="212" r="20" fill="#818cf8"/><circle cx="300" cy="212" r="20" fill="#818cf8"/><circle cx="420" cy="212" r="20" fill="#818cf8"/>
-      <line x1="288" y1="129" x2="192" y2="192" stroke="#4338ca" stroke-width="2"/>
-      <line x1="300" y1="132" x2="300" y2="190" stroke="#4338ca" stroke-width="2"/>
-      <line x1="312" y1="129" x2="408" y2="192" stroke="#4338ca" stroke-width="2"/>
-      <rect x="120" y="258" width="360" height="128" rx="6" fill="#f0fdf9" stroke="#0d9488" stroke-width="2"/>
-      <text x="300" y="288" text-anchor="middle" class="bxs ok">One chokepoint</text>
-      <text x="300" y="316" text-anchor="middle" class="bds">every decision passes through it, so</text>
-      <text x="300" y="338" text-anchor="middle" class="bds">that is where a log, a budget, an</text>
-      <text x="300" y="360" text-anchor="middle" class="bds">approval gate and a stop button go</text>
-      <text x="300" y="380" text-anchor="middle" class="bds ok">6 edges for 3 workers</text>
-
-      <line x1="590" y1="40" x2="590" y2="392" stroke="#e2e8f0" stroke-width="2"/>
-
-      <text x="880" y="44" text-anchor="middle" class="lbl">Peer-to-peer</text>
-      <circle cx="800" cy="106" r="20" fill="#818cf8"/><circle cx="960" cy="106" r="20" fill="#818cf8"/>
-      <circle cx="800" cy="212" r="20" fill="#818cf8"/><circle cx="960" cy="212" r="20" fill="#818cf8"/>
-      <g stroke="#94a3b8" stroke-width="1.6">
-        <line x1="820" y1="106" x2="940" y2="106"/><line x1="820" y1="212" x2="940" y2="212"/>
-        <line x1="800" y1="126" x2="800" y2="192"/><line x1="960" y1="126" x2="960" y2="192"/>
-        <line x1="816" y1="122" x2="944" y2="196"/><line x1="944" y1="122" x2="816" y2="196"/>
+      <g stroke="#4338ca" stroke-width="2" fill="none">
+        <line x1="406" y1="216" x2="468" y2="124" marker-end="url(#ai)"/>
+        <line x1="406" y1="216" x2="468" y2="216" marker-end="url(#ai)"/>
+        <line x1="406" y1="216" x2="468" y2="308" marker-end="url(#ai)"/>
       </g>
-      <rect x="700" y="258" width="360" height="128" rx="6" fill="#fef2f2" stroke="#b91c1c" stroke-width="2"/>
-      <text x="880" y="288" text-anchor="middle" class="bxs no">No chokepoint</text>
-      <text x="880" y="316" text-anchor="middle" class="bds">lower latency and no bottleneck &mdash;</text>
-      <text x="880" y="338" text-anchor="middle" class="bds">and nowhere to put the budget, the</text>
-      <text x="880" y="360" text-anchor="middle" class="bds">gate, or the answer to &ldquo;who decided?&rdquo;</text>
-      <text x="880" y="380" text-anchor="middle" class="bds no">12 directed edges for 4 peers</text>
+
+      <rect x="476" y="89" width="210" height="62" rx="6" fill="#f8f8fd" stroke="#818cf8" stroke-width="2"/>
+      <text x="581" y="113" text-anchor="middle" class="bxs">pricing</text>
+      <text x="581" y="137" text-anchor="middle" class="bds">list price, discounts</text>
+      <rect x="476" y="185" width="210" height="62" rx="6" fill="#f8f8fd" stroke="#818cf8" stroke-width="2"/>
+      <text x="581" y="209" text-anchor="middle" class="bxs">security</text>
+      <text x="581" y="233" text-anchor="middle" class="bds">SOC 2, residency</text>
+      <rect x="476" y="281" width="210" height="62" rx="6" fill="#f8f8fd" stroke="#818cf8" stroke-width="2"/>
+      <text x="581" y="305" text-anchor="middle" class="bxs">support</text>
+      <text x="581" y="329" text-anchor="middle" class="bds">SLA, escalation</text>
+
+      <g stroke="#0d9488" stroke-width="2" fill="none">
+        <line x1="690" y1="120" x2="736" y2="204" marker-end="url(#at)"/>
+        <line x1="690" y1="216" x2="736" y2="216" marker-end="url(#at)"/>
+        <line x1="690" y1="312" x2="736" y2="228" marker-end="url(#at)"/>
+      </g>
+
+      <rect x="744" y="164" width="196" height="104" rx="6" fill="#ecfdf5" stroke="#0d9488" stroke-width="2.5"/>
+      <text x="842" y="196" text-anchor="middle" class="bxs">findings</text>
+      <text x="842" y="222" text-anchor="middle" class="bds ok">Annotated[list, add]</text>
+      <text x="842" y="248" text-anchor="middle" class="bds">declared once</text>
+
+      <line x1="944" y1="216" x2="972" y2="216" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
+
+      <rect x="978" y="178" width="158" height="76" rx="6" fill="#eef2ff" stroke="#4338ca" stroke-width="2.5"/>
+      <text x="1057" y="208" text-anchor="middle" class="bx">writer</text>
+      <text x="1057" y="232" text-anchor="middle" class="bds">one report</text>
+
+      <text x="590" y="390" text-anchor="middle" class="bds" fill="#64748b">Where you have seen it &mdash; a due-diligence or market brief assembled from several sources at once.</text>
     </svg>
   </div>
+  <div class="take"><b>The fan-out is easy; the merge is the design.</b> Two branches writing one un-annotated key in the same superstep raise InvalidUpdateError. <b>Lab 5.2</b> runs both.</div>
 </div>
 
-<div class="slide div" data-sec="Execution" data-notes="Part two: what actually goes wrong once the shape is chosen. This is the section with the bug nobody expects -- two parallel branches writing one state key, and three different endings depending on what was declared.">
-  <div class="k">Part two</div>
-  <h1>Running it: order, parallelism, disagreement</h1>
-</div>
-
-<div class="slide" data-sec="Execution" data-notes="Decomposition is where teams over-parallelise. The dependency graph decides what CAN run at once; wishful thinking decides what people TRY to run at once. Walk the example: policy cannot start until the reason code exists, so a three-agent fan-out here is two agents' worth of waiting.">
-  <h2>Decomposition tells you what may run at once</h2>
+<div class="slide" data-sec="Incident response" data-notes="Use case three, and the one most likely to already be running in their estate under a different name. An alert arrives, triage matches it to a runbook, a remediation is attempted, and a verify node asks whether it held. Everything interesting is in what happens when it did not. The backwards edge is a cycle -- an edge pointing at a node that already ran -- and it is the same construct as Module 3's loop, so what makes it safe is the same thing: a budget that is a property of the RUN, decremented every attempt, not a per-node retry count. Per-node budgets multiply, and people write per-node budgets because that is where the code is. Then the part worth arguing about: exhausting the budget is not an error, it is a routing decision, and the way out is a node. An escalate node that assembles the handoff -- what was tried, what happened each time, what is still unknown -- is the difference between waking someone up with a page and waking someone up with a case. Lab 5.3 builds both halves and makes the handoff the thing that is graded.">
+  <h2>An incident responder that knows when to stop</h2>
   <div class="body">
-    <svg width="1180" height="424" viewBox="0 0 1180 424" role="img" aria-label="Dependency graph of an investigation and the resulting execution waves">
-      <text x="300" y="44" text-anchor="middle" class="lbl">What depends on what</text>
-      <rect x="150" y="62" width="300" height="52" rx="6" fill="#eef2ff" stroke="#4338ca" stroke-width="2"/>
-      <text x="300" y="94" text-anchor="middle" class="bxs">read the payment</text>
-      <line x1="300" y1="118" x2="300" y2="140" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
+    <svg width="1180" height="400" viewBox="0 0 1180 400" role="img" aria-label="An alert is triaged against a runbook, a remediation is attempted and verified, failures cycle back with backoff until the attempt budget is spent, and then an escalate node hands off to a human">
+      <text x="590" y="48" text-anchor="middle" class="bds" font-weight="700" fill="#4338ca">the cycle needs a budget &mdash; and the way out needs a node</text>
 
-      <rect x="60" y="146" width="220" height="52" rx="6" fill="#f8f8fd" stroke="#94a3b8" stroke-width="2"/>
-      <text x="170" y="178" text-anchor="middle" class="bds">policy for its code</text>
-      <rect x="320" y="146" width="220" height="52" rx="6" fill="#f8f8fd" stroke="#94a3b8" stroke-width="2"/>
-      <text x="430" y="178" text-anchor="middle" class="bds">sanctions screen</text>
-      <line x1="286" y1="120" x2="180" y2="142" stroke="#4338ca" stroke-width="1.8" marker-end="url(#ai)"/>
-      <line x1="314" y1="120" x2="420" y2="142" stroke="#4338ca" stroke-width="1.8" marker-end="url(#ai)"/>
+      <rect x="20" y="178" width="182" height="76" rx="6" fill="#f8f8fd" stroke="#cbd5e1" stroke-width="1.8"/>
+      <text x="111" y="208" text-anchor="middle" class="bxs">alert</text>
+      <text x="111" y="232" text-anchor="middle" class="bds">p99 &gt; 2s on checkout</text>
 
-      <rect x="150" y="234" width="300" height="52" rx="6" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
-      <text x="300" y="266" text-anchor="middle" class="bxs am">recommend an action</text>
-      <line x1="180" y1="202" x2="270" y2="230" stroke="#94a3b8" stroke-width="1.8" marker-end="url(#ag)"/>
-      <line x1="420" y1="202" x2="330" y2="230" stroke="#94a3b8" stroke-width="1.8" marker-end="url(#ag)"/>
+      <line x1="206" y1="216" x2="232" y2="216" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
 
-      <line x1="590" y1="40" x2="590" y2="392" stroke="#e2e8f0" stroke-width="2"/>
+      <rect x="240" y="178" width="152" height="76" rx="6" fill="#eef2ff" stroke="#4338ca" stroke-width="2.5"/>
+      <text x="316" y="208" text-anchor="middle" class="bx">triage</text>
+      <text x="316" y="232" text-anchor="middle" class="bds">match runbook</text>
 
-      <text x="880" y="44" text-anchor="middle" class="lbl">So the schedule is three waves, not one</text>
-      <rect x="660" y="62" width="440" height="52" rx="6" fill="#f8f8fd" stroke="#cbd5e1" stroke-width="2"/>
-      <text x="686" y="94" class="bds">wave 1&nbsp;&nbsp; one agent &mdash; nothing else can start yet</text>
-      <rect x="660" y="130" width="440" height="52" rx="6" fill="#f0fdf9" stroke="#0d9488" stroke-width="2.5"/>
-      <text x="686" y="162" class="bds ok">wave 2&nbsp;&nbsp; two agents in parallel &mdash; the real saving</text>
-      <rect x="660" y="198" width="440" height="52" rx="6" fill="#f8f8fd" stroke="#cbd5e1" stroke-width="2"/>
-      <text x="686" y="230" class="bds">wave 3&nbsp;&nbsp; one agent &mdash; it needs both answers</text>
+      <line x1="396" y1="216" x2="422" y2="216" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
 
-      <rect x="660" y="286" width="440" height="106" rx="6" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
-      <text x="880" y="316" text-anchor="middle" class="bxs am">Four agents, but only two ever run together</text>
-      <text x="880" y="344" text-anchor="middle" class="bds">The critical path is three hops long whatever</text>
-      <text x="880" y="366" text-anchor="middle" class="bds">you spend. Parallelism buys the width of wave 2,</text>
-      <text x="880" y="386" text-anchor="middle" class="bds">and nothing else.</text>
+      <rect x="430" y="178" width="176" height="76" rx="6" fill="#eef2ff" stroke="#4338ca" stroke-width="2.5"/>
+      <text x="518" y="208" text-anchor="middle" class="bx">remediate</text>
+      <text x="518" y="232" text-anchor="middle" class="bds">the safe fix</text>
+
+      <line x1="610" y1="216" x2="636" y2="216" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
+
+      <rect x="644" y="178" width="152" height="76" rx="6" fill="#eef2ff" stroke="#4338ca" stroke-width="2.5"/>
+      <text x="720" y="208" text-anchor="middle" class="bx">verify</text>
+      <text x="720" y="232" text-anchor="middle" class="bds">did it hold?</text>
+
+      <path d="M720,178 L720,116 L518,116 L518,172" fill="none" stroke="#d97706" stroke-width="2.2" stroke-dasharray="7 4" marker-end="url(#aa)"/>
+      <text x="619" y="102" text-anchor="middle" class="bds am">attempts left &mdash; retry with backoff 1s, 2s, 4s</text>
+
+      <text x="518" y="292" text-anchor="middle" class="bds">attempt 1 &rarr; 2 &rarr; 3 &rarr; stop</text>
+
+      <line x1="800" y1="208" x2="884" y2="150" stroke="#0d9488" stroke-width="2" marker-end="url(#at)"/>
+      <line x1="800" y1="228" x2="884" y2="292" stroke="#d97706" stroke-width="2" marker-end="url(#aa)"/>
+      <text x="842" y="158" text-anchor="middle" class="bds ok">it held</text>
+      <text x="816" y="310" text-anchor="middle" class="bds am">budget spent</text>
+
+      <rect x="892" y="106" width="186" height="64" rx="6" fill="#ecfdf5" stroke="#0d9488" stroke-width="2.5"/>
+      <text x="985" y="132" text-anchor="middle" class="bxs ok">resolved</text>
+      <text x="985" y="156" text-anchor="middle" class="bds">close the incident</text>
+
+      <rect x="892" y="268" width="230" height="64" rx="6" fill="#fffbeb" stroke="#d97706" stroke-width="2.5"/>
+      <text x="1007" y="294" text-anchor="middle" class="bxs am">escalate</text>
+      <text x="1007" y="318" text-anchor="middle" class="bds">hand to the on-call</text>
+
+      <text x="590" y="380" text-anchor="middle" class="bds" fill="#64748b">Where you have seen it &mdash; an on-call runbook that tries the safe fix first, then wakes a human.</text>
     </svg>
   </div>
+  <div class="take"><b>Running out of attempts is a routing decision, not an exception.</b> The way out is a node that writes a handoff a human can act on. <b>Lab 5.3</b> grades the handoff.</div>
 </div>
 
-<div class="slide" data-sec="Execution" data-notes="The bug of the module, and the correction that matters. LangGraph does NOT lose the finding silently -- an un-annotated key written by two nodes in the same superstep raises InvalidUpdateError. Silent loss is what a hand-rolled merge does, and a hand-rolled merge is what most teams write first. So the lesson is not 'the framework saves you', it is 'the framework saves the keys you declared'. Lab 5.3 runs all three endings in order: ask the room to predict the middle one before you show it.">
-  <h2>Two branches wrote one key. What happens is what you declared.</h2>
-  <div class="body">
-    <svg width="1180" height="424" viewBox="0 0 1180 424" role="img" aria-label="Three outcomes when two parallel nodes write the same state key">
-      <text x="590" y="44" text-anchor="middle" class="bxs">policy and sanctions finish in the same superstep &mdash; both return findings</text>
-
-      <rect x="40" y="66" width="350" height="210" rx="8" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
-      <text x="215" y="98" text-anchor="middle" class="lbl no">Your own merge</text>
-      <text x="215" y="136" text-anchor="middle" class="bxs">out.update(partial)</text>
-      <text x="215" y="180" text-anchor="middle" class="bx no">findings = [S]</text>
-      <text x="215" y="218" text-anchor="middle" class="bds">nothing raised, nothing logged</text>
-      <text x="215" y="240" text-anchor="middle" class="bds">the policy finding is simply gone</text>
-      <text x="215" y="266" text-anchor="middle" class="bds no">whoever ran last wins</text>
-
-      <rect x="415" y="66" width="350" height="210" rx="8" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
-      <text x="590" y="98" text-anchor="middle" class="lbl am">A state key you did not declare</text>
-      <text x="590" y="136" text-anchor="middle" class="bxs">findings: list</text>
-      <text x="590" y="180" text-anchor="middle" class="bx am">InvalidUpdateError</text>
-      <text x="590" y="218" text-anchor="middle" class="bds">two writes, one key, one step &mdash;</text>
-      <text x="590" y="240" text-anchor="middle" class="bds">the framework refuses to guess</text>
-      <text x="590" y="266" text-anchor="middle" class="bds am">loud, and on the first run</text>
-
-      <rect x="790" y="66" width="350" height="210" rx="8" fill="#f0fdf9" stroke="#0d9488" stroke-width="2.5"/>
-      <text x="965" y="98" text-anchor="middle" class="lbl ok">A reducer, declared per key</text>
-      <text x="965" y="136" text-anchor="middle" class="bxs">Annotated[list, add]</text>
-      <text x="965" y="180" text-anchor="middle" class="bx ok">findings = [P, S]</text>
-      <text x="965" y="218" text-anchor="middle" class="bds">both survive, in whichever</text>
-      <text x="965" y="240" text-anchor="middle" class="bds">order they finished</text>
-      <text x="965" y="266" text-anchor="middle" class="bds ok">and the spend sums instead</text>
-
-      <rect x="100" y="296" width="980" height="110" rx="6" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
-      <text x="590" y="328" text-anchor="middle" class="bxs am">The framework protects the keys you declared, and only those</text>
-      <text x="590" y="358" text-anchor="middle" class="bd">The hand-rolled merge is the silent one: every branch returned cleanly, and a summary of</text>
-      <text x="590" y="382" text-anchor="middle" class="bd">one finding reads exactly as well as a summary of two.</text>
-      <text x="590" y="402" text-anchor="middle" class="bds">Only a test that counts who came back shows it &mdash; Lab 5.3 runs all three, then writes that test.</text>
-    </svg>
-  </div>
-</div>
-
-<div class="slide" data-sec="Execution" data-notes="Conflict resolution, and the deliberate provocation is that consensus is the worst default. Agreement is not truth: three agents given the same bad premise agree confidently, because they inherited the error rather than each finding it. Authority and provenance beat voting because they are checkable.">
-  <h2>When two agents disagree</h2>
-  <div class="body">
-    <svg width="1180" height="424" viewBox="0 0 1180 424" role="img" aria-label="Five conflict resolution strategies ranked by when each is right">
-      <rect x="50" y="46" width="212" height="212" rx="8" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
-      <text x="156" y="76" text-anchor="middle" class="lbl no">Majority vote</text>
-      <text x="156" y="112" text-anchor="middle" class="bxs no">worst default</text>
-      <text x="156" y="150" text-anchor="middle" class="bds">three agents sharing</text>
-      <text x="156" y="172" text-anchor="middle" class="bds">one bad premise</text>
-      <text x="156" y="194" text-anchor="middle" class="bds">agree confidently</text>
-      <text x="156" y="234" text-anchor="middle" class="bds no">agreement is not evidence</text>
-
-      <rect x="278" y="46" width="212" height="212" rx="8" fill="#f8f8fd" stroke="#94a3b8" stroke-width="2"/>
-      <text x="384" y="76" text-anchor="middle" class="lbl">Confidence</text>
-      <text x="384" y="112" text-anchor="middle" class="bxs">weak</text>
-      <text x="384" y="150" text-anchor="middle" class="bds">self-reported, and</text>
-      <text x="384" y="172" text-anchor="middle" class="bds">uncorrelated with</text>
-      <text x="384" y="194" text-anchor="middle" class="bds">being right</text>
-      <text x="384" y="234" text-anchor="middle" class="bds">use as a tiebreak only</text>
-
-      <rect x="506" y="46" width="212" height="212" rx="8" fill="#f0fdf9" stroke="#0d9488" stroke-width="2.5"/>
-      <text x="612" y="76" text-anchor="middle" class="lbl ok">Authority</text>
-      <text x="612" y="112" text-anchor="middle" class="bxs ok">usually right</text>
-      <text x="612" y="150" text-anchor="middle" class="bds">on sanctions, the</text>
-      <text x="612" y="172" text-anchor="middle" class="bds">compliance agent wins</text>
-      <text x="612" y="194" text-anchor="middle" class="bds">by definition</text>
-      <text x="612" y="234" text-anchor="middle" class="bds ok">declare it in advance</text>
-
-      <rect x="734" y="46" width="212" height="212" rx="8" fill="#f0fdf9" stroke="#0d9488" stroke-width="2.5"/>
-      <text x="840" y="76" text-anchor="middle" class="lbl ok">Provenance</text>
-      <text x="840" y="112" text-anchor="middle" class="bxs ok">best when checkable</text>
-      <text x="840" y="150" text-anchor="middle" class="bds">re-read the source</text>
-      <text x="840" y="172" text-anchor="middle" class="bds">the claim came from</text>
-      <text x="840" y="194" text-anchor="middle" class="bds">and settle it on fact</text>
-      <text x="840" y="234" text-anchor="middle" class="bds ok">costs one more call</text>
-
-      <rect x="962" y="46" width="168" height="212" rx="8" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
-      <text x="1046" y="76" text-anchor="middle" class="lbl am">Escalate</text>
-      <text x="1046" y="112" text-anchor="middle" class="bxs am">always available</text>
-      <text x="1046" y="150" text-anchor="middle" class="bds">a disagreement</text>
-      <text x="1046" y="172" text-anchor="middle" class="bds">worth having is</text>
-      <text x="1046" y="194" text-anchor="middle" class="bds">worth a human</text>
-      <text x="1046" y="234" text-anchor="middle" class="bds am">not a failure</text>
-
-      <rect x="150" y="290" width="880" height="116" rx="6" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
-      <text x="590" y="324" text-anchor="middle" class="bxs am">Pick the rule before the disagreement, and write it down</text>
-      <text x="590" y="356" text-anchor="middle" class="bd">A conflict rule chosen while looking at one case is a rule fitted to that case.</text>
-      <text x="590" y="388" text-anchor="middle" class="bd">The two on the right are checkable by something other than a model. Prefer those.</text>
-    </svg>
-  </div>
-</div>
-
-<div class="slide" data-sec="Execution" data-notes="Error handling per agent. The key point is that these are four different responses to four different situations, and Lab 4.1's retryable field is what tells them apart. The bottom line matters for a bank: a graph that half-completed is a state you have to be able to describe, and 'partial' is a legitimate outcome that must be reportable.">
-  <h2>One agent failed. What should the graph do?</h2>
-  <div class="body">
-    <svg width="1180" height="424" viewBox="0 0 1180 424" role="img" aria-label="Retry, backoff, fallback and abandon as four responses to a failed agent">
-      <rect x="50" y="48" width="255" height="196" rx="8" fill="#f8f8fd" stroke="#94a3b8" stroke-width="2"/>
-      <text x="177" y="78" text-anchor="middle" class="lbl">Retry</text>
-      <text x="177" y="114" text-anchor="middle" class="bxs">transient only</text>
-      <text x="177" y="152" text-anchor="middle" class="bds">the tool said</text>
-      <text x="177" y="174" text-anchor="middle" class="bds ok">retryable: true</text>
-      <text x="177" y="212" text-anchor="middle" class="bds">Lab 4.1 gave you</text>
-      <text x="177" y="232" text-anchor="middle" class="bds">the field to check</text>
-
-      <rect x="325" y="48" width="255" height="196" rx="8" fill="#f8f8fd" stroke="#94a3b8" stroke-width="2"/>
-      <text x="452" y="78" text-anchor="middle" class="lbl">Backoff</text>
-      <text x="452" y="114" text-anchor="middle" class="bxs">retry, with manners</text>
-      <text x="452" y="152" text-anchor="middle" class="bds">1s, 2s, 4s, 8s &mdash; and</text>
-      <text x="452" y="174" text-anchor="middle" class="bds">jitter, or five agents</text>
-      <text x="452" y="196" text-anchor="middle" class="bds">retry in lockstep</text>
-      <text x="452" y="232" text-anchor="middle" class="bds am">cap it, always</text>
-
-      <rect x="600" y="48" width="255" height="196" rx="8" fill="#f0fdf9" stroke="#0d9488" stroke-width="2.5"/>
-      <text x="727" y="78" text-anchor="middle" class="lbl ok">Fallback</text>
-      <text x="727" y="114" text-anchor="middle" class="bxs ok">a different route</text>
-      <text x="727" y="152" text-anchor="middle" class="bds">a cheaper model, a</text>
-      <text x="727" y="174" text-anchor="middle" class="bds">cached answer, or a</text>
-      <text x="727" y="196" text-anchor="middle" class="bds">narrower question</text>
-      <text x="727" y="232" text-anchor="middle" class="bds ok">degrade, do not die</text>
-
-      <rect x="875" y="48" width="255" height="196" rx="8" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
-      <text x="1002" y="78" text-anchor="middle" class="lbl am">Abandon</text>
-      <text x="1002" y="114" text-anchor="middle" class="bxs am">and say so</text>
-      <text x="1002" y="152" text-anchor="middle" class="bds">not permitted, not</text>
-      <text x="1002" y="174" text-anchor="middle" class="bds">found, or out of</text>
-      <text x="1002" y="196" text-anchor="middle" class="bds">budget</text>
-      <text x="1002" y="232" text-anchor="middle" class="bds am">a real outcome</text>
-
-      <rect x="150" y="276" width="880" height="130" rx="6" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
-      <text x="590" y="310" text-anchor="middle" class="bx no">&ldquo;Partial&rdquo; is an outcome, not an error</text>
-      <text x="590" y="344" text-anchor="middle" class="bd">Three agents answered and the fourth did not. The graph must be able to say that &mdash;</text>
-      <text x="590" y="374" text-anchor="middle" class="bd">which specialist is missing, and what the recommendation is worth without it.</text>
-      <text x="590" y="398" text-anchor="middle" class="bds">A graph that reports success on three-quarters of an investigation is the failure that reaches a customer.</text>
-    </svg>
-  </div>
-</div>
-
-<div class="slide" data-sec="Execution" data-notes="Termination. The arithmetic is the whole slide: a per-agent budget multiplies, and people set per-agent budgets because that is where the code is. Give them the rule -- the budget is a property of the run, decremented by every agent, and it is the only thing standing between a bug and a bill.">
-  <h2>The budget belongs to the run, not to the agent</h2>
-  <div class="body">
-    <svg width="1180" height="424" viewBox="0 0 1180 424" role="img" aria-label="Per-agent budgets multiply while a shared run budget does not">
-      <rect x="50" y="52" width="500" height="230" rx="8" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
-      <text x="300" y="84" text-anchor="middle" class="lbl no">A budget on each agent</text>
-      <text x="300" y="126" text-anchor="middle" class="big no">5 steps &times; 4 agents</text>
-      <text x="300" y="164" text-anchor="middle" class="num no">= 20 model calls</text>
-      <text x="76" y="204" class="bds">and if the supervisor may re-dispatch a worker,</text>
-      <text x="76" y="228" class="bds">that ceiling is not a ceiling at all</text>
-      <text x="300" y="264" text-anchor="middle" class="bds no">each agent is within budget; the run is not</text>
-
-      <rect x="630" y="52" width="500" height="230" rx="8" fill="#f0fdf9" stroke="#0d9488" stroke-width="2.5"/>
-      <text x="880" y="84" text-anchor="middle" class="lbl ok">One budget on the run</text>
-      <text x="880" y="126" text-anchor="middle" class="big ok">12 steps, shared</text>
-      <text x="880" y="164" text-anchor="middle" class="num ok">= 12 model calls</text>
-      <text x="656" y="204" class="bds">every agent decrements the same counter,</text>
-      <text x="656" y="228" class="bds">and the supervisor stops when it hits zero</text>
-      <text x="880" y="264" text-anchor="middle" class="bds ok">the number you can put in front of finance</text>
-
-      <rect x="150" y="308" width="880" height="98" rx="6" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
-      <text x="590" y="340" text-anchor="middle" class="bxs am">Three stop conditions, and you need all three</text>
-      <text x="590" y="370" text-anchor="middle" class="bd">a step budget &middot; a repeat detector on (agent, task) &middot; a wall-clock deadline</text>
-      <text x="590" y="396" text-anchor="middle" class="bds">Two agents handing the same task back and forth defeat a step budget slowly and a deadline never.</text>
-    </svg>
-  </div>
-</div>
-
-<div class="slide div" data-sec="Economics" data-notes="Part three. This is the section that changes what they build, because it is the one with a number in it that finance will ask about.">
-  <div class="k">Part three</div>
-  <h1>What collaboration costs</h1>
-</div>
-
-<div class="slide" data-sec="Economics" data-notes="Concept before arithmetic: a multi-agent system is not expensive because it has agents in it. It is expensive because the same case file is re-sent to every specialist, and the supervisor pays to read every result back. Lab 5.5 prices the same seven cases twice -- 2.2x with the case context re-sent at every hop, 1.5x with nothing re-sent -- so they watch most of the multiple disappear when only the context handling changes. Walk the two columns slowly, then let the next slide take the folklore number away from them.">
-  <h2>The multiple is the re-sent context, not the agents</h2>
-  <div class="body">
-    <svg width="1180" height="424" viewBox="0 0 1180 424" role="img" aria-label="Token accounting for a single agent against a supervisor with four specialists">
-      <rect x="50" y="48" width="440" height="200" rx="8" fill="#f0fdf9" stroke="#0d9488" stroke-width="2.5"/>
-      <text x="270" y="80" text-anchor="middle" class="lbl ok">One agent</text>
-      <text x="76" y="120" class="bd">system prompt + tools</text>
-      <text x="464" y="120" text-anchor="end" class="bd">1&times;</text>
-      <text x="76" y="156" class="bd">case context</text>
-      <text x="464" y="156" text-anchor="end" class="bd">1&times;</text>
-      <text x="76" y="192" class="bd">held across its own turns</text>
-      <text x="464" y="192" text-anchor="end" class="bd">&mdash;</text>
-      <line x1="76" y1="210" x2="464" y2="210" stroke="#0d9488" stroke-width="1.5"/>
-      <text x="76" y="240" class="bxs ok">Lab 5.5, 7 cases</text>
-      <text x="464" y="240" text-anchor="end" class="num ok">1.0&times;</text>
-
-      <rect x="530" y="48" width="600" height="200" rx="8" fill="#eef2ff" stroke="#4338ca" stroke-width="2.5"/>
-      <text x="830" y="80" text-anchor="middle" class="lbl">Supervisor + 4 specialists</text>
-      <text x="556" y="120" class="bd">system prompt + tools, <tspan font-weight="600">per agent</tspan></text>
-      <text x="1104" y="120" text-anchor="end" class="bd">5&times;</text>
-      <text x="556" y="156" class="bd">case context, re-sent at <tspan font-weight="600">every dispatch</tspan></text>
-      <text x="1104" y="156" text-anchor="end" class="bd">4&times;</text>
-      <text x="556" y="192" class="bd">supervisor reads each result back</text>
-      <text x="1104" y="192" text-anchor="end" class="bd">+4 calls</text>
-      <line x1="556" y1="210" x2="1104" y2="210" stroke="#4338ca" stroke-width="1.5"/>
-      <text x="556" y="240" class="bxs">Lab 5.5, 7 cases</text>
-      <text x="1104" y="240" text-anchor="end" class="num">2.2&times;</text>
-
-      <rect x="100" y="272" width="980" height="134" rx="6" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
-      <text x="590" y="304" text-anchor="middle" class="bxs am">Take the re-sending away and most of the multiple goes with it</text>
-      <text x="590" y="336" text-anchor="middle" class="bd">Lab 5.5, same seven cases and the same four specialists: 2.2&times; with the case context</text>
-      <text x="590" y="362" text-anchor="middle" class="bd">re-sent at every hop, and 1.5&times; with nothing re-sent. No agent got cheaper.</text>
-      <text x="590" y="390" text-anchor="middle" class="bds">So the cheapest optimisation is sending each worker the slice it needs, not the whole case file.</text>
-    </svg>
-  </div>
-</div>
-
-<div class="slide" data-sec="Economics" data-notes="The number-correction slide, and it is deliberate. The 3-10x figure is folklore: on this sandbox, one agent and several came out level on tokens -- 9,794 against 9,720 -- while the CALL count doubled and wall clock went up half again. Say plainly that the bill is rarely the reason not to build a graph. The reasons are the extra calls, each of which can fail, and the context fragmenting across hops, which is where quality moves. Rule for the room: a number you have not run on your own prompts is not a number.">
-  <h2>The 3&ndash;10&times; you have read is not what we measured</h2>
-  <div class="body">
-    <svg width="1180" height="424" viewBox="0 0 1180 424" role="img" aria-label="The quoted token multiple against the multiple measured on this sandbox">
-      <rect x="60" y="52" width="500" height="196" rx="8" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
-      <text x="310" y="84" text-anchor="middle" class="lbl no">What you will read</text>
-      <text x="310" y="132" text-anchor="middle" class="big no">3&ndash;10&times; the tokens</text>
-      <text x="310" y="176" text-anchor="middle" class="bds">quoted everywhere, and almost never</text>
-      <text x="310" y="198" text-anchor="middle" class="bds">alongside the prompts it was measured on</text>
-      <text x="310" y="230" text-anchor="middle" class="bds no">do not put it in a business case</text>
-
-      <rect x="620" y="52" width="500" height="196" rx="8" fill="#f0fdf9" stroke="#0d9488" stroke-width="2.5"/>
-      <text x="870" y="84" text-anchor="middle" class="lbl ok">What this sandbox gave us</text>
-      <text x="870" y="132" text-anchor="middle" class="big ok">9,794 vs 9,720 tokens</text>
-      <text x="870" y="176" text-anchor="middle" class="bds">one agent against several, same task</text>
-      <text x="870" y="198" text-anchor="middle" class="bds">&mdash; a difference under one per cent</text>
-      <text x="870" y="230" text-anchor="middle" class="bds ok">level, on our prompts</text>
-
-      <rect x="100" y="272" width="980" height="134" rx="6" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
-      <text x="590" y="304" text-anchor="middle" class="bxs am">What doubled was the call count, not the bill</text>
-      <text x="590" y="336" text-anchor="middle" class="bd">Calls 2&times;. Wall clock 1.5&times;. Tokens: level. Each extra call is one more thing that can fail,</text>
-      <text x="590" y="362" text-anchor="middle" class="bd">and one more hop for the context to fragment across &mdash; which is where the quality moves.</text>
-      <text x="590" y="390" text-anchor="middle" class="bds">Price your own prompts. A number you have not run is not a number.</text>
-    </svg>
-  </div>
-</div>
-
-<div class="slide" data-sec="Economics" data-notes="The single biggest lever, and the one people reach for last. Most calls in a multi-agent system are routing, extraction and formatting -- work a small model does perfectly. Reserve the expensive model for the one node that actually reasons. Note the honest caveat: a mis-routing cheap supervisor can cost more than it saves, which is exactly why Lab 5.1 measures routing accuracy first.">
-  <h2>Cheap model routes. Strong model reasons.</h2>
-  <div class="body">
-    <svg width="1180" height="424" viewBox="0 0 1180 424" role="img" aria-label="Per-agent model routing across a supervisor and four workers">
-      <rect x="60" y="56" width="220" height="88" rx="8" fill="#f0fdf9" stroke="#0d9488" stroke-width="2.5"/>
-      <text x="170" y="88" text-anchor="middle" class="bxs ok">Supervisor</text>
-      <text x="170" y="114" text-anchor="middle" class="bds">routing &mdash; pick a worker</text>
-      <text x="170" y="134" text-anchor="middle" class="bds ok">small model</text>
-
-      <rect x="340" y="28" width="220" height="76" rx="8" fill="#f0fdf9" stroke="#0d9488" stroke-width="2"/>
-      <text x="450" y="56" text-anchor="middle" class="bds">ledger lookup</text>
-      <text x="450" y="82" text-anchor="middle" class="bds ok">small model</text>
-
-      <rect x="340" y="118" width="220" height="76" rx="8" fill="#f0fdf9" stroke="#0d9488" stroke-width="2"/>
-      <text x="450" y="146" text-anchor="middle" class="bds">format the summary</text>
-      <text x="450" y="172" text-anchor="middle" class="bds ok">small model</text>
-
-      <rect x="340" y="208" width="220" height="76" rx="8" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
-      <text x="450" y="236" text-anchor="middle" class="bds no">weigh policy vs facts</text>
-      <text x="450" y="262" text-anchor="middle" class="bds no">strong model</text>
-
-      <rect x="340" y="298" width="220" height="76" rx="8" fill="#f0fdf9" stroke="#0d9488" stroke-width="2"/>
-      <text x="450" y="326" text-anchor="middle" class="bds">sanctions list check</text>
-      <text x="450" y="352" text-anchor="middle" class="bds ok">no model at all</text>
-
-      <line x1="284" y1="94" x2="336" y2="66" stroke="#94a3b8" stroke-width="1.6" marker-end="url(#ag)"/>
-      <line x1="284" y1="100" x2="336" y2="156" stroke="#94a3b8" stroke-width="1.6" marker-end="url(#ag)"/>
-      <line x1="284" y1="108" x2="336" y2="246" stroke="#94a3b8" stroke-width="1.6" marker-end="url(#ag)"/>
-      <line x1="284" y1="116" x2="336" y2="336" stroke="#94a3b8" stroke-width="1.6" marker-end="url(#ag)"/>
-
-      <rect x="620" y="56" width="510" height="150" rx="8" fill="#eef2ff" stroke="#4338ca" stroke-width="2.5"/>
-      <text x="875" y="88" text-anchor="middle" class="bxs">One node out of five needs the expensive model</text>
-      <text x="875" y="124" text-anchor="middle" class="bd">Routing, extraction and formatting are not reasoning.</text>
-      <text x="875" y="152" text-anchor="middle" class="bd">A sanctions list check is a set membership test &mdash;</text>
-      <text x="875" y="178" text-anchor="middle" class="bd">give that one no model at all.</text>
-
-      <rect x="620" y="230" width="510" height="150" rx="8" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
-      <text x="875" y="262" text-anchor="middle" class="bxs am">The caveat that keeps you honest</text>
-      <text x="875" y="298" text-anchor="middle" class="bd">A cheap supervisor that misroutes wastes every</text>
-      <text x="875" y="324" text-anchor="middle" class="bd">token downstream of the mistake.</text>
-      <text x="875" y="356" text-anchor="middle" class="bds">So measure routing accuracy before you downgrade the router &mdash;</text>
-      <text x="875" y="376" text-anchor="middle" class="bds">which is Lab 5.1, and it comes first for that reason.</text>
-    </svg>
-  </div>
-</div>
-
-<div class="slide" data-sec="Economics" data-notes="Latency and cost are different budgets and people conflate them constantly. Parallelism spends the same tokens sooner. Say the last line out loud: if the bill is the problem, parallelism will not help you at all.">
-  <h2>Parallelism buys latency. It never buys cost.</h2>
-  <div class="body">
-    <svg width="1180" height="410" viewBox="0 0 1180 410" role="img" aria-label="Sequential versus parallel execution: same tokens, less wall clock">
-      <text x="140" y="70" class="lbl">Sequential</text>
-      <rect x="140" y="86" width="170" height="40" rx="4" fill="#4338ca"/>
-      <text x="225" y="112" text-anchor="middle" font-size="14" fill="#fff">read</text>
-      <rect x="316" y="86" width="200" height="40" rx="4" fill="#818cf8"/>
-      <text x="416" y="112" text-anchor="middle" font-size="14" fill="#fff">policy</text>
-      <rect x="522" y="86" width="200" height="40" rx="4" fill="#818cf8"/>
-      <text x="622" y="112" text-anchor="middle" font-size="14" fill="#fff">sanctions</text>
-      <rect x="728" y="86" width="180" height="40" rx="4" fill="#fbbf24"/>
-      <text x="818" y="112" text-anchor="middle" font-size="14" fill="#3b2708">recommend</text>
-      <text x="930" y="112" class="bds">4 waves</text>
-
-      <text x="140" y="184" class="lbl">Parallel</text>
-      <rect x="140" y="200" width="170" height="40" rx="4" fill="#4338ca"/>
-      <text x="225" y="226" text-anchor="middle" font-size="14" fill="#fff">read</text>
-      <rect x="316" y="178" width="200" height="40" rx="4" fill="#818cf8"/>
-      <text x="416" y="204" text-anchor="middle" font-size="14" fill="#fff">policy</text>
-      <rect x="316" y="222" width="200" height="40" rx="4" fill="#818cf8"/>
-      <text x="416" y="248" text-anchor="middle" font-size="14" fill="#fff">sanctions</text>
-      <rect x="522" y="200" width="180" height="40" rx="4" fill="#fbbf24"/>
-      <text x="612" y="226" text-anchor="middle" font-size="14" fill="#3b2708">recommend</text>
-      <text x="724" y="226" class="bds ok">3 waves &mdash; 25% less wall clock</text>
-
-      <rect x="140" y="292" width="440" height="98" rx="6" fill="#f0fdf9" stroke="#0d9488" stroke-width="2.5"/>
-      <text x="360" y="324" text-anchor="middle" class="bxs ok">Latency: better</text>
-      <text x="360" y="354" text-anchor="middle" class="bds">the two independent branches</text>
-      <text x="360" y="376" text-anchor="middle" class="bds">now overlap</text>
-
-      <rect x="620" y="292" width="440" height="98" rx="6" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
-      <text x="840" y="324" text-anchor="middle" class="bxs no">Cost: identical</text>
-      <text x="840" y="354" text-anchor="middle" class="bds">the same four calls, the same</text>
-      <text x="840" y="376" text-anchor="middle" class="bds">tokens &mdash; just sooner</text>
-    </svg>
-  </div>
-</div>
-
-<div class="slide div" data-sec="Control" data-notes="Part four. Human-in-the-loop appears twice in this course: here as an orchestration mechanism, and in Module 8 as a safety control. Same machinery, different reason, and it is worth naming the difference.">
-  <div class="k">Part four</div>
-  <h1>The human is part of the graph</h1>
-</div>
-
-<div class="slide" data-sec="Control" data-notes="Four mechanisms, and the one people forget is timeout. An approval gate with no timeout is a graph that hangs forever on a Friday evening. And correct what everyone assumes: an approval gate does NOT need a checkpointer. A node that refuses to fire without a named approver is already a gate, and that is exactly Lab 5.4's node_release. What needs Module 3's checkpointing is pause and resume -- stopping now and finishing tomorrow, from another process.">
-  <h2>Interrupt, approve, time out, escalate</h2>
-  <div class="body">
-    <svg width="1180" height="424" viewBox="0 0 1180 424" role="img" aria-label="Four human-in-the-loop mechanisms built on checkpointing">
-      <rect x="50" y="48" width="255" height="200" rx="8" fill="#eef2ff" stroke="#4338ca" stroke-width="2.5"/>
-      <text x="177" y="78" text-anchor="middle" class="lbl">Interrupt</text>
-      <text x="177" y="114" text-anchor="middle" class="bxs">pause here</text>
-      <text x="177" y="152" text-anchor="middle" class="bds">the run stops at a</text>
-      <text x="177" y="174" text-anchor="middle" class="bds">named node and the</text>
-      <text x="177" y="196" text-anchor="middle" class="bds">state is written down</text>
-      <text x="177" y="230" text-anchor="middle" class="bds ok">Module 3's checkpoint</text>
-
-      <rect x="325" y="48" width="255" height="200" rx="8" fill="#eef2ff" stroke="#4338ca" stroke-width="2.5"/>
-      <text x="452" y="78" text-anchor="middle" class="lbl">Approve</text>
-      <text x="452" y="114" text-anchor="middle" class="bxs">a named human</text>
-      <text x="452" y="152" text-anchor="middle" class="bds">who approved, when,</text>
-      <text x="452" y="174" text-anchor="middle" class="bds">and on what evidence</text>
-      <text x="452" y="196" text-anchor="middle" class="bds">&mdash; all recorded</text>
-      <text x="452" y="230" text-anchor="middle" class="bds ok">an identity, not a boolean</text>
-
-      <rect x="600" y="48" width="255" height="200" rx="8" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
-      <text x="727" y="78" text-anchor="middle" class="lbl no">Timeout</text>
-      <text x="727" y="114" text-anchor="middle" class="bxs no">the forgotten one</text>
-      <text x="727" y="152" text-anchor="middle" class="bds">a gate with no deadline</text>
-      <text x="727" y="174" text-anchor="middle" class="bds">is a run that waits</text>
-      <text x="727" y="196" text-anchor="middle" class="bds">until Monday</text>
-      <text x="727" y="230" text-anchor="middle" class="bds no">decide what expiry means</text>
-
-      <rect x="875" y="48" width="255" height="200" rx="8" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
-      <text x="1002" y="78" text-anchor="middle" class="lbl am">Escalate</text>
-      <text x="1002" y="114" text-anchor="middle" class="bxs am">to someone else</text>
-      <text x="1002" y="152" text-anchor="middle" class="bds">expiry is not refusal</text>
-      <text x="1002" y="174" text-anchor="middle" class="bds">and not approval &mdash;</text>
-      <text x="1002" y="196" text-anchor="middle" class="bds">it is a different queue</text>
-      <text x="1002" y="230" text-anchor="middle" class="bds am">the ladder ends somewhere</text>
-
-      <rect x="150" y="280" width="880" height="126" rx="6" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
-      <text x="590" y="314" text-anchor="middle" class="bxs am">A gate needs no checkpointer. Pausing and resuming does.</text>
-      <text x="590" y="346" text-anchor="middle" class="bd">A node that refuses to act until a person is named is already a gate &mdash; that is one</text>
-      <text x="590" y="376" text-anchor="middle" class="bd">condition inside the node. Checkpointing is what lets the person answer tomorrow,</text>
-      <text x="590" y="400" text-anchor="middle" class="bds">from another process. Lab 5.4 builds both, on the graph from Lab 5.2.</text>
-    </svg>
-  </div>
-</div>
-
-<div class="slide" data-sec="Control" data-notes="Placement, which is the part that decides whether the human is doing review or rubber-stamping. The middle column is the one to aim for: after the evidence is assembled and before anything irreversible. Too early and they approve a plan they cannot evaluate; too late and they are being told, not asked.">
-  <h2>Where the gate goes decides what the human can actually do</h2>
-  <div class="body">
-    <svg width="1180" height="424" viewBox="0 0 1180 424" role="img" aria-label="Three placements of an approval gate along a run">
-      <line x1="80" y1="118" x2="1110" y2="118" stroke="#94a3b8" stroke-width="2.5" marker-end="url(#ag)"/>
-      <circle cx="200" cy="118" r="9" fill="#4338ca"/>
-      <circle cx="590" cy="118" r="9" fill="#0d9488"/>
-      <circle cx="960" cy="118" r="9" fill="#b91c1c"/>
-      <text x="140" y="96" class="bds">start</text>
-      <text x="1050" y="96" class="bds">done</text>
-
-      <rect x="70" y="152" width="300" height="212" rx="8" fill="#f8f8fd" stroke="#94a3b8" stroke-width="2"/>
-      <text x="220" y="182" text-anchor="middle" class="lbl">Before the work</text>
-      <text x="220" y="218" text-anchor="middle" class="bxs">&ldquo;approve this plan&rdquo;</text>
-      <text x="220" y="256" text-anchor="middle" class="bds">nothing has been</text>
-      <text x="220" y="278" text-anchor="middle" class="bds">looked up yet, so</text>
-      <text x="220" y="300" text-anchor="middle" class="bds">there is no evidence</text>
-      <text x="220" y="322" text-anchor="middle" class="bds">to judge it against</text>
-      <text x="220" y="352" text-anchor="middle" class="bds no">approval as ritual</text>
-
-      <rect x="400" y="152" width="380" height="212" rx="8" fill="#f0fdf9" stroke="#0d9488" stroke-width="2.5"/>
-      <text x="590" y="182" text-anchor="middle" class="lbl ok">After evidence, before the write</text>
-      <text x="590" y="218" text-anchor="middle" class="bxs ok">&ldquo;release PMT-1003? here is why&rdquo;</text>
-      <text x="590" y="256" text-anchor="middle" class="bds">every finding is in, with sources</text>
-      <text x="590" y="278" text-anchor="middle" class="bds">nothing irreversible has happened</text>
-      <text x="590" y="300" text-anchor="middle" class="bds">the human can disagree, and it</text>
-      <text x="590" y="322" text-anchor="middle" class="bds">still costs nothing to stop</text>
-      <text x="590" y="352" text-anchor="middle" class="bds ok">the only placement that is review</text>
-
-      <rect x="810" y="152" width="300" height="212" rx="8" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
-      <text x="960" y="182" text-anchor="middle" class="lbl no">After the write</text>
-      <text x="960" y="218" text-anchor="middle" class="bxs no">&ldquo;here is what we did&rdquo;</text>
-      <text x="960" y="256" text-anchor="middle" class="bds">the payment already</text>
-      <text x="960" y="278" text-anchor="middle" class="bds">went out</text>
-      <text x="960" y="308" text-anchor="middle" class="bds">this is a notification</text>
-      <text x="960" y="330" text-anchor="middle" class="bds">wearing a gate's name</text>
-      <text x="960" y="352" text-anchor="middle" class="bds no">not a control</text>
-
-      <text x="590" y="402" text-anchor="middle" class="bd am">One test: at this gate, is &ldquo;no&rdquo; still free? If not, it is not an approval gate.</text>
-    </svg>
-  </div>
-</div>
-
-<div class="slide div" data-sec="Verdict" data-notes="Part five, and the shortest. This is the part that distinguishes this course from a framework tutorial.">
-  <div class="k">Part five</div>
-  <h1>And then measure it</h1>
-</div>
-
-<div class="slide" data-sec="Verdict" data-notes="The deliverable of the module and of Lab 5.5, and every number here comes out of that lab -- seven cases, four specialists, one case file. The single agent misses exactly the two payments where nothing in the reason code told it to screen the counterparty, which is the honest reason a graph can win: not that four agents think better, but that an unconditional edge looks at something the one agent never thought to look at. Then the last row decides nothing until you name what a wrong recommendation costs. Say the breakeven out loud -- 8,460 tokens per error prevented -- and ask the room whether one of their own errors is worth more than that.">
-  <h2>The scorecard, against your own baseline</h2>
-  <div class="body">
-    <svg width="1180" height="424" viewBox="0 0 1180 424" role="img" aria-label="A scorecard comparing a single agent with a four-specialist graph over seven cases">
-      <line x1="60" y1="92" x2="1120" y2="92" stroke="#4338ca" stroke-width="2"/>
-      <text x="380" y="72" text-anchor="middle" class="lbl">One agent, one context</text>
-      <text x="700" y="72" text-anchor="middle" class="lbl">Supervisor + 4 specialists</text>
-      <text x="960" y="72" text-anchor="middle" class="lbl">Verdict</text>
-
-      <text x="80" y="132" class="bxs">Quality</text>
-      <text x="380" y="132" text-anchor="middle" class="bd">5 of 7 cases right</text>
-      <text x="700" y="132" text-anchor="middle" class="bd ok">7 of 7</text>
-      <text x="960" y="132" text-anchor="middle" class="bd ok">graph wins</text>
-
-      <text x="80" y="180" class="bxs">Tokens, 7 cases</text>
-      <text x="380" y="180" text-anchor="middle" class="bd">13,740</text>
-      <text x="700" y="180" text-anchor="middle" class="bd no">30,660 &mdash; 2.2&times;</text>
-      <text x="960" y="180" text-anchor="middle" class="bd no">agent wins</text>
-
-      <text x="80" y="228" class="bxs">Critical path</text>
-      <text x="380" y="228" text-anchor="middle" class="bd">2 supersteps</text>
-      <text x="700" y="228" text-anchor="middle" class="bd">3, and no parallelism shortens it</text>
-      <text x="960" y="228" text-anchor="middle" class="bd">agent wins</text>
-
-      <text x="80" y="276" class="bxs">Debuggable</text>
-      <text x="380" y="276" text-anchor="middle" class="bd">one trace</text>
-      <text x="700" y="276" text-anchor="middle" class="bd">four nodes and a router</text>
-      <text x="960" y="276" text-anchor="middle" class="bd">agent wins</text>
-      <line x1="60" y1="298" x2="1120" y2="298" stroke="#cbd5e1" stroke-width="1.5"/>
-
-      <rect x="150" y="316" width="880" height="94" rx="6" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
-      <text x="590" y="348" text-anchor="middle" class="bxs am">Two errors prevented, for 16,920 extra tokens</text>
-      <text x="590" y="378" text-anchor="middle" class="bd">Which is a decision rule, not a result: ship the graph once one wrong recommendation</text>
-      <text x="590" y="402" text-anchor="middle" class="bd">costs more than 8,460 tokens of model time. Lab 5.5 makes you supply both prices.</text>
-    </svg>
-  </div>
-</div>
-
-<div class="slide" data-sec="Verdict" data-notes="Close the section by giving them permission to not build it. Every one of these is a real outcome that the scorecard makes defensible in a design review -- which is the actual value of having measured. The last box is the one that most often applies: the single agent was fine, and now they can prove it.">
-  <h2>Four honest outcomes, and one of them is &ldquo;don't&rdquo;</h2>
-  <div class="body">
-    <svg width="1180" height="424" viewBox="0 0 1180 424" role="img" aria-label="Four defensible conclusions from a multi-agent scorecard">
-      <rect x="60" y="52" width="510" height="150" rx="8" fill="#f0fdf9" stroke="#0d9488" stroke-width="2.5"/>
-      <text x="315" y="84" text-anchor="middle" class="lbl ok">Ship the graph</text>
-      <text x="315" y="122" text-anchor="middle" class="bx ok">quality gain justifies the bill</text>
-      <text x="315" y="156" text-anchor="middle" class="bd">the error is expensive and the volume is low</text>
-      <text x="315" y="182" text-anchor="middle" class="bds">now argue about which agent, not whether</text>
-
-      <rect x="610" y="52" width="510" height="150" rx="8" fill="#eef2ff" stroke="#4338ca" stroke-width="2.5"/>
-      <text x="865" y="84" text-anchor="middle" class="lbl">Ship a smaller graph</text>
-      <text x="865" y="122" text-anchor="middle" class="bx">two of the five earned their place</text>
-      <text x="865" y="156" text-anchor="middle" class="bd">drop the workers whose findings never changed</text>
-      <text x="865" y="182" text-anchor="middle" class="bds">the most common real answer</text>
-
-      <rect x="60" y="222" width="510" height="150" rx="8" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
-      <text x="315" y="254" text-anchor="middle" class="lbl am">Ship it for some cases</text>
-      <text x="315" y="292" text-anchor="middle" class="bx am">route by value, not by type</text>
-      <text x="315" y="326" text-anchor="middle" class="bd">the graph above a threshold, one agent below it</text>
-      <text x="315" y="352" text-anchor="middle" class="bds">the cost curve bends where the risk does</text>
-
-      <rect x="610" y="222" width="510" height="150" rx="8" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
-      <text x="865" y="254" text-anchor="middle" class="lbl no">Don't</text>
-      <text x="865" y="292" text-anchor="middle" class="bx no">the single agent was fine</text>
-      <text x="865" y="326" text-anchor="middle" class="bd">and you can now say so with a number</text>
-      <text x="865" y="352" text-anchor="middle" class="bds no">an afternoon spent, a quarter saved</text>
-
-      <text x="590" y="406" text-anchor="middle" class="bd am">All four are wins. Only one of them is a system you then have to operate.</text>
-    </svg>
-  </div>
-</div>
-
-<div class="slide" data-sec="Recap" data-notes="Tie it together and hand over. The one sentence to leave them with: adding an agent is a cost you pay on every single run, and a capability you use on some of them.">
-  <h2>What this module actually changed</h2>
-  <div class="body">
-    <svg width="1180" height="420" viewBox="0 0 1180 420" role="img" aria-label="Recap of Module 5 in four statements">
-      <rect x="60" y="56" width="510" height="146" rx="8" fill="#f8f8fd" stroke="#c7d2fe" stroke-width="2"/>
-      <text x="315" y="88" text-anchor="middle" class="lbl">Routing</text>
-      <text x="315" y="126" text-anchor="middle" class="bx">A supervisor is a router</text>
-      <text x="315" y="160" text-anchor="middle" class="bd">so measure it with Lab 4.2's harness</text>
-      <text x="315" y="184" text-anchor="middle" class="bd">&mdash; a misroute wastes everything downstream</text>
-
-      <rect x="610" y="56" width="510" height="146" rx="8" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
-      <text x="865" y="88" text-anchor="middle" class="lbl no">The key you did not declare</text>
-      <text x="865" y="126" text-anchor="middle" class="bx no">Parallel writes need a reducer</text>
-      <text x="865" y="160" text-anchor="middle" class="bd">declare one and every branch survives</text>
-      <text x="865" y="184" text-anchor="middle" class="bd">&mdash; hand-roll the merge and one vanishes</text>
-
-      <rect x="60" y="222" width="510" height="146" rx="8" fill="#eef2ff" stroke="#4338ca" stroke-width="2.5"/>
-      <text x="315" y="254" text-anchor="middle" class="lbl">Economics</text>
-      <text x="315" y="292" text-anchor="middle" class="bx">Context re-sending is the cost</text>
-      <text x="315" y="326" text-anchor="middle" class="bd">send each worker a slice; route cheap, reason dear</text>
-      <text x="315" y="350" text-anchor="middle" class="bd">&mdash; and one budget for the whole run</text>
-
-      <rect x="610" y="222" width="510" height="146" rx="8" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
-      <text x="865" y="254" text-anchor="middle" class="lbl am">The verdict</text>
-      <text x="865" y="292" text-anchor="middle" class="bx am">Measured against your baseline</text>
-      <text x="865" y="326" text-anchor="middle" class="bd">quality, cost, critical path, debuggability</text>
-      <text x="865" y="350" text-anchor="middle" class="bd">&mdash; and &ldquo;don't&rdquo; is a real answer</text>
-
-      <text x="590" y="404" text-anchor="middle" class="bd">Next: Module 6 makes retrieval a tool the agent chooses &mdash; and every agent here can call it.</text>
-    </svg>
-  </div>
-</div>
-
-<div class="slide div" data-sec="Knowledge check" data-notes="Eight questions. Question 3 is the one to pause on -- if anyone starts describing which log line they would grep, the point has landed. Question 8 is the one to end on with a senior room.">
-  <div class="k">Knowledge check</div>
-  <h1>Eight questions</h1>
-</div>
-
-<div class="slide q" data-sec="Knowledge check" data-notes="Answer B. The ordering question: measure the router before you downgrade it, which is why Lab 5.1 comes first.">
-  <div class="qtag">Question 1 of 8</div>
-  <h2>Before you downgrade the supervisor</h2>
-  <div class="body"><div class="qbox">
-    <div class="qstem">You want to cut cost by moving the supervisor to a small model. What must you measure first, and why?</div>
-    <div class="opt"><span class="k">A</span><span>Worker latency, because a smaller supervisor dispatches sooner</span></div>
-    <div class="opt"><span class="k">B</span><span>Routing accuracy &mdash; a misroute wastes every token spent downstream of it</span></div>
-    <div class="opt"><span class="k">C</span><span>Total token count, because that is what the bill is made of</span></div>
-    <div class="opt"><span class="k">D</span><span>The strong model's quality, so you know what you are giving up</span></div>
-  </div></div>
-</div>
-
-<div class="slide q" data-sec="Knowledge check" data-notes="Answer B. The ordering question: measure the router before you downgrade it, which is why Lab 5.1 comes first.">
-  <div class="qtag">Answer 1 of 8</div>
-  <h2>Before you downgrade the supervisor</h2>
-  <div class="body"><div class="qbox">
-    <div class="qstem">You want to cut cost by moving the supervisor to a small model. What must you measure first, and why?</div>
-    <div class="opt miss"><span class="k">A</span><span>Worker latency, because a smaller supervisor dispatches sooner</span></div>
-    <div class="opt hit"><span class="k">B</span><span>Routing accuracy &mdash; a misroute wastes every token spent downstream of it</span></div>
-    <div class="opt miss"><span class="k">C</span><span>Total token count, because that is what the bill is made of</span></div>
-    <div class="opt miss"><span class="k">D</span><span>The strong model's quality, so you know what you are giving up</span></div>
-    <div class="why"><b>Why:</b> The supervisor's own call is the cheapest one in the graph, so saving on it is worth almost nothing if accuracy drops. A router that is 8% worse can easily cost more than it saves &mdash; and it is measurable with Lab 4.2's harness, unchanged.</div>
-  </div></div>
-</div>
-
-<div class="slide q" data-sec="Knowledge check" data-notes="Answer A. Watch for D -- shared memory does fix it, and buys you a wrong finding propagating to every agent that reads it. The narrow fix is to put the constraint in the handoff.">
-  <div class="qtag">Question 2 of 8</div>
-  <h2>Both agents were right</h2>
-  <div class="body"><div class="qbox">
-    <div class="qstem">A triage agent establishes that PMT-1003 is under sanctions review and must not be released, then hands off to a policy agent, which recommends releasing it. Neither agent malfunctioned. What went wrong?</div>
-    <div class="opt"><span class="k">A</span><span>The constraint was not part of what the handoff carried</span></div>
-    <div class="opt"><span class="k">B</span><span>The policy agent was given too weak a model for the judgement</span></div>
-    <div class="opt"><span class="k">C</span><span>The supervisor should have routed by rule rather than by model</span></div>
-    <div class="opt"><span class="k">D</span><span>The two agents needed one shared memory instead of separate contexts</span></div>
-  </div></div>
-</div>
-
-<div class="slide q" data-sec="Knowledge check" data-notes="Answer A. Watch for D -- shared memory does fix it, and buys you a wrong finding propagating to every agent that reads it. The narrow fix is to put the constraint in the handoff.">
-  <div class="qtag">Answer 2 of 8</div>
-  <h2>Both agents were right</h2>
-  <div class="body"><div class="qbox">
-    <div class="qstem">A triage agent establishes that PMT-1003 is under sanctions review and must not be released, then hands off to a policy agent, which recommends releasing it. Neither agent malfunctioned. What went wrong?</div>
-    <div class="opt hit"><span class="k">A</span><span>The constraint was not part of what the handoff carried</span></div>
-    <div class="opt miss"><span class="k">B</span><span>The policy agent was given too weak a model for the judgement</span></div>
-    <div class="opt miss"><span class="k">C</span><span>The supervisor should have routed by rule rather than by model</span></div>
-    <div class="opt miss"><span class="k">D</span><span>The two agents needed one shared memory instead of separate contexts</span></div>
-    <div class="why"><b>Why:</b> A handoff carries what you put in the message and nothing else. The task crossed; the constraint did not. D would also fix it &mdash; and would hand you one agent's error propagating to every other in exchange. Carry the constraint explicitly, and keep the isolation.</div>
-  </div></div>
-</div>
-
-<div class="slide q" data-sec="Knowledge check" data-notes="Answer D. If anyone begins describing which log line they would grep, the slide has done its job. There is no log line -- for a hand-rolled merge. Note the stem says dict.update deliberately: on a LangGraph state the same shape raises InvalidUpdateError instead, which is the correction this deck now carries.">
-  <div class="qtag">Question 3 of 8</div>
-  <h2>The finding that is not there</h2>
-  <div class="body"><div class="qbox">
-    <div class="qstem">Your own orchestrator fans two agents out and merges their partial states with <code>dict.update</code>. The final summary mentions only the sanctions finding; the policy finding is nowhere. What do you look for in the logs?</div>
-    <div class="opt"><span class="k">A</span><span>The failed call from the policy branch</span></div>
-    <div class="opt"><span class="k">B</span><span>A timeout on the policy branch</span></div>
-    <div class="opt"><span class="k">C</span><span>An exception raised while merging the two branches</span></div>
-    <div class="opt"><span class="k">D</span><span>Nothing &mdash; every call succeeded; only a test that counts findings will show it</span></div>
-  </div></div>
-</div>
-
-<div class="slide q" data-sec="Knowledge check" data-notes="Answer D. If anyone begins describing which log line they would grep, the slide has done its job. There is no log line -- for a hand-rolled merge. Note the stem says dict.update deliberately: on a LangGraph state the same shape raises InvalidUpdateError instead, which is the correction this deck now carries.">
-  <div class="qtag">Answer 3 of 8</div>
-  <h2>The finding that is not there</h2>
-  <div class="body"><div class="qbox">
-    <div class="qstem">Your own orchestrator fans two agents out and merges their partial states with <code>dict.update</code>. The final summary mentions only the sanctions finding; the policy finding is nowhere. What do you look for in the logs?</div>
-    <div class="opt miss"><span class="k">A</span><span>The failed call from the policy branch</span></div>
-    <div class="opt miss"><span class="k">B</span><span>A timeout on the policy branch</span></div>
-    <div class="opt miss"><span class="k">C</span><span>An exception raised while merging the two branches</span></div>
-    <div class="opt hit"><span class="k">D</span><span>Nothing &mdash; every call succeeded; only a test that counts findings will show it</span></div>
-    <div class="why"><b>Why:</b> Last write wins, so the second partial replaced the first. Both branches returned cleanly, so there is no failure to find, and a one-finding summary reads exactly as well as a two-finding one. Declare that key on a LangGraph state and you get an <code>InvalidUpdateError</code> instead &mdash; the silence is what the hand-rolled merge bought you. Lab 5.3 runs both.</div>
-  </div></div>
-</div>
-
-<div class="slide q" data-sec="Knowledge check" data-notes="Answer C. D is the sophisticated-sounding trap -- weighting a vote by self-reported confidence is still a vote, and confidence is not correlated with correctness.">
-  <div class="qtag">Question 4 of 8</div>
-  <h2>Three against one</h2>
-  <div class="body"><div class="qbox">
-    <div class="qstem">Three agents conclude the payment is safe to release. A fourth, quoting the sanctions list entry it read, says it is not. Your graph takes the majority. What is wrong with that?</div>
-    <div class="opt"><span class="k">A</span><span>Four agents is too small a panel for a majority to mean anything</span></div>
-    <div class="opt"><span class="k">B</span><span>The dissenting agent should have been given the stronger model</span></div>
-    <div class="opt"><span class="k">C</span><span>Agreement is not evidence &mdash; the one citing a checkable source is the one to believe</span></div>
-    <div class="opt"><span class="k">D</span><span>Nothing structural; the vote should simply be weighted by each agent's confidence</span></div>
-  </div></div>
-</div>
-
-<div class="slide q" data-sec="Knowledge check" data-notes="Answer C. D is the sophisticated-sounding trap -- weighting a vote by self-reported confidence is still a vote, and confidence is not correlated with correctness.">
-  <div class="qtag">Answer 4 of 8</div>
-  <h2>Three against one</h2>
-  <div class="body"><div class="qbox">
-    <div class="qstem">Three agents conclude the payment is safe to release. A fourth, quoting the sanctions list entry it read, says it is not. Your graph takes the majority. What is wrong with that?</div>
-    <div class="opt miss"><span class="k">A</span><span>Four agents is too small a panel for a majority to mean anything</span></div>
-    <div class="opt miss"><span class="k">B</span><span>The dissenting agent should have been given the stronger model</span></div>
-    <div class="opt hit"><span class="k">C</span><span>Agreement is not evidence &mdash; the one citing a checkable source is the one to believe</span></div>
-    <div class="opt miss"><span class="k">D</span><span>Nothing structural; the vote should simply be weighted by each agent's confidence</span></div>
-    <div class="why"><b>Why:</b> Three agents agreeing on a bad premise is not three pieces of evidence. D sounds rigorous and is the same mistake with arithmetic on top: self-reported confidence is not correlated with being right. Provenance and declared authority are checkable by something other than a model.</div>
-  </div></div>
-</div>
-
-<div class="slide q" data-sec="Knowledge check" data-notes="Answer A. Most rooms answer B. The re-dispatch clause in the stem is the whole question -- read it out again before revealing.">
-  <div class="qtag">Question 5 of 8</div>
-  <h2>Count the ceiling</h2>
-  <div class="body"><div class="qbox">
-    <div class="qstem">Each of your four workers has a 5-step budget, and the supervisor may dispatch a worker again after reading its result. What is the worst case for one run?</div>
-    <div class="opt"><span class="k">A</span><span>Unbounded &mdash; a per-agent budget does not bound a run that can re-dispatch</span></div>
-    <div class="opt"><span class="k">B</span><span>20 steps &mdash; four workers at five each</span></div>
-    <div class="opt"><span class="k">C</span><span>5 steps &mdash; the budget is the budget</span></div>
-    <div class="opt"><span class="k">D</span><span>9 steps &mdash; five, plus one per worker for the handoffs</span></div>
-  </div></div>
-</div>
-
-<div class="slide q" data-sec="Knowledge check" data-notes="Answer A. Most rooms answer B. The re-dispatch clause in the stem is the whole question -- read it out again before revealing.">
-  <div class="qtag">Answer 5 of 8</div>
-  <h2>Count the ceiling</h2>
-  <div class="body"><div class="qbox">
-    <div class="qstem">Each of your four workers has a 5-step budget, and the supervisor may dispatch a worker again after reading its result. What is the worst case for one run?</div>
-    <div class="opt hit"><span class="k">A</span><span>Unbounded &mdash; a per-agent budget does not bound a run that can re-dispatch</span></div>
-    <div class="opt miss"><span class="k">B</span><span>20 steps &mdash; four workers at five each</span></div>
-    <div class="opt miss"><span class="k">C</span><span>5 steps &mdash; the budget is the budget</span></div>
-    <div class="opt miss"><span class="k">D</span><span>9 steps &mdash; five, plus one per worker for the handoffs</span></div>
-    <div class="why"><b>Why:</b> B is the answer if each worker runs once. It re-dispatches, so each fresh dispatch gets a fresh five. Every agent stays inside its budget while the run does not &mdash; which is why the counter has to belong to the run, alongside a repeat detector and a wall-clock deadline.</div>
-  </div></div>
-</div>
-
-<div class="slide q" data-sec="Knowledge check" data-notes="Answer C. A cheap check on whether the latency/cost distinction landed. If the room hesitates, revisit the two-bar diagram.">
-  <div class="qtag">Question 6 of 8</div>
-  <h2>Finance says it costs too much</h2>
-  <div class="body"><div class="qbox">
-    <div class="qstem">Your graph runs four agents in sequence. You rewrite it so the two independent branches run in parallel. What happens to the bill?</div>
-    <div class="opt"><span class="k">A</span><span>It falls, roughly in proportion to the work you overlapped</span></div>
-    <div class="opt"><span class="k">B</span><span>It falls, because the run holds its context for less time</span></div>
-    <div class="opt"><span class="k">C</span><span>Nothing changes &mdash; the same calls and the same tokens, just sooner</span></div>
-    <div class="opt"><span class="k">D</span><span>It rises, because parallel branches each need their own copy of the context</span></div>
-  </div></div>
-</div>
-
-<div class="slide q" data-sec="Knowledge check" data-notes="Answer C. A cheap check on whether the latency/cost distinction landed. If the room hesitates, revisit the two-bar diagram.">
-  <div class="qtag">Answer 6 of 8</div>
-  <h2>Finance says it costs too much</h2>
-  <div class="body"><div class="qbox">
-    <div class="qstem">Your graph runs four agents in sequence. You rewrite it so the two independent branches run in parallel. What happens to the bill?</div>
-    <div class="opt miss"><span class="k">A</span><span>It falls, roughly in proportion to the work you overlapped</span></div>
-    <div class="opt miss"><span class="k">B</span><span>It falls, because the run holds its context for less time</span></div>
-    <div class="opt hit"><span class="k">C</span><span>Nothing changes &mdash; the same calls and the same tokens, just sooner</span></div>
-    <div class="opt miss"><span class="k">D</span><span>It rises, because parallel branches each need their own copy of the context</span></div>
-    <div class="why"><b>Why:</b> Latency and cost are different budgets. Both branches were always going to receive the context; running them at the same time changes when, not how much. If the bill is the problem, the levers are sending each worker less, routing to a cheaper model, or removing a worker.</div>
-  </div></div>
-</div>
-
-<div class="slide q" data-sec="Knowledge check" data-notes="Answer B. Ask the room where their own approval gates sit. In most systems at least one of them is on the wrong side of the write.">
-  <div class="qtag">Question 7 of 8</div>
-  <h2>The gate at the end</h2>
-  <div class="body"><div class="qbox">
-    <div class="qstem">Your approval step runs after the payment has been released, and shows a reviewer the complete case with every finding and source. What have you actually built?</div>
-    <div class="opt"><span class="k">A</span><span>An approval gate with poor latency</span></div>
-    <div class="opt"><span class="k">B</span><span>A notification &mdash; at that point saying &ldquo;no&rdquo; is no longer free</span></div>
-    <div class="opt"><span class="k">C</span><span>An escalation path for the cases the graph could not settle</span></div>
-    <div class="opt"><span class="k">D</span><span>A valid gate, as long as the summary is complete and sourced</span></div>
-  </div></div>
-</div>
-
-<div class="slide q" data-sec="Knowledge check" data-notes="Answer B. Ask the room where their own approval gates sit. In most systems at least one of them is on the wrong side of the write.">
-  <div class="qtag">Answer 7 of 8</div>
-  <h2>The gate at the end</h2>
-  <div class="body"><div class="qbox">
-    <div class="qstem">Your approval step runs after the payment has been released, and shows a reviewer the complete case with every finding and source. What have you actually built?</div>
-    <div class="opt miss"><span class="k">A</span><span>An approval gate with poor latency</span></div>
-    <div class="opt hit"><span class="k">B</span><span>A notification &mdash; at that point saying &ldquo;no&rdquo; is no longer free</span></div>
-    <div class="opt miss"><span class="k">C</span><span>An escalation path for the cases the graph could not settle</span></div>
-    <div class="opt miss"><span class="k">D</span><span>A valid gate, as long as the summary is complete and sourced</span></div>
-    <div class="why"><b>Why:</b> D is the comfortable answer and it is about the quality of the evidence, which was never the problem. The test is one question: at this point, is &ldquo;no&rdquo; still free? After an irreversible write it is not, however good the summary. The gate belongs after the evidence and before the action.</div>
-  </div></div>
-</div>
-
-<div class="slide q" data-sec="Knowledge check" data-notes="Answer D. The closing question for a senior room. C is worth acknowledging aloud -- one run is not a measurement, which is Module 7's opening line -- but the scorecard's job is to move the argument, not to end it.">
-  <div class="qtag">Question 8 of 8</div>
-  <h2>Read the scorecard</h2>
-  <div class="body"><div class="qbox">
-    <div class="qstem">Your graph gets 7 of 7 cases right against the single agent's 5 of 7, for 2.2&times; the tokens and a critical path one superstep longer. What does that establish?</div>
-    <div class="opt"><span class="k">A</span><span>The graph should ship &mdash; quality is what the eval set exists to protect</span></div>
-    <div class="opt"><span class="k">B</span><span>The single agent should ship &mdash; nothing justifies 2.2&times;</span></div>
-    <div class="opt"><span class="k">C</span><span>Nothing yet &mdash; one run of an agent system is not a measurement</span></div>
-    <div class="opt"><span class="k">D</span><span>That the choice is now a business one: two errors prevented are worth 16,920 extra tokens only if a wrong answer is expensive enough</span></div>
-  </div></div>
-</div>
-
-<div class="slide q" data-sec="Knowledge check" data-notes="Answer D. The closing question for a senior room. C is worth acknowledging aloud -- one run is not a measurement, which is Module 7's opening line -- but the scorecard's job is to move the argument, not to end it.">
-  <div class="qtag">Answer 8 of 8</div>
-  <h2>Read the scorecard</h2>
-  <div class="body"><div class="qbox">
-    <div class="qstem">Your graph gets 7 of 7 cases right against the single agent's 5 of 7, for 2.2&times; the tokens and a critical path one superstep longer. What does that establish?</div>
-    <div class="opt miss"><span class="k">A</span><span>The graph should ship &mdash; quality is what the eval set exists to protect</span></div>
-    <div class="opt miss"><span class="k">B</span><span>The single agent should ship &mdash; nothing justifies 2.2&times;</span></div>
-    <div class="opt miss"><span class="k">C</span><span>Nothing yet &mdash; one run of an agent system is not a measurement</span></div>
-    <div class="opt hit"><span class="k">D</span><span>That the choice is now a business one: two errors prevented are worth 16,920 extra tokens only if a wrong answer is expensive enough</span></div>
-    <div class="why"><b>Why:</b> A and B each pick one row and call it the answer. C is a fair objection &mdash; repeat the run, it is Module 7's whole opening &mdash; but it is an argument for more runs, not for no decision. Divide the two numbers and the sentence writes itself: the graph pays for itself once one wrong recommendation costs more than 8,460 tokens of model time. That is something a risk owner can agree or disagree with.</div>
-  </div></div>
-</div>
-
-<div class="slide div" data-sec="End" data-notes="Into the labs: a supervisor you measure, decomposition and handoffs, the parallel bug, human-in-the-loop, and finally the scorecard against Day 1's single agent.">
+<div class="slide div" data-sec="End" data-notes="Into the labs, and the labs are the module. Three systems, one each: 5.1 is the triage desk -- build the graph, then score the supervisor against a labelled eval set and swap in a model-routed one. 5.2 is the report writer -- fan out, meet InvalidUpdateError for real, declare the reducer, and decide what the writer does when two researchers disagree. 5.3 is the incident responder -- the retry cycle with a run-level budget, and the escalate node that assembles a handoff. Every lab builds real LangGraph objects; the self-checks assert on those and need no model, and the cells marked 'Run it for real' are the ones that go to the gateway.">
   <div class="k">End of Module 5</div>
   <h1>To the labs</h1>
 </div>
