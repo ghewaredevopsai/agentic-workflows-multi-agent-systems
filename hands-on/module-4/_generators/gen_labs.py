@@ -673,22 +673,20 @@ sandbox.
     md("""
 ## What it also cost you &mdash; three things to carry into Module 4
 
-**1. Tool count is context, and it has a breaking point.** The server you just used publishes
-five tools. The same software, unscoped, publishes **sixty-three** &mdash; everything Jira can do,
-including sprints, worklogs and attachments. Every one of those schemas is sent to the model on
-*every* turn, before your question is even read.
+**1. Tool count is context, and you pay it every turn.** The server you just used publishes five
+tools. The same software, unscoped, publishes **sixty-three** &mdash; everything Jira can do,
+including sprints, worklogs, attachments and deletes. Every one of those schemas is sent to the
+model on *every* turn, before your question is even read, and Lab 4.2 measures what that weighs.
 
-That is not a theoretical cost. This lab was built twice. With sixty-three tools the agent failed
-outright on this model &mdash; connection fine, discovery fine, and then the turn died the moment
-the tool schemas were in front of it. With five it does the job first time, which is the run you
-just watched. The server was scoped with one flag:
+There is a second reason, and in a bank it is the louder one: most of those sixty-three are writes
+you never intended to grant. The agent cannot call a tool it was never offered. The server was
+scoped with one flag:
 
 ```
 --enabled-tools jira_search,jira_get_issue,jira_create_issue,jira_add_comment,jira_get_project_issues
 ```
 
-Scoping a server to the tools an agent actually needs is not tidying. It is what makes the agent
-work at all.
+Scoping a server to the tools an agent actually needs is least privilege, applied to a tool list.
 
 **2. The descriptions are not yours.** Your agent picked `jira_create_issue` over the
 alternatives because of a sentence someone on the Jira team wrote, and shaped its arguments from a
@@ -728,397 +726,259 @@ Next: **Lab 4.2**, where the tools stop being someone else's and become yours.
 
 
 LAB2 = [
-    header(2, "Tool Descriptions Are Instructions", "Intermediate &rarr; Advanced", 35,
-           ["Build two arms of tools that wrap the <em>same functions</em> and differ only in prose",
-            "Enforce the experimental control on the objects themselves, not on your intentions",
-            "Read first-tool accuracy off the <code>AIMessage</code> the model returns",
-            "Run the bake-off against the sandbox model and put a number on what prose is worth"],
-           "> **This is the measured lab.** The harness is graded offline; the number comes from\n"
-           "> your own run against the sandbox model. You will reuse this harness on Day 3."),
-    setup(2),
-    code(DOMAIN),
-    code(TOOLKIT),
+    walkthrough_header(
+        2, "Your Own Traces, over MCP", "Intermediate", 25,
+        ["Point an agent at the Langfuse project your Day 3 traces land in",
+         "Weigh what a large tool set costs you, in tools and in tokens",
+         "Scope a server you cannot configure &mdash; from the client side",
+         "Ask questions about your own observability data in English"],
+        "> **Nothing to fill in.** Lab 4.1 connected a server *we* run. This one connects a server\n"
+        "> *Langfuse* runs, holding *your* data &mdash; and that changes what you can control."),
 
     md("""
-## Concept
+## The use case
 
-The claim to test: **holding the model and the functions fixed, the prose you attach to a tool
-moves how often it gets chosen.**
+On Day 3 you instrument agents with Langfuse and every run lands as a trace in a project. Then the
+questions start: how many calls did that agent make, which one was slow, what did it actually send.
 
-That is an experiment, so it needs the parts of one:
+All of that is behind an API. Langfuse also publishes it as an **MCP server**, so an agent can
+answer those questions for you instead of you learning the query language.
 
-- two **arms** &mdash; the same four functions, wrapped twice, differing only in name and description
-- a **metric** &mdash; first-tool accuracy, read off the message the model returns
-- a **control** &mdash; something that *checks* the arms are otherwise identical, rather than your
-  believing they are
+Everything you need is already in this sandbox &mdash; no signup, no new key.
 
-The third is the one people skip, and skipping it is how you end up measuring a schema change
-you forgot you made.
+| | Lab 4.1 &mdash; Jira | Lab 4.2 &mdash; Langfuse |
+|---|---|---|
+| who runs it | we do, in our cluster | Langfuse do, in the JP region |
+| credential | a Basic header we issue | a Basic header from **your** project keys |
+| whose data | a shared scratch board | **your own traces** |
+| tool set | we chose five | they publish 85 |
+| scoping | server-side, our flags | **client-side only** |
 """),
 
+    code(r'''
+# ------------------------------------------------------------ Preflight: run me first
+import os, json, time, base64, textwrap, subprocess, re, socket, urllib.request, urllib.error
+
+HOST   = os.environ.get("LANGFUSE_HOST", "")
+PK     = os.environ.get("LANGFUSE_PUBLIC_KEY", "")
+SK     = os.environ.get("LANGFUSE_SECRET_KEY", "")
+ENVTAG = os.environ.get("LANGFUSE_TRACING_ENVIRONMENT", "")
+LABDIR = os.path.expanduser("~/work/lfmcp")      # home, not /tmp: /tmp is wiped on restart
+
+MCP_URL = HOST.rstrip("/") + "/api/public/mcp" if HOST else ""
+AUTH    = base64.b64encode(f"{PK}:{SK}".encode()).decode() if (PK and SK) else ""
+
+def ready() -> bool:
+    return bool(HOST and PK and SK)
+
+if ready():
+    print("endpoint   :", MCP_URL)
+    print("credential : Basic base64(public:secret) -- built from keys already in your environment")
+    print("your traces:", ENVTAG or "(environment tag not set)")
+    os.makedirs(LABDIR, exist_ok=True)
+    print("lab folder :", LABDIR)
+else:
+    print("Not configured. This lab reads three variables the sandbox already sets:")
+    for n in ("LANGFUSE_HOST", "LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY"):
+        print(f"  {n:22} {'set' if os.environ.get(n) else 'MISSING'}")
+    print("\nEvery cell below skips cleanly until they are set. Ask the trainer.")
+'''),
+
     md("""
-## Section 1 &mdash; The two arms
+## Step 1 &mdash; Connect
 
-Arm A is the sort of tool set an internal payments API really produces: coded names, and a
-description that is the name again with the underscores taken out.
-
-Arm B wraps the identical functions with names and descriptions written for a reader.
+The same shape as Lab 4.1: `type: remote`, a URL, one header. Only the values differ &mdash; and
+this time the header is built from *your* project keys, so the server will answer about *your*
+project and nobody else's.
 """),
     code(r'''
-from langchain_core.tools import StructuredTool
-
-FUNCS = {t.name: t.func for t in TOOLKIT}
-
-CODED = {"lookup_payment": "pmt_inq_01", "search_payments": "pmt_qry_02",
-         "policy_for": "ops_rul_03",     "release_payment": "pmt_rel_04"}
-
-def poor_arm() -> list:
-    """Four tools a model can barely choose between: coded names, label-only descriptions."""
-    return [StructuredTool.from_function(func=FUNCS[n], name=CODED[n],
-                                         description=CODED[n].replace("_", " "))
-            for n in sorted(FUNCS)]
-
-
-GOOD_DESCRIPTIONS = {
-    "lookup_payment":
-        "Return the ledger record for one payment reference such as PMT-1002. Use when you "
-        "already have the reference. Not for searching -- use search_payments for that.",
-    "search_payments":
-        "Return every ledger record matching a counterparty or a status. Use when you must find "
-        "which payments match. Not for one known reference -- use lookup_payment for that.",
-
-    # TODO: replace "BLANK" with a description for policy_for. Say what it returns, name the
-    #       kind of value it takes, and finish with a sentence saying where the tool stops.
-    "policy_for": "BLANK",
-
-    "release_payment":
-        "Release one held payment so that it settles. This one moves money. Use only after a "
-        "named human has approved this specific release. Not for reading or explaining.",
+CONFIG = {
+    "$schema": "https://opencode.ai/config.json",
+    "provider": {
+        "litellm": {
+            "npm": "@ai-sdk/openai-compatible",
+            "name": "LiteLLM Gateway",
+            "options": {"baseURL": "{env:LAB_LLM_BASE_URL}", "apiKey": "{env:LITELLM_API_KEY}"},
+            "models": {"qwen36-35b-a3b-lab": {"name": "Qwen3.6 35B A3B (lab)"}},
+        }
+    },
+    "mcp": {
+        "langfuse": {
+            "type": "remote",
+            "url": MCP_URL,
+            "enabled": True,
+            # The key pair IS the project scope: Langfuse resolves which project to
+            # answer for from these credentials. Nothing else in the config names it.
+            "headers": {"Authorization": "Basic " + AUTH},
+        }
+    },
 }
 
-def good_arm() -> list:
-    """The same four functions, wrapped with names and descriptions written for a reader."""
-    return [StructuredTool.from_function(func=FUNCS[n], name=n,
-                                         description=GOOD_DESCRIPTIONS[n])
-            for n in sorted(FUNCS)]
+def write_config(cfg):
+    path = os.path.join(LABDIR, "opencode.json")
+    with open(path, "w") as fh:
+        json.dump(cfg, fh, indent=2)
+    return path
+
+def oc(*args, timeout=180):
+    p = subprocess.run(["opencode", *args], cwd=LABDIR, capture_output=True, text=True, timeout=timeout)
+    return re.sub(r"\x1b\[[0-9;?]*[a-zA-Z]", "", (p.stdout or "") + (p.stderr or ""))
+
+if ready():
+    write_config(CONFIG)
+    print(oc("mcp", "list"))
+else:
+    print("skipped - see the preflight cell")
+'''),
+
+    md("""
+## Step 2 &mdash; Discover, and weigh it
+
+`initialize`, then `tools/list` &mdash; the same two calls as Lab 4.1. What comes back is not the
+same size.
+"""),
+    code(r'''
+def rpc(method, params=None, sid=None, timeout=120):
+    body = json.dumps({"jsonrpc": "2.0", "id": 1, "method": method, "params": params or {}}).encode()
+    req = urllib.request.Request(MCP_URL, data=body, method="POST")
+    req.add_header("Content-Type", "application/json")
+    req.add_header("Accept", "application/json, text/event-stream")
+    req.add_header("Authorization", "Basic " + AUTH)
+    if sid:
+        req.add_header("Mcp-Session-Id", sid)
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        raw, sess = r.read().decode(), r.headers.get("mcp-session-id")
+    for line in raw.splitlines():
+        if line.startswith("data:"):
+            raw = line[5:].strip()
+            break
+    return json.loads(raw).get("result", {}), sess
 
 
-def shape(arm: list) -> list:
-    """Everything about an arm that must NOT vary between the two.
+if ready():
+    init, session = rpc("initialize", {
+        "protocolVersion": "2025-06-18", "capabilities": {},
+        "clientInfo": {"name": "lab-4-2", "version": "1.0"}})
+    print("serverInfo:", init.get("serverInfo"))
 
-    Names and descriptions differ by design -- that is the experiment. What is left is the
-    part a model uses to build a well-formed call, and it has to be identical.
-    """
-    return [BLANK for t in arm]    # TODO: the part of a tool that is not prose
-''', r'''
-from langchain_core.tools import StructuredTool
+    tools = rpc("tools/list", {}, sid=session)[0]["tools"]
+    names = [t["name"] for t in tools]
+    mutating = [n for n in names if n.startswith(("create", "update", "delete"))]
+    schema_bytes = len(json.dumps(tools))
 
-FUNCS = {t.name: t.func for t in TOOLKIT}
+    print(f"\ntools published : {len(names)}")
+    print(f"  of which write: {len(mutating)}  (create / update / delete)")
+    print(f"  schema weight : {schema_bytes:,} characters, roughly {schema_bytes//4:,} tokens")
+    print(f"                  ...re-sent to the model on EVERY turn, before your question")
+    print("\na few you can read:", ", ".join(n for n in names if n.startswith(("list", "get")))[:150], "...")
+    print("a few you cannot undo:", ", ".join(n for n in names if n.startswith("delete"))[:150], "...")
+else:
+    print("skipped - see the preflight cell")
+'''),
 
-CODED = {"lookup_payment": "pmt_inq_01", "search_payments": "pmt_qry_02",
-         "policy_for": "ops_rul_03",     "release_payment": "pmt_rel_04"}
+    md("""
+Two things in that output are worth sitting with.
 
-def poor_arm() -> list:
-    """Four tools a model can barely choose between: coded names, label-only descriptions."""
-    return [StructuredTool.from_function(func=FUNCS[n], name=CODED[n],
-                                         description=CODED[n].replace("_", " "))
-            for n in sorted(FUNCS)]
+**The token weight.** Those schemas are context you have already spent before the model reads your
+question. Discovery is not free, and it recurs on every turn of every run.
 
+**The `delete` tools.** They act on the project your own traces live in. Nothing here is malicious
+&mdash; Langfuse publish a complete API and that is reasonable of them. But your agent has been
+handed the destructive half along with the useful half, and the only thing standing between a
+loosely worded prompt and `deleteDashboard` is the model's judgement.
+"""),
 
-GOOD_DESCRIPTIONS = {
-    "lookup_payment":
-        "Return the ledger record for one payment reference such as PMT-1002. Use when you "
-        "already have the reference. Not for searching -- use search_payments for that.",
-    "search_payments":
-        "Return every ledger record matching a counterparty or a status. Use when you must find "
-        "which payments match. Not for one known reference -- use lookup_payment for that.",
+    md("""
+## Step 3 &mdash; Scope it, from the client
 
-    "policy_for":
-        "Return the operating policy for one failure reason code such as LIMIT_BREACH. Use once "
-        "you know why a payment failed. Not for reading the payment itself -- use lookup_payment "
-        "for that.",
+In Lab 4.1 we cut the tool set with `--enabled-tools`, because we ran that server. Here we cannot:
+it is Langfuse's process, and their API is deliberately complete.
 
-    "release_payment":
-        "Release one held payment so that it settles. This one moves money. Use only after a "
-        "named human has approved this specific release. Not for reading or explaining.",
+So the boundary moves into your own config. `opencode` decides per tool: `allow` silently,
+`ask` prompts you, `deny` refuses. Wildcards work, and the specific name wins over the pattern.
+"""),
+    code(r'''
+CONFIG["permission"] = {
+    "langfuse_delete*": "deny",    # never, not even if asked nicely
+    "langfuse_create*": "ask",     # a human decides, in the moment
+    "langfuse_update*": "ask",
 }
 
-def good_arm() -> list:
-    """The same four functions, wrapped with names and descriptions written for a reader."""
-    return [StructuredTool.from_function(func=FUNCS[n], name=n,
-                                         description=GOOD_DESCRIPTIONS[n])
-            for n in sorted(FUNCS)]
-
-
-def shape(arm: list) -> list:
-    """Everything about an arm that must NOT vary between the two.
-
-    Names and descriptions differ by design -- that is the experiment. What is left is the
-    part a model uses to build a well-formed call, and it has to be identical.
-    """
-    return [t.args for t in arm]
-'''),
-    code(r'''
-# --- Self-check: Section 1   (tool objects only -- no model call)
-def _policy_desc() -> str:
-    d = (GOOD_DESCRIPTIONS["policy_for"] or "").strip()
-    if d == "BLANK":
-        raise NameError("policy_for still has the placeholder description")
-    return d
-
-check("both arms expose four tools",
-      lambda: len(poor_arm()) == 4 and len(good_arm()) == 4)
-check("both arms wrap the SAME functions",
-      lambda: [t.func for t in poor_arm()] == [t.func for t in good_arm()],
-      "if the functions differ you are measuring something else entirely")
-check("the argument schemas are identical -- the control holds",
-      lambda: shape(poor_arm()) == shape(good_arm()),
-      "only the prose may differ; a schema change is a different experiment, not a rerun")
-check("the control is not vacuous -- the prose really does differ",
-      lambda: [t.description for t in poor_arm()] != [t.description for t in good_arm()])
-check("the poor arm really is uninformative",
-      lambda: all(len(t.description) < 25 for t in poor_arm()))
-check("every good description says more than what the tool is called",
-      # _policy_desc() first, so an UNFILLED description reads [TODO] and not a red [FAIL]
-      lambda: bool(_policy_desc()) and all(len(t.description) > 60 for t in good_arm()))
-check("your policy_for description names the kind of value it takes",
-      lambda: "reason code" in _policy_desc().lower(),
-      "the model has to know that a LIMIT_BREACH is the thing that goes in here")
-check("and it says where the tool stops",
-      lambda: any(m in _policy_desc().lower() for m in ("not for", "not to", "only")),
-      "the boundary sentence is what stops the neighbouring tool being called instead")
-
-guard(lambda: [print(f"  {t.name:16} {t.description[:66]}") for t in good_arm()])
+if ready():
+    write_config(CONFIG)
+    print(json.dumps(CONFIG["permission"], indent=2))
+    print("\nThe server still publishes all", len(names), "tools and still lists them.")
+    print("What changed is which ones THIS client is willing to call.")
+    print("\nNote what this does NOT do: the same key pair still works against the")
+    print("Langfuse REST API directly, where none of these rules apply. Client-side")
+    print("scoping constrains your agent, not your credential.")
+else:
+    print("skipped - see the preflight cell")
 '''),
 
     md("""
-## Section 2 &mdash; The metric
+## Step 4 &mdash; Ask about your own data
 
-The model does not answer a selection question in prose. It returns an `AIMessage` carrying
-`tool_calls` &mdash; a list of dicts, each with a `name`, an `args` and an `id`. First-tool
-accuracy is read straight off that.
+In a terminal (**File &rarr; New &rarr; Terminal**), as in Lab 4.1.
 
-Why the *first* tool: a model that eventually stumbles onto the right one has still spent a call,
-a round trip and a piece of the context window. The first reach is the honest measurement.
+If you have not run any Day 3 labs yet the counts will be small or zero &mdash; that is fine and it
+is still a real answer about a real project.
 """),
     code(r'''
-from langchain_core.messages import AIMessage
+TASK = ("Use the langfuse MCP tools. How many observations are in this project, and what are the "
+        "three most recent ones? Answer briefly. Do not create, update or delete anything.")
 
-def first_tool(response) -> str:
-    """The name of the FIRST tool the model reached for, or '' if it reached for none."""
-    calls = response.tool_calls        # every AIMessage carries this list; it may be empty
-    if not calls:
-        return ""
-    return BLANK                      # TODO: a tool_call is a dict -- which key names the tool?
-
-
-def accuracy(chosen: list, expected: list) -> float:
-    """Fraction of asks where the first tool was the right one. No choice counts as wrong."""
-    hits = sum(1 for c, e in zip(chosen, expected) if c == e)
-    return hits / len(expected)
-
-
-def confusion(chosen: list, expected: list) -> dict:
-    """{(expected, chosen): count} for the MISSES only.
-
-    Accuracy tells you THAT it went wrong. This tells you which two tools read alike to the
-    model -- which is the thing you can go and edit.
-    """
-    out = {}
-    for c, e in zip(chosen, expected):
-        if c != e:
-            out[(e, c)] = out.get((e, c), 0) + 1
-    return out
-''', r'''
-from langchain_core.messages import AIMessage
-
-def first_tool(response) -> str:
-    """The name of the FIRST tool the model reached for, or '' if it reached for none."""
-    calls = response.tool_calls        # every AIMessage carries this list; it may be empty
-    if not calls:
-        return ""
-    return calls[0]["name"]
-
-
-def accuracy(chosen: list, expected: list) -> float:
-    """Fraction of asks where the first tool was the right one. No choice counts as wrong."""
-    hits = sum(1 for c, e in zip(chosen, expected) if c == e)
-    return hits / len(expected)
-
-
-def confusion(chosen: list, expected: list) -> dict:
-    """{(expected, chosen): count} for the MISSES only.
-
-    Accuracy tells you THAT it went wrong. This tells you which two tools read alike to the
-    model -- which is the thing you can go and edit.
-    """
-    out = {}
-    for c, e in zip(chosen, expected):
-        if c != e:
-            out[(e, c)] = out.get((e, c), 0) + 1
-    return out
-'''),
-    code(r'''
-# --- Self-check: Section 2   (real AIMessages, built by hand -- no model call)
-def _ai(*names) -> AIMessage:
-    """An AIMessage shaped exactly like one that asked for these tools, in this order."""
-    if not names:
-        return AIMessage(content="I can answer that without a tool.")
-    return AIMessage(content="", tool_calls=[
-        {"name": n, "args": {"ref": "PMT-1002"}, "id": f"call_{i}", "type": "tool_call"}
-        for i, n in enumerate(names)])
-
-check("the choice is read off the message the model returns",
-      lambda: first_tool(_ai("lookup_payment")) == "lookup_payment")
-check("only the FIRST call counts",
-      lambda: first_tool(_ai("policy_for", "lookup_payment")) == "policy_for",
-      "a model that gets there on the second try still spent a call and a round trip")
-check("a reply with no tool call is not a selection",
-      lambda: first_tool(_ai()) == "")
-check("a perfect run scores 1.0",
-      lambda: accuracy(["a", "b"], ["a", "b"]) == 1.0)
-check("no choice counts as wrong, not as skipped",
-      lambda: accuracy(["", ""], ["a", "b"]) == 0.0,
-      "a model that returned nothing did not get the answer right")
-check("two of five is 40%",
-      lambda: abs(accuracy(["a", "b", "x", "x", "x"], list("abcde")) - 0.4) < 1e-9)
-check("a perfect run has an empty confusion table",
-      lambda: confusion(["a", "b"], ["a", "b"]) == {})
-check("the confusion table names the pair, expected first",
-      lambda: confusion(["x", "b"], ["a", "b"]) == {("a", "x"): 1})
-check("and counts repeats of the same pair",
-      lambda: confusion(["x", "x"], ["a", "a"])[("a", "x")] == 2,
-      "two asks pulled to the same wrong tool is one overlapping description, not two bugs")
+if ready():
+    print("Open File > New > Terminal, then paste:\n")
+    print(f"cd {LABDIR} && \\\n  opencode run --model litellm/qwen36-35b-a3b-lab \\\n    \"{TASK}\"")
+    print("\nThen try one it is not allowed to do:\n")
+    print(f"cd {LABDIR} && \\\n  opencode run --model litellm/qwen36-35b-a3b-lab \\\n"
+          f"    \"Use the langfuse MCP tools to delete every dashboard in this project.\"")
+else:
+    print("skipped - see the preflight cell")
 '''),
 
     md("""
-## Section 3 &mdash; The eval set, and the bake-off
+Run that second command and read the answer carefully, because it is not what most people expect.
 
-Five asks with a known right answer. Each one names its intent plainly, so nothing here is a
-trick &mdash; the only question is whether the tool set said enough for the model to route it.
+The agent does not say *"I am not allowed to do that."* It says the tool **does not exist**. `deny`
+is not a policy the model is asked to respect &mdash; the tool never reaches it, so there is nothing
+to refuse and nothing to argue with. Measured on this sandbox: with `langfuse_delete*` denied, the
+agent looked, found the dashboard, and then reported that the server offers no way to delete one.
 
-The expected answer differs per arm, because the arms name their tools differently. Everything
-else is shared.
-"""),
-    code(r'''
-EVAL = [
-    ("What is the status of PMT-1002?",                    "lookup_payment"),
-    ("Which payments involve NORTHWIND?",                  "search_payments"),
-    ("What should we do about a LIMIT_BREACH?",            "policy_for"),
-    ("List everything currently held.",                    "search_payments"),
-    ("Treasury approved it -- release PMT-1003 now.",      "release_payment"),
-]
+That is the same shape as Lab 4.1's scoped Jira server, arrived at from the other end. A capability
+the model was never offered is stronger than a capability it was told not to use.
 
-SELECT_SYSTEM = ("You are a payments operations agent. Answer the request by calling exactly one "
-                 "of the tools available to you.")
+## What this lab changed
 
-def run_arm(arm: list, names: dict) -> tuple:
-    """Put every ask to the model with these tools bound. Returns (chosen, expected).
+Two servers, two labs, one protocol &mdash; and almost everything else different:
 
-    `names` maps the canonical tool name onto whatever this arm calls it.
-    """
-    bound = get_llm().bind_tools(arm)
-    chosen, expected = [], []
-    for request, want in EVAL:
-        reply = bound.invoke([("system", SELECT_SYSTEM), ("human", request)])
-        chosen.append(first_tool(reply))
-        expected.append(names[want])
-    return chosen, expected
-'''),
-    code(r'''
-# --- Self-check: Section 3   (the eval set itself -- no model call)
-check("five asks, each with an expected tool",
-      lambda: len(EVAL) == 5 and all(len(row) == 2 for row in EVAL))
-check("every tool in the kit is the right answer at least once",
-      lambda: {want for _, want in EVAL} == set(FUNCS))
-check("the coded arm has a name for every tool the eval set expects",
-      lambda: all(want in CODED for _, want in EVAL),
-      "an ask whose expected name does not exist in an arm can never be scored right")
-check("the two arms disagree about every name -- that is the manipulation",
-      lambda: all(CODED[n] != n for n in FUNCS))
-'''),
+| | 4.1 Jira | 4.2 Langfuse |
+|---|---|---|
+| tools | 5, because we chose 5 | 85, because they publish 85 |
+| where scoping happens | the server, our flag | the client, our config |
+| who the credential is | one shared service account | your project |
+| blast radius | a scratch board | your own observability data |
 
-    md("""
-## Run it for real &mdash; the bake-off
+**The lesson that survives both:** the tool list is a grant. In 4.1 you granted it by starting a
+process with certain flags. Here you granted it by writing a URL and a header, and then took some
+of it back in a `permission` block. Either way the decision was yours, it lived in a config file,
+and nothing in the protocol made it for you.
 
-Ten model calls, five per arm. Watch the `chosen` list as well as the percentage: *which* tool
-the poor arm reached for tells you more than the score does.
-"""),
-    code(r'''
-if llm_ready():
-    def _bakeoff():
-        arms = (("coded names, labels only", poor_arm(), CODED),
-                ("real names and descriptions", good_arm(), {n: n for n in FUNCS}))
-        print(f"{'arm':30}{'first-tool accuracy':>21}")
-        print("-" * 78)
-        for label, arm, names in arms:
-            chosen, expected = run_arm(arm, names)
-            print(f"{label:30}{accuracy(chosen, expected):>20.0%}")
-            for (request, _), got, want in zip(EVAL, chosen, expected):
-                mark = "  " if got == want else "<-"
-                print(f"    {mark} {request[:44]:46} {got or '(no call)':14} want {want}")
-            for (want, got), n in sorted(confusion(chosen, expected).items(), key=lambda kv: -kv[1]):
-                print(f"       confused {want} with {got or '(no call)'} x{n}")
-            print()
-    guard(_bakeoff)
-'''),
-    md("""
-### Read it
+**And the caveat that survives both:** scoping the *client* does not scope the *credential*. Those
+keys still work against the Langfuse REST API, where your `deny` rules mean nothing. If that
+matters, the answer is a narrower key &mdash; not a longer config.
 
-Here is what we measured on this model, with this eval set, before writing the lab:
-
-| arm | first-tool accuracy |
-|---|---|
-| coded names, label-only descriptions | **2/5** |
-| the same four functions, real names and descriptions with a boundary | **5/5** |
-
-Sixty points, same model, same functions, same argument schemas. The only thing that changed was
-the prose &mdash; and the prose is the part most teams treat as documentation.
-
-Three things worth taking from that, in order of how much they will cost you if you miss them.
-
-**1. The description is not documentation. It is the API.** `pmt_inq_01` is a perfectly good
-function name and a terrible tool name, and the four-word description does not rescue it. When a
-model has nothing to route on, it routes on nothing &mdash; the misses in the poor arm are not
-random, they cluster on whichever tool sounds vaguely closest.
-
-**2. The effect lives where the signal is missing, not everywhere.** We also ran the opposite
-experiment: hold the *names* meaningful and vary only the description quality across three levels,
-on twelve unambiguous asks. All three scored 100%. When the name already says what the tool does
-and the ask is plain, a richer description has no work left to do. So &ldquo;always write better
-descriptions&rdquo; is not the lesson. The lesson is that a tool needs *at least one* channel that
-says what it is for, and coded internal names are exactly the case where the description is the
-only one you have.
-
-**3. Five cases means one flip is twenty points.** A 2/5 &rarr; 5/5 gap is large enough to see
-through that noise; a 4/5 &rarr; 5/5 gap would not be. Before you claim an improvement from an
-eval set this size, work out how big a difference your sample could even detect. Day 3 extends
-this exact harness with enough cases to quote an interval, and adds a cost budget alongside the
-accuracy.
-"""),
-
-    code(r'''
-score()
-'''),
-    md("""
 ## Your turn
 
-1. Build a third arm: coded names, but the *good* descriptions. That separates the two things the
-   bake-off changed together. Which of the two was carrying the effect?
-2. Add four asks that are genuinely ambiguous to a human as well &mdash; the honest answer is
-   &ldquo;ask a clarifying question&rdquo;. What should the expected value even be? (Day 3 has an
-   answer: a fifth outcome, not a fifth tool.)
-3. Run the good arm three times and record the three scores. That spread is your noise floor, and
-   no claim smaller than it is a claim.
-4. Keep this file. On Day 3 you will extend this exact harness into the eval set that gates the
-   capstone &mdash; same metric, more cases, and a cost budget alongside the accuracy.
+- Change `langfuse_delete*` to `"ask"` and re-run the delete prompt. Notice where the decision lands.
+- Ask it something that needs two tools &mdash; *"which observation was slowest, and what model did
+  it use?"* &mdash; and watch it chain.
+- Keep this config. On Day 3, when a trace looks wrong, ask this agent before opening the UI.
 """),
 ]
 
 
-# =========================================================================== #
-# Lab 4.3 -- multi-tool orchestration: the loop, and the two ways to stop it
-# =========================================================================== #
 LAB3 = [
     header(3, "Multi-Tool Orchestration", "Advanced", 35,
            ["Decide which tools an unattended agent may be handed at all",
@@ -2613,7 +2473,7 @@ score()
 # =========================================================================== #
 LABS = [
     ("lab-4-01-opencode-jira-over-mcp",         LAB1),
-    ("lab-4-02-descriptions-are-instructions",  LAB2),
+    ("lab-4-02-langfuse-traces-over-mcp",      LAB2),
     ("lab-4-03-multi-tool-orchestration",       LAB3),
     ("lab-4-04-mcp-from-the-wire-up",           LAB4),
     ("lab-4-05-challenge-bridge-and-boundary",  LAB5),

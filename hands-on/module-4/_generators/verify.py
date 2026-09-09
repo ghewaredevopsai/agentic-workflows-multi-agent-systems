@@ -16,7 +16,8 @@ SOLDIR = os.path.join(LABDIR, "solutions")
 for v in ("LAB_LLM_BASE_URL", "LAB_LLM_MODEL",
           "OPENAI_BASE_URL", "OPENAI_API_BASE", "OPENAI_MODEL",
           "LITELLM_BASE_URL", "LITELLM_MODEL",
-          "JIRA_MCP_URL", "JIRA_MCP_AUTH", "JIRA_MCP_PROJECT"):
+          "JIRA_MCP_URL", "JIRA_MCP_AUTH", "JIRA_MCP_PROJECT",
+          "LANGFUSE_HOST", "LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY"):
     os.environ.pop(v, None)
 
 # A WALKTHROUGH lab has nothing to fill in and nothing to score: the participant notebook
@@ -25,7 +26,8 @@ for v in ("LAB_LLM_BASE_URL", "LAB_LLM_MODEL",
 # zero blanks on both sides, the two files byte-identical, and no score line expected. Every
 # cell is guarded on JIRA_MCP_URL/JIRA_MCP_AUTH, which this verifier unsets, so the whole
 # notebook must run clean and print its skip message instead.
-WALKTHROUGH = {"lab-4-01-opencode-jira-over-mcp.ipynb"}
+WALKTHROUGH = {"lab-4-01-opencode-jira-over-mcp.ipynb",
+               "lab-4-02-langfuse-traces-over-mcp.ipynb"}
 
 fails = 0
 for fn in sorted(f for f in os.listdir(SOLDIR) if f.endswith(".ipynb")):

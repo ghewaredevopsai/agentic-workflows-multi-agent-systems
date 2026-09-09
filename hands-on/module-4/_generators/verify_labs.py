@@ -41,7 +41,9 @@ for v in ("LAB_LLM_BASE_URL", "LAB_LLM_MODEL",
           "LITELLM_BASE_URL", "LITELLM_MODEL",
           # Lab 4.1 reaches a real Jira MCP server when these are set. Same reasoning:
           # an "offline" verifier must not create tickets on a live board.
-          "JIRA_MCP_URL", "JIRA_MCP_AUTH", "JIRA_MCP_PROJECT"):
+          "JIRA_MCP_URL", "JIRA_MCP_AUTH", "JIRA_MCP_PROJECT",
+          # Lab 4.2 reaches a real Langfuse project when these are set.
+          "LANGFUSE_HOST", "LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY"):
     os.environ.pop(v, None)
 
 import nbformat
@@ -90,7 +92,8 @@ def run_plain(path):
 SCRUB = ("import os\n"
          "for _v in ('LAB_LLM_BASE_URL','LAB_LLM_MODEL','OPENAI_BASE_URL','OPENAI_API_BASE',\n"
          "           'OPENAI_MODEL','LITELLM_BASE_URL','LITELLM_MODEL',\n"
-         "           'JIRA_MCP_URL','JIRA_MCP_AUTH','JIRA_MCP_PROJECT'):\n"
+         "           'JIRA_MCP_URL','JIRA_MCP_AUTH','JIRA_MCP_PROJECT',\n"
+         "           'LANGFUSE_HOST','LANGFUSE_PUBLIC_KEY','LANGFUSE_SECRET_KEY'):\n"
          "    os.environ.pop(_v, None)\n")
 
 
