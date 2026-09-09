@@ -969,11 +969,103 @@ and nothing in the protocol made it for you.
 keys still work against the Langfuse REST API, where your `deny` rules mean nothing. If that
 matters, the answer is a narrower key &mdash; not a longer config.
 
+## A prompt library worth keeping
+
+This is the part to take away. Every question below is one a team normally answers by exporting
+data, writing a query, or clicking a UI for twenty minutes. Paste them into the same terminal.
+
+**Three things that make these work, all learned by running them:**
+
+1. **Start with `getMetricsSchema`.** Without it the agent guesses a dimension name, gets rejected,
+   and retries. It recovers &mdash; the server's errors are good enough to self-correct from, which
+   is worth watching once &mdash; but it costs turns. Prefix metrics questions with
+   *"call getMetricsSchema first, then ..."*.
+2. **You share this project with the whole room.** Everyone's traces land here and only the
+   `environment` tag separates them. Yours is in `$LANGFUSE_TRACING_ENVIRONMENT`. Add
+   *"filter to environment = &lt;yours&gt;"* to see just your own work.
+3. ⚠️ **Cost reads zero here, and that is real, not broken.** `totalCost` is null on every
+   observation because the sandbox model has no priced entry in Langfuse. Ask a cost question and a
+   good agent will tell you the data is not there &mdash; which is the correct answer and a useful
+   thing to see it do. **Your observability is only ever as good as your instrumentation.** Use the
+   latency and structure questions below instead; they have real data.
+
+### Where the time is going
+
+```
+Call getMetricsSchema first. Then show me average and maximum latency by observation type
+and by name for the last 7 days, as a table sorted by average latency.
+```
+*Otherwise: sort a trace list by hand and open them one at a time.*
+
+```
+Call getMetricsSchema first. Then list the 10 slowest observations in the last 7 days with
+their name, type and latency. What do the slow ones have in common?
+```
+*The question that finds your bottleneck. Spans and generations differ by orders of magnitude.*
+
+```
+Compare average latency for the last 24 hours against the 24 hours before it. Has anything
+regressed?
+```
+*Otherwise: two dashboard queries and a mental diff.*
+
+### What the agents are actually doing
+
+```
+Call getMetricsSchema first. Then break down observations by name for the last 7 days.
+Which steps run most often, and does the ratio between them look right?
+```
+*This is how you notice a step firing three times when it should fire once.*
+
+```
+Which tools are being called, and how often? Use the calledToolNames dimension.
+```
+*Otherwise: parsing trace payloads by hand. This is the question that reveals a tool you
+shipped and nothing ever selects.*
+
+```
+Are there observations with level ERROR or WARNING in the last 7 days? Show the most recent
+five and summarise what they have in common.
+```
+*Otherwise: reading traces one at a time hoping to spot a pattern.*
+
+```
+Find the slowest observation in the last 7 days, fetch it in full, and explain in three
+sentences what it was doing.
+```
+*The one to watch: it chains metrics &rarr; list &rarr; fetch, three tools off one sentence.*
+
+### Just mine
+
+```
+Filter everything to environment = <your LANGFUSE_TRACING_ENVIRONMENT>. How many observations
+are mine, what types are they, and which was slowest?
+```
+*The one you will use most on Day 3, once the project is full of everyone's runs.*
+
+```
+List the prompts in this project with their labels and versions, and tell me which have no
+production label.
+```
+*Otherwise: clicking through the prompts UI.*
+
+### Two that fail interestingly, and are worth running for that
+
+```
+Delete every dashboard in this project.
+```
+*Denied at the client. Read the reply &mdash; the agent reports the capability does not exist.*
+
+```
+What did this project cost last week, broken down by model?
+```
+*Returns zeros, for the instrumentation reason above. A good agent says so and explains why;
+a bad one invents a number. Worth seeing which you have.*
+
 ## Your turn
 
 - Change `langfuse_delete*` to `"ask"` and re-run the delete prompt. Notice where the decision lands.
-- Ask it something that needs two tools &mdash; *"which observation was slowest, and what model did
-  it use?"* &mdash; and watch it chain.
+- Take one prompt above, run it, then check the answer in the Langfuse UI. Trust it only after that.
 - Keep this config. On Day 3, when a trace looks wrong, ask this agent before opening the UI.
 """),
 ]
