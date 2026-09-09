@@ -256,13 +256,13 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
       <rect x="180" y="62" width="420" height="150" rx="8" fill="#ecfdf5" stroke="#0d9488" stroke-width="2.5"/>
       <text x="390" y="98" text-anchor="middle" class="bx ok">Chain-of-Thought</text>
       <text x="390" y="130" text-anchor="middle" class="bd">One route, no outside facts.</text>
-      <text x="390" y="158" text-anchor="middle" class="bds">Classify this exception by reason code.</text>
+      <text x="390" y="158" text-anchor="middle" class="bds">Classify this request by handbook category.</text>
       <text x="390" y="188" text-anchor="middle" class="bds ok">Cheapest thing that still shows its work.</text>
 
       <rect x="620" y="62" width="420" height="150" rx="8" fill="#eef2ff" stroke="#4338ca" stroke-width="2.5"/>
       <text x="830" y="98" text-anchor="middle" class="bx">ReAct</text>
-      <text x="830" y="130" text-anchor="middle" class="bd">One route, but it needs the ledger.</text>
-      <text x="830" y="158" text-anchor="middle" class="bds">Why did PMT-1002 fail, and what is the policy?</text>
+      <text x="830" y="130" text-anchor="middle" class="bd">One route, but it needs the handbook.</text>
+      <text x="830" y="158" text-anchor="middle" class="bds">What do we do about EHD-7002, and how fast?</text>
       <text x="830" y="188" text-anchor="middle" class="bds">The default for tool-using agents.</text>
 
       <rect x="180" y="228" width="420" height="150" rx="8" fill="#eef2ff" stroke="#4338ca" stroke-width="2.5"/>
@@ -314,7 +314,7 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
     <svg width="1180" height="420" viewBox="0 0 1180 420" role="img" aria-label="An LCEL chain composed of a prompt, a model and an output parser">
       <rect x="50" y="46" width="640" height="270" rx="8" fill="#1e1b4b"/>
       <text x="74" y="84" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#e0e7ff">chain = prompt </tspan><tspan fill="#fbbf24">|</tspan><tspan fill="#e0e7ff"> model </tspan><tspan fill="#fbbf24">|</tspan><tspan fill="#e0e7ff"> StrOutputParser()</tspan></text>
-      <text x="74" y="132" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#e0e7ff">chain.</tspan><tspan fill="#fbbf24">invoke</tspan><tspan fill="#e0e7ff">({</tspan><tspan fill="#7dd3fc">&quot;payment&quot;</tspan><tspan fill="#e0e7ff">: rec, </tspan><tspan fill="#7dd3fc">&quot;policy&quot;</tspan><tspan fill="#e0e7ff">: text})</tspan></text>
+      <text x="74" y="132" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#e0e7ff">chain.</tspan><tspan fill="#fbbf24">invoke</tspan><tspan fill="#e0e7ff">({</tspan><tspan fill="#7dd3fc">&quot;request&quot;</tspan><tspan fill="#e0e7ff">: req, </tspan><tspan fill="#7dd3fc">&quot;rule&quot;</tspan><tspan fill="#e0e7ff">: text})</tspan></text>
       <text x="74" y="168" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#64748b"># one case</tspan></text>
       <text x="74" y="216" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#e0e7ff">chain.</tspan><tspan fill="#fbbf24">batch</tspan><tspan fill="#e0e7ff">([...])</tspan></text>
       <text x="74" y="252" font-size="15" font-family="Consolas,monospace" xml:space="preserve"><tspan fill="#64748b"># the whole eval set, concurrently</tspan></text>
@@ -338,7 +338,7 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
   <div class="take"><b>.batch() is what makes an eval set affordable:</b> five cases go out together, not one after another.</div>
 </div>
 
-<div class="slide" data-sec="Four architectures" data-notes="The output side of the same argument, and the row people get wrong is the middle one. JsonOutputParser takes a pydantic_object, so everyone assumes it validates against it. It does not &mdash; the schema is used only to WRITE the format instructions in the prompt. Read the red box out: we handed it needs_human as the string maybe, with two required fields missing, and it returned a dict quite happily. PydanticOutputParser does raise. with_structured_output is the one to reach for, because the stack constrains the generation as well as checking the result. Lab 2.1 uses StrOutputParser, Labs 2.3 and 2.4 use with_structured_output.">
+<div class="slide" data-sec="Four architectures" data-notes="The output side of the same argument, and the row people get wrong is the middle one. JsonOutputParser takes a pydantic_object, so everyone assumes it validates against it. It does not &mdash; the schema is used only to WRITE the format instructions in the prompt. Read the red box out: we handed it route_out as the string maybe, with two required fields missing, and it returned a dict quite happily. PydanticOutputParser does raise. with_structured_output is the one to reach for, because the stack constrains the generation as well as checking the result. Lab 2.1 uses StrOutputParser, Labs 2.3 and 2.4 use with_structured_output.">
   <h2>Output parsers: what each one guarantees</h2>
   <div class="body">
     <svg width="1180" height="420" viewBox="0 0 1180 420" role="img" aria-label="The output parser family and whether each validates its result">
@@ -371,7 +371,7 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
       <text x="820" y="346" class="bx ok">Yes &mdash; strongest</text>
 
       <rect x="50" y="366" width="1060" height="44" rx="7" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
-      <text x="76" y="394" class="bd">Measured: it accepted needs_human=&quot;maybe&quot; with two required fields missing, and returned a dict.</text>
+      <text x="76" y="394" class="bd">Measured: it accepted route_out=&quot;maybe&quot; with two required fields missing, and returned a dict.</text>
     </svg>
   </div>
   <div class="take"><b>A <code>pydantic_object</code> is not validation.</b> JsonOutputParser uses the schema to write the prompt, not to check the reply.</div>
@@ -383,13 +383,13 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
     <svg width="1180" height="420" viewBox="0 0 1180 420" role="img" aria-label="The ReAct cycle and its parsing contract">
       <text x="300" y="44" text-anchor="middle" class="lbl">The cycle</text>
       <rect x="120" y="62" width="360" height="46" rx="5" fill="#eef2ff" stroke="#818cf8" stroke-width="2"/>
-      <text x="300" y="91" text-anchor="middle" class="bxs">Thought: I need the reason code first</text>
+      <text x="300" y="91" text-anchor="middle" class="bxs">Thought: I need the handbook rule first</text>
       <line x1="300" y1="112" x2="300" y2="128" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
       <rect x="120" y="132" width="360" height="46" rx="5" fill="#4338ca"/>
-      <text x="300" y="161" text-anchor="middle" font-size="16" font-weight="600" fill="#fff">Action: lookup_payment("PMT-1002")</text>
+      <text x="300" y="161" text-anchor="middle" font-size="16" font-weight="600" fill="#fff">Action: lookup_request("EHD-7002")</text>
       <line x1="300" y1="182" x2="300" y2="198" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
       <rect x="120" y="202" width="360" height="46" rx="5" fill="#eef2ff" stroke="#818cf8" stroke-width="2"/>
-      <text x="300" y="231" text-anchor="middle" class="bxs">Observation: INSUFFICIENT_FUNDS</text>
+      <text x="300" y="231" text-anchor="middle" class="bxs">Observation: hardware, urgency high</text>
       <path d="M120 225 Q70 225 70 85 Q70 62 114 78" fill="none" stroke="#4338ca" stroke-width="2" marker-end="url(#ai)"/>
       <text x="300" y="288" text-anchor="middle" class="bd">Each observation changes the next thought.</text>
       <text x="300" y="314" text-anchor="middle" class="bds">That is the whole difference from Chain-of-Thought.</text>
@@ -412,15 +412,15 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
   <div class="take"><b>Lab 2.2 breaks it on purpose:</b> a strict parser fails a good answer; a lenient one runs the wrong tool. You will pick a side and defend it.</div>
 </div>
 
-<div class="slide" data-sec="Four architectures" data-notes="Note the scope first: this slide is about how the agent picks a TOOL, not about parsing its final answer &mdash; that is the previous slide. The most important slide in Module 2, and the numbers are ours &mdash; measured on the sandbox model in Lab 2.2. Do not tell them the text format is fragile and breaks; that is the obvious claim and it is FALSE here. It parsed 4/4 both times. What drifted was the ARGUMENT: under a prompt that had aged towards 'be thorough', the model wrote a perfectly formatted step whose Action Input was a JSON object with a key the tool had never heard of. The lookup returns nothing, the agent concludes the payment does not exist, and no error is raised anywhere. Then show the right column: bind_tools validates arguments against the schema, so this cannot happen.">
+<div class="slide" data-sec="Four architectures" data-notes="Note the scope first: this slide is about how the agent picks a TOOL, not about parsing its final answer &mdash; that is the previous slide. The most important slide in Module 2, and the numbers are ours &mdash; measured on the sandbox model in Lab 2.2. Do not tell them the text format is fragile and breaks; that is the obvious claim and it is FALSE here. It parsed 4/4 both times. What drifted was the ARGUMENT: under a prompt that had aged towards 'be thorough', the model wrote a perfectly formatted step whose Action Input was a JSON object with a key the tool had never heard of. The lookup returns nothing, the agent concludes there is no such request, and no error is raised anywhere. Then show the right column: bind_tools validates arguments against the schema, so this cannot happen.">
   <h2>Choosing a tool: the contract you do not have to parse</h2>
   <div class="body">
     <svg width="1180" height="430" viewBox="0 0 1180 430" role="img" aria-label="Text ReAct format compared with native tool calling, with measured parse and usability rates">
       <rect x="50" y="40" width="520" height="196" rx="8" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
       <text x="310" y="76" text-anchor="middle" class="bx no">You parse the chosen action</text>
       <text x="76" y="114" class="bd">Thought: &hellip;</text>
-      <text x="76" y="144" class="bd">Action: lookup_payment</text>
-      <text x="76" y="174" class="bd">Action Input: PMT-1003</text>
+      <text x="76" y="144" class="bd">Action: lookup_request</text>
+      <text x="76" y="174" class="bd">Action Input: EHD-7002</text>
       <text x="310" y="212" text-anchor="middle" class="bds">A contract the model never signed.</text>
 
       <rect x="610" y="40" width="500" height="196" rx="8" fill="#ecfdf5" stroke="#0d9488" stroke-width="2.5"/>
@@ -439,10 +439,10 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
       <text x="76" y="376" class="bx">After six months of prompt edits</text>
       <text x="700" y="376" text-anchor="middle" class="bd">4/4 parsed</text>
       <text x="960" y="376" text-anchor="middle" class="bx no">0/4 usable</text>
-      <text x="76" y="406" class="bds">Action Input: {&quot;payment_id&quot;: &quot;PMT-1003&quot;} &mdash; format perfect, tool name right, argument a key the tool never heard of.</text>
+      <text x="76" y="406" class="bds">Action Input: {&quot;id&quot;: &quot;EHD-7002&quot;} &mdash; format perfect, tool name right, argument a key the tool never heard of.</text>
     </svg>
   </div>
-  <div class="take"><b>Worse than a parse failure:</b> a parse failure is loud. This one returns nothing, concludes the payment does not exist, and raises no error.</div>
+  <div class="take"><b>Worse than a parse failure:</b> a parse failure is loud. This one returns nothing, concludes there is no such request, and raises no error.</div>
 </div>
 
 <div class="slide" data-sec="Four architectures" data-notes="Tree-of-Thought. Be blunt about cost: branches times depth times tokens per node. The scoring function is the part teams forget, and a bad scorer makes the whole tree worse than a single line of reasoning.">
@@ -569,7 +569,7 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
       <rect x="60" y="50" width="490" height="300" rx="8" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
       <text x="305" y="86" text-anchor="middle" class="bx no">Cannot be finished</text>
       <rect x="95" y="106" width="420" height="40" rx="4" fill="#fff" stroke="#fecaca"/>
-      <text x="305" y="132" text-anchor="middle" class="bds">&ldquo;Understand the payment problem&rdquo;</text>
+      <text x="305" y="132" text-anchor="middle" class="bds">&ldquo;Understand the employee's problem&rdquo;</text>
       <rect x="95" y="156" width="420" height="40" rx="4" fill="#fff" stroke="#fecaca"/>
       <text x="305" y="182" text-anchor="middle" class="bds">&ldquo;Investigate thoroughly&rdquo;</text>
       <rect x="95" y="206" width="420" height="40" rx="4" fill="#fff" stroke="#fecaca"/>
@@ -581,11 +581,11 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
       <rect x="620" y="50" width="490" height="300" rx="8" fill="#ecfdf5" stroke="#0d9488" stroke-width="2.5"/>
       <text x="865" y="86" text-anchor="middle" class="bx ok">Can be finished</text>
       <rect x="655" y="106" width="420" height="40" rx="4" fill="#fff" stroke="#99f6e4"/>
-      <text x="865" y="132" text-anchor="middle" class="bds">Return the reason code for PMT-1002</text>
+      <text x="865" y="132" text-anchor="middle" class="bds">Return the handbook category for EHD-7002</text>
       <rect x="655" y="156" width="420" height="40" rx="4" fill="#fff" stroke="#99f6e4"/>
-      <text x="865" y="182" text-anchor="middle" class="bds">Return the policy text for that code</text>
+      <text x="865" y="182" text-anchor="middle" class="bds">Return the handbook rule for that category</text>
       <rect x="655" y="206" width="420" height="40" rx="4" fill="#fff" stroke="#99f6e4"/>
-      <text x="865" y="232" text-anchor="middle" class="bds">State whether policy reserves this for a human</text>
+      <text x="865" y="232" text-anchor="middle" class="bds">State whether the handbook routes this out</text>
       <text x="865" y="286" text-anchor="middle" class="bd">Each has a checkable output.</text>
       <text x="865" y="316" text-anchor="middle" class="bxs ok">The definition of done is a property</text>
       <text x="865" y="338" text-anchor="middle" class="bxs ok">of the sub-goal, not of the model.</text>
@@ -727,7 +727,7 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
       <rect x="60" y="42" width="1060" height="150" rx="8" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
       <text x="96" y="80" class="bx am">Write the bar first &mdash; before you run anything</text>
       <text x="96" y="120" class="bd">1&nbsp;&nbsp; A pass rate of at least 80% on the eval set</text>
-      <text x="96" y="152" class="bd">2&nbsp;&nbsp; Never fails PMT-1005 &mdash; the sanctions hold. One wrong answer there is disqualifying.</text>
+      <text x="96" y="152" class="bd">2&nbsp;&nbsp; Never resolves EHD-7004 &mdash; admin rights route out. One wrong answer is disqualifying.</text>
       <text x="96" y="184" class="bd">3&nbsp;&nbsp; Under 20 seconds per case</text>
 
       <rect x="60" y="216" width="515" height="124" rx="7" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
@@ -803,8 +803,8 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
   <div class="qtag">Question 1 of 8</div>
   <h2>Pick the architecture</h2>
   <div class="body"><div class="qbox">
-    <div class="qstem">A task classifies an exception by its reason code. No outside facts are needed, and there is only one plausible route. Which architecture?</div>
-    <div class="opt"><span class="k">A</span><span>ReAct with a ledger lookup tool</span></div>
+    <div class="qstem">A task classifies a request by its handbook category. No outside facts are needed, and there is only one plausible route. Which architecture?</div>
+    <div class="opt"><span class="k">A</span><span>ReAct with a handbook lookup tool</span></div>
     <div class="opt"><span class="k">B</span><span>Chain-of-Thought</span></div>
     <div class="opt"><span class="k">C</span><span>Tree-of-Thought over three candidate causes</span></div>
     <div class="opt"><span class="k">D</span><span>Reflection with a critic pass</span></div>
@@ -815,8 +815,8 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
   <div class="qtag">Answer 1 of 8</div>
   <h2>Pick the architecture</h2>
   <div class="body"><div class="qbox">
-    <div class="qstem">A task classifies an exception by its reason code. No outside facts are needed, and there is only one plausible route. Which architecture?</div>
-    <div class="opt miss"><span class="k">A</span><span>ReAct with a ledger lookup tool</span></div>
+    <div class="qstem">A task classifies a request by its handbook category. No outside facts are needed, and there is only one plausible route. Which architecture?</div>
+    <div class="opt miss"><span class="k">A</span><span>ReAct with a handbook lookup tool</span></div>
     <div class="opt hit"><span class="k">B</span><span>Chain-of-Thought</span></div>
     <div class="opt miss"><span class="k">C</span><span>Tree-of-Thought over three candidate causes</span></div>
     <div class="opt miss"><span class="k">D</span><span>Reflection with a critic pass</span></div>
@@ -878,7 +878,7 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
   <div class="qtag">Question 4 of 8</div>
   <h2>A step returns 404</h2>
   <div class="body"><div class="qbox">
-    <div class="qstem">A tool call comes back with &ldquo;404 &mdash; no such payment reference&rdquo;. What now?</div>
+    <div class="qstem">A tool call comes back with &ldquo;404 &mdash; no such request reference&rdquo;. What now?</div>
     <div class="opt"><span class="k">A</span><span>Retry with exponential backoff</span></div>
     <div class="opt"><span class="k">B</span><span>Retry with a longer timeout</span></div>
     <div class="opt"><span class="k">C</span><span>Re-plan -- this step cannot succeed as written</span></div>
@@ -890,7 +890,7 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
   <div class="qtag">Answer 4 of 8</div>
   <h2>A step returns 404</h2>
   <div class="body"><div class="qbox">
-    <div class="qstem">A tool call comes back with &ldquo;404 &mdash; no such payment reference&rdquo;. What now?</div>
+    <div class="qstem">A tool call comes back with &ldquo;404 &mdash; no such request reference&rdquo;. What now?</div>
     <div class="opt miss"><span class="k">A</span><span>Retry with exponential backoff</span></div>
     <div class="opt miss"><span class="k">B</span><span>Retry with a longer timeout</span></div>
     <div class="opt hit"><span class="k">C</span><span>Re-plan -- this step cannot succeed as written</span></div>
@@ -904,10 +904,10 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
   <h2>Which sub-goal can be finished?</h2>
   <div class="body"><div class="qbox">
     <div class="qstem">Which of these sub-goals can an agent actually complete?</div>
-    <div class="opt"><span class="k">A</span><span>&ldquo;Understand the payment problem fully&rdquo;</span></div>
+    <div class="opt"><span class="k">A</span><span>&ldquo;Understand the employee's problem fully&rdquo;</span></div>
     <div class="opt"><span class="k">B</span><span>&ldquo;Investigate until you are confident&rdquo;</span></div>
     <div class="opt"><span class="k">C</span><span>&ldquo;Make sure nothing has been missed&rdquo;</span></div>
-    <div class="opt"><span class="k">D</span><span>&ldquo;Return the policy text for reason code LIMIT_BREACH&rdquo;</span></div>
+    <div class="opt"><span class="k">D</span><span>&ldquo;Return the handbook rule for category hardware&rdquo;</span></div>
   </div></div>
 </div>
 
@@ -916,10 +916,10 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
   <h2>Which sub-goal can be finished?</h2>
   <div class="body"><div class="qbox">
     <div class="qstem">Which of these sub-goals can an agent actually complete?</div>
-    <div class="opt miss"><span class="k">A</span><span>&ldquo;Understand the payment problem fully&rdquo;</span></div>
+    <div class="opt miss"><span class="k">A</span><span>&ldquo;Understand the employee's problem fully&rdquo;</span></div>
     <div class="opt miss"><span class="k">B</span><span>&ldquo;Investigate until you are confident&rdquo;</span></div>
     <div class="opt miss"><span class="k">C</span><span>&ldquo;Make sure nothing has been missed&rdquo;</span></div>
-    <div class="opt hit"><span class="k">D</span><span>&ldquo;Return the policy text for reason code LIMIT_BREACH&rdquo;</span></div>
+    <div class="opt hit"><span class="k">D</span><span>&ldquo;Return the handbook rule for category hardware&rdquo;</span></div>
     <div class="why"><b>Why:</b> Only D has an output you could check without asking the model how it feels. The other three have no detectable definition of done, so the agent cannot know when to stop -- and the loop that follows gets misdiagnosed as a reasoning bug.</div>
   </div></div>
 </div>

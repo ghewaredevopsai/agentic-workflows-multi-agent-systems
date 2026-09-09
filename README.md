@@ -45,8 +45,10 @@ Each notebook is self-contained and self-grading:
 - Cells marked *Run it for real* put your code in front of the model. That is the half worth
   watching; if the endpoint is unreachable they print how to fix it rather than crashing, so
   *Run All* is always safe on an untouched notebook.
-- One synthetic case file (`LEDGER` / `POLICY` — payment exceptions) runs through every lab in a
-  module, and later labs carry forward earlier labs' code.
+- One synthetic case file runs through every lab in a module, and later labs carry forward
+  earlier labs' code. Each module picks a domain everyone already knows, so the only unfamiliar
+  thing in a notebook is the framework: a support-ticket queue in Module 1, an employee help desk
+  in Module 2, HR leave requests in Module 3, and payment exceptions from Module 4 to the capstone.
 
 Open `hands-on/module-N/index.html` for the lab landing page of a module.
 

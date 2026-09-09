@@ -80,9 +80,22 @@ def run_plain(path):
     return tally(buf.getvalue()), crashed
 
 
+# The env vars are popped above in THIS process, which is enough for the plain-exec half
+# and is NOT enough for the kernel: nbclient's kernel comes up with the pod's own
+# environment, so LAB_LLM_* / OPENAI_* / LITELLM_* are all back. That silently made every
+# "offline" run call the served model -- slow, billable, and non-deterministic -- and it
+# surfaced as a 120s cell timeout on the one lab whose live cell makes a dozen calls.
+# Scrub inside the kernel too, so both halves really do run with no model reachable.
+SCRUB = ("import os\n"
+         "for _v in ('LAB_LLM_BASE_URL','LAB_LLM_MODEL','OPENAI_BASE_URL','OPENAI_API_BASE',\n"
+         "           'OPENAI_MODEL','LITELLM_BASE_URL','LITELLM_MODEL'):\n"
+         "    os.environ.pop(_v, None)\n")
+
+
 def run_kernel(path):
     """What a participant gets: a real Jupyter kernel."""
     nb = nbformat.read(path, as_version=4)
+    nb.cells.insert(0, nbformat.v4.new_code_cell(SCRUB))
     crashed = []
     try:
         NotebookClient(nb, timeout=CELL_TIMEOUT, kernel_name="python3",

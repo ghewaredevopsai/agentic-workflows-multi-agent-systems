@@ -278,7 +278,7 @@ agent = create_agent(model=llm, tools=TOOLS, <span class='kw'>system_prompt</spa
     <div class="faq-body">
       <div class="quick"><span class="lbl">Quick answer</span>That happens, intermittently, and <b>nothing is raised</b>. The model answered in prose instead of calling the schema tool, so there is no object to give you.</div>
       <p><code class='inl'>response_format=Verdict</code> asks the agent to finish by calling a tool that fills <code class='inl'>Verdict</code>. A model that decides to reply in a sentence instead leaves the field empty. Your caller must handle it &mdash; treat a missing object as a failure to answer, not as an error-free run.</p>
-      <p>The wider lesson, which Module 8 pushes on: <b>a contract fixes the shape, not the truth</b>. Even when you get a well-formed <code class='inl'>Verdict</code>, the values in it can be wrong. In Lab 1.3 the ordered procedure in the system prompt is what makes <code class='inl'>needs_human</code> come out right &mdash; remove it and watch.</p>
+      <p>The wider lesson, which Module 8 pushes on: <b>a contract fixes the shape, not the truth</b>. Even when you get a well-formed <code class='inl'>Verdict</code>, the values in it can be wrong. In Lab 1.3 the <code class='inl'>escalate</code> field is only right because its description ties it to the runbook rather than to how serious the ticket sounds &mdash; reword that one line and watch.</p>
     </div>
   </details>
   <details class="faq" id="m1-how-many-tools">
@@ -299,7 +299,7 @@ agent = create_agent(model=llm, tools=TOOLS, <span class='kw'>system_prompt</spa
     <div class="faq-body">
       <div class="quick"><span class="lbl">Quick answer</span>It composes a prompt, a model and a parser into <b>one runnable</b> with a shared interface: <code class='inl'>.invoke()</code> for one, <code class='inl'>.batch()</code> for many, <code class='inl'>.stream()</code> to watch.</div>
       <div class='terminal'>chain = prompt <span class='kw'>|</span> model <span class='kw'>|</span> StrOutputParser()
-chain.invoke({<span class='str'>&quot;payment&quot;</span>: rec})   <span class='com'># one case</span>
+chain.invoke({<span class='str'>&quot;request&quot;</span>: req})   <span class='com'># one case</span>
 chain.batch([...])                <span class='com'># the whole eval set, concurrently</span></div>
       <p>Each stage has a clear job: the template turns variables into messages, the model returns an <code class='inl'>AIMessage</code>, the parser pulls out a plain string. Swap the parser and you change what the chain returns without touching anything else.</p>
       <p><code class='inl'>.batch()</code> is the one to remember. It sends the cases concurrently, which is the difference between an eval set people re-run on every change and one that was run once and quoted for a year.</p>
@@ -309,7 +309,7 @@ chain.batch([...])                <span class='com'># the whole eval set, concur
     <summary><span class="q">Q</span><span>Chain-of-Thought made it slower. Is it worth it?</span><span class="tw">&#9660;</span></summary>
     <div class="faq-body">
       <div class="quick"><span class="lbl">Quick answer</span>Sometimes, and the honest answer is <b>measure it on your task</b> &mdash; which takes about five minutes with <code class='inl'>.batch()</code> and an eval set.</div>
-      <p>CoT tends to earn its keep exactly where an answer needs two facts joined &mdash; the reason code <i>and</i> what policy says about it &mdash; and to do nothing at all where one lookup was enough. In the Lab 2.5 bake-off it scored highest and still did not win, because a cheaper arm cleared the acceptance bar.</p>
+      <p>CoT tends to earn its keep exactly where an answer needs two facts joined &mdash; the handbook rule <i>and</i> the urgency the employee set &mdash; and to do nothing at all where one lookup was enough. In the Lab 2.5 bake-off it scored highest and still did not win, because a cheaper arm also cleared the acceptance bar.</p>
       <p>One trap: if you score the whole reply rather than the final answer, CoT will look better simply by mentioning more words. That is why the labs mark the answer with <code class='inl'>ACTION:</code> and score only what follows it.</p>
     </div>
   </details>
@@ -326,11 +326,11 @@ chain.batch([...])                <span class='com'># the whole eval set, concur
     <div class="faq-body">
       <div class="quick"><span class="lbl">Quick answer</span>The <b>format</b> held and the <b>argument</b> drifted. Measured in Lab 2.2: under a prompt that had aged towards &ldquo;be thorough&rdquo;, <b>4/4 replies parsed and 0/4 were usable</b>.</div>
       <div class='terminal'><span class='com'># strict instruction</span>
-Action Input: PMT-1003                       <span class='out'>4/4 parsed &middot; 4/4 usable</span>
+Action Input: EHD-7002                       <span class='out'>4/4 parsed &middot; 4/4 usable</span>
 
 <span class='com'># after six months of well-meaning prompt edits</span>
-Action Input: {<span class='str'>&quot;payment_id&quot;</span>: <span class='str'>&quot;PMT-1003&quot;</span>}      <span class='hi'>4/4 parsed &middot; 0/4 usable</span></div>
-      <p>The regex is delighted. The tool name is right. The argument is a JSON object with a key your tool has never heard of, so the lookup returns nothing, the agent concludes the payment does not exist, and <b>nothing anywhere reports an error</b>.</p>
+Action Input: {<span class='str'>&quot;id&quot;</span>: <span class='str'>&quot;EHD-7002&quot;</span>}            <span class='hi'>4/4 parsed &middot; 0/4 usable</span></div>
+      <p>The regex is delighted. The tool name is right. The argument is a JSON object with a key your tool has never heard of, so the lookup returns nothing, the agent concludes there is no such request, and <b>nothing anywhere reports an error</b>.</p>
       <p>This is worse than a parse failure, because a parse failure is loud. Your parser cannot catch it either &mdash; validating arguments was never its job. <code class='inl'>bind_tools</code> rejects it at the boundary against the tool's schema.</p>
     </div>
   </details>
@@ -339,7 +339,7 @@ Action Input: {<span class='str'>&quot;payment_id&quot;</span>: <span class='str
     <div class="faq-body">
       <div class="quick"><span class="lbl">Quick answer</span><b>No.</b> It uses the schema only to write the format instructions in your prompt. What you get back is a <code class='inl'>dict</code>, unchecked.</div>
       <p>This surprises almost everyone, because you passed it a Pydantic model. Measured directly:</p>
-      <div class='terminal'>JsonOutputParser     {<span class='str'>&quot;reason_code&quot;</span>:&quot;SR&quot;, <span class='str'>&quot;needs_human&quot;</span>:&quot;maybe&quot;}   <span class='hi'>-&gt; dict, accepted</span>
+      <div class='terminal'>JsonOutputParser     {<span class='str'>&quot;category&quot;</span>:&quot;hw&quot;, <span class='str'>&quot;route_out&quot;</span>:&quot;maybe&quot;}   <span class='hi'>-&gt; dict, accepted</span>
 PydanticOutputParser same input                             <span class='out'>-&gt; OutputParserException</span></div>
       <p>Two required fields missing and a string where a boolean belongs, and it sailed through. If you want the schema enforced, use <code class='inl'>PydanticOutputParser</code> (which raises) or <code class='inl'>with_structured_output</code> (which also constrains the generation).</p>
     </div>
@@ -356,7 +356,7 @@ PydanticOutputParser same input                             <span class='out'>-&
     <summary><span class="q">Q</span><span>Retry or re-plan &mdash; how do I tell which one a failure deserves?</span><span class="tw">&#9660;</span></summary>
     <div class="faq-body">
       <div class="quick"><span class="lbl">Quick answer</span>Ask whether the <b>world</b> misbehaved or the <b>plan</b> was wrong. Retry the world. Re-plan the plan. Never retry a plan.</div>
-      <p>A timeout, a 503, a rate limit: transient. Retry, with a bound. &ldquo;No such tool&rdquo;, &ldquo;no payment found&rdquo;, an invalid argument: the plan was wrong, and retrying it is a loop that burns budget and finishes nowhere. The reference bug looks like this, and it is everywhere:</p>
+      <p>A timeout, a 503, a rate limit: transient. Retry, with a bound. &ldquo;No such tool&rdquo;, &ldquo;no such request&rdquo;, an invalid argument: the plan was wrong, and retrying it is a loop that burns budget and finishes nowhere. The reference bug looks like this, and it is everywhere:</p>
       <div class='terminal'><span class='kw'>except</span> Exception:
     retry()          <span class='com'># what kind of exception? nobody asked</span></div>
       <p>Lab 2.3 also validates the plan <i>before</i> running it, which matters because the model regularly invents a step naming a tool that does not exist. That is not the model misbehaving; it is what planners do. Catching it before execution is the whole value of a typed plan.</p>
@@ -375,7 +375,7 @@ PydanticOutputParser same input                             <span class='out'>-&
     <div class="faq-body">
       <div class="quick"><span class="lbl">Quick answer</span>The cheapest one that clears a bar you wrote down <b>before</b> you ran anything. Very often that is a direct answer.</div>
       <p>Write three clauses first: a minimum pass rate, any case that is disqualifying however good the average, and how long a caller will wait. Then run all four arms over one eval set.</p>
-      <p>In Lab 2.5 that rule rejects ReAct at 80% while accepting Reflection at the same 80% &mdash; because ReAct got the sanctions case wrong and the bar named that case as disqualifying. A pass rate is an average; averaging is exactly what hides the case you cannot afford to lose.</p>
+      <p>In Lab 2.5 that rule rejects ReAct at 80% while accepting Reflection at the same 80% &mdash; because ReAct resolved the admin-rights case itself and the bar named that case as disqualifying. A pass rate is an average; averaging is exactly what hides the case you cannot afford to lose.</p>
       <p>Once an arm clears the bar, extra quality is something you are paying for and not using. So the cheapest that clears wins, and only a tie on cost is settled by pass rate.</p>
     </div>
   </details>
