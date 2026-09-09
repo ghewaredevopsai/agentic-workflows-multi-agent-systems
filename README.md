@@ -66,8 +66,9 @@ cells in order and read the output &mdash; that is the lab.
   output is one a flaky endpoint can move &mdash; and because the lesson is what the router *does*
   with an awkward ticket, which has to be watched rather than asserted.
 
-Some of their steps run in a JupyterLab terminal rather than in the notebook, because `opencode` is
-a terminal agent and watching the tool calls scroll past is most of the point.
+Some steps of **4.1 and 4.2** run in a JupyterLab terminal rather than in the notebook, because
+`opencode` is a terminal agent and watching the tool calls scroll past is most of the point. 5.1
+runs entirely in the notebook.
 
 Open `hands-on/module-N/index.html` for the lab landing page of a module.
 
