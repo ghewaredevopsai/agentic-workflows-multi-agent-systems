@@ -15,8 +15,17 @@ SOLDIR = os.path.join(LABDIR, "solutions")
 # cluster -- where all of them are set -- so the run stops being free and deterministic.
 for v in ("LAB_LLM_BASE_URL", "LAB_LLM_MODEL",
           "OPENAI_BASE_URL", "OPENAI_API_BASE", "OPENAI_MODEL",
-          "LITELLM_BASE_URL", "LITELLM_MODEL"):
+          "LITELLM_BASE_URL", "LITELLM_MODEL",
+          "JIRA_MCP_URL", "JIRA_MCP_AUTH", "JIRA_MCP_PROJECT"):
     os.environ.pop(v, None)
+
+# A WALKTHROUGH lab has nothing to fill in and nothing to score: the participant notebook
+# and the solution are the same file on purpose (Lab 4.1 exists so a participant SEES a real
+# MCP server work before Module 4 asks them to build one). For those the rules invert --
+# zero blanks on both sides, the two files byte-identical, and no score line expected. Every
+# cell is guarded on JIRA_MCP_URL/JIRA_MCP_AUTH, which this verifier unsets, so the whole
+# notebook must run clean and print its skip message instead.
+WALKTHROUGH = {"lab-4-01-opencode-jira-over-mcp.ipynb"}
 
 fails = 0
 for fn in sorted(f for f in os.listdir(SOLDIR) if f.endswith(".ipynb")):
@@ -38,9 +47,17 @@ for fn in sorted(f for f in os.listdir(SOLDIR) if f.endswith(".ipynb")):
     # A solution that trips guard() has an unfilled name in it -- the cell is ungraded, so
     # nothing else here would notice. This is how a broken "Run it for real" cell hides.
     n_guard = out.count("a blank above is still unfilled")
-    ok = n_fail == 0 and n_todo == 0 and n_guard == 0 and m and m.group(1) == m.group(2)
-    print(f"[{'OK    ' if ok else 'BROKEN'}] {fn:44} {n_pass} pass, {n_fail} fail, {n_todo} todo, "
-          f"score {m.group(0) if m else 'MISSING'}")
+    if fn in WALKTHROUGH:
+        # no self-checks by design; it passes if it executed cleanly and skipped its
+        # live steps rather than reaching the network
+        skipped = out.count("skipped - see the preflight cell")
+        ok = n_fail == 0 and n_todo == 0 and n_guard == 0
+        print(f"[{'OK    ' if ok else 'BROKEN'}] {fn:44} walkthrough: ran clean, "
+              f"{skipped} step(s) self-skipped with no credentials")
+    else:
+        ok = n_fail == 0 and n_todo == 0 and n_guard == 0 and m and m.group(1) == m.group(2)
+        print(f"[{'OK    ' if ok else 'BROKEN'}] {fn:44} {n_pass} pass, {n_fail} fail, {n_todo} todo, "
+              f"score {m.group(0) if m else 'MISSING'}")
     if not ok:
         fails += 1
         if n_guard:
@@ -77,8 +94,18 @@ for fn in sorted(f for f in os.listdir(LABDIR) if f.endswith(".ipynb")):
     sol = json.load(open(os.path.join(SOLDIR, fn)))
     lb = count_blanks(lab)
     sb = count_blanks(sol)
-    good = lb > 0 and sb == 0
-    print(f"[{'OK    ' if good else 'BROKEN'}] {fn:44} {lb} blanks in lab, {sb} in solution")
+    if fn in WALKTHROUGH:
+        same = json.dumps(lab, sort_keys=True) == json.dumps(sol, sort_keys=True)
+        good = lb == 0 and sb == 0 and same
+        note = "walkthrough: no blanks, lab == solution"
+        if not same:
+            note = "walkthrough: lab and solution DIFFER"
+        elif lb or sb:
+            note = f"walkthrough: expected 0 blanks, found {lb}/{sb}"
+        print(f"[{'OK    ' if good else 'BROKEN'}] {fn:44} {note}")
+    else:
+        good = lb > 0 and sb == 0
+        print(f"[{'OK    ' if good else 'BROKEN'}] {fn:44} {lb} blanks in lab, {sb} in solution")
     if not good:
         fails += 1
 

@@ -38,7 +38,10 @@ CELL_TIMEOUT = int(os.environ.get("LAB_CELL_TIMEOUT", "120"))
 # cluster -- where all of them are set -- so the run stops being free and deterministic.
 for v in ("LAB_LLM_BASE_URL", "LAB_LLM_MODEL",
           "OPENAI_BASE_URL", "OPENAI_API_BASE", "OPENAI_MODEL",
-          "LITELLM_BASE_URL", "LITELLM_MODEL"):
+          "LITELLM_BASE_URL", "LITELLM_MODEL",
+          # Lab 4.1 reaches a real Jira MCP server when these are set. Same reasoning:
+          # an "offline" verifier must not create tickets on a live board.
+          "JIRA_MCP_URL", "JIRA_MCP_AUTH", "JIRA_MCP_PROJECT"):
     os.environ.pop(v, None)
 
 import nbformat
@@ -86,7 +89,8 @@ def run_plain(path):
 # Scrub inside the kernel too, so both halves really do run with no model reachable.
 SCRUB = ("import os\n"
          "for _v in ('LAB_LLM_BASE_URL','LAB_LLM_MODEL','OPENAI_BASE_URL','OPENAI_API_BASE',\n"
-         "           'OPENAI_MODEL','LITELLM_BASE_URL','LITELLM_MODEL'):\n"
+         "           'OPENAI_MODEL','LITELLM_BASE_URL','LITELLM_MODEL',\n"
+         "           'JIRA_MCP_URL','JIRA_MCP_AUTH','JIRA_MCP_PROJECT'):\n"
          "    os.environ.pop(_v, None)\n")
 
 

@@ -50,6 +50,13 @@ Each notebook is self-contained and self-grading:
   thing in a notebook is the framework: a support-ticket queue in Module 1, an employee help desk
   in Module 2, HR leave requests in Module 3, and payment exceptions from Module 4 to the capstone.
 
+**One lab is deliberately different.** Lab 4.1 is a *walkthrough*: there is nothing to fill in
+and nothing to score, and its solution notebook is the same file. It exists so you watch a real
+agent reach a real Jira over MCP before Module 4 asks you to build a server yourself. Run the
+cells in order and read the output &mdash; that is the lab. Two of its steps run in a JupyterLab
+terminal rather than in the notebook, because `opencode` is a terminal agent and watching the tool
+calls scroll past is most of the point.
+
 Open `hands-on/module-N/index.html` for the lab landing page of a module.
 
 ## Runtime

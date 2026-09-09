@@ -99,6 +99,32 @@ def header(num, title, level, minutes, bullets, note):
 """)
 
 
+def walkthrough_header(num, title, level, minutes, bullets, note):
+    """Header for a WALKTHROUGH lab: no blanks, no score, participant == solution.
+
+    Lab 4.1 is the only one of these. It exists so a participant sees a real MCP
+    server do real work before Module 4 asks them to build one, so it deliberately
+    has nothing to fill in and nothing to grade.
+    """
+    items = "\n".join("- " + b for b in bullets)
+    return md(f"""
+# Lab 4.{num} &mdash; {title}
+
+**Level:** {level} &nbsp;|&nbsp; **Est. time:** {minutes} min &nbsp;|&nbsp; **Day 2 &middot; Module 4 &mdash; Tool Calling &amp; MCP**
+
+### What you'll do
+{items}
+
+> **How this lab works &mdash; it is different from the others.** There is nothing to fill in
+> and nothing to score. You run the cells in order and watch a real agent reach a real Jira
+> over MCP. The participant notebook and the solution notebook are the same file, on purpose:
+> the point is to *see the protocol work* before Module 4 asks you to build one. Read the
+> output of every cell &mdash; that is the lab.
+
+{note}
+""")
+
+
 SETUP_COMMON = '''
 # ---------------------------------------------------------------- Setup: run me first
 import os, json, time, textwrap
@@ -304,373 +330,403 @@ print("toolkit:", ", ".join(BY_NAME))
 # Lab 4.1 -- the tool contract: what crosses the boundary, and what comes back
 # =========================================================================== #
 LAB1 = [
-    header(1, "The Tool Contract", "Intermediate", 30,
-           ["See the exact JSON a <code>@tool</code> becomes, and what it leaves behind",
-            "Write the argument descriptions the model reads to fill a call in",
-            "Decide which failures are worth retrying &mdash; and which never are",
-            "Wire <code>handle_tool_error</code> so a failing tool returns instead of raising"],
-           "> **Start here.** Everything else in Module 4 &mdash; selection accuracy, multi-tool\n"
-           "> orchestration, MCP &mdash; is this contract, either written by you or by someone else."),
-    setup(1),
-    code(DOMAIN),
-    code(TOOLKIT),
+    walkthrough_header(
+        1, "OpenCode to Jira, over MCP", "Intermediate", 30,
+        ["Talk to a real MCP server by hand &mdash; <code>initialize</code>, then <code>tools/list</code>",
+         "Grant an agent access to Jira by writing four lines of JSON",
+         "Watch <code>opencode</code> triage a payment exception and raise the ticket for it",
+         "See what the grant actually cost you &mdash; in tools, in context and in audit trail"],
+        "> **Nothing to fill in.** This is the one lab in Module 4 you only *run*. Everything\n"
+        "> after it asks you to build; this one asks you to look."),
 
     md("""
-## Concept
+## The use case
 
-A tool is not the function you wrote. From the model's side a tool is exactly three fields:
+You are on a payments operations desk. A payment lands in an exception queue and somebody has to
+decide what happens to it: read the record, check it against policy, and &mdash; if it needs a
+human &mdash; raise a ticket with enough detail that the next person does not start from nothing.
 
-| field | comes from | what it decides |
-|---|---|---|
-| `name` | the function name | how the tool is referred to |
-| `description` | the docstring | **whether it is chosen at all** |
-| `parameters` | the signature and `args_schema` | whether the arguments are well formed |
+The reading and the deciding are what an agent is good at. The ticket is the part that touches a
+system you do not own: **Jira**, run by another team, with its own credentials and its own audit
+trail.
 
-The body, the tests and the types you were careful about never cross the boundary. That is the
-whole reason a tool-calling bug is usually a writing bug.
+Without MCP you would write a Jira client, an auth flow, a schema for every call, and then do it
+again for the next agent. With MCP the Jira team publishes one server, and every agent &mdash;
+yours, Claude Code, Cursor, the next one &mdash; speaks to it the same way.
+
+That is what you are about to do, end to end, in about fifteen minutes of running time.
 """),
 
     md("""
-## Section 1 &mdash; What actually crosses the boundary
+## Before you start
 
-`convert_to_openai_tool` renders a LangChain tool into the exact JSON that goes on the wire.
-Look at it once and you stop guessing about the rest of the module.
+Two environment variables are already set in your sandbox:
+
+| variable | what it is |
+|---|---|
+| `JIRA_MCP_URL` | the Jira MCP server the class shares &mdash; one server, everyone's agent |
+| `JIRA_MCP_AUTH` | the credential your agent presents to it |
+
+Run the next cell. If it reports something missing, ask the trainer &mdash; do not go looking for
+a token, and do not paste one into a notebook.
 """),
     code(r'''
-from langchain_core.utils.function_calling import convert_to_openai_tool
+# ------------------------------------------------------------ Preflight: run me first
+import os, re, json, socket, subprocess, textwrap, urllib.request, urllib.error
 
-def what_the_model_sees(t) -> dict:
-    """The exact JSON one tool becomes on the wire. Nothing else about it is sent."""
-    return convert_to_openai_tool(t)["function"]
+MCP_URL  = os.environ.get("JIRA_MCP_URL", "")
+MCP_AUTH = os.environ.get("JIRA_MCP_AUTH", "")
+PROJECT  = os.environ.get("JIRA_MCP_PROJECT", "MCPLAB")
+# Who you are, for tagging tickets on a board the whole class shares. The pod hostname
+# is the only reliable source here: JUPYTERHUB_USER and USER are both unset in the
+# sandbox, and everyone is the OS user "jovyan".
+def _whoami() -> str:
+    host = socket.gethostname()                  # e.g. "agenticaiu31-0"
+    m = re.search(r"(u\d+)", host)
+    return m.group(1) if m else (os.environ.get("JUPYTERHUB_USER") or host or "u0")
 
+WHO      = _whoami()
+LABDIR   = os.path.expanduser("~/work/mcplab")          # home, not /tmp: /tmp is wiped on restart
 
-def selection_text(t) -> str:
-    """The one field a model reads when deciding whether to call this tool at all.
+def ready() -> bool:
+    """True when the sandbox has everything this lab needs."""
+    return bool(MCP_URL and MCP_AUTH)
 
-    The name says how the tool is REFERRED to. The parameters say what a well-formed call
-    looks like. Neither of them says when to call it.
-    """
-    return BLANK          # TODO: which field of the tool decides whether it gets chosen?
-''', r'''
-from langchain_core.utils.function_calling import convert_to_openai_tool
-
-def what_the_model_sees(t) -> dict:
-    """The exact JSON one tool becomes on the wire. Nothing else about it is sent."""
-    return convert_to_openai_tool(t)["function"]
-
-
-def selection_text(t) -> str:
-    """The one field a model reads when deciding whether to call this tool at all.
-
-    The name says how the tool is REFERRED to. The parameters say what a well-formed call
-    looks like. Neither of them says when to call it.
-    """
-    return t.description
-'''),
-    code(r'''
-# --- Self-check: Section 1   (tool objects only -- no model call)
-check("a @tool is a framework object, not a plain function",
-      lambda: hasattr(lookup_payment, "name") and hasattr(lookup_payment, "args_schema"))
-check("the wire form carries the three fields that cross the boundary",
-      lambda: {"name", "description", "parameters"} <= set(what_the_model_sees(lookup_payment)))
-check("the name is the function's own name",
-      lambda: what_the_model_sees(lookup_payment)["name"] == "lookup_payment")
-check("the description is the WHOLE docstring, not just its first line",
-      lambda: "Not for searching" in selection_text(lookup_payment),
-      "the boundary sentence is the part that stops the wrong call -- it must not be truncated")
-check("and it is the same text that goes on the wire",
-      lambda: what_the_model_sees(lookup_payment)["description"] == selection_text(lookup_payment))
-check("an argument with no default is required",
-      lambda: what_the_model_sees(lookup_payment)["parameters"]["required"] == ["ref"])
-check("an argument with a default is optional",
-      lambda: "counterparty" not in
-              (what_the_model_sees(search_payments)["parameters"].get("required") or []))
-check("the implementation does not cross the boundary",
-      lambda: "LEDGER" not in json.dumps(what_the_model_sees(lookup_payment)),
-      "the model never sees the body -- your careful code is invisible to the choice")
-
-guard(lambda: print(json.dumps(what_the_model_sees(lookup_payment), indent=2)[:520]))
+if ready():
+    print("MCP server :", MCP_URL)
+    print("credential : present (%d chars, not shown)" % len(MCP_AUTH))
+    print("project    :", PROJECT)
+    print("you are    :", WHO)
+    os.makedirs(LABDIR, exist_ok=True)
+    print("lab folder :", LABDIR)
+else:
+    print("Not configured yet. This lab needs two variables that the sandbox should already have:")
+    for name in ("JIRA_MCP_URL", "JIRA_MCP_AUTH"):
+        print(f"  {name:14} {'set' if os.environ.get(name) else 'MISSING'}")
+    print("\nEvery cell below will skip cleanly until they are set. Ask the trainer.")
 '''),
 
     md("""
-## Section 2 &mdash; The schema is prose too
+## Step 1 &mdash; Meet the server without an agent
 
-The parameters are not just types. Every field can carry a `description`, and those descriptions
-go to the model with the rest of the schema. An optional argument whose default is never stated
-is one the model guesses at.
+Before any model is involved, talk to the server yourself. This is the lifecycle from the deck,
+on the wire:
 
-Attach a hand-written `args_schema` to `search_payments` and write those descriptions yourself.
+1. **`initialize`** &mdash; agree a protocol version, exchange capabilities and identity
+2. **`tools/list`** &mdash; discovery: the client learns what exists, at run time
+
+Nothing here is Jira-specific. Any MCP server answers these two calls the same way, which is the
+entire point of a protocol.
 """),
     code(r'''
-from pydantic import BaseModel, Field
-from langchain_core.tools import StructuredTool
+def rpc(method: str, params: dict | None = None, sid: str | None = None):
+    """One JSON-RPC call to the MCP server over streamable HTTP.
 
-class SearchArgs(BaseModel):
-    """Find payments when you do not have a reference."""
-
-    # TODO: replace "BLANK" with what a model needs in order to fill this in.
-    #       Name the kind of value it takes, and say what leaving it empty means.
-    counterparty: str = Field(default="", description="BLANK")
-
-    status: str = Field(
-        default="",
-        description="One of: settled, failed, held. Empty means any status.")
-
-
-def described_search() -> StructuredTool:
-    """The same function, now with your argument schema attached to it."""
-    return StructuredTool.from_function(
-        func=search_payments.func,
-        name="search_payments",
-        description=search_payments.description,
-        args_schema=SearchArgs)
-''', r'''
-from pydantic import BaseModel, Field
-from langchain_core.tools import StructuredTool
-
-class SearchArgs(BaseModel):
-    """Find payments when you do not have a reference."""
-
-    counterparty: str = Field(
-        default="",
-        description="The counterparty name exactly as the ledger spells it, e.g. NORTHWIND. "
-                    "Empty means any counterparty.")
-
-    status: str = Field(
-        default="",
-        description="One of: settled, failed, held. Empty means any status.")
+    Returns (result, session_id). The Authorization header is the whole of our
+    credential: the server decides what we may do purely from that.
+    """
+    body = json.dumps({"jsonrpc": "2.0", "id": 1, "method": method,
+                       "params": params or {}}).encode()
+    req = urllib.request.Request(MCP_URL, data=body, method="POST")
+    req.add_header("Content-Type", "application/json")
+    req.add_header("Accept", "application/json, text/event-stream")
+    req.add_header("Authorization", "Basic " + MCP_AUTH)
+    if sid:
+        req.add_header("Mcp-Session-Id", sid)
+    with urllib.request.urlopen(req, timeout=60) as r:
+        raw, sess = r.read().decode(), r.headers.get("mcp-session-id")
+    # streamable HTTP may frame the reply as an SSE event; take the data line either way
+    for line in raw.splitlines():
+        if line.startswith("data:"):
+            raw = line[5:].strip()
+            break
+    return json.loads(raw).get("result", {}), sess
 
 
-def described_search() -> StructuredTool:
-    """The same function, now with your argument schema attached to it."""
-    return StructuredTool.from_function(
-        func=search_payments.func,
-        name="search_payments",
-        description=search_payments.description,
-        args_schema=SearchArgs)
-'''),
-    code(r'''
-# --- Self-check: Section 2   (schema objects only -- no model call)
-def _desc(field: str) -> str:
-    """The description on one field. An untouched placeholder is a TODO, not a failure."""
-    d = (SearchArgs.model_fields[field].description or "").strip()
-    if d == "BLANK":
-        raise NameError(f"{field} still has the placeholder description")
-    return d
-
-check("every argument carries a description the model can read",
-      lambda: all(_desc(f) for f in SearchArgs.model_fields))
-check("the counterparty description says what an empty value means",
-      lambda: "empty" in _desc("counterparty").lower(),
-      "an optional argument whose default is unstated is one the model guesses at")
-check("it shows how the ledger actually spells a counterparty",
-      lambda: any(n in _desc("counterparty") for n in {v["counterparty"] for v in LEDGER.values()}),
-      "name one of NORTHWIND / ACME-EU / ZENITH / ACME-UK -- the model cannot guess your spelling")
-check("the status description names the values it accepts",
-      lambda: all(s in _desc("status") for s in ("settled", "failed", "held")))
-check("the schema really is attached to the tool",
-      lambda: set(described_search().args) == set(SearchArgs.model_fields))
-check("both arguments reach the wire",
-      lambda: set(what_the_model_sees(described_search())["parameters"]["properties"])
-              == {"counterparty", "status"})
-check("and so do your descriptions of them",
-      lambda: what_the_model_sees(described_search())["parameters"]["properties"]
-              ["counterparty"]["description"] == _desc("counterparty"))
+if ready():
+    init, session = rpc("initialize", {
+        "protocolVersion": "2025-06-18",
+        "capabilities": {},
+        "clientInfo": {"name": f"lab-4-1-{WHO}", "version": "1.0"},
+    })
+    print("protocolVersion :", init.get("protocolVersion"))
+    print("serverInfo      :", init.get("serverInfo"))
+    print("capabilities    :", ", ".join(init.get("capabilities", {})))
+    print("session         :", session)
+else:
+    print("skipped - see the preflight cell")
 '''),
 
     md("""
-## Section 3 &mdash; A tool that returns instead of raising
+Three things worth pausing on in that reply.
 
-Module 2 called blind retry the most common production failure. The fix starts here: a result
-that says *whether trying again could possibly help*.
+- **`protocolVersion`** is agreed, not assumed. The client proposed one; the server answered with
+  the version it will actually speak.
+- **`serverInfo`** is the server naming itself &mdash; and the MCP spec is explicit that this is
+  *self-reported and unverified*. It is for display and logging. Never make a security decision on
+  it.
+- **`capabilities`** is the server saying what it supports before you use any of it.
 
-Retrying a malformed argument produces the same malformed argument. Retrying a permission denial
-produces the same denial. Only a **transient** failure has earned a second attempt.
-
-`ToolException` plus `handle_tool_error` is how LangChain turns a raise into a string the model
-reads as an observation.
+Now discovery. Your client did not know a single tool name a moment ago.
 """),
     code(r'''
-from langchain_core.tools import ToolException
+if ready():
+    tools, _ = rpc("tools/list", {}, sid=session)
+    names = [t["name"] for t in tools.get("tools", [])]
+    print(f"the server published {len(names)} tools\n")
+    for n in sorted(names)[:12]:
+        print("  -", n)
+    print("  ... and", max(0, len(names) - 12), "more")
 
-ERROR_KINDS = ("not_found", "invalid_input", "unavailable", "timeout", "not_permitted")
-
-def is_retryable(kind: str) -> bool:
-    """True only for failures where the identical call might succeed on a second attempt."""
-    # TODO: which of ERROR_KINDS are transient? Retrying a bad argument sends the same bad
-    #       argument; retrying a denial is how you page a security team at 3am.
-    return BLANK
-
-
-def _strict_lookup(ref: str, ledger_down: bool = False) -> str:
-    """Return the ledger record for one payment reference such as 'PMT-1002'.
-
-    Use when you already have the reference. Not for searching across payments.
-    """
-    if not ref.startswith("PMT-"):
-        raise ToolException(f"invalid_input: {ref!r} is not a payment reference")
-    if ledger_down:
-        raise ToolException("unavailable: the ledger service did not respond")
-    if ref not in LEDGER:
-        # "I looked and it is not there" is not the same fact as "I could not look".
-        raise ToolException(f"not_found: no payment on file with reference {ref!r}")
-    return json.dumps({"ref": ref, **LEDGER[ref]})
-
-
-def describe_failure(exc: ToolException) -> str:
-    """What the model is told when the tool fails. It reads this as an observation.
-
-    `ok` is first and always present: the model should not have to infer failure from the
-    ABSENCE of a field. Everything else is what it needs to decide what to do next.
-    """
-    kind = str(exc).split(":")[0]
-    return json.dumps({"ok": False, "error": kind, "message": str(exc),
-                       "retryable": is_retryable(kind)})
-
-
-def safe_lookup() -> StructuredTool:
-    """The same lookup, wrapped so a failure comes back as text the agent can act on."""
-    return StructuredTool.from_function(
-        func=_strict_lookup,
-        name="lookup_payment",
-        description=lookup_payment.description,
-        handle_tool_error=describe_failure)
-''', r'''
-from langchain_core.tools import ToolException
-
-ERROR_KINDS = ("not_found", "invalid_input", "unavailable", "timeout", "not_permitted")
-
-def is_retryable(kind: str) -> bool:
-    """True only for failures where the identical call might succeed on a second attempt."""
-    return kind in {"unavailable", "timeout"}
-
-
-def _strict_lookup(ref: str, ledger_down: bool = False) -> str:
-    """Return the ledger record for one payment reference such as 'PMT-1002'.
-
-    Use when you already have the reference. Not for searching across payments.
-    """
-    if not ref.startswith("PMT-"):
-        raise ToolException(f"invalid_input: {ref!r} is not a payment reference")
-    if ledger_down:
-        raise ToolException("unavailable: the ledger service did not respond")
-    if ref not in LEDGER:
-        # "I looked and it is not there" is not the same fact as "I could not look".
-        raise ToolException(f"not_found: no payment on file with reference {ref!r}")
-    return json.dumps({"ref": ref, **LEDGER[ref]})
-
-
-def describe_failure(exc: ToolException) -> str:
-    """What the model is told when the tool fails. It reads this as an observation.
-
-    `ok` is first and always present: the model should not have to infer failure from the
-    ABSENCE of a field. Everything else is what it needs to decide what to do next.
-    """
-    kind = str(exc).split(":")[0]
-    return json.dumps({"ok": False, "error": kind, "message": str(exc),
-                       "retryable": is_retryable(kind)})
-
-
-def safe_lookup() -> StructuredTool:
-    """The same lookup, wrapped so a failure comes back as text the agent can act on."""
-    return StructuredTool.from_function(
-        func=_strict_lookup,
-        name="lookup_payment",
-        description=lookup_payment.description,
-        handle_tool_error=describe_failure)
-'''),
-    code(r'''
-# --- Self-check: Section 3   (running a tool is plain Python -- still no model call)
-def _out(**kwargs) -> dict:
-    """Invoke the wrapped tool and read whatever came back as JSON."""
-    return json.loads(safe_lookup().invoke(kwargs))
-
-check("a service that did not answer is worth another try",
-      lambda: is_retryable("unavailable") is True)
-check("so is a timeout", lambda: is_retryable("timeout") is True)
-check("a bad argument is not -- the retry sends the same bad argument",
-      lambda: is_retryable("invalid_input") is False)
-check("a missing record is not -- it will still be missing",
-      lambda: is_retryable("not_found") is False)
-check("a permission denial is not -- and retrying it is how you page a security team",
-      lambda: is_retryable("not_permitted") is False)
-
-check("a known payment comes back as the record",
-      lambda: _out(ref="PMT-1002")["reason_code"] == "INSUFFICIENT_FUNDS")
-check("every failure says so in a field, not by omitting one",
-      lambda: _out(ref="northwind")["ok"] is False,
-      "a model should not have to infer failure from a MISSING key")
-check("a malformed reference comes back as TEXT, not as an exception",
-      lambda: _out(ref="northwind")["error"] == "invalid_input",
-      "handle_tool_error is what turns the raise into something the agent can read")
-check("a well-formed reference that is absent is not_found",
-      lambda: _out(ref="PMT-9999")["error"] == "not_found")
-check("a down ledger is unavailable -- and is the only one of the three worth retrying",
-      lambda: _out(ref="PMT-1002", ledger_down=True)["error"] == "unavailable"
-              and _out(ref="PMT-1002", ledger_down=True)["retryable"] is True)
-check("'not there' and 'could not look' stay different answers",
-      lambda: _out(ref="PMT-9999")["error"] != _out(ref="PMT-9999", ledger_down=True)["error"],
-      "collapse these and the agent reports a payment missing when the ledger merely blinked")
-
-for probe in ({"ref": "PMT-1002"}, {"ref": "PMT-9999"}, {"ref": "northwind"},
-              {"ref": "PMT-1002", "ledger_down": True}):
-    guard(lambda p=probe: print(f"  {str(p):42} -> {safe_lookup().invoke(p)[:74]}"))
+    example = next((t for t in tools["tools"] if t["name"] == "jira_create_issue"), tools["tools"][0])
+    print("\nwhat the model actually reads for one of them:\n")
+    print("  name        :", example["name"])
+    print("  description :", textwrap.shorten(example.get("description", ""), 150))
+    print("  inputSchema :", ", ".join(list(example.get("inputSchema", {}).get("properties", {}))[:8]), "...")
+else:
+    print("skipped - see the preflight cell")
 '''),
 
     md("""
-## Run it for real
+**Name, description, inputSchema.** That is the whole of what reaches the model &mdash; the same
+three fields Module 4 keeps coming back to, except this time you did not write them. The Jira team
+did, and your agent's accuracy now depends on their prose.
 
-Two things at once. First, bind the tool to the model and watch a `tool_call` come back &mdash;
-that is the contract being used, not described. Then hand the model the descriptor and nothing
-else, and ask what the tool is for and when it should *not* be used.
+Notice the tool *count*: a handful, not everything Jira can do. That is deliberate, and the last
+section explains what it is protecting you from.
 """),
-    code(r'''
-if llm_ready():
-    def _probe():
-        bound = get_llm().bind_tools([lookup_payment])
-        reply = bound.invoke("What is the status of PMT-1002?")
-        print("  tool_calls:", reply.tool_calls)
-        print()
-        print(ask("Here is a tool available to an agent, in the exact form the agent receives "
-                  "it.\n\n" + json.dumps(what_the_model_sees(lookup_payment), indent=2)
-                  + "\n\nIn two sentences: what is this tool for, and when should it NOT be "
-                    "used?").strip()[:460])
-    guard(_probe)
-'''),
+
     md("""
-### Read it
+## Step 2 &mdash; The config file is the grant
 
-The `tool_call` came back as a dict with a `name`, an `args` and an `id`. You did not parse any
-text to get it &mdash; the model emitted a structured call because the schema told it what one
-looks like. Lab 4.3 turns that into a loop.
+Now hand the server to an agent. `opencode` reads an `opencode.json` from the folder it runs in;
+this is the whole integration.
 
-The second half is the description doing its job in slow motion. The model has no more
-information than you gave it. Anything it gets wrong here, it would also get wrong while choosing
-between four tools under time pressure &mdash; except that there you would never see it reason
-about it.
+Two details that matter more than they look:
+
+- **`"type": "remote"`** &mdash; this server is not a subprocess we launched. It runs elsewhere,
+  serves the whole class, and holds the Jira credentials so that we do not have to.
+- **`{env:JIRA_MCP_AUTH}`** &mdash; the token is read from the environment at run time. It is
+  never written into the file, which is why this file can live in a public repository.
+"""),
+    code(r'''
+CONFIG = {
+    "$schema": "https://opencode.ai/config.json",
+    # the lab gateway, registered under its own name so it is unaffected by any
+    # provider the sandbox has disabled by default
+    "provider": {
+        "litellm": {
+            "npm": "@ai-sdk/openai-compatible",
+            "name": "LiteLLM Gateway",
+            "options": {"baseURL": "{env:LAB_LLM_BASE_URL}", "apiKey": "{env:LITELLM_API_KEY}"},
+            "models": {"qwen36-35b-a3b-lab": {"name": "Qwen3.6 35B A3B (lab)"}},
+        }
+    },
+    "mcp": {
+        "jira": {
+            "type": "remote",
+            "url": "{env:JIRA_MCP_URL}",
+            "enabled": True,
+            "headers": {"Authorization": "Basic {env:JIRA_MCP_AUTH}"},
+        }
+    },
+}
+
+if ready():
+    path = os.path.join(LABDIR, "opencode.json")
+    with open(path, "w") as fh:
+        json.dump(CONFIG, fh, indent=2)
+    print("wrote", path, "\n")
+    print(open(path).read())
+else:
+    print("skipped - see the preflight cell")
+'''),
+
+    md("""
+## Step 3 &mdash; Confirm the connection
+
+`opencode mcp list` asks every configured server to prove it is there.
+
+If this says **needs authentication** rather than **connected**, the `Authorization` header is not
+arriving &mdash; the server answers `401`, and `opencode` offers you an OAuth flow this server does
+not implement. That is a missing environment variable, not a broken server.
+"""),
+    code(r'''
+def oc(*args, timeout=300):
+    """Run a SHORT opencode command from the notebook and return its output.
+
+    Used for `mcp list` only. Full agent turns (`opencode run`) go in a terminal --
+    they stream, they take minutes, and watching the tool calls scroll past is most of
+    the point.
+    """
+    p = subprocess.run(["opencode", *args], cwd=LABDIR, capture_output=True,
+                       text=True, timeout=timeout)
+    out = (p.stdout or "") + (p.stderr or "")
+    return re.sub(r"\x1b\[[0-9;?]*[a-zA-Z]", "", out)       # strip the spinner escapes
+
+
+if ready():
+    print(oc("mcp", "list", timeout=120))
+else:
+    print("skipped - see the preflight cell")
+'''),
+
+    md("""
+## Step 4 &mdash; Let it read
+
+The first real turn &mdash; and this one you run **in the terminal**, not in the notebook.
+
+`opencode` is a terminal agent: it streams its thinking, shows each tool call as it happens, and
+that is the part worth watching. Run the next cell to print the command, then open a terminal in
+JupyterLab (**File &rarr; New &rarr; Terminal**) and paste it.
+
+Expect roughly a minute. The agent has to discover the tools, choose one, and shape the arguments
+from your sentence.
+"""),
+    code(r'''
+READ_TASK = (
+    f"Use the jira MCP tools. Search project {PROJECT} and tell me how many issues it has, "
+    "then list up to five of their keys and summaries. Do not create or modify anything."
+)
+
+def terminal_command(task: str) -> str:
+    """The exact line to paste into a JupyterLab terminal."""
+    return (f"cd {LABDIR} && \\\n"
+            f'  opencode run --model litellm/qwen36-35b-a3b-lab \\\n    "{task}"')
+
+if ready():
+    print("Open File > New > Terminal, then paste:\n")
+    print(terminal_command(READ_TASK))
+else:
+    print("skipped - see the preflight cell")
+'''),
+
+    md("""
+Watch the terminal as it answers. You should see a line beginning `\u2699` &mdash; that is the agent
+calling an MCP tool, with the arguments it chose. Nothing in your sentence named a tool.
 """),
 
+    md("""
+## Step 5 &mdash; Let it write
+
+Reading is reassuring. Writing is the point: this is the moment the agent stops being a chat
+window and starts changing a system of record.
+
+The summary is tagged with your sandbox name so you can find your own ticket on a shared board.
+"""),
     code(r'''
-score()
+WRITE_TASK = (
+    f"Use the jira MCP tools. Create ONE issue in project {PROJECT}, issue type Task, "
+    f"with the summary exactly: [{WHO}] Payment PMT-1003 held for manual review. "
+    "Give it a one-line description explaining that the payment breached the review threshold "
+    "and needs an operator decision. Then reply with only the new issue key."
+)
+
+if ready():
+    print("Same terminal, next command:\n")
+    print(terminal_command(WRITE_TASK))
+else:
+    print("skipped - see the preflight cell")
 '''),
+
+    md("""
+## Step 6 &mdash; Check it independently
+
+Never take the agent's word for a write. Ask Jira, through the same MCP server but without a model
+in the loop &mdash; `tools/call` is the third method from the deck, and it is just another JSON-RPC
+call.
+"""),
+    code(r'''
+if ready():
+    found, _ = rpc("tools/call", {
+        "name": "jira_search",
+        "arguments": {"jql": f'project = {PROJECT} ORDER BY created DESC', "limit": 10},
+    }, sid=session)
+    text = "".join(c.get("text", "") for c in found.get("content", []))
+    mine = [ln for ln in text.splitlines() if WHO in ln]
+    print("lines mentioning you:\n")
+    print("\n".join(mine) if mine else "(none yet - re-run Step 5)")
+    print("\n--- raw, first 600 chars ---\n")
+    print(text[:600])
+else:
+    print("skipped - see the preflight cell")
+'''),
+
+    md("""
+## What MCP actually bought you
+
+Look back at what you wrote: **a JSON object with four keys**. No Jira SDK, no auth code, no
+request signing, no schema for `jira_create_issue`, no retry logic. The integration was a
+configuration change.
+
+| without MCP | what you just did |
+|---|---|
+| write a Jira client for this agent | write four lines of JSON |
+| repeat it for the next agent | the next agent reuses the same server |
+| hold Jira credentials in the agent | the server holds them; you send one header |
+| pin to a Jira API version in your code | the server publishes its tools at run time |
+
+And the same server is already serving everyone else in this room, right now, from their own
+sandbox.
+"""),
+
+    md("""
+## What it also cost you &mdash; three things to carry into Module 4
+
+**1. Tool count is context, and it has a breaking point.** The server you just used publishes
+five tools. The same software, unscoped, publishes **sixty-three** &mdash; everything Jira can do,
+including sprints, worklogs and attachments. Every one of those schemas is sent to the model on
+*every* turn, before your question is even read.
+
+That is not a theoretical cost. This lab was built twice. With sixty-three tools the agent failed
+outright on this model &mdash; connection fine, discovery fine, and then the turn died the moment
+the tool schemas were in front of it. With five it does the job first time, which is the run you
+just watched. The server was scoped with one flag:
+
+```
+--enabled-tools jira_search,jira_get_issue,jira_create_issue,jira_add_comment,jira_get_project_issues
+```
+
+Scoping a server to the tools an agent actually needs is not tidying. It is what makes the agent
+work at all.
+
+**2. The descriptions are not yours.** Your agent picked `jira_create_issue` over the
+alternatives because of a sentence someone on the Jira team wrote, and shaped its arguments from a
+schema they published. When selection goes wrong, the fix may live in a repository you cannot
+commit to.
+
+**3. One credential, one identity.** Every agent in this room authenticated as the *same* service
+account, so Jira's audit trail will show one name against thirty people's work. That is a
+deliberate simplification for a classroom. In production the identity on the credential is the
+identity in the audit log &mdash; which is exactly why the config file deserves the same review as
+an IAM policy.
+"""),
+
     md("""
 ## Your turn
 
-1. Delete the second paragraph of `lookup_payment`'s docstring, re-run Section 1, and read the
-   wire form again. Nothing errors. What exactly did you just remove from the model's view?
-2. Give `SearchArgs.status` a `Literal["settled", "failed", "held"]` type instead of `str` and
-   look at the schema again. Which is the stronger control &mdash; the prose or the type &mdash;
-   and which one still lets the model pass `"HELD"`?
-3. Add a `not_permitted` path to `_strict_lookup` for a reference outside an allowed range.
-   Which of the five failure kinds should an agent be allowed to repeat to the user verbatim,
-   and which should it summarise?
+Nothing here is graded. Try a couple and watch which ones the agent gets right:
+
+- Ask it to **add a comment** to the issue it just created.
+- Ask it to **find every issue mentioning PMT-1003** and summarise them in one line.
+- Ask for something the server **cannot** do &mdash; delete the issue, say. The tool was scoped
+  out, so it is not that permission was denied: from the agent's side the capability simply does
+  not exist. Read how that failure reads compared with a policy refusal.
+- Open `opencode.json` and set `"enabled": false`. Re-run Step 4 and watch the same sentence
+  produce a completely different answer. That single flag is the grant.
+"""),
+
+    md("""
+## Cleanup
+
+Nothing to clean up in your sandbox &mdash; the server is not yours and the config is a file in
+your home directory. Your ticket stays on the board; that is the evidence it worked.
+
+Next: **Lab 4.2**, where the tools stop being someone else's and become yours.
 """),
 ]
 
 
-# =========================================================================== #
-# Lab 4.2 -- tool descriptions are instructions: build the harness, then measure
-# =========================================================================== #
 LAB2 = [
     header(2, "Tool Descriptions Are Instructions", "Intermediate &rarr; Advanced", 35,
            ["Build two arms of tools that wrap the <em>same functions</em> and differ only in prose",
@@ -2556,7 +2612,7 @@ score()
 # main
 # =========================================================================== #
 LABS = [
-    ("lab-4-01-the-tool-contract",              LAB1),
+    ("lab-4-01-opencode-jira-over-mcp",         LAB1),
     ("lab-4-02-descriptions-are-instructions",  LAB2),
     ("lab-4-03-multi-tool-orchestration",       LAB3),
     ("lab-4-04-mcp-from-the-wire-up",           LAB4),
