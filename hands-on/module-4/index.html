@@ -99,16 +99,16 @@ footer a{color:#c7d2fe;text-decoration:none}
 
   <div class="lab">
     <div class="tags">35 min<span class="lvl">Advanced</span></div>
-    <h3><a href="lab-4-04-bridge-mcp-into-langchain.ipynb">Lab 4.4 &mdash; Bridge Langfuse into a LangChain Agent</a></h3>
-    <p>The other side of the wire: your own agent, and the ten-line adapter that lets it
-      call a server it has never heard of.</p>
+    <h3><a href="lab-4-04-ask-your-app-what-it-did.ipynb">Lab 4.4 &mdash; Ask Your App What It Just Did</a></h3>
+    <p>Your agent works. But did it read the policy, or recall one? The answer is not in the
+      answer &mdash; it is in the trace.</p>
     <ul>
-      <li>Turn an MCP tool definition into a <code>StructuredTool</code> &mdash; JSON Schema and all</li>
-      <li>Decide which of 85 published tools your agent may see</li>
-      <li>Watch a silent failure make the agent loop, then answer confidently wrong</li>
-      <li>Return failures as text the model can read, and watch it correct itself</li>
+      <li>Trace a payment-exception agent with one line of LangChain callback</li>
+      <li>Ask which tools it called and how many model round-trips it cost</li>
+      <li>Turn those questions into assertions you can fail a build on</li>
+      <li>Catch a prompt regression that leaves the answer looking fine</li>
     </ul>
-    <div class="sol">2 blanks &middot; 10 checks &middot; solution: <code>solutions/lab-4-04-bridge-mcp-into-langchain.ipynb</code></div>
+    <div class="sol">1 blank &middot; 5 checks &middot; solution: <code>solutions/lab-4-04-ask-your-app-what-it-did.ipynb</code></div>
   </div>
 
   <div class="lab">

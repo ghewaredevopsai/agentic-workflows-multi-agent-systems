@@ -1459,254 +1459,224 @@ sys.stdout.buffer.write(out)
 
 
 LAB4 = [
-    header(4, "Bridge Langfuse into a LangChain Agent", "Advanced", 35,
-           ["Turn an MCP tool definition into a LangChain tool &mdash; the adapter is ten lines",
-            "Decide which of 85 published tools your agent is allowed to see",
-            "Watch a naive adapter make the agent loop and then lie about the answer",
-            "Fix it by returning failures as text the model can read"],
-           "> **The other side of the wire.** Labs 4.1 to 4.3 configured an agent someone else\n"
-           "> wrote. Here you write the agent, and the bridge, yourself."),
+    header(4, "Ask Your App What It Just Did", "Advanced", 35,
+           ["Trace a payment-exception agent with one line of LangChain callback",
+            "Ask, in English, which tools it called and how many model round-trips it took",
+            "Turn those questions into behavioural tests that run against real traces",
+            "Catch a regression the unit tests cannot see"],
+           "> **The app is the point.** Labs 4.1&ndash;4.3 pointed agents at other people's systems.\n"
+           "> Here the system is *yours*, and MCP is how you interrogate it."),
     setup(4),
+    code(DOMAIN),
 
     md("""
 ## Concept
 
-`opencode` speaks MCP for you. Your own application does not.
+You have an agent in front of a payments desk. It works &mdash; the answers look right.
 
-So when the useful tool lives behind an MCP server and your app is LangChain, something has to sit
-in between and turn one into the other. That something is smaller than people expect:
+Now the questions that actually matter in production:
 
-| MCP gives you | LangChain wants | how |
-|---|---|---|
-| `name` | `name` | copy it |
-| `description` | `description` | copy it &mdash; this is what the model reads |
-| `inputSchema` (JSON Schema) | `args_schema` | **hand it straight over**, no Pydantic needed |
-| `tools/call` over HTTP | a Python callable | one function that posts and returns text |
+- Did it **consult the policy**, or did it recall something plausible from training?
+- How many **model round-trips** did that answer cost?
+- After I reworded the system prompt, is it still calling the same tools?
+- Which step is slow?
 
-`langchain-mcp-adapters` exists and would do this for you. It is **not installed here**, on purpose:
-the packaged adapter hides exactly the decision this lab is about, which is what your tool returns
-when the call goes wrong.
+None of that is in the answer. All of it is in the trace. Langfuse already has it, and its MCP
+server turns those questions into things you can ask in English &mdash; and then, once you know the
+shape of the answer, into **assertions you can run in CI**.
+
+That last step is why this lab is graded. A question you can ask is useful; a question you can
+*fail a build on* is a test.
 """),
 
     md("""
-## Section 1 &mdash; One MCP tool becomes one LangChain tool
+## Section 1 &mdash; The app, traced
 
-The Langfuse server publishes its tools as plain dictionaries. Below is a real one, captured from
-`tools/list`, so this section needs no network.
+The agent below is deliberately ordinary: two tools over the module's ledger, one system prompt.
+The only unusual line is `CallbackHandler()`, which is all LangChain needs to emit a trace.
 
-Fill in the blank: **which field carries the sentence the model reads when deciding to call this
-tool at all?**
+`run_name` matters more than it looks &mdash; it is the handle you will use to find this run again
+among everyone else's.
 """),
     code(r'''
-from langchain_core.tools import StructuredTool
+from langchain_core.tools import tool
+from langchain.agents import create_agent
+from langfuse import get_client
+from langfuse.langchain import CallbackHandler
 
-# A real spec, captured from the Langfuse MCP server's tools/list.
-SPEC = {
-    "name": "listPrompts",
-    "description": "List prompts in the current Langfuse project with cursor-based pagination.",
-    "inputSchema": {
-        "type": "object",
-        "properties": {"limit": {"type": "integer", "description": "How many to return"},
-                       "page":  {"type": "integer", "description": "1-based page number"}},
-        "required": [],
-    },
-}
+import re as _re, socket as _socket
+# Your sandbox name, so your run is findable on a project the whole room shares.
+WHOAMI   = (_re.search(r"(u\d+)", _socket.gethostname()) or _re.match(r"(x)", "x")).group(1)
+RUN_NAME = f"triage-{WHOAMI}-{int(time.time())}"     # yours, findable, unique
 
 
-def to_langchain(spec: dict, call_fn) -> StructuredTool:
-    """One MCP tool definition -> one LangChain tool.
+@tool
+def lookup_payment(ref: str) -> str:
+    """Fetch one payment from the ledger by reference, e.g. PMT-1003."""
+    return json.dumps(LEDGER.get(ref, {"error": "no such payment"}))
 
-    `call_fn(**kwargs)` is whatever actually performs tools/call. Keeping it a
-    parameter is what lets the self-checks below run with no network at all.
+
+@tool
+def policy_for(reason_code: str) -> str:
+    """Return the written policy rule for a payment's reason code."""
+    return POLICY.get(reason_code, "no rule on file")
+
+
+def build_app(system_prompt: str):
+    return create_agent(model=get_llm(), tools=[lookup_payment, policy_for],
+                        system_prompt=system_prompt)
+
+
+CAREFUL = ("You triage payment exceptions. Always look the payment up, then look up the policy "
+           "rule for its reason code before answering. Quote the rule. Be brief.")
+
+
+def run_traced(app, question: str, run_name: str):
+    """Invoke the app, tracing it, and return (answer, window).
+
+    The window is the point. Everyone in the room writes to this project, and you
+    will run this agent more than once yourself -- so a question like "did it call
+    policy_for" is meaningless unless it is asked about ONE run. Bracketing the
+    invoke with timestamps is the whole trick.
     """
-    return StructuredTool.from_function(
-        func=call_fn,
-        name=spec["name"],
-        # Three fields cross to the model. Two of them are structural. Which one
-        # is the prose that decides whether this tool gets chosen?
-        description=spec[BLANK],
-        # MCP publishes JSON Schema and StructuredTool accepts JSON Schema.
-        args_schema=spec.get("inputSchema") or {"type": "object", "properties": {}},
-    )
-''', r'''
-from langchain_core.tools import StructuredTool
-
-# A real spec, captured from the Langfuse MCP server's tools/list.
-SPEC = {
-    "name": "listPrompts",
-    "description": "List prompts in the current Langfuse project with cursor-based pagination.",
-    "inputSchema": {
-        "type": "object",
-        "properties": {"limit": {"type": "integer", "description": "How many to return"},
-                       "page":  {"type": "integer", "description": "1-based page number"}},
-        "required": [],
-    },
-}
+    t0 = time.time() - 2
+    out = app.invoke({"messages": [("user", question)]},
+                     config={"callbacks": [CallbackHandler()], "run_name": run_name})
+    get_client().flush()                    # traces are batched; push them before we go looking
+    return out["messages"][-1].content, (t0, time.time() + 2)
 
 
-def to_langchain(spec: dict, call_fn) -> StructuredTool:
-    """One MCP tool definition -> one LangChain tool.
-
-    `call_fn(**kwargs)` is whatever actually performs tools/call. Keeping it a
-    parameter is what lets the self-checks below run with no network at all.
-    """
-    return StructuredTool.from_function(
-        func=call_fn,
-        name=spec["name"],
-        description=spec["description"],
-        args_schema=spec.get("inputSchema") or {"type": "object", "properties": {}},
-    )
-'''),
-
-    code(r'''
-# ---- Self-check: the object you built, no model and no network ----
-def _fake_call(**kwargs):
-    return f"called with {kwargs}"
-
-check("to_langchain returns a StructuredTool",
-      lambda: isinstance(to_langchain(SPEC, _fake_call), StructuredTool))
-check("the name comes across unchanged",
-      lambda: to_langchain(SPEC, _fake_call).name == "listPrompts")
-check("the description is the prose, not the name or the schema",
-      lambda: to_langchain(SPEC, _fake_call).description.startswith("List prompts"),
-      "that sentence is the only thing that tells the model WHEN to use this tool")
-check("MCP's JSON Schema became the tool's arguments",
-      lambda: set(to_langchain(SPEC, _fake_call).args) == {"limit", "page"})
-
-from langchain_core.utils.function_calling import convert_to_openai_tool
-check("and it renders onto the wire like any other LangChain tool",
-      lambda: convert_to_openai_tool(to_langchain(SPEC, _fake_call))["function"]["name"] == "listPrompts")
-score()
+if llm_ready():
+    careful = guard(lambda: run_traced(build_app(CAREFUL), "Triage PMT-1003.", RUN_NAME), (None, None))
+    answer, CAREFUL_WINDOW = careful
+    print("run name :", RUN_NAME)
+    print("answer   :", str(answer)[:220])
+else:
+    CAREFUL_WINDOW = None
+    print("Run it for real needs the model. See the setup cell.")
 '''),
 
     md("""
-## Section 2 &mdash; What your tool returns when the call fails
+## Section 2 &mdash; What counts as evidence
 
-Here is a run of this exact agent, built with an adapter that returned `""` whenever the server
-rejected a call. The question was *&ldquo;how many observations are in this project?&rdquo;*
+Before asking Langfuse anything, decide what a *good* run looks like. That is the part people skip,
+and it is the whole difference between a dashboard and a test.
 
-```
-  queryMetrics {"metrics":[{"measure":"id","aggregation":"count"}]}   -> ""
-  queryMetrics {"metrics":[{"measure":"id","aggregation":"count"}]}   -> ""
-  queryMetrics {"metrics":[{"measure":"id","aggregation":"count"}]}   -> ""
-  queryMetrics {"metrics":[{"measure":"id","aggregation":"count"}]}   -> ""
-  queryMetrics {"metrics":[{"measure":"id","aggregation":"count"}]}   -> ""
-
-  "there are 0 observations in this project"
-```
-
-There are 32. `measure: "id"` is not valid, and the server said so &mdash; but the adapter threw the
-message away and handed back an empty string. With nothing to correct from, the model repeated
-itself and then reported the emptiness as an answer.
-
-**A tool that fails silently does not produce a failure. It produces a confident wrong answer.**
-
-Fill in what a failed call should hand back.
+For this agent, one claim matters more than the rest: **the answer quoted policy because it read
+policy**, not because the model remembered something similar. There is exactly one observation name
+that proves it.
 """),
     code(r'''
-def mcp_result_to_text(envelope: dict) -> str:
-    """Turn a raw JSON-RPC envelope from tools/call into what the model will read.
+# A real queryMetrics response, captured from this project. No network needed.
+BY_NAME = {"data": [
+    {"name": "triage-u31-1788996887", "count_count": 1},
+    {"name": "ChatOpenAI",            "count_count": 3},
+    {"name": "tools",                 "count_count": 2},
+    {"name": "lookup_payment",        "count_count": 1},
+    {"name": "policy_for",            "count_count": 1},
+]}
 
-    Three cases, and only one of them is success:
-      * a protocol-level "error"      -- the request was malformed or rejected
-      * a result with isError: true   -- the tool ran and failed
-      * a result with content         -- the tool ran and worked
+
+def times_called(rows: dict, name: str) -> int:
+    """How many observations with this name are in a queryMetrics-by-name response."""
+    return sum(r["count_count"] for r in rows["data"] if r["name"] == name)
+
+
+def consulted_policy(rows: dict) -> bool:
+    """True when the run actually READ the policy rather than recalling one.
+
+    Which observation name is the evidence? Not the agent's name, not the model's.
     """
-    if "error" in envelope:
-        message = str(envelope["error"].get("message", envelope["error"]))
-        return BLANK                          # what should the model see here?
+    return times_called(rows, BLANK) > 0
 
-    result = envelope.get("result", {})
-    text = "".join(part.get("text", "") for part in result.get("content", []))
 
-    if result.get("isError"):
-        return "ERROR: " + text[:600]
-    return text[:2000] or "(the call succeeded and returned nothing)"
+def model_round_trips(rows: dict) -> int:
+    """How many times the agent went back to the model. Each one costs money and latency."""
+    return times_called(rows, "ChatOpenAI")
 ''', r'''
-def mcp_result_to_text(envelope: dict) -> str:
-    """Turn a raw JSON-RPC envelope from tools/call into what the model will read.
+# A real queryMetrics response, captured from this project. No network needed.
+BY_NAME = {"data": [
+    {"name": "triage-u31-1788996887", "count_count": 1},
+    {"name": "ChatOpenAI",            "count_count": 3},
+    {"name": "tools",                 "count_count": 2},
+    {"name": "lookup_payment",        "count_count": 1},
+    {"name": "policy_for",            "count_count": 1},
+]}
 
-    Three cases, and only one of them is success:
-      * a protocol-level "error"      -- the request was malformed or rejected
-      * a result with isError: true   -- the tool ran and failed
-      * a result with content         -- the tool ran and worked
-    """
-    if "error" in envelope:
-        message = str(envelope["error"].get("message", envelope["error"]))
-        return "ERROR: " + message[:600]
 
-    result = envelope.get("result", {})
-    text = "".join(part.get("text", "") for part in result.get("content", []))
+def times_called(rows: dict, name: str) -> int:
+    """How many observations with this name are in a queryMetrics-by-name response."""
+    return sum(r["count_count"] for r in rows["data"] if r["name"] == name)
 
-    if result.get("isError"):
-        return "ERROR: " + text[:600]
-    return text[:2000] or "(the call succeeded and returned nothing)"
+
+def consulted_policy(rows: dict) -> bool:
+    """True when the run actually READ the policy rather than recalling one."""
+    return times_called(rows, "policy_for") > 0
+
+
+def model_round_trips(rows: dict) -> int:
+    """How many times the agent went back to the model. Each one costs money and latency."""
+    return times_called(rows, "ChatOpenAI")
 '''),
 
     code(r'''
-# ---- Self-check: real envelopes, captured from the server. Still no network ----
-REJECTED = {"jsonrpc": "2.0", "id": 1, "error": {"code": -32600,
-            "message": "Invalid metric id. Must be one of count,traceId,latency,totalTokens"}}
-FAILED   = {"jsonrpc": "2.0", "id": 1, "result": {
-            "content": [{"type": "text", "text": "project not found"}], "isError": True}}
-WORKED   = {"jsonrpc": "2.0", "id": 1, "result": {
-            "content": [{"type": "text", "text": '{"data":[{"count_count":32}]}'}]}}
+# ---- Self-check: your assertions, against captured traces. No model, no network ----
+LAZY = {"data": [{"name": "triage-u31-lazy", "count_count": 1},
+                 {"name": "ChatOpenAI", "count_count": 1},
+                 {"name": "lookup_payment", "count_count": 1}]}      # never opened the policy
 
-check("a rejected call comes back as readable text, not empty",
-      lambda: mcp_result_to_text(REJECTED).strip() != "",
-      "an empty string is what made the agent loop and then invent an answer")
-check("and it carries the reason the model needs to fix itself",
-      lambda: "Invalid metric" in mcp_result_to_text(REJECTED),
-      "the server listed the valid metrics -- pass that on and the model can retry correctly")
-check("a failed tool is distinguishable from a successful one",
-      lambda: mcp_result_to_text(FAILED) != mcp_result_to_text(WORKED))
-check("a successful call returns its content",
-      lambda: "count_count" in mcp_result_to_text(WORKED))
-check("success is never reported as an error",
-      lambda: not mcp_result_to_text(WORKED).startswith("ERROR"))
+check("a run that called policy_for counts as having consulted policy",
+      lambda: consulted_policy(BY_NAME) is True)
+check("a run that skipped it does not",
+      lambda: consulted_policy(LAZY) is False,
+      "this agent answered anyway -- the trace is the only place that shows it guessed")
+check("round-trips are counted from the model observations",
+      lambda: model_round_trips(BY_NAME) == 3)
+check("and the cheap run is visibly cheaper",
+      lambda: model_round_trips(LAZY) < model_round_trips(BY_NAME))
+check("times_called does not confuse the run name with a tool",
+      lambda: times_called(BY_NAME, "lookup_payment") == 1)
 score()
 '''),
 ]
 
 LAB4 += [
     md("""
-## Run it for real
+## Run it for real &mdash; ask Langfuse about your own run
 
-Now the two halves meet: a live session against Langfuse, your adapter, and an agent that has never
-heard of MCP.
+The bridge below is given to you. It is the same shape as Lab 4.2's config, in Python instead of
+JSON: post to the MCP endpoint, hand back the text. Nothing here is new &mdash; the interesting part
+is the question you ask with it.
 
-**The server publishes 85 tools.** You are going to bind three. That is not a limitation, it is the
-decision &mdash; your agent's capabilities are whatever you hand it, and every tool you add is
-context on every turn plus one more thing it might choose wrongly.
+⚠️ **One trap worth knowing.** `listObservations` will happily return the whole project's recent
+history and yours may not be on the first page &mdash; it looks exactly like your trace never
+arrived. **Ask `queryMetrics` with a `name` dimension instead.** That is how these were found.
 """),
     code(r'''
 import base64, urllib.request
 
-LF_HOST = os.environ.get("LANGFUSE_HOST", "").rstrip("/")
-LF_PK   = os.environ.get("LANGFUSE_PUBLIC_KEY", "")
-LF_SK   = os.environ.get("LANGFUSE_SECRET_KEY", "")
-LF_URL  = LF_HOST + "/api/public/mcp" if LF_HOST else ""
-LF_AUTH = base64.b64encode(f"{LF_PK}:{LF_SK}".encode()).decode() if (LF_PK and LF_SK) else ""
-_session = {"id": None}
+LF_URL  = os.environ.get("LANGFUSE_HOST", "").rstrip("/") + "/api/public/mcp"
+LF_AUTH = base64.b64encode(f"{os.environ.get('LANGFUSE_PUBLIC_KEY','')}:"
+                           f"{os.environ.get('LANGFUSE_SECRET_KEY','')}".encode()).decode()
+_sess = {"id": None}
 
 
 def langfuse_ready() -> bool:
-    return bool(LF_HOST and LF_PK and LF_SK)
+    return all(os.environ.get(k) for k in ("LANGFUSE_HOST", "LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY"))
 
 
-def rpc(method: str, params: dict = None, timeout: int = 120) -> dict:
-    """One JSON-RPC call. Returns the WHOLE envelope so failures survive."""
+def mcp(method: str, params: dict = None) -> dict:
     body = json.dumps({"jsonrpc": "2.0", "id": 1, "method": method, "params": params or {}}).encode()
     req = urllib.request.Request(LF_URL, data=body, method="POST")
     req.add_header("Content-Type", "application/json")
     req.add_header("Accept", "application/json, text/event-stream")
     req.add_header("Authorization", "Basic " + LF_AUTH)
-    if _session["id"]:
-        req.add_header("Mcp-Session-Id", _session["id"])
-    with urllib.request.urlopen(req, timeout=timeout) as r:
+    if _sess["id"]:
+        req.add_header("Mcp-Session-Id", _sess["id"])
+    with urllib.request.urlopen(req, timeout=120) as r:
         raw, sid = r.read().decode(), r.headers.get("mcp-session-id")
     if sid:
-        _session["id"] = sid
+        _sess["id"] = sid
     for line in raw.splitlines():
         if line.startswith("data:"):
             raw = line[5:].strip()
@@ -1714,87 +1684,149 @@ def rpc(method: str, params: dict = None, timeout: int = 120) -> dict:
     return json.loads(raw)
 
 
-# Three of eighty-five. Enough to answer a real question, small enough to reason about.
-WANTED = ["getMetricsSchema", "queryMetrics", "listPrompts"]
-
-
-def build_tools():
-    rpc("initialize", {"protocolVersion": "2025-06-18", "capabilities": {},
+def names_in(window) -> dict:
+    """queryMetrics grouped by name, for ONE run's window -- the anatomy of what it did."""
+    start, end = window
+    mcp("initialize", {"protocolVersion": "2025-06-18", "capabilities": {},
                        "clientInfo": {"name": "lab-4-4", "version": "1.0"}})
-    published = rpc("tools/list", {})["result"]["tools"]
+    env = mcp("tools/call", {"name": "queryMetrics", "arguments": {
+        "view": "observations",
+        "dimensions": [{"field": "name"}],
+        "metrics": [{"measure": "count", "aggregation": "count"}],
+        "filters": [],
+        "fromTimestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(start)),
+        "toTimestamp":   time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(end)),
+    }})
+    if "error" in env:
+        return {"data": [], "error": str(env["error"])[:200]}
+    text = "".join(c.get("text", "") for c in env.get("result", {}).get("content", []))
+    return json.loads(text) if text.strip().startswith("{") else {"data": []}
 
-    def bind(spec):
-        def call(**kwargs):
-            return mcp_result_to_text(rpc("tools/call", {"name": spec["name"], "arguments": kwargs}))
-        return to_langchain(dict(spec, description=spec.get("description", "")[:900]), call)
 
-    return published, [bind(s) for s in published if s["name"] in WANTED]
-
-
-if langfuse_ready():
-    published, tools = guard(build_tools, (None, None))
-    if tools:
-        print(f"the server publishes {len(published)} tools")
-        print(f"you bound          {len(tools)}: {[t.name for t in tools]}")
-        print(f"\nschema you are NOT sending on every turn: "
-              f"{(len(json.dumps(published)) - len(json.dumps([t.args for t in tools]))) // 4:,} tokens")
+if langfuse_ready() and llm_ready() and CAREFUL_WINDOW:
+    time.sleep(6)                                   # ingestion is not instant
+    rows = guard(lambda: names_in(CAREFUL_WINDOW), {"data": []})
+    print("everything THIS run did:\n")
+    for r in sorted(rows.get("data", []), key=lambda r: -r["count_count"])[:10]:
+        print(f"  {r['count_count']:>3}  {r['name']}")
+    print("\n--- your run, judged ---")
+    print("  consulted policy :", consulted_policy(rows))
+    print("  model round-trips:", model_round_trips(rows))
 else:
-    print("Langfuse is not configured in this sandbox - set LANGFUSE_HOST / _PUBLIC_KEY / _SECRET_KEY")
+    print("Needs both the model and Langfuse. See the setup cell.")
 '''),
 
     md("""
-### The agent
+### The regression this catches
 
-Nothing below mentions MCP. `create_agent` is handed three LangChain tools and has no idea where
-they came from &mdash; which is the entire point of having written the adapter.
+Now change one word in the prompt and watch the trace change while the *answer* does not.
 """),
     code(r'''
-def ask_langfuse(question: str):
-    from langchain.agents import create_agent
-    agent = create_agent(
-        model=get_llm(),
-        tools=tools,
-        system_prompt=("You answer questions about a Langfuse project using the tools provided. "
-                       "Call getMetricsSchema before guessing field names. "
-                       "If a tool returns an ERROR, read it and correct your arguments. Be brief."),
-    )
-    out = agent.invoke({"messages": [("user", question)]})
-    for m in out["messages"]:
-        for tc in (getattr(m, "tool_calls", None) or []):
-            print("  call:", tc["name"], json.dumps(tc["args"])[:96])
-        if type(m).__name__ == "ToolMessage" and str(m.content).startswith("ERROR"):
-            print("   ->", str(m.content)[:110])
-    return out["messages"][-1].content
+# The change under test: same prompt, same question, but this build of the app was
+# never given the policy tool. It will still answer. Confidently.
+def build_lazy_app():
+    return create_agent(model=get_llm(), tools=[lookup_payment],
+                        system_prompt=CAREFUL)
 
 
-if llm_ready() and langfuse_ready() and tools:
-    print(guard(lambda: ask_langfuse(
-        "How many observations are in this project? Answer with the number.")))
+if llm_ready() and langfuse_ready():
+    lazy_run = f"triage-{WHOAMI}-lazy-{int(time.time())}"
+    lazy_answer, lazy_window = guard(
+        lambda: run_traced(build_lazy_app(), "Triage PMT-1003.", lazy_run), (None, None))
+    print("answer:", str(lazy_answer)[:220])
+    print("\nReads well, doesn't it. Now the trace for THAT run alone:\n")
+    time.sleep(6)
+    after = guard(lambda: names_in(lazy_window), {"data": []}) if lazy_window else {"data": []}
+    for r in sorted(after.get("data", []), key=lambda r: -r["count_count"])[:8]:
+        print(f"  {r['count_count']:>3}  {r['name']}")
+    print("\n  consulted policy :", consulted_policy(after))
+    print("  round-trips      :", model_round_trips(after))
+    print("\npolicy_for is absent, so whatever rule it quoted, it did not read one.")
+    print("The answer never said so. Only the trace does.")
 else:
-    print("Run it for real needs both the model and Langfuse configured. See the setup cell.")
+    print("skipped - needs the model and Langfuse")
 '''),
 
     md("""
-### What to look for
+## Prompts worth keeping &mdash; and they double as tests
 
-Watch the call trace, not just the answer.
+Paste these into the `opencode` agent you configured in Lab 4.2, which already has the Langfuse
+server. Each is a question a developer asks about their own app, and each has an assertion hiding
+inside it.
 
-If the model gets an argument wrong &mdash; and it very often does on `queryMetrics`, whose valid
-measures it cannot guess &mdash; your adapter hands back the server's rejection *including the list
-of valid values*, and the next call is usually right. That recovery is not the model being clever.
-**It is your ten-line adapter choosing to pass the error on.**
+**Start every metrics prompt with *&ldquo;call getMetricsSchema first&rdquo;***, and add
+*&ldquo;filter to environment = &lt;yours&gt;&rdquo;* when the project is busy.
 
-Swap `mcp_result_to_text` for one that returns `""` on failure and run it again if you want to see
-the difference. You will get five identical calls and a confident wrong number.
+### Did it behave?
+
+```
+Break observations down by name for the last 15 minutes. Did anything named policy_for run?
+If not, say so plainly.
+```
+*The test: **an agent that quotes policy must have read policy.** Nothing in the answer text
+tells you this. Run it after any prompt change.*
+
+```
+For the last 15 minutes, how many observations are named ChatOpenAI, and how many are tools?
+Is that ratio what you would expect for an agent that calls two tools once each?
+```
+*The test: **round-trip count.** A jump here is a prompt that has started dithering, and it costs
+money on every single run.*
+
+### Is it still fast?
+
+```
+Call getMetricsSchema first. Then give me average and maximum latency by observation name for
+the last hour, sorted by average. Which step dominates?
+```
+*The test: **a step that got slower.** Usually a tool doing more work than it used to.*
+
+```
+Compare the last 15 minutes against the hour before it: observation count, and average
+latency by name. Has anything changed shape?
+```
+*The before-and-after you run around a deploy.*
+
+### What actually happened in one run?
+
+```
+Find the observations whose name starts with "triage-" from the last 30 minutes, take the most
+recent, and tell me every step it ran in order with its latency.
+```
+*The one to reach for when a single request behaved oddly. Otherwise: opening a trace and
+scrolling.*
+
+```
+Across the last hour, which tool names appear most often? Is there a tool that never appears
+at all?
+```
+*The test: **a tool nothing ever selects.** That is a description problem, and Module 4 is where
+you fix it &mdash; but you cannot fix what you cannot see.*
+
+## What this bought your app
+
+The agent's answer was the same in both runs. **The trace was not.** That gap is the whole reason
+this lab exists:
+
+| the question | where the answer lives |
+|---|---|
+| is the answer right? | the response &mdash; and a human reading it |
+| did it get there honestly? | the trace |
+| did it get more expensive? | the trace |
+| did my prompt change break something? | the trace |
+| which step is slow? | the trace |
+
+Unit tests cannot see any of that, because none of it is in the return value. Wiring Langfuse in
+over MCP turns all of it into questions you can ask in English &mdash; and the useful ones you keep
+and run every time you change the prompt.
 
 ## Your turn
 
-- Add `listObservations` to `WANTED` and ask something that needs two tools. Watch it chain.
-- Truncate the description to 40 characters in `to_langchain` and re-run. Same tools, same model,
-  worse selection &mdash; the prose was doing more work than the schema.
-- Bind all 85 and see what it costs you in tokens before the question is even read.
-- Point the same adapter at the Jira server from Lab 4.1. Nothing about it is Langfuse-specific,
-  which is what a protocol is for.
+- Tighten `LAZY_PROMPT` until `consulted_policy` goes green again. That loop is prompt engineering
+  with a pass/fail.
+- Add a third tool the agent rarely needs, run it ten times, and find out whether it is ever chosen.
+- Write one more assertion for something you would want to fail a build on, and say out loud what
+  it would have caught.
 """),
 ]
 
@@ -2413,7 +2445,7 @@ LABS = [
     ("lab-4-01-opencode-jira-over-mcp",         LAB1),
     ("lab-4-02-langfuse-traces-over-mcp",      LAB2),
     ("lab-4-03-github-your-own-identity",      LAB3),
-    ("lab-4-04-bridge-mcp-into-langchain",    LAB4),
+    ("lab-4-04-ask-your-app-what-it-did",     LAB4),
     ("lab-4-05-challenge-bridge-and-boundary",  LAB5),
 ]
 
