@@ -1093,301 +1093,322 @@ difference between a check you *could* run and one you actually do.
 
 
 LAB3 = [
-    header(3, "Multi-Tool Orchestration", "Advanced", 35,
-           ["Decide which tools an unattended agent may be handed at all",
-            "Answer a <code>tool_call</code> with the <code>ToolMessage</code> it is waiting for",
-            "Recognise a repeated call, because that is what a stuck agent looks like from outside",
-            "Write the tool-calling loop yourself, then watch the model sequence two tools"],
-           "> **Builds on Lab 4.1's contract.** A tool that returns instead of raising is what makes\n"
-           "> a multi-step run recoverable; here you find out what still goes wrong when it does."),
-    setup(3),
-    code(DOMAIN),
-    code(TOOLKIT),
+    walkthrough_header(
+        3, "Your Own Repos, Your Own Identity", "Intermediate", 30,
+        ["Add a third MCP server to the agent from Labs 4.1 and 4.2",
+         "Authenticate as <em>yourself</em> for the first time in this module",
+         "Get review, release-note and triage work done against your own repositories",
+         "Leave with prompts you can point at the repo you work in on Monday"],
+        "> **Nothing to fill in**, but this one needs something from you: a GitHub account and a\n"
+        "> read-only token. Five minutes, and it is the only lab where the credential is yours."),
 
     md("""
-## Concept
+## The use case
 
-&ldquo;Multi-tool&rdquo; is three separate problems wearing one name:
+You already know the shape. What changes here is **whose identity the agent is using.**
 
-1. **Selection** &mdash; which tool. Lab 4.2 measured this.
-2. **Arguments** &mdash; what to pass. The model extracts them from a request a human wrote.
-3. **Sequencing** &mdash; the interesting one. `policy_for` needs a reason code that only
-   `lookup_payment` can supply, so step two's argument does not exist until step one has run.
+| | credential | who GitHub/Jira/Langfuse thinks is acting |
+|---|---|---|
+| Lab 4.1 &mdash; Jira | one we issued | a shared service account &mdash; the audit trail says the same name for all thirty of you |
+| Lab 4.2 &mdash; Langfuse | injected by the sandbox | one shared project, separated only by an environment tag |
+| **Lab 4.3 &mdash; GitHub** | **yours** | **you** |
 
-Nothing coordinates those three but the message list. You send messages, the model replies with
-`tool_calls`, you run them and append a `ToolMessage` for each, and you send the lot back. That
-loop is the whole of `create_agent`, minus the hardening.
+That is not a detail. Every action the agent takes here is attributable to you, appears in your
+contribution history, and is bounded by what *your* token is allowed to do. It is the first time
+in Module 4 that the answer to *&ldquo;who did that?&rdquo;* is a person.
 
-Plus the failure that ends production agents: a loop that does not end. Two calls with the same
-tool and the same arguments cannot produce different answers, so the second one is always wasted
-&mdash; and the tenth one is an incident.
+Which is also why this is the lab where the token scope matters.
 """),
 
     md("""
-## Section 1 &mdash; Which tools does it get?
+## Step 0 &mdash; Make a read-only token (about three minutes)
 
-Before any loop runs, someone decides what is in reach. Four tools exist; this agent investigates
-and reports, and nothing in this lab approves anything.
+**Do this before running anything.**
 
-A tool the model cannot see is a tool it cannot call. It is the cheapest control in the module,
-and it is a decision, not a default.
-"""),
-    code(r'''
-def tools_for_investigation() -> list:
-    """The tools an unattended investigation agent may be handed.
+1. Go to **github.com &rarr; Settings &rarr; Developer settings &rarr; Personal access tokens &rarr;
+   Fine-grained tokens &rarr; Generate new token**
+2. **Expiration:** 7 days. This is a workshop.
+3. **Repository access:** *Only select repositories* &mdash; pick one or two you actually work in.
+   Public repositories work fine too if you would rather not point it at anything real.
+4. **Permissions &rarr; Repository permissions**, set these to **Read-only** and nothing else:
+   `Contents`, `Issues`, `Pull requests`, `Metadata`
+5. Generate, and copy it. You will paste it once, in a moment, and it is never written to disk by
+   this notebook.
 
-    All four in BY_NAME exist and all four work. That is not the question.
-    """
-    # TODO: return the list of tool objects this agent should get.
-    #       One of the four moves money, and nothing here approves anything.
-    return BLANK
-''', r'''
-def tools_for_investigation() -> list:
-    """The tools an unattended investigation agent may be handed.
-
-    All four in BY_NAME exist and all four work. That is not the question.
-    """
-    return [lookup_payment, search_payments, policy_for]
-'''),
-    code(r'''
-# --- Self-check: Section 1   (tool objects only -- no model call)
-def _names():
-    return {t.name for t in tools_for_investigation()}
-
-check("the agent can read a payment and read the policy",
-      lambda: {"lookup_payment", "policy_for"} <= _names(),
-      "without both of these it cannot answer a single question in this lab")
-check("it is NOT handed the tool that moves money",
-      lambda: "release_payment" not in _names(),
-      "a tool the model cannot see is a tool it cannot call -- the cheapest control there is")
-check("every entry is a real tool object, not a bare function",
-      lambda: all(hasattr(t, "name") and hasattr(t, "invoke")
-                  for t in tools_for_investigation()))
-check("they are the toolkit's own objects, not copies",
-      lambda: all(t is BY_NAME[t.name] for t in tools_for_investigation()))
-
-guard(lambda: print("  handed to the agent:", ", ".join(sorted(_names()))))
-'''),
-
-    md("""
-## Section 2 &mdash; Answering a tool call
-
-The model asks for a tool by emitting a `tool_call`: a dict with a `name`, an `args` and an `id`.
-You run it and reply with a `ToolMessage`.
-
-The `id` is the part people get wrong. A single turn can carry several calls at once, and the
-`ToolMessage` says which one it is answering. Get it wrong and the model reads the policy text as
-the answer to the payment lookup, with nothing raised anywhere.
-"""),
-    code(r'''
-from langchain_core.messages import SystemMessage, HumanMessage, ToolMessage
-
-def run_one_call(call: dict, tools: list) -> ToolMessage:
-    """Run one tool call the model asked for, and package the result as its reply.
-
-    `call` is one entry of AIMessage.tool_calls: {"name", "args", "id", "type"}.
-    """
-    by_name = {t.name: t for t in tools}
-    result = by_name[call["name"]].invoke(call["args"])
-    return ToolMessage(
-        content=str(result),
-        # TODO: a turn can have several calls in flight at once. What pairs THIS result
-        #       to the request that asked for it?
-        tool_call_id=BLANK,
-    )
-''', r'''
-from langchain_core.messages import SystemMessage, HumanMessage, ToolMessage
-
-def run_one_call(call: dict, tools: list) -> ToolMessage:
-    """Run one tool call the model asked for, and package the result as its reply.
-
-    `call` is one entry of AIMessage.tool_calls: {"name", "args", "id", "type"}.
-    """
-    by_name = {t.name: t for t in tools}
-    result = by_name[call["name"]].invoke(call["args"])
-    return ToolMessage(
-        content=str(result),
-        tool_call_id=call["id"],
-    )
-'''),
-    code(r'''
-# --- Self-check: Section 2   (real messages and real tools -- no model call)
-def _call(name="lookup_payment", args=None, cid="call_1") -> dict:
-    """One tool_call, shaped exactly as the model emits it."""
-    return {"name": name, "args": args if args is not None else {"ref": "PMT-1002"},
-            "id": cid, "type": "tool_call"}
-
-check("the tool actually ran, and its output came back as text",
-      lambda: "INSUFFICIENT_FUNDS" in run_one_call(_call(), TOOLKIT).content)
-check("the reply is a ToolMessage -- the only message type that answers a call",
-      lambda: isinstance(run_one_call(_call(), TOOLKIT), ToolMessage))
-check("the reply is addressed to the call that asked for it",
-      lambda: run_one_call(_call(cid="call_7"), TOOLKIT).tool_call_id == "call_7",
-      "two calls in flight and a wrong id here silently answers the wrong question")
-check("two calls get two different addresses",
-      lambda: run_one_call(_call(cid="a"), TOOLKIT).tool_call_id
-              != run_one_call(_call(cid="b"), TOOLKIT).tool_call_id)
-check("a different tool is answered the same way",
-      lambda: "Treasury approval" in
-              run_one_call(_call("policy_for", {"reason_code": "LIMIT_BREACH"}), TOOLKIT).content)
-check("the content is a string, whatever the tool returned",
-      lambda: isinstance(run_one_call(_call("search_payments",
-                                            {"counterparty": "NORTHWIND"}), TOOLKIT).content, str))
-'''),
-
-    md("""
-## Section 3 &mdash; Knowing you have been here before
-
-Two calls that are the same in every way return the same answer. So the second one buys nothing,
-and an agent that keeps making it is stuck rather than slow.
-
-The trap is the `id`: it is new on every single call, so an identity that includes it never
-matches anything and the check silently never fires.
-"""),
-    code(r'''
-def call_key(call: dict):
-    """An identity for one call, so that a repeat of it is recognisable.
-
-    json.dumps(..., sort_keys=True) makes two argument dicts compare equal whatever order
-    the model happened to write the keys in.
-    """
-    # TODO: what makes two calls THE SAME call? Look hard at what is in a tool_call
-    #       that changes every single turn.
-    return BLANK
-''', r'''
-def call_key(call: dict):
-    """An identity for one call, so that a repeat of it is recognisable.
-
-    json.dumps(..., sort_keys=True) makes two argument dicts compare equal whatever order
-    the model happened to write the keys in.
-    """
-    return (call["name"], json.dumps(call["args"], sort_keys=True, default=str))
-'''),
-    code(r'''
-# --- Self-check: Section 3   (pure identity -- no model call)
-check("two identical calls are the same call",
-      lambda: call_key(_call()) == call_key(_call()))
-check("the id is NOT part of what makes a call the same",
-      lambda: call_key(_call(cid="a")) == call_key(_call(cid="b")),
-      "the id is new every turn -- include it and no repeat is ever detected")
-check("argument order does not make a call look new",
-      lambda: call_key(_call("search_payments", {"counterparty": "ZENITH", "status": "held"}))
-              == call_key(_call("search_payments", {"status": "held", "counterparty": "ZENITH"})))
-check("a different argument is a different call",
-      lambda: call_key(_call(args={"ref": "PMT-1002"}))
-              != call_key(_call(args={"ref": "PMT-1003"})))
-check("a different tool is a different call",
-      lambda: call_key(_call("lookup_payment"))
-              != call_key(_call("policy_for", {"reason_code": "LIMIT_BREACH"})))
-check("the key is hashable, because it goes in a set",
-      lambda: len({call_key(_call()), call_key(_call(cid="z"))}) == 1)
-'''),
-
-    md("""
-## Section 4 &mdash; The loop
-
-Nothing left to fill in. Read it once: this is `create_agent` with the hardening taken out, and
-every line of it is one of the three problems from the concept.
-
-Two exits besides finishing: a repeated call, and a budget. The budget catches the runs a repeat
-check misses &mdash; no repeat, just a plan that will not end.
-"""),
-    code(r'''
-INVESTIGATE_SYSTEM = (
-    "You are a payments operations analyst. Use the tools to find out what happened and what "
-    "the policy says about it. When you have the answer, reply in one sentence without calling "
-    "a tool.")
-
-def investigate(request: str, max_calls: int = 4) -> dict:
-    """The tool-calling loop, written out. Always returns an outcome and a trace."""
-    tools = tools_for_investigation()
-    bound = get_llm().bind_tools(tools)
-    messages = [SystemMessage(INVESTIGATE_SYSTEM), HumanMessage(request)]
-    seen, trace = set(), []
-
-    while True:
-        reply = bound.invoke(messages)
-        messages.append(reply)
-
-        if not reply.tool_calls:                       # it answered instead of asking
-            return {"outcome": "answered", "answer": reply.content, "trace": trace}
-
-        for call in reply.tool_calls:
-            if call_key(call) in seen:                 # it has been here before
-                return {"outcome": "loop", "trace": trace,
-                        "answer": f"{call['name']} was already called with these arguments"}
-            seen.add(call_key(call))
-            messages.append(run_one_call(call, tools))
-            trace.append((call["name"], call["args"]))
-
-        if len(trace) >= max_calls:                    # it is not converging
-            return {"outcome": "budget", "trace": trace,
-                    "answer": f"stopped after {len(trace)} calls without an answer"}
-'''),
-
-    md("""
-## Run it for real
-
-Three requests. The first needs two tools in sequence; the second needs one; the third names no
-payment at all, and there is no honest answer to it.
-"""),
-    code(r'''
-if llm_ready():
-    def _run():
-        for request in ("Why did PMT-1002 fail, and what should we do about it?",
-                        "Which payments are currently held for NORTHWIND?",
-                        "Why did it fail?"):
-            out = investigate(request)
-            print(f"\n  {request}")
-            for name, args in out["trace"]:
-                print(f"    -> {name}({args})")
-            print(f"    [{out['outcome']}] {str(out['answer'])[:170]}")
-    guard(_run)
-'''),
-    md("""
-### Read it
-
-**The first request is the whole point of the lab.** Watch the trace: `lookup_payment` first, then
-`policy_for` with `reason_code=INSUFFICIENT_FUNDS` &mdash; an argument that did not exist when the
-run started. Nothing in your code threaded it through. The model read the first tool's result out
-of the message list and used it to write the second call. That is sequencing, and it is the reason
-the message list is the whole architecture.
-
-**The third request has no answer, and watch what happens anyway.** The honest reply is a
-question: *which payment?* Depending on the turn you will see it invent a reference, call
-`search_payments` with nothing, or ask. Only the last is right, and nothing in this design asks
-for it.
-
-That is failure 4 from the deck &mdash; the one that looks like success. Every step returned
-cleanly, the loop terminated, the outcome says `answered`, and the answer is worthless. No loop
-check catches it and no budget catches it. Module 5 gives it a home: a supervisor whose job
-includes deciding that *neither* plan applies.
+> **Why read-only.** The server you are about to connect publishes `delete_file`,
+> `merge_pull_request` and `create_repository`. Step 3 refuses those at the client, but a token
+> that cannot do them in the first place is a stronger control than a config file that declines to
+> ask. Least privilege at the credential beats least privilege at the client, every time.
 """),
 
     code(r'''
-score()
+# ------------------------------------------------------------ Preflight: run me first
+import os, sys, json, time, getpass, textwrap, subprocess, re, socket, urllib.request, urllib.error
+
+GH_MCP = "https://api.githubcopilot.com/mcp/"
+LABDIR = os.path.expanduser("~/work/mcplab")          # the SAME folder as Labs 4.1 and 4.2
+CONFIG_PATH = os.path.join(LABDIR, "opencode.json")
+
+
+def ask(prompt: str, secret: bool = False) -> str:
+    """Prompt the participant, but never block a headless run (the lab verifiers)."""
+    try:
+        if not sys.stdin.isatty() and "ipykernel" not in sys.modules:
+            return ""
+        return (getpass.getpass(prompt) if secret else input(prompt)).strip()
+    except Exception:
+        return ""          # nbclient runs with stdin disabled; that is fine, we just skip
+
+
+GH_USER  = ask("Your GitHub username: ")
+GH_TOKEN = ask("Paste your fine-grained token (input is hidden, not saved): ", secret=True)
+
+print()
+print("lab folder     :", LABDIR, "-", "found" if os.path.exists(CONFIG_PATH) else "will be created")
+print("github user    :", GH_USER or "(not entered - later cells will skip)")
+print("token          :", f"received, {len(GH_TOKEN)} chars, held in memory only" if GH_TOKEN else "(not entered)")
+
+def ready() -> bool:
+    return bool(GH_USER and GH_TOKEN)
 '''),
+
     md("""
+## Step 1 &mdash; Prove the token is yours before trusting it
+
+A username you typed and a token you pasted are two independent claims. `get_me` settles both: it
+returns whoever GitHub thinks is holding that token.
+
+If the login it returns is not the name you typed, you have pasted the wrong token &mdash; better to
+find out now than three prompts later when the agent quietly acts as somebody else.
+"""),
+    code(r'''
+def gh_rpc(method, params=None, sid=None, timeout=90):
+    body = json.dumps({"jsonrpc": "2.0", "id": 1, "method": method, "params": params or {}}).encode()
+    req = urllib.request.Request(GH_MCP, data=body, method="POST")
+    req.add_header("Content-Type", "application/json")
+    req.add_header("Accept", "application/json, text/event-stream")
+    req.add_header("Authorization", "Bearer " + GH_TOKEN)
+    if sid:
+        req.add_header("Mcp-Session-Id", sid)
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        raw, sess = r.read().decode(), r.headers.get("mcp-session-id")
+    for line in raw.splitlines():
+        if line.startswith("data:"):
+            raw = line[5:].strip()
+            break
+    return json.loads(raw).get("result", {}), sess
+
+
+if ready():
+    try:
+        init, gh_session = gh_rpc("initialize", {
+            "protocolVersion": "2025-06-18", "capabilities": {},
+            "clientInfo": {"name": "lab-4-3", "version": "1.0"}})
+        print("server :", init.get("serverInfo", {}).get("name"))
+
+        res, _ = gh_rpc("tools/call", {"name": "get_me", "arguments": {}}, sid=gh_session)
+        me = json.loads("".join(c.get("text", "") for c in res.get("content", [])))
+        login = me.get("login")
+
+        print("token belongs to:", login)
+        if login and GH_USER and login.lower() != GH_USER.lower():
+            print(f"\n  !! you typed '{GH_USER}' but the token belongs to '{login}'.")
+            print("     Use the login above in the prompts, or paste the right token.")
+        else:
+            print("matches what you typed. Good.")
+    except urllib.error.HTTPError as e:
+        print(f"GitHub refused the token (HTTP {e.code}). Check it was copied whole and has not expired.")
+else:
+    print("skipped - no username/token entered in the preflight cell")
+'''),
+
+    md("""
+## Step 2 &mdash; Add it to the agent you already have
+
+Third entry in the same `mcp` block. Jira, Langfuse, GitHub &mdash; one agent, three systems, three
+separate credentials, each doing its own job.
+
+Note what does **not** go in the file: the token. It is referenced as `{env:GITHUB_PAT}` and read
+from the environment at run time, exactly as in Lab 4.1. That is what keeps this config safe to
+commit, share, or paste into a ticket.
+"""),
+    code(r'''
+def load_config() -> dict:
+    if os.path.exists(CONFIG_PATH):
+        return json.load(open(CONFIG_PATH))
+    return {
+        "$schema": "https://opencode.ai/config.json",
+        "provider": {"litellm": {
+            "npm": "@ai-sdk/openai-compatible", "name": "LiteLLM Gateway",
+            "options": {"baseURL": "{env:LAB_LLM_BASE_URL}", "apiKey": "{env:LITELLM_API_KEY}"},
+            "models": {"qwen36-35b-a3b-lab": {"name": "Qwen3.6 35B A3B (lab)"}}}},
+        "mcp": {},
+    }
+
+
+if ready():
+    os.makedirs(LABDIR, exist_ok=True)
+    cfg = load_config()
+    before = sorted(cfg.get("mcp", {}))
+
+    cfg.setdefault("mcp", {})["github"] = {
+        "type": "remote",
+        "url": GH_MCP,
+        "enabled": True,
+        "headers": {"Authorization": "Bearer {env:GITHUB_PAT}"},   # the token stays out of the file
+    }
+
+    # Defence in depth. Your read-only token already forbids these; saying so here means the
+    # agent is never even offered them, so it cannot try and cannot be talked into trying.
+    cfg.setdefault("permission", {}).update({
+        "github_delete*":            "deny",
+        "github_merge*":             "deny",
+        "github_create_repository":  "deny",
+        "github_push*":              "ask",
+        "github_create_or_update*":  "ask",
+    })
+
+    with open(CONFIG_PATH, "w") as fh:
+        json.dump(cfg, fh, indent=2)
+
+    print("servers before :", before or "(none - you skipped 4.1 and 4.2, that is fine)")
+    print("servers after  :", sorted(cfg["mcp"]))
+    print("\nwrote", CONFIG_PATH)
+else:
+    print("skipped - see the preflight cell")
+'''),
+
+    md("""
+## Step 3 &mdash; Export the token and confirm
+
+`opencode` reads `GITHUB_PAT` from the environment of the terminal it runs in, so export it there.
+Paste the token again when you do &mdash; the notebook deliberately never wrote it anywhere.
+"""),
+    code(r'''
+if ready():
+    print("In your terminal (File > New > Terminal):\n")
+    print(f"  cd {LABDIR}")
+    print( "  export GITHUB_PAT=<paste your token>")
+    print( "  opencode mcp list\n")
+    print("You should see three servers, all connected: jira, langfuse, github.")
+    print("\nIf github says 'needs authentication', GITHUB_PAT is unset or empty in that shell -")
+    print("the same failure mode as Lab 4.1, and the same fix.")
+else:
+    print("skipped - see the preflight cell")
+'''),
+]
+
+LAB3 += [
+    md("""
+## The prompt library
+
+Point these at a repository you actually work in. Replace `<repo>` with `owner/name` &mdash; the
+agent needs the full form. Everything here works with a **read-only** token.
+
+**Two ground rules:**
+
+1. **Name the repo explicitly.** The server has no idea which of your repositories you mean, and
+   guessing costs it a search.
+2. ⚠️ **Read the answer as a draft, not a verdict.** These prompts summarise and prioritise; both
+   are judgements. The agent is quoting real commits and real issues, but the ranking is its
+   opinion.
+
+### The Monday morning questions
+
+```
+Summarise what changed in <repo> over the last 7 days: which files moved, what the commits
+were about, and what I should look at first if I have only twenty minutes.
+```
+*Otherwise: scrolling the commit list and guessing. This is the one to run before standup.*
+
+```
+List the open pull requests in <repo> with how long each has been waiting, who is blocking
+it, and which are safe to merge on the strength of their description and checks.
+```
+*Review queues rot because nobody sorts them. This sorts them.*
+
+```
+Find the open issues in <repo> that have no assignee, group them by the area of the codebase
+they touch, and tell me which look like quick wins.
+```
+*Backlog triage that otherwise happens once a quarter, badly.*
+
+### Understanding code you did not write
+
+```
+In <repo>, find where <FunctionOrClass> is defined and every place it is used. Summarise
+what it does and what would break if I changed its signature.
+```
+*The question you ask on day one in a new codebase, and again every time you touch something
+unfamiliar.*
+
+```
+Read the last 30 commits on <repo> and write release notes grouped into Features, Fixes and
+Internal. Plain text, no markdown headings.
+```
+*Release notes nobody wants to write, from the data that already describes them.*
+
+```
+Explain the purpose of <repo> from its README, its top-level layout and its most recently
+changed files. Assume I am joining the team tomorrow.
+```
+*Onboarding, compressed.*
+
+### Reviewing, and filing well
+
+```
+Look at pull request #<N> in <repo>. Summarise what it changes, then list what you would
+question in review — correctness, missing tests, anything that looks unrelated to the
+stated purpose.
+```
+*A first-pass review before you spend your own attention. Treat it as a checklist, not a verdict.*
+
+```
+I want to raise this in <repo>: "<your rough note>". FIRST search the existing open and
+closed issues for anything covering the same thing and tell me what you found. Only if
+nothing matches, draft the issue text — do not create it yet. Plain text, no markdown.
+```
+*The same dedup-before-filing discipline as Lab 4.1, and the same reason: the check humans skip
+is the one that costs the team.*
+
+### One worth running to see it refuse
+
+```
+Delete the README from <repo>.
+```
+*Two independent controls say no: your read-only token cannot, and Step 2 denied `github_delete*`
+so the agent is never offered the tool. Read which one it reports &mdash; and notice that the
+config-level refusal is the one that happens without a single network call.*
+
+## What this bought you, and what to take away
+
+Three labs, three servers, one agent, and one config file that grew by four lines each time.
+
+**The thing worth remembering is the credential, not the protocol.** MCP made all three
+integrations look identical &mdash; a URL, a header, a tool list. What differs is entirely in who
+the header says you are:
+
+- a **shared service account** (4.1): convenient, and the audit log is useless
+- an **injected project key** (4.2): everyone's data in one place, separated by a convention
+- **your own scoped token** (4.3): attributable, revocable, and bounded by what you granted it
+
+When someone asks whether it is safe to give an agent access to a system, that is the question they
+are actually asking. The answer is never about MCP. It is about which of those three you handed it,
+and how narrow you were willing to make it.
+
 ## Your turn
 
-1. Set `max_calls=1` and re-run the first request. The outcome changes to `budget` with a partial
-   trace. What should the agent tell the user &mdash; and how is that different from an error?
-2. Add `release_payment` to `tools_for_investigation()` and ask &ldquo;Treasury approved PMT-1003,
-   release it.&rdquo; Then take it out again. That two-line diff is the difference between an agent
-   that reports and an agent that acts.
-3. The repeat check compares exact arguments, so an agent that alternates `PMT-1002`, `PMT-1003`,
-   `PMT-1002` defeats it. Widen it to a repeat *within a window* and see what it costs you in
-   false positives on a legitimate multi-payment investigation.
-4. Replace the whole loop with `create_agent(model=get_llm(), tools=tools_for_investigation(),
-   system_prompt=INVESTIGATE_SYSTEM)` and compare the traces. What did you give up, and what did
-   you get?
+- Point the review prompt at a PR you already reviewed by hand. Compare. Where was it useful, and
+  where would trusting it have cost you?
+- Re-run `opencode mcp list` and count the tools across all three servers. That total is what your
+  agent carries into every turn.
+- Revoke the token when the workshop ends. github.com &rarr; Settings &rarr; Developer settings.
+  It expires in 7 days anyway &mdash; do it deliberately, and notice how quickly the access you
+  granted disappears.
 """),
 ]
 
 
-# =========================================================================== #
-# Lab 4.4 -- MCP from the wire up: the schema, the transport, the server, the grant
-# =========================================================================== #
 MCP_SERVER_SOURCE = r"""
 import sys, json, re
 
@@ -2587,7 +2608,7 @@ score()
 LABS = [
     ("lab-4-01-opencode-jira-over-mcp",         LAB1),
     ("lab-4-02-langfuse-traces-over-mcp",      LAB2),
-    ("lab-4-03-multi-tool-orchestration",       LAB3),
+    ("lab-4-03-github-your-own-identity",      LAB3),
     ("lab-4-04-mcp-from-the-wire-up",           LAB4),
     ("lab-4-05-challenge-bridge-and-boundary",  LAB5),
 ]

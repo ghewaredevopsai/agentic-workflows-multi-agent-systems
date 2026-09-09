@@ -43,7 +43,8 @@ for v in ("LAB_LLM_BASE_URL", "LAB_LLM_MODEL",
           # an "offline" verifier must not create tickets on a live board.
           "JIRA_MCP_URL", "JIRA_MCP_AUTH", "JIRA_MCP_PROJECT",
           # Lab 4.2 reaches a real Langfuse project when these are set.
-          "LANGFUSE_HOST", "LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY"):
+          "LANGFUSE_HOST", "LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY",
+          "GITHUB_PAT", "GITHUB_TOKEN", "GH_TOKEN"):
     os.environ.pop(v, None)
 
 import nbformat
@@ -93,7 +94,8 @@ SCRUB = ("import os\n"
          "for _v in ('LAB_LLM_BASE_URL','LAB_LLM_MODEL','OPENAI_BASE_URL','OPENAI_API_BASE',\n"
          "           'OPENAI_MODEL','LITELLM_BASE_URL','LITELLM_MODEL',\n"
          "           'JIRA_MCP_URL','JIRA_MCP_AUTH','JIRA_MCP_PROJECT',\n"
-         "           'LANGFUSE_HOST','LANGFUSE_PUBLIC_KEY','LANGFUSE_SECRET_KEY'):\n"
+         "           'LANGFUSE_HOST','LANGFUSE_PUBLIC_KEY','LANGFUSE_SECRET_KEY',\n"
+         "           'GITHUB_PAT','GITHUB_TOKEN','GH_TOKEN'):\n"
          "    os.environ.pop(_v, None)\n")
 
 
