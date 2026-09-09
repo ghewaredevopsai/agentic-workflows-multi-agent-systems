@@ -229,8 +229,18 @@ score()
 
 
 # =========================================================================== #
-# Lab 5.1 -- a support desk that triages itself
+# Lab 5.1 -- a support desk that triages itself (INTERACTIVE WALKTHROUGH)
 # =========================================================================== #
+# Rebuilt 2026-09-10 on request: every code cell is a "Run it for real" cell, there is
+# nothing to fill in and nothing to score, and the centre of the lab is a small app the
+# participant drives. Registered in verify.py's WALKTHROUGH set, exactly like Module 4's
+# labs 4.1-4.3 -- zero blanks on both sides, the two files byte-identical, no score line.
+#
+# Why no graded cells here: a score computed from model output is a score a flaky endpoint
+# can move, which is the whole reason the graded-cell rule exists. The lesson of this lab
+# is what the router DOES with awkward tickets, and that has to be watched, not asserted.
+# Labs 5.2 and 5.3 keep their blanks and their self-checks.
+
 DESK_CASE = '''
 # ------------------------------------------------- the case file (synthetic, self-contained)
 # A customer support desk for a SaaS product. One queue in, three specialists behind it.
@@ -238,42 +248,423 @@ DESK_CASE = '''
 
 SPECIALISTS = ("billing", "tech", "account")
 
+# What the supervisor gets to read. These three lines ARE the router's program -- there is
+# no other instruction anywhere. You will edit them at the end of the lab and re-measure.
 DESK = {
     "billing": "Charges, refunds, invoices, plan and price changes.",
     "tech":    "Errors, outages, failing API calls, anything broken.",
     "account": "Seats, owners, permissions, sign-in and access.",
 }
 
-# Twelve tickets with a known correct specialist. The last four name no keyword at all --
-# their intent is only implied, which is exactly where a rule table runs out and the reason
-# anyone reaches for a model.
-TICKETS = [
-    ("I was charged twice for March.",                              "billing"),
-    ("Can I get an invoice with our VAT number on it?",             "billing"),
-    ("We want to downgrade to the starter plan.",                   "billing"),
-    ("Your API returns 500 on every /sync call since 09:00.",       "tech"),
-    ("The export button throws an error and nothing downloads.",    "tech"),
-    ("Webhooks stopped firing after your deploy.",                  "tech"),
-    ("Please add two more seats for the new joiners.",              "account"),
-    ("Move the workspace owner to priya@example.com.",              "account"),
-    # intent implied, no keyword names it
-    ("Nobody on my team can get in this morning.",                  "account"),
-    ("We were told this would be free until June.",                 "billing"),
-    ("Everything was fine yesterday and now nothing loads.",        "tech"),
-    ("Someone who left in May can still see our data.",             "account"),
+# How each specialist answers once it has the ticket.
+PERSONA = {
+    "billing": "You are the billing desk of a SaaS company. Answer in one sentence, plainly, "
+               "and name the next concrete step. Never promise a refund amount.",
+    "tech":    "You are the technical support desk of a SaaS company. Answer in one sentence, "
+               "ask for the one diagnostic detail you most need, and never guess a root cause.",
+    "account": "You are the account desk of a SaaS company. Answer in one sentence and say "
+               "who has to authorise the change. Never change access on the asker's word alone.",
+}
+
+# 29 tickets to play with. `expected` is the desk a human would pick; five of them are
+# deliberately unroutable and carry None, so they are excluded from any accuracy.
+SCENARIOS = [
+    # (ticket, expected desk or None, why this one is in the set)
+    ("I was charged twice for March.",                                    "billing", "plain"),
+    ("Can I get an invoice with our VAT number on it?",                   "billing", "plain"),
+    ("We want to downgrade to the starter plan.",                         "billing", "plain"),
+    ("Your API returns 500 on every /sync call since 09:00.",             "tech",    "plain"),
+    ("The export button throws an error and nothing downloads.",          "tech",    "plain"),
+    ("Webhooks stopped firing after your deploy.",                        "tech",    "plain"),
+    ("Please add two more seats for the new joiners.",                    "account", "plain"),
+    ("Move the workspace owner to priya@example.com.",                    "account", "plain"),
+
+    # the loudest word points at one desk and the problem belongs to another
+    ("The invoice page throws a 500.",                                    "tech",    "keyword trap"),
+    ("I cannot open billing settings -- it says permission denied.",      "account", "keyword trap"),
+    ("Our refund never arrived and the support chat is down too.",        "billing", "keyword trap"),
+
+    # the intent is only implied; no word in the ticket names the desk
+    ("Nobody on my team can get in this morning.",                        "account", "implied"),
+    ("We were told this would be free until June.",                       "billing", "implied"),
+    ("Everything was fine yesterday and now nothing loads.",              "tech",    "implied"),
+    ("Someone who left in May can still see our data.",                   "account", "implied"),
+
+    # written the way people actually write to a support desk
+    ("cant login sicne mornign, urgnt",                                   "account", "typos"),
+    ("Hi! Hope you are well. Quick one -- can we switch to annual billing?",
+                                                                          "billing", "buried in politeness"),
+    ("This is the third time. Cancel everything and refund us.",          "billing", "angry"),
+
+    # the desk turns on which fact is the PROBLEM, not on which words are present
+    ("Can you confirm the seat count on our last invoice?",               "billing", "contested primary"),
+    ("We are being billed for a user we deleted in April.",               "billing", "contested primary"),
+    ("Why was my card declined when I tried to add a seat?",              "billing", "contested primary"),
+    ("The 500 error only happens for users on the free plan.",            "tech",    "contested primary"),
+    ("Our SSO broke right after you changed the pricing page.",           "tech",    "contested primary"),
+    ("The new admin cannot approve invoices -- she has no such button.",  "account", "contested primary"),
+
+    # no single defensible answer -- these are the interesting ones
+    ("It is not working.",                                                None, "too vague to route"),
+    ("I was charged for seats we never got and now I cannot log in either.",
+                                                                          None, "two desks at once"),
+    ("Do you sponsor conferences?",                                       None, "not a support ticket"),
+    ("Renewal is next week and our admin's SSO login is broken.",         None, "two desks at once"),
+    ("Please remove the card on file and delete the workspace.",          None, "two desks at once"),
 ]
 
-print(f"{len(TICKETS)} tickets, {len(DESK)} specialists")
+SCORED = [(t, e) for t, e, _ in SCENARIOS if e is not None]
+print(f"{len(SCENARIOS)} scenarios ({len(SCORED)} with a defensible answer), "
+      f"{len(DESK)} desks")
+'''
+
+LAB1_GRAPH = '''
+# ---------------------------------------------- Run it for real: the graph, model and all
+# Every node here calls the model. The supervisor decides which desk; the desk answers.
+# That is the whole system on slide 2, and there is nothing stubbed in it.
+
+from typing import Annotated
+from typing_extensions import TypedDict
+from operator import add
+from langgraph.graph import StateGraph, START, END
+
+
+class DeskState(TypedDict):
+    ticket: str                       # what the customer wrote
+    route: str | None                 # the supervisor's decision, readable afterwards
+    why: str | None                   # and its reason, in its own words
+    answer: str | None                # the specialist's reply
+    trail: Annotated[list, add]       # append: every node leaves a mark
+
+
+def desk_listing(desks: dict) -> str:
+    return "\\n".join(f"- {name}: {text}" for name, text in desks.items())
+
+
+def ask_the_router(ticket: str, desks: dict | None = None) -> tuple[str, str]:
+    """One model call. Returns (desk, why).
+
+    Two plain lines rather than with_structured_output, deliberately: on this gateway the
+    schema route is several times slower, and an app you are clicking through has to feel
+    like an app. The last cell times both on your own run -- do not take the ratio on trust,
+    it moves with load.
+    """
+    desks = desks or DESK
+    system = ("You route one customer support ticket to exactly one desk.\\n"
+              f"{desk_listing(desks)}\\n"
+              "Answer with exactly two lines and nothing else:\\n"
+              "desk: <one of " + ", ".join(desks) + ">\\n"
+              "why: <at most 10 words>")
+    reply = ask(ticket, system=system) or ""
+    desk, why = None, reply.strip().replace("\\n", " ")[:90]
+    for line in reply.splitlines():
+        low = line.strip().lower()
+        if low.startswith("desk:"):
+            word = low[5:].strip().strip("`*.\\"' ")
+            desk = word if word in desks else None
+        elif low.startswith("why:"):
+            why = line.strip()[4:].strip()
+    if desk is None:                                  # the model ignored the format
+        desk = next((d for d in desks if d in reply.lower()), list(desks)[0])
+        why = "(unparsed reply -- fell back to the first desk named)"
+    return desk, why
+
+
+def supervisor(state: DeskState) -> dict:
+    """A node like any other. It decides, and it writes the decision down."""
+    desk, why = ask_the_router(state["ticket"])
+    return {"route": desk, "why": why, "trail": [f"supervisor -> {desk}"]}
+
+
+def make_specialist(name: str):
+    """Three desks that differ only in the system prompt they answer with."""
+    def specialist(state: DeskState) -> dict:
+        reply = ask(f"Ticket: {state['ticket']}", system=PERSONA[name])
+        return {"answer": reply, "trail": [f"{name} answered"]}
+    return specialist
+
+
+def resolve(state: DeskState) -> dict:
+    return {"trail": ["resolved"]}
+
+
+def pick_specialist(state: DeskState) -> str:
+    """The adapter a conditional edge needs: takes STATE, returns a KEY of the path map."""
+    return state["route"]
+
+
+def build_desk():
+    g = StateGraph(DeskState)
+    g.add_node("supervisor", supervisor)
+    for name in SPECIALISTS:
+        g.add_node(name, make_specialist(name))
+    g.add_node("resolve", resolve)
+
+    g.add_edge(START, "supervisor")
+    g.add_conditional_edges("supervisor", pick_specialist, {n: n for n in SPECIALISTS})
+    for name in SPECIALISTS:
+        g.add_edge(name, "resolve")
+    g.add_edge("resolve", END)
+    return g.compile()
+
+
+def fresh(ticket: str) -> dict:
+    return {"ticket": ticket, "route": None, "why": None, "answer": None, "trail": []}
+
+
+print("graph: START -> supervisor -> [ billing | tech | account ] -> resolve -> END")
+'''
+
+LAB1_ONE = '''
+# ---------------------------------------------- Run it for real: one ticket, end to end
+def route_ticket(ticket: str) -> dict:
+    """Run one ticket through the whole graph and print what each node did."""
+    if not llm_ready():
+        return {}
+    result = build_desk().invoke(fresh(ticket))
+    print(f'  ticket      "{ticket}"')
+    print(f"  supervisor  -> {result['route']}   ({result['why']})")
+    print(f"  {result['route']} desk replies:")
+    print(textwrap.fill(result["answer"] or "", 92,
+                        initial_indent="    ", subsequent_indent="    "))
+    print(f"  trail       {result['trail']}")
+    return result
+
+route_ticket("The invoice page throws a 500.")
+'''
+
+LAB1_SWEEP = '''
+# ---------------------------------------------- Run it for real: all 21 scenarios
+# Only the SUPERVISOR runs here -- routing is what is being measured, and waking a desk
+# for every scenario would triple the wall clock without changing a single decision.
+
+def sweep(desks: dict | None = None, quiet: bool = False) -> dict:
+    """Route every scenario. Returns {ticket: (desk, why)}."""
+    out = {}
+    for ticket, expected, tag in SCENARIOS:
+        desk, why = ask_the_router(ticket, desks)
+        out[ticket] = (desk, why)
+        if not quiet:
+            mark = " " if expected is None else ("ok" if desk == expected else "XX")
+            want = expected or "--"
+            print(f"  {mark}  {desk:8} (wanted {want:8}) [{tag:20}] {ticket[:44]}")
+    return out
+
+
+def accuracy(routed: dict) -> float:
+    """Over the scenarios that HAVE a defensible answer. The other three are not failures."""
+    return sum(1 for t, e in SCORED if routed.get(t, (None,))[0] == e) / len(SCORED)
+
+
+def confusion(routed: dict) -> dict:
+    out = {}
+    for ticket, expected in SCORED:
+        got = routed.get(ticket, (None,))[0]
+        if got != expected:
+            out[(expected, got)] = out.get((expected, got), 0) + 1
+    return out
+
+
+if llm_ready():
+    ROUTED = sweep()
+    print(f"\\n  accuracy on the {len(SCORED)} scorable tickets: {accuracy(ROUTED):.0%}")
+    for (want, got), n in sorted(confusion(ROUTED).items(), key=lambda kv: -kv[1]):
+        print(f"    {n}x  should have been {want:8} -> went to {got}")
+    print("\\n  and the ones with no defensible answer:")
+    for ticket, expected, tag in SCENARIOS:
+        if expected is None:
+            print(f"    {ROUTED[ticket][0]:8} <- {ticket[:52]}   ({tag})")
+    print("\\n  It answered every one of them, confidently. Nothing in the prompt gave it")
+    print("  permission to say 'I do not know' -- which is a design choice you made by omission.")
+    if accuracy(ROUTED) > 0.95:
+        print("\\n  Note the score. A model supervisor with three good descriptions is very")
+        print("  hard to beat on a queue like this, and an eval set your system already passes")
+        print("  is not an eval set any more -- it is a regression test. The console below is")
+        print("  how you go and find the tickets it does get wrong. Those are the keepers.")
+'''
+
+LAB1_APP = '''
+# ---------------------------------------------- Run it for real: the triage console
+# A small app. Pick a scenario or type your own, watch the graph route it and the desk
+# answer, and when it goes to the wrong desk say so -- that is how the eval set gets built.
+
+MY_EVAL = []          # (ticket, the desk you say it should be, the desk it chose)
+
+
+def triage_console():
+    try:
+        import ipywidgets as W
+        from IPython.display import display, clear_output
+    except ImportError:
+        print("ipywidgets is not available here. Use route_ticket('your ticket') instead.")
+        return
+
+    picker = W.Dropdown(
+        options=[("-- type your own below --", "")] +
+                [(f"[{tag}]  {t[:56]}", t) for t, _, tag in SCENARIOS],
+        layout=W.Layout(width="780px"))
+    text = W.Textarea(value=SCENARIOS[0][0], placeholder="type a support ticket",
+                      layout=W.Layout(width="780px", height="62px"))
+    go = W.Button(description="Route it", button_style="primary")
+    seen = W.Button(description="My eval set", layout=W.Layout(width="150px"))
+    should = W.Dropdown(options=[("should have been...", None)] + [(d, d) for d in SPECIALISTS],
+                        layout=W.Layout(width="220px"))
+    log = W.Button(description="Log that", layout=W.Layout(width="130px"))
+    out = W.Output()
+    last = {"ticket": None, "chose": None}
+
+    picker.observe(lambda c: c["new"] and setattr(text, "value", c["new"]), names="value")
+
+    def on_go(_):
+        with out:
+            clear_output()
+            if not llm_ready():
+                return
+            try:
+                r = build_desk().invoke(fresh(text.value))
+            except Exception as exc:
+                print(f"  the graph raised {type(exc).__name__}: {exc}")
+                return
+            last.update(ticket=text.value, chose=r["route"])
+            print(f"  supervisor -> {r['route']}    ({r['why']})")
+            print(f"  the {r['route']} desk replies:\\n")
+            print(textwrap.fill(r["answer"] or "", 90,
+                                initial_indent="    ", subsequent_indent="    "))
+
+    def on_log(_):
+        with out:
+            if not last["ticket"]:
+                print("\\n  route a ticket first.")
+            elif should.value is None:
+                print("\\n  pick the desk it should have gone to, then press Log that.")
+            else:
+                MY_EVAL.append((last["ticket"], should.value, last["chose"]))
+                verdict = "agreed" if should.value == last["chose"] else "MISROUTE"
+                print(f"\\n  logged ({verdict}): {last['chose']} -> should be {should.value}"
+                      f"    [{len(MY_EVAL)} in your eval set]")
+
+    def on_seen(_):
+        with out:
+            clear_output()
+            if not MY_EVAL:
+                print("  nothing logged yet -- route a few and correct the ones it gets wrong.")
+                return
+            for ticket, want, got in MY_EVAL:
+                mark = "ok" if want == got else "XX"
+                print(f"  {mark}  wanted {want:8} got {got:8}  {ticket[:56]}")
+            miss = sum(1 for _, w, g in MY_EVAL if w != g)
+            print(f"\\n  {miss} misroute(s) in {len(MY_EVAL)} labelled tickets"
+                  f"  ({1 - miss / len(MY_EVAL):.0%} accurate on YOUR eval set)")
+
+    go.on_click(on_go)
+    log.on_click(on_log)
+    seen.on_click(on_seen)
+    display(W.VBox([picker, text, W.HBox([go, seen]), W.HBox([should, log]), out]))
+
+
+triage_console()
+'''
+
+LAB1_DESCRIPTIONS = '''
+# ---------------------------------------------- Run it for real: the descriptions ARE the router
+# Same model, same graph, same 21 scenarios. The only thing that changes is the three lines
+# the supervisor reads. This is the A/B from Module 1's tool descriptions, one layer up.
+
+VAGUE = {
+    "billing": "Money things.",
+    "tech":    "Technical things.",
+    "account": "Account things.",
+}
+
+SHARPER = {
+    "billing": ("Anything about money that has already moved or is about to: a charge, a "
+                "refund, an invoice, a price, a plan change, a contract term someone was "
+                "promised. Route here when the customer's loss is financial."),
+    "tech":    ("Anything the product is doing wrong: an error, a 500, a page that will not "
+                "load, an integration that stopped, a deploy that broke something. Route "
+                "here when something that used to work does not. A billing PAGE that errors "
+                "is a tech ticket."),
+    "account": ("Anything about who may do what: seats, owners, roles, permissions, sign-in, "
+                "offboarding, access that should or should not exist. Route here when the "
+                "answer is about a person rather than about money or a bug."),
+}
+
+if llm_ready():
+    print("three one-line descriptions (the original):")
+    base = ROUTED if "ROUTED" in dir() else sweep(quiet=True)
+    print(f"  accuracy {accuracy(base):.0%}\\n")
+    for label, desks in (("vague", VAGUE), ("sharper", SHARPER)):
+        r = sweep(desks, quiet=True)
+        print(f"{label} descriptions:")
+        print(f"  accuracy {accuracy(r):.0%}")
+        for (want, got), n in sorted(confusion(r).items(), key=lambda kv: -kv[1]):
+            print(f"    {n}x  {want} -> {got}")
+        print()
+    print("  Nothing about the model or the graph changed between those three runs.")
+'''
+
+LAB1_STRUCTURED = '''
+# ---------------------------------------------- Run it for real: why not with_structured_output?
+# The framework way to get a field out of a model is a schema. Here is what it costs on this
+# gateway, on the same three tickets, so the choice in ask_the_router is one you can check.
+
+def route_with_schema(tickets: list[str]) -> tuple[list, float]:
+    """The framework way: a Pydantic schema and with_structured_output."""
+    from pydantic import BaseModel, Field
+    class Routing(BaseModel):
+        desk: str = Field(description="one of: billing, tech, account")
+        why:  str = Field(description="at most 10 words")
+    router = get_llm().with_structured_output(Routing)
+    system = "Route one customer support ticket to exactly one desk.\\n" + desk_listing(DESK)
+    t0 = time.time()
+    picks = []
+    for t in tickets:
+        r = router.invoke([("system", system), ("human", t)])
+        picks.append(None if r is None else r.desk)
+    return picks, time.time() - t0
+
+
+def route_with_two_lines(tickets: list[str]) -> tuple[list, float]:
+    t0 = time.time()
+    picks = [ask_the_router(t)[0] for t in tickets]
+    return picks, time.time() - t0
+
+
+if llm_ready():
+    hard = [t for t, _, tag in SCENARIOS
+            if tag in ("keyword trap", "contested primary", "too vague to route",
+                       "two desks at once")]
+    sample = hard[:8]
+    schema_picks, schema_s = route_with_schema(sample)
+    plain_picks, plain_s = route_with_two_lines(sample)
+
+    agreed = sum(1 for a, b in zip(schema_picks, plain_picks) if a == b)
+    print(f"{'ticket':46}{'schema':>10}{'two lines':>12}")
+    print("-" * 68)
+    for t, a, b in zip(sample, schema_picks, plain_picks):
+        print(f"{t[:44]:46}{str(a):>10}{str(b):>12}" + ("" if a == b else "   <- differ"))
+    print(f"\\n  with_structured_output  {schema_s:5.1f}s")
+    print(f"  two plain lines         {plain_s:5.1f}s   ({schema_s / plain_s:.1f}x faster)")
+    print(f"  they agreed on {agreed}/{len(sample)} of these tickets")
+    print("\\n  A schema is guided decoding, and guided decoding is not free. Use it when the")
+    print("  SHAPE matters more than the latency -- Lab 5.2's findings, not an app you click.")
+    print("  Note the disagreements, if you got any: the schema call and the two-line call")
+    print("  are different prompts, so this is not a pure latency comparison and you should")
+    print("  not read it as one.")
 '''
 
 LAB1 = [
-    header(1, "A Support Desk That Triages Itself", "Intermediate &rarr; Advanced", 35,
-           ["Build the supervisor/worker graph: one queue in, three specialists, one reply out",
-            "Wire the supervisor as a real <code>add_conditional_edges</code>, not an <code>if</code> statement",
-            "Score the router against twelve labelled tickets &mdash; a supervisor is a classifier",
-            "Swap in a model-routed supervisor and score that on the same twelve"],
+    header(1, "A Support Desk That Triages Itself", "Intermediate &rarr; Advanced", 40,
+           ["Build the supervisor/worker graph where <em>every</em> node calls the model",
+            "Route 29 tickets &mdash; keyword traps, contested primaries, typos, and five that cannot be routed at all",
+            "Drive the triage console, and go hunting for a ticket the router actually gets wrong",
+            "Rewrite the three desk descriptions and watch the accuracy move without touching the graph"],
+           "> **This one is a walkthrough.** There is nothing to fill in and nothing to score &mdash;\n"
+           "> every cell runs against the sandbox model, and the point is what the router *does* with\n"
+           "> awkward tickets. Labs 5.2 and 5.3 go back to blanks and self-checks.\n"
+           ">\n"
            "> **The system on slide 2.** Tickets arrive on one queue; a supervisor reads each one and\n"
-           "> picks a specialist; one specialist runs; a `resolve` node writes the reply."),
+           "> picks a desk; one desk answers; a `resolve` node closes it."),
     setup(1),
     code(DESK_CASE),
 
@@ -292,368 +683,82 @@ A supervisor decides which specialist handles a request. In LangGraph that is on
 
 Which makes the supervisor a classifier with a known correct answer. So it has an accuracy, and
 almost nobody measures it &mdash; even though a misroute wastes every token spent downstream of it.
+
+The thing to watch for in this lab: the supervisor's entire program is the three sentences in
+`DESK`. There is no other instruction anywhere in the system.
 """),
 
     md("""
-## Section 1 &mdash; The graph
+## Section 1 &mdash; The graph, with the model in every node
 
-Three worker nodes, a supervisor node that writes its decision **into state**, and a `resolve`
-node that all three feed. Two decisions are yours: the **fallback** (every ticket the keyword
-table does not recognise ends up there, which makes that one line the router's whole failure
-mode) and which function is the **routing adapter**.
+The supervisor is a model call. So is each desk. Nothing here is stubbed, which is why every
+cell in this notebook is a *Run it for real* cell.
 """),
-    code('''
-from typing import Annotated
-from typing_extensions import TypedDict
-from operator import add
-from langgraph.graph import StateGraph, START, END
-
-
-class DeskState(TypedDict):
-    ticket: str                       # what the customer wrote
-    route: str | None                 # the supervisor's decision, readable afterwards
-    answer: str | None                # the specialist's reply
-    trail: Annotated[list, add]       # append: every node leaves a mark
-
-
-# Order matters: the most specific group goes first.
-KEYWORDS = [
-    ("billing", ("charge", "charged", "invoice", "refund", "plan", "price", "vat")),
-    ("tech",    ("error", "500", "api", "webhook", "broken", "throws", "down")),
-    ("account", ("seat", "owner", "permission", "access", "sign-in")),
-]
-
-def route_by_keyword(ticket: str) -> str:
-    """The first keyword group that matches wins."""
-    low = (ticket or "").lower()
-    for specialist, words in KEYWORDS:
-        if any(w in low for w in words):
-            return specialist
-    # Nothing matched. Every unrecognised ticket in the system lands here, so choose on
-    # purpose: which desk would you rather a stranger's ticket landed on by accident?
-    return BLANK                      # TODO: the fallback, named from SPECIALISTS
-
-
-def supervisor(state: DeskState) -> dict:
-    """A node like any other. It decides, and it writes the decision down."""
-    choice = route_by_keyword(state["ticket"])
-    return {"route": choice, "trail": [f"supervisor -> {choice}"]}
-
-
-def make_worker(name: str):
-    """Three specialists that differ only in who they are. Deterministic, so the graph
-    can be asserted exactly offline; the model shows up in the live cell below."""
-    def worker(state: DeskState) -> dict:
-        return {"answer": f"[{name}] {DESK[name]} Re: {state['ticket'][:40]}",
-                "trail": [f"{name} handled it"]}
-    return worker
-
-
-def resolve(state: DeskState) -> dict:
-    return {"trail": ["resolved"]}
-
-
-def pick_specialist(state: DeskState) -> str:
-    """The adapter: takes STATE, returns a KEY of the path map."""
-    return state["route"]
-
-
-def build_desk():
-    g = StateGraph(DeskState)
-    g.add_node("supervisor", supervisor)
-    for name in SPECIALISTS:
-        g.add_node(name, make_worker(name))
-    g.add_node("resolve", resolve)
-
-    g.add_edge(START, "supervisor")
-    g.add_conditional_edges("supervisor", BLANK, {n: n for n in SPECIALISTS})
-    #                                     ^ TODO: which function above routes here?
-    #   route_by_keyword takes a ticket STRING, so it is not the one.
-    for name in SPECIALISTS:
-        g.add_edge(name, "resolve")
-    g.add_edge("resolve", END)
-    return g.compile()
-
-
-def fresh(ticket: str) -> dict:
-    return {"ticket": ticket, "route": None, "answer": None, "trail": []}
-''', '''
-from typing import Annotated
-from typing_extensions import TypedDict
-from operator import add
-from langgraph.graph import StateGraph, START, END
-
-
-class DeskState(TypedDict):
-    ticket: str                       # what the customer wrote
-    route: str | None                 # the supervisor's decision, readable afterwards
-    answer: str | None                # the specialist's reply
-    trail: Annotated[list, add]       # append: every node leaves a mark
-
-
-# Order matters: the most specific group goes first.
-KEYWORDS = [
-    ("billing", ("charge", "charged", "invoice", "refund", "plan", "price", "vat")),
-    ("tech",    ("error", "500", "api", "webhook", "broken", "throws", "down")),
-    ("account", ("seat", "owner", "permission", "access", "sign-in")),
-]
-
-def route_by_keyword(ticket: str) -> str:
-    """The first keyword group that matches wins."""
-    low = (ticket or "").lower()
-    for specialist, words in KEYWORDS:
-        if any(w in low for w in words):
-            return specialist
-    # Nothing matched. Tech is the least damaging place to land a stranger: it reads the
-    # ticket and can hand it on, where billing would be answering about money it has not read.
-    return "tech"
-
-
-def supervisor(state: DeskState) -> dict:
-    """A node like any other. It decides, and it writes the decision down."""
-    choice = route_by_keyword(state["ticket"])
-    return {"route": choice, "trail": [f"supervisor -> {choice}"]}
-
-
-def make_worker(name: str):
-    """Three specialists that differ only in who they are. Deterministic, so the graph
-    can be asserted exactly offline; the model shows up in the live cell below."""
-    def worker(state: DeskState) -> dict:
-        return {"answer": f"[{name}] {DESK[name]} Re: {state['ticket'][:40]}",
-                "trail": [f"{name} handled it"]}
-    return worker
-
-
-def resolve(state: DeskState) -> dict:
-    return {"trail": ["resolved"]}
-
-
-def pick_specialist(state: DeskState) -> str:
-    """The adapter: takes STATE, returns a KEY of the path map."""
-    return state["route"]
-
-
-def build_desk():
-    g = StateGraph(DeskState)
-    g.add_node("supervisor", supervisor)
-    for name in SPECIALISTS:
-        g.add_node(name, make_worker(name))
-    g.add_node("resolve", resolve)
-
-    g.add_edge(START, "supervisor")
-    g.add_conditional_edges("supervisor", pick_specialist, {n: n for n in SPECIALISTS})
-    for name in SPECIALISTS:
-        g.add_edge(name, "resolve")
-    g.add_edge("resolve", END)
-    return g.compile()
-
-
-def fresh(ticket: str) -> dict:
-    return {"ticket": ticket, "route": None, "answer": None, "trail": []}
-'''),
-    code('''
-# --- Self-check: Section 1   (a REAL compiled graph, really running -- still no model)
-def _run(ticket: str) -> dict:
-    return build_desk().invoke(fresh(ticket))
-
-check("the desk compiles",
-      lambda: build_desk() is not None)
-check("the fallback is a specialist that actually exists",
-      lambda: route_by_keyword("zzzz nothing here zzzz") in SPECIALISTS,
-      "a conditional edge returning a key the path map does not have is a runtime error")
-check("a billing ticket reaches the billing agent",
-      lambda: _run("I was charged twice for March.")["route"] == "billing")
-check("an outage reaches the tech agent",
-      lambda: _run("Your API returns 500 on every /sync call.")["route"] == "tech")
-check("the decision is written into state, not hidden in control flow",
-      lambda: _run("Please add two more seats.")["route"] == "account",
-      "a routing decision you cannot read back afterwards is one you cannot audit")
-check("exactly ONE specialist runs per ticket",
-      lambda: sum(1 for m in _run("Please add two more seats.")["trail"]
-                  if "handled it" in m) == 1,
-      "a conditional edge picks one path; fanning out to all three is Lab 5.2's shape")
-check("and every ticket still reaches resolve",
-      lambda: _run("Everything was fine yesterday.")["trail"][-1] == "resolved")
-
-def _trace():
-    for chunk in build_desk().stream(fresh("Move the workspace owner to priya@example.com.")):
-        for node, update in chunk.items():
-            print(f"  {node:12} -> {list(update)}")
-guard(_trace)
-'''),
+    code(LAB1_GRAPH),
+    code(LAB1_ONE),
 
     md("""
-## Section 2 &mdash; Score the supervisor
+## Section 2 &mdash; Twenty-one tickets, and three of them have no right answer
 
-Twelve tickets with a known correct specialist. The harness is given &mdash; nothing in it is a
-design decision. What *is* a decision is the last line: the bar a router has to clear before you
-would put it in front of customers. Pick a number you would defend in a review, not one that
-makes your router pass.
+Eight plain ones; three where the loudest word points at the wrong desk; four whose intent is
+only implied; three written the way people actually write; six where two desks are both
+mentioned and the answer turns on which fact is the *problem* &mdash; and five that genuinely
+cannot be routed: too vague, two desks at once, and one that is not a support ticket at all.
+
+Those last five are excluded from the accuracy. Watch what the router does with them anyway:
+it will answer confidently, because nothing in the prompt gives it permission not to.
 """),
-    code('''
-def selections(router) -> dict:
-    """{ticket: chosen specialist} over the whole eval set."""
-    return {ticket: router(ticket) for ticket, _ in TICKETS}
-
-
-def accuracy(sel: dict) -> float:
-    """Fraction routed to the expected specialist. No selection counts as wrong."""
-    return sum(1 for t, want in TICKETS if sel.get(t) == want) / len(TICKETS)
-
-
-def confusion(sel: dict) -> dict:
-    """{(expected, chosen): count} over the misses only."""
-    out = {}
-    for ticket, want in TICKETS:
-        got = sel.get(ticket)
-        if got != want:
-            out[(want, got)] = out.get((want, got), 0) + 1
-    return out
-
-
-def clears_the_bar(acc: float) -> bool:
-    """Would you ship a supervisor that routes this well? Decide the bar and defend it.
-
-    Anything you can argue for above 0.6 and up to 0.95 passes the self-check -- the check
-    is that you HAVE a bar, not that you picked the number this notebook would have picked.
-    """
-    return acc >= BLANK               # TODO: your acceptance bar, as a fraction
-
-
-def _report():
-    sel = selections(route_by_keyword)
-    print(f"rule-based supervisor: {accuracy(sel):.0%} on {len(TICKETS)} tickets\\n")
-    for (want, got), n in sorted(confusion(sel).items(), key=lambda kv: -kv[1]):
-        print(f"  {n}x  should have been {want:8} -> went to {got}")
-guard(_report)
-''', '''
-def selections(router) -> dict:
-    """{ticket: chosen specialist} over the whole eval set."""
-    return {ticket: router(ticket) for ticket, _ in TICKETS}
-
-
-def accuracy(sel: dict) -> float:
-    """Fraction routed to the expected specialist. No selection counts as wrong."""
-    return sum(1 for t, want in TICKETS if sel.get(t) == want) / len(TICKETS)
-
-
-def confusion(sel: dict) -> dict:
-    """{(expected, chosen): count} over the misses only."""
-    out = {}
-    for ticket, want in TICKETS:
-        got = sel.get(ticket)
-        if got != want:
-            out[(want, got)] = out.get((want, got), 0) + 1
-    return out
-
-
-def clears_the_bar(acc: float) -> bool:
-    """Would you ship a supervisor that routes this well? Decide the bar and defend it.
-
-    0.85 here: at 12 tickets that is one miss allowed, and a support desk can absorb one
-    handoff in eight. Below that the specialists spend their day forwarding.
-    """
-    return acc >= 0.85
-
-
-def _report():
-    sel = selections(route_by_keyword)
-    print(f"rule-based supervisor: {accuracy(sel):.0%} on {len(TICKETS)} tickets\\n")
-    for (want, got), n in sorted(confusion(sel).items(), key=lambda kv: -kv[1]):
-        print(f"  {n}x  should have been {want:8} -> went to {got}")
-guard(_report)
-'''),
-    code('''
-# --- Self-check: Section 2
-_rule = None
-def rule_selections():
-    global _rule
-    if _rule is None:
-        _rule = selections(route_by_keyword)
-    return _rule
-
-check("the eval set covers every specialist",
-      lambda: {w for _, w in TICKETS} == set(SPECIALISTS))
-check("it contains tickets whose intent is only implied",
-      lambda: sum(1 for t, _ in TICKETS
-                  if not any(w in t.lower() for _, ws in KEYWORDS for w in ws)) >= 3,
-      "an eval set of keyword-shaped tickets measures the keywords, not the routing")
-check("the rule supervisor gets most of it right",
-      lambda: accuracy(rule_selections()) > 0.6)
-check("but not all of it -- there is headroom to argue about",
-      lambda: accuracy(rule_selections()) < 1.0)
-check("every miss lands on the FALLBACK, not on a random specialist",
-      lambda: {got for _, got in confusion(rule_selections())} == {route_by_keyword("zzzz")},
-      "a rule router's failure mode IS its fallback -- unrecognised intent all piles up there")
-check("your acceptance bar is a real bar",
-      lambda: clears_the_bar(1.0) and not clears_the_bar(0.5),
-      "a bar nothing can clear is not a bar, and neither is one a coin flip clears")
-check("and it is a number a support desk could live with",
-      lambda: clears_the_bar(0.95) and not clears_the_bar(0.6),
-      "at 0.6 two tickets in five reach the wrong desk and get forwarded by hand")
-
-def _verdict():
-    acc = accuracy(rule_selections())
-    print(f"rule-based router: {acc:.0%} -> "
-          f"{'clears your bar' if clears_the_bar(acc) else 'does NOT clear your bar'}")
-guard(_verdict)
-'''),
+    code(LAB1_SWEEP),
 
     md("""
-## Run it for real &mdash; a model-routed supervisor
+## Section 3 &mdash; The triage console
 
-Same graph, same eval set, same metric. The only thing that changes is the function inside
-`route_with_model`. What the model gets to read is `DESK` &mdash; three one-line descriptions,
-which is the entire difference between the two routers.
+Pick a scenario or type your own. Route it, read what the desk says back, and label it &mdash;
+that is how `MY_EVAL` fills up, and a ticket you disagreed with is worth ten you did not.
+
+**The exercise: find a ticket this router gets wrong.** It is harder than it looks, and that is
+the point &mdash; the twenty-nine above did not manage it. Things that tend to work: a ticket
+whose problem belongs to one desk and whose *urgency* belongs to another; a ticket quoting an
+error message from some other product; a ticket in a language the descriptions are not written
+in; a ticket where the customer has already diagnosed it themselves, wrongly.
+
+When you find one, log it. That ticket is now worth more than the whole starter set, because it
+is the only one that can tell you whether tomorrow's change made things better or worse.
 """),
-    code('''
-ROUTE_SYSTEM = ("You route one customer support ticket to exactly one specialist desk. "
-                "Reply with the desk's name alone -- no punctuation, no explanation.")
+    code(LAB1_APP),
 
-def route_with_model(ticket: str) -> str:
-    """Ask the model to pick a desk. Anything unrecognised falls back to the keywords."""
-    listing = "\\n".join(f"- {n}: {d}" for n, d in DESK.items())
-    reply = ask(f"Desks:\\n{listing}\\n\\nTicket: {ticket}\\n\\nDesk:", system=ROUTE_SYSTEM)
-    word = (reply or "").strip().strip("`.\\"' ").lower().split()
-    return word[0] if word and word[0] in DESK else route_by_keyword(ticket)
+    md("""
+## Section 4 &mdash; The descriptions are the router
 
+Same model, same graph, same tickets. Three different sets of desk descriptions.
 
-def _bake_off():
-    rule = rule_selections()
-    model = selections(route_with_model)
-    print(f"{'supervisor':16}{'accuracy':>10}   clears your bar?")
-    print("-" * 46)
-    for label, sel in (("rule-based", rule), ("model", model)):
-        acc = accuracy(sel)
-        print(f"{label:16}{acc:>9.0%}   {'yes' if clears_the_bar(acc) else 'no'}")
-    print()
-    for (want, got), n in sorted(confusion(model).items(), key=lambda kv: -kv[1]):
-        print(f"  model missed {n}x: {want} -> {got}")
-    print("\\nAnd the model-routed supervisor inside the real graph:")
-    # The graph is unchanged. Only the function the supervisor node calls is different.
-    global route_by_keyword
-    keep, route_by_keyword = route_by_keyword, route_with_model
-    try:
-        out = build_desk().invoke(fresh("Nobody on my team can get in this morning."))
-        print(f"  route={out['route']}  trail={out['trail']}")
-    finally:
-        route_by_keyword = keep
+This is the Module 1 tool-description A/B one layer up: there, wording changed which *tool* an
+agent picked; here it changes which *agent* the work goes to, and the blast radius is a whole
+downstream conversation rather than one call.
+"""),
+    code(LAB1_DESCRIPTIONS),
 
-if llm_ready():
-    guard(_bake_off)
-'''),
+    md("""
+## Section 5 &mdash; And why the router does not use a schema
 
-    SCORE,
+Worth knowing before you reach for `with_structured_output` in something a person is waiting on.
+"""),
+    code(LAB1_STRUCTURED),
+
     md("""
 ## Your turn
 
-1. The four implied-intent tickets are where the rule table loses. Add keywords until it wins
-   all twelve &mdash; then write down how many keywords you added, and ask whether a desk with
-   real tickets could keep that table current.
-2. Route the ambiguous tickets to a model and the obvious ones to the keyword table. Score the
-   hybrid. It is usually the cheapest thing that clears the bar, and nobody builds it.
-3. Add a fourth key to the path map &mdash; `escalate` &mdash; for tickets the supervisor is not
-   confident about, and decide what "not confident" means when the router is a keyword table.
+1. Add a fourth desk &mdash; `none` &mdash; and give it a description that says what does *not*
+   belong on this queue. Re-run the sweep. The three unroutable tickets should move; check
+   whether anything else moved with them, because a new option changes every decision, not just
+   the ones you meant it to.
+2. Make the supervisor say how sure it is, and route anything below your threshold to a human.
+   You now have to pick the threshold, and `MY_EVAL` is the only evidence you have for it.
+3. The desks answer without ever reading the ticket's history, the account, or the ledger. Give
+   one of them a tool and watch the reply change &mdash; that is Module 4's work arriving inside
+   Module 5's graph.
+4. Time the console end to end. Two model calls per ticket is not free: decide out loud whether
+   a first-line desk should route with a small model and answer with a large one.
 """),
 ]
 
@@ -1447,7 +1552,7 @@ if llm_ready():
 # main
 # =========================================================================== #
 LABS = [
-    ("lab-5-01-support-desk-triage",     LAB1),
+    ("lab-5-01-support-desk-triage",     LAB1),   # WALKTHROUGH: no blanks, no score
     ("lab-5-02-parallel-research-brief", LAB2),
     ("lab-5-03-incident-responder",      LAB3),
 ]

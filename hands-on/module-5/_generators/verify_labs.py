@@ -45,6 +45,11 @@ import nbformat
 from nbclient import NotebookClient
 from nbclient.exceptions import CellTimeoutError, DeadKernelError
 
+# A WALKTHROUGH lab has no blanks by design, so it has no [TODO] either, and the
+# "an untouched lab must produce TODOs" rule would fail it for being what it is.
+# Everything else here still applies to it -- above all that Run All must not crash.
+WALKTHROUGH = {"lab-5-01-support-desk-triage.ipynb"}
+
 
 def module_level_blanks(path):
     """A blank at module level raises NameError when the CELL runs, so it crashes the cell
@@ -127,7 +132,7 @@ for fn in sorted(f for f in os.listdir(LABDIR) if f.endswith(".ipynb")):
             "MISMATCH plain vs kernel -- the notebook depends on IPython-only "
             f"semantics: plain={p_todo}/{p_pass}/{p_fail} kernel={k_todo}/{k_pass}/{k_fail} "
             "(todo/pass/fail)")
-    if k_todo == 0:
+    if k_todo == 0 and fn not in WALKTHROUGH:
         problems.append("no [TODO] in an untouched lab -- blanks are not raising NameError")
 
     # A [FAIL] in an UNTOUCHED lab is usually a lie: a helper inside the self-check cell

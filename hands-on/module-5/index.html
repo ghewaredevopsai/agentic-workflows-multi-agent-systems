@@ -53,19 +53,24 @@ footer a{color:#c7d2fe;text-decoration:none}
       recognise in production, built end to end, with its own small case file: a support desk, a
       research brief, an incident responder. Every blank is a <em>decision</em> &mdash; which node,
       which key, which merge rule, which way out &mdash; not a Python puzzle.</p>
+    <p><strong>Lab 5.1 is a walkthrough</strong> &mdash; there is nothing to fill in and nothing to
+      score, because every cell in it runs against the model and the point is watching what the
+      router <em>does</em> with awkward tickets. It ends in a small app you drive yourself. Labs
+      5.2 and 5.3 work the usual way.</p>
   </div>
 
       <div class="lab">
-    <div class="tags">35 min<span class="lvl">Intermediate &rarr; Advanced</span></div>
+    <div class="tags">40 min<span class="lvl">Intermediate &rarr; Advanced</span></div>
     <h3><a href="lab-5-01-support-desk-triage.ipynb">Lab 5.1 &mdash; A Support Desk That Triages Itself</a></h3>
-    <p>One queue in, three specialists behind it. A supervisor is a classifier, so score it like one.</p>
+    <p>One queue in, three desks behind it, and the model in every node. A walkthrough with an
+      app you drive.</p>
     <ul>
       <li>Build the supervisor/worker graph with a real <code>add_conditional_edges</code></li>
-      <li>Choose the fallback &mdash; every unrecognised ticket in the system lands there</li>
-      <li>Score the router on twelve labelled tickets, and set a bar before you look</li>
-      <li>Swap in a model-routed supervisor and score that on the same twelve</li>
+      <li>Route 29 tickets &mdash; keyword traps, contested primaries, typos, five unroutable</li>
+      <li>Drive the triage console: type a ticket, watch it route, correct it when it is wrong</li>
+      <li>Rewrite the three desk descriptions and watch the accuracy move</li>
     </ul>
-    <div class="sol">3 blanks &middot; 14 checks &middot; solution: <code>solutions/lab-5-01-support-desk-triage.ipynb</code></div>
+    <div class="sol">walkthrough &middot; nothing to fill in, nothing to score &middot; every cell calls the model</div>
   </div>
 
       <div class="lab">
