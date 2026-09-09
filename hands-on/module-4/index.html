@@ -98,17 +98,17 @@ footer a{color:#c7d2fe;text-decoration:none}
   </div>
 
   <div class="lab">
-    <div class="tags">40 min<span class="lvl">Advanced</span></div>
-    <h3><a href="lab-4-04-mcp-from-the-wire-up.ipynb">Lab 4.4 &mdash; MCP From the Wire Up</a></h3>
-    <p>Publish your own tools over MCP. The message types come from the <code>mcp</code> package;
-      the transport and the server you write yourself.</p>
+    <div class="tags">35 min<span class="lvl">Advanced</span></div>
+    <h3><a href="lab-4-04-bridge-mcp-into-langchain.ipynb">Lab 4.4 &mdash; Bridge Langfuse into a LangChain Agent</a></h3>
+    <p>The other side of the wire: your own agent, and the ten-line adapter that lets it
+      call a server it has never heard of.</p>
     <ul>
-      <li>Your <code>@tool</code> objects as <code>mcp.types.Tool</code>, validated by the SDK</li>
-      <li>Content-Length framing, and why it counts bytes</li>
-      <li>initialize, tools/list, tools/call &mdash; and where tool failures belong</li>
-      <li>Read an <code>mcpServers</code> config as a list of access grants</li>
+      <li>Turn an MCP tool definition into a <code>StructuredTool</code> &mdash; JSON Schema and all</li>
+      <li>Decide which of 85 published tools your agent may see</li>
+      <li>Watch a silent failure make the agent loop, then answer confidently wrong</li>
+      <li>Return failures as text the model can read, and watch it correct itself</li>
     </ul>
-    <div class="sol">3 blanks &middot; 36 checks &middot; solution: <code>solutions/lab-4-04-mcp-from-the-wire-up.ipynb</code></div>
+    <div class="sol">2 blanks &middot; 10 checks &middot; solution: <code>solutions/lab-4-04-bridge-mcp-into-langchain.ipynb</code></div>
   </div>
 
   <div class="lab">

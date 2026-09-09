@@ -1459,549 +1459,353 @@ sys.stdout.buffer.write(out)
 
 
 LAB4 = [
-    header(4, "MCP From the Wire Up", "Advanced", 40,
-           ["Publish your own <code>@tool</code> objects as MCP tools, using the SDK's own types",
-            "Frame a JSON-RPC message the way MCP does, and find out why framing exists at all",
-            "Write the server: initialize, tools/list, tools/call &mdash; and where failures belong",
-            "Read an <code>mcpServers</code> config as what it is: a list of access grants"],
-           "> **You implement the protocol.** The message *types* come from the `mcp` package, so\n"
-           "> the SDK validates every response you build; the transport you write yourself. The\n"
-           "> last cell runs a server as a real subprocess &mdash; no model, no network."),
+    header(4, "Bridge Langfuse into a LangChain Agent", "Advanced", 35,
+           ["Turn an MCP tool definition into a LangChain tool &mdash; the adapter is ten lines",
+            "Decide which of 85 published tools your agent is allowed to see",
+            "Watch a naive adapter make the agent loop and then lie about the answer",
+            "Fix it by returning failures as text the model can read"],
+           "> **The other side of the wire.** Labs 4.1 to 4.3 configured an agent someone else\n"
+           "> wrote. Here you write the agent, and the bridge, yourself."),
     setup(4),
-    code(DOMAIN),
-    code(TOOLKIT),
 
     md("""
 ## Concept
 
-MCP is JSON-RPC 2.0 in both directions over a transport. Over stdio there is no HTTP to tell the
-reader where one message ends, so each is **framed** with a `Content-Length` header &mdash; the same
-trick the Language Server Protocol uses, for the same reason.
+`opencode` speaks MCP for you. Your own application does not.
 
-Three methods carry almost everything:
+So when the useful tool lives behind an MCP server and your app is LangChain, something has to sit
+in between and turn one into the other. That something is smaller than people expect:
 
-| method | what it does |
-|---|---|
-| `initialize` | agree a protocol version and exchange capabilities |
-| `tools/list` | **discovery** &mdash; the client learns the tools at run time |
-| `tools/call` | invoke one by name with arguments |
+| MCP gives you | LangChain wants | how |
+|---|---|---|
+| `name` | `name` | copy it |
+| `description` | `description` | copy it &mdash; this is what the model reads |
+| `inputSchema` (JSON Schema) | `args_schema` | **hand it straight over**, no Pydantic needed |
+| `tools/call` over HTTP | a Python callable | one function that posts and returns text |
 
-Discovery is the part with consequences. The agent does not know what it can do until it asks,
-which is what lets a server gain a tool without your redeploying &mdash; and what makes a server
-you did not review a problem you did not review.
+`langchain-mcp-adapters` exists and would do this for you. It is **not installed here**, on purpose:
+the packaged adapter hides exactly the decision this lab is about, which is what your tool returns
+when the call goes wrong.
 """),
 
     md("""
-## Section 1 &mdash; The protocol is a schema you can import
+## Section 1 &mdash; One MCP tool becomes one LangChain tool
 
-Nothing about MCP has to be reverse-engineered. The `mcp` package ships every message as a
-Pydantic model, so a malformed response fails where you built it rather than at the far end.
+The Langfuse server publishes its tools as plain dictionaries. Below is a real one, captured from
+`tools/list`, so this section needs no network.
 
-Look at what an MCP `Tool` needs: a name, a description, and a JSON Schema for the arguments.
-That is Lab 4.1's three fields, over a wire.
+Fill in the blank: **which field carries the sentence the model reads when deciding to call this
+tool at all?**
 """),
     code(r'''
-from mcp.types import (Tool, TextContent, CallToolResult, ListToolsResult,
-                       InitializeResult, Implementation, ServerCapabilities,
-                       LATEST_PROTOCOL_VERSION)
+from langchain_core.tools import StructuredTool
 
-def input_schema(t) -> dict:
-    """The JSON Schema for one LangChain tool's arguments."""
-    schema = t.args_schema
-    return schema if isinstance(schema, dict) else schema.model_json_schema()
-
-
-def as_mcp_tool(t) -> Tool:
-    """Publish one of your LangChain tools the way MCP describes it."""
-    return Tool(
-        name=t.name,
-        # TODO: an MCP client reads this to decide whether to call the tool, exactly as a
-        #       bound model does. Which field of your tool carries that text?
-        description=BLANK,
-        inputSchema=input_schema(t),
-    )
-''', r'''
-from mcp.types import (Tool, TextContent, CallToolResult, ListToolsResult,
-                       InitializeResult, Implementation, ServerCapabilities,
-                       LATEST_PROTOCOL_VERSION)
-
-def input_schema(t) -> dict:
-    """The JSON Schema for one LangChain tool's arguments."""
-    schema = t.args_schema
-    return schema if isinstance(schema, dict) else schema.model_json_schema()
-
-
-def as_mcp_tool(t) -> Tool:
-    """Publish one of your LangChain tools the way MCP describes it."""
-    return Tool(
-        name=t.name,
-        description=t.description,
-        inputSchema=input_schema(t),
-    )
-'''),
-    code(r'''
-# --- Self-check: Section 1   (MCP model objects only -- no server, no model call)
-check("the result is a real MCP Tool, validated by the SDK's own schema",
-      lambda: isinstance(as_mcp_tool(lookup_payment), Tool))
-check("the name crosses unchanged",
-      lambda: as_mcp_tool(lookup_payment).name == "lookup_payment")
-check("your description crosses whole, boundary sentence and all",
-      lambda: "Not for searching" in as_mcp_tool(lookup_payment).description,
-      "over MCP that sentence is the only thing standing between two tools that read alike")
-check("the argument schema crosses too, required arguments and all",
-      lambda: as_mcp_tool(lookup_payment).inputSchema["required"] == ["ref"])
-check("an optional argument is not marked required",
-      lambda: "counterparty" not in
-              (as_mcp_tool(search_payments).inputSchema.get("required") or []))
-check("a whole toolkit is a ListToolsResult",
-      lambda: len(ListToolsResult(tools=[as_mcp_tool(t) for t in TOOLKIT]).tools) == 4)
-check("and it serialises to the JSON that goes on the wire",
-      lambda: "inputSchema" in json.dumps(
-          as_mcp_tool(lookup_payment).model_dump(mode="json", by_alias=True, exclude_none=True)))
-
-guard(lambda: print(json.dumps(
-    as_mcp_tool(policy_for).model_dump(mode="json", by_alias=True, exclude_none=True),
-    indent=2)[:460]))
-'''),
-
-    md("""
-## Section 2 &mdash; Framing
-
-Nothing to fill in here &mdash; read it instead, because the one detail that matters is easy to
-miss. The header counts **bytes**, not characters. One non-ASCII character and the two differ,
-after which every following message in the stream is read from the wrong offset.
-"""),
-    code(r'''
-import re
-
-def encode(message: dict) -> bytes:
-    """Frame one JSON-RPC message for the stdio transport."""
-    body = json.dumps(message, ensure_ascii=False).encode("utf-8")
-    return f"Content-Length: {len(body)}\r\n\r\n".encode("ascii") + body
-
-
-def decode_all(blob: bytes) -> list:
-    """Every complete message in a byte stream -- which is what framing makes possible."""
-    out, i = [], 0
-    while True:
-        j = blob.find(b"\r\n\r\n", i)
-        if j < 0:
-            return out
-        n = int(re.search(r"Content-Length:\s*(\d+)", blob[i:j].decode("ascii")).group(1))
-        start = j + 4
-        out.append(json.loads(blob[start:start + n]))
-        i = start + n
-'''),
-    code(r'''
-# --- Self-check: Section 2   (bytes only)
-_m = {"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}}
-_uni = {"jsonrpc": "2.0", "id": 2, "method": "tools/call",
-        "params": {"arguments": {"counterparty": "CAFÉ-EU"}}}
-
-check("a message survives a round trip", lambda: decode_all(encode(_m)) == [_m])
-check("the header names Content-Length",
-      lambda: encode(_m).split(b"\r\n")[0].startswith(b"Content-Length:"))
-check("two messages in one stream decode as two",
-      lambda: decode_all(encode(_m) + encode(_m)) == [_m, _m])
-check("the length counts BYTES, not characters",
-      lambda: int(re.search(rb"Content-Length: (\d+)", encode(_uni)).group(1))
-              > len(json.dumps(_uni, ensure_ascii=False)),
-      "E-acute is one character and two bytes -- count characters and every later message "
-      "in the stream is read from the wrong offset")
-check("and a non-ASCII payload still round-trips inside a stream",
-      lambda: decode_all(encode(_uni) + encode(_m)) == [_uni, _m])
-'''),
-
-    md("""
-## Section 3 &mdash; The server
-
-Note where tool failures go. A tool that could not do its job is a **successful** JSON-RPC
-response carrying `isError: true` &mdash; because the protocol worked perfectly. A JSON-RPC
-`error` means the *protocol* failed: unknown method, malformed request.
-
-Collapsing the two is the most common MCP implementation bug, and it makes tool failures
-invisible to the model: the client sees a transport error, drops the content, and the model never
-learns that the payment does not exist.
-"""),
-    code(r'''
-SERVER_TOOLS = {"lookup_payment": lookup_payment, "policy_for": policy_for}
-
-def _result(rid, payload) -> dict:
-    """One successful JSON-RPC response. `payload` is an MCP result model."""
-    return {"jsonrpc": "2.0", "id": rid,
-            "result": payload.model_dump(mode="json", by_alias=True, exclude_none=True)}
-
-
-def _rpc_error(rid, code, message) -> dict:
-    """A PROTOCOL failure. Nothing a tool does belongs in here."""
-    return {"jsonrpc": "2.0", "id": rid, "error": {"code": code, "message": message}}
-
-
-def call_tool(name: str, arguments: dict) -> CallToolResult:
-    """Run one tool and answer in MCP's shape."""
-    t = SERVER_TOOLS.get(name)
-    if t is None:
-        return CallToolResult(content=[TextContent(type="text", text=f"no such tool: {name!r}")],
-                              isError=True)
-    try:
-        text, failed = str(t.invoke(arguments)), False
-    except Exception as exc:
-        text, failed = f"{type(exc).__name__}: {exc}", True
-
-    # TODO: the protocol worked; only the tool may not have. Which of the two names above
-    #       says so? (Get this wrong and every failure reads as a success.)
-    return CallToolResult(content=[TextContent(type="text", text=text)], isError=BLANK)
-
-
-def handle(request: dict) -> dict:
-    """One JSON-RPC request in, one response out. This is the entire server."""
-    rid, method = request.get("id"), request.get("method")
-    params = request.get("params") or {}
-
-    if method == "initialize":
-        return _result(rid, InitializeResult(
-            protocolVersion=LATEST_PROTOCOL_VERSION,
-            capabilities=ServerCapabilities(),
-            serverInfo=Implementation(name="ledger", version="1.0.0")))
-
-    if method == "tools/list":
-        return _result(rid, ListToolsResult(
-            tools=[as_mcp_tool(t) for t in SERVER_TOOLS.values()]))
-
-    if method == "tools/call":
-        return _result(rid, call_tool(params.get("name"), params.get("arguments") or {}))
-
-    return _rpc_error(rid, -32601, f"method not found: {method}")
-''', r'''
-SERVER_TOOLS = {"lookup_payment": lookup_payment, "policy_for": policy_for}
-
-def _result(rid, payload) -> dict:
-    """One successful JSON-RPC response. `payload` is an MCP result model."""
-    return {"jsonrpc": "2.0", "id": rid,
-            "result": payload.model_dump(mode="json", by_alias=True, exclude_none=True)}
-
-
-def _rpc_error(rid, code, message) -> dict:
-    """A PROTOCOL failure. Nothing a tool does belongs in here."""
-    return {"jsonrpc": "2.0", "id": rid, "error": {"code": code, "message": message}}
-
-
-def call_tool(name: str, arguments: dict) -> CallToolResult:
-    """Run one tool and answer in MCP's shape."""
-    t = SERVER_TOOLS.get(name)
-    if t is None:
-        return CallToolResult(content=[TextContent(type="text", text=f"no such tool: {name!r}")],
-                              isError=True)
-    try:
-        text, failed = str(t.invoke(arguments)), False
-    except Exception as exc:
-        text, failed = f"{type(exc).__name__}: {exc}", True
-
-    return CallToolResult(content=[TextContent(type="text", text=text)], isError=failed)
-
-
-def handle(request: dict) -> dict:
-    """One JSON-RPC request in, one response out. This is the entire server."""
-    rid, method = request.get("id"), request.get("method")
-    params = request.get("params") or {}
-
-    if method == "initialize":
-        return _result(rid, InitializeResult(
-            protocolVersion=LATEST_PROTOCOL_VERSION,
-            capabilities=ServerCapabilities(),
-            serverInfo=Implementation(name="ledger", version="1.0.0")))
-
-    if method == "tools/list":
-        return _result(rid, ListToolsResult(
-            tools=[as_mcp_tool(t) for t in SERVER_TOOLS.values()]))
-
-    if method == "tools/call":
-        return _result(rid, call_tool(params.get("name"), params.get("arguments") or {}))
-
-    return _rpc_error(rid, -32601, f"method not found: {method}")
-'''),
-    code(r'''
-# --- Self-check: Section 3   (your server, in process -- no model call)
-def _req(method, **params) -> dict:
-    return {"jsonrpc": "2.0", "id": 7, "method": method, "params": params}
-
-def _call(**args) -> dict:
-    return handle(_req("tools/call", **args))["result"]
-
-check("initialize agrees the protocol version the SDK ships with",
-      lambda: handle(_req("initialize"))["result"]["protocolVersion"] == LATEST_PROTOCOL_VERSION)
-check("and names the server",
-      lambda: handle(_req("initialize"))["result"]["serverInfo"]["name"] == "ledger")
-check("tools/list publishes name, description and inputSchema for every tool",
-      lambda: all({"name", "description", "inputSchema"} <= set(t)
-                  for t in handle(_req("tools/list"))["result"]["tools"]))
-check("the descriptions on the wire are your real ones",
-      lambda: "Not for searching" in json.dumps(handle(_req("tools/list"))["result"]))
-check("a good call returns the record as text content",
-      lambda: "INSUFFICIENT_FUNDS" in
-              _call(name="lookup_payment", arguments={"ref": "PMT-1002"})["content"][0]["text"])
-check("a good call is not flagged as an error",
-      lambda: _call(name="lookup_payment", arguments={"ref": "PMT-1002"})["isError"] is False)
-check("an unknown tool is a RESULT with isError, not a JSON-RPC error",
-      lambda: _call(name="nope", arguments={})["isError"] is True,
-      "the protocol worked -- only the tool did not; collapsing these hides failures from the model")
-check("a tool that raises is caught and reported as isError",
-      lambda: _call(name="lookup_payment", arguments={"wrong_arg": 1})["isError"] is True)
-check("nothing escapes the server as an exception",
-      lambda: isinstance(handle(_req("tools/call", name="lookup_payment", arguments={})), dict))
-check("an unknown METHOD is a real JSON-RPC error",
-      lambda: handle(_req("tools/nonesuch"))["error"]["code"] == -32601,
-      "this one really is a protocol failure, so it belongs in the error channel")
-check("every response you build validates against the SDK's own model",
-      lambda: CallToolResult.model_validate(
-          _call(name="lookup_payment", arguments={"ref": "PMT-1003"})).isError is False)
-'''),
-
-    md("""
-## Section 4 &mdash; The client, and discovery
-
-The client below sends every message through `encode`/`decode_all`, so it is talking over the real
-wire format even while the server is in the same process. Swapping in a pipe changes nothing above
-the transport &mdash; which the last cell proves.
-
-Nothing to fill in. Watch what `list_tools` does: the client did not know a single tool name
-until that call returned.
-"""),
-    code(r'''
-class Session:
-    """An MCP client session against one server."""
-
-    def __init__(self, handler):
-        self._handler, self._id, self.tools = handler, 0, []
-
-    def request(self, method: str, params: dict = None) -> dict:
-        self._id += 1
-        message = {"jsonrpc": "2.0", "id": self._id, "method": method, "params": params or {}}
-        [on_the_wire] = decode_all(encode(message))       # framed and parsed, as over a pipe
-        return self._handler(on_the_wire)
-
-    def initialize(self) -> InitializeResult:
-        return InitializeResult.model_validate(self.request("initialize")["result"])
-
-    def list_tools(self) -> list:
-        """Discovery. The client did not know these names until this call returned."""
-        payload = self.request("tools/list")["result"]
-        self.tools = ListToolsResult.model_validate(payload).tools
-        return self.tools
-
-    def call_tool(self, name: str, **arguments) -> dict:
-        payload = self.request("tools/call", {"name": name, "arguments": arguments})["result"]
-        result = CallToolResult.model_validate(payload)
-        return {"text": result.content[0].text, "is_error": bool(result.isError)}
-'''),
-    code(r'''
-# --- Self-check: Section 4   (client and server, in process -- no model call)
-def _session() -> Session:
-    s = Session(handle)
-    s.initialize()
-    s.list_tools()
-    return s
-
-check("the session knows nothing about the tools before it asks",
-      lambda: Session(handle).tools == [],
-      "discovery at run time is what lets a server change without your redeploying")
-check("and knows both of them afterwards",
-      lambda: {t.name for t in _session().tools} == {"lookup_payment", "policy_for"})
-check("what came back are MCP Tool objects, not loose dicts",
-      lambda: all(isinstance(t, Tool) for t in _session().tools))
-check("each request carries a fresh id",
-      lambda: _session()._id == 2)
-check("a tool call returns the text",
-      lambda: "ZENITH" in _session().call_tool("lookup_payment", ref="PMT-1003")["text"])
-check("and is not flagged as an error",
-      lambda: _session().call_tool("lookup_payment", ref="PMT-1003")["is_error"] is False)
-check("a failed call surfaces as is_error rather than an exception",
-      lambda: _session().call_tool("nope")["is_error"] is True)
-check("the second tool works through the same session",
-      lambda: "Treasury approval" in
-              _session().call_tool("policy_for", reason_code="LIMIT_BREACH")["text"])
-
-def _show_discovery():
-    for t in _session().tools:
-        print(f"  {t.name:16} {t.description.splitlines()[0][:62]}")
-guard(_show_discovery)
-'''),
-
-    md("""
-## Section 5 &mdash; The config is the grant
-
-Four lines of JSON give an agent a capability. Nothing in the agent's code changes, nothing is
-compiled, and by default nothing reviews it. So read the file the way you would read an IAM
-policy: **which of these entries lets the agent change something?**
-"""),
-    code(r'''
-CONFIG = {
-    "mcpServers": {
-        "ledger":  {"command": "python", "args": ["-m", "ledger_mcp"],
-                    "env": {"LEDGER_SCOPE": "read-only"}},
-        "policy":  {"command": "python", "args": ["-m", "policy_mcp"],
-                    "env": {"POLICY_SCOPE": "read-only"}},
-        "release": {"command": "python", "args": ["-m", "release_mcp"],
-                    "env": {"RELEASE_SCOPE": "write"}},
-        "notes":   {"command": "python", "args": ["-m", "notes_mcp"]},
-    }
+# A real spec, captured from the Langfuse MCP server's tools/list.
+SPEC = {
+    "name": "listPrompts",
+    "description": "List prompts in the current Langfuse project with cursor-based pagination.",
+    "inputSchema": {
+        "type": "object",
+        "properties": {"limit": {"type": "integer", "description": "How many to return"},
+                       "page":  {"type": "integer", "description": "1-based page number"}},
+        "required": [],
+    },
 }
 
-def write_scopes() -> set:
-    """The scope values that mean a server can CHANGE something."""
-    # TODO: of the values that turn up in configs like these -- "read-only", "write",
-    #       "read-write", "admin" -- which ones grant the power to change something?
-    return BLANK
 
+def to_langchain(spec: dict, call_fn) -> StructuredTool:
+    """One MCP tool definition -> one LangChain tool.
 
-def servers_that_can_write(config: dict) -> list:
-    """The configured servers that grant the agent that power."""
-    out = []
-    for name, entry in config["mcpServers"].items():
-        scopes = {str(v).lower() for v in (entry.get("env") or {}).values()}
-        if scopes & write_scopes():
-            out.append(name)
-    return sorted(out)
+    `call_fn(**kwargs)` is whatever actually performs tools/call. Keeping it a
+    parameter is what lets the self-checks below run with no network at all.
+    """
+    return StructuredTool.from_function(
+        func=call_fn,
+        name=spec["name"],
+        # Three fields cross to the model. Two of them are structural. Which one
+        # is the prose that decides whether this tool gets chosen?
+        description=spec[BLANK],
+        # MCP publishes JSON Schema and StructuredTool accepts JSON Schema.
+        args_schema=spec.get("inputSchema") or {"type": "object", "properties": {}},
+    )
 ''', r'''
-CONFIG = {
-    "mcpServers": {
-        "ledger":  {"command": "python", "args": ["-m", "ledger_mcp"],
-                    "env": {"LEDGER_SCOPE": "read-only"}},
-        "policy":  {"command": "python", "args": ["-m", "policy_mcp"],
-                    "env": {"POLICY_SCOPE": "read-only"}},
-        "release": {"command": "python", "args": ["-m", "release_mcp"],
-                    "env": {"RELEASE_SCOPE": "write"}},
-        "notes":   {"command": "python", "args": ["-m", "notes_mcp"]},
-    }
+from langchain_core.tools import StructuredTool
+
+# A real spec, captured from the Langfuse MCP server's tools/list.
+SPEC = {
+    "name": "listPrompts",
+    "description": "List prompts in the current Langfuse project with cursor-based pagination.",
+    "inputSchema": {
+        "type": "object",
+        "properties": {"limit": {"type": "integer", "description": "How many to return"},
+                       "page":  {"type": "integer", "description": "1-based page number"}},
+        "required": [],
+    },
 }
 
-def write_scopes() -> set:
-    """The scope values that mean a server can CHANGE something."""
-    return {"write", "read-write", "admin"}
 
+def to_langchain(spec: dict, call_fn) -> StructuredTool:
+    """One MCP tool definition -> one LangChain tool.
 
-def servers_that_can_write(config: dict) -> list:
-    """The configured servers that grant the agent that power."""
-    out = []
-    for name, entry in config["mcpServers"].items():
-        scopes = {str(v).lower() for v in (entry.get("env") or {}).values()}
-        if scopes & write_scopes():
-            out.append(name)
-    return sorted(out)
-'''),
-    code(r'''
-# --- Self-check: Section 5   (config only)
-_with_admin = {"mcpServers": {**CONFIG["mcpServers"],
-                              "ops": {"command": "python", "args": ["-m", "ops_mcp"],
-                                      "env": {"OPS_SCOPE": "admin"}}}}
-
-check("exactly one configured server can write today",
-      lambda: servers_that_can_write(CONFIG) == ["release"])
-check("read-only is not a write grant",
-      lambda: "ledger" not in servers_that_can_write(CONFIG))
-check("an admin scope is a write grant too",
-      lambda: servers_that_can_write(_with_admin) == ["ops", "release"])
-check("a server with no env declared is not treated as a write grant",
-      lambda: "notes" not in servers_that_can_write(CONFIG),
-      "it is also the one you know least about -- undeclared is not the same as safe")
-check("the scope lives in the config, not in the agent's code",
-      lambda: all("SCOPE" in k
-                  for e in CONFIG["mcpServers"].values() for k in (e.get("env") or {})),
-      "which is what makes it reviewable and revocable without touching the agent")
-
-def _grants():
-    for name, entry in CONFIG["mcpServers"].items():
-        env = entry.get("env") or {}
-        print(f"  {name:9} {' '.join([entry['command']] + entry['args']):24} "
-              f"{'WRITE' if name in servers_that_can_write(CONFIG) else 'read':>6}  {env}")
-guard(_grants)
+    `call_fn(**kwargs)` is whatever actually performs tools/call. Keeping it a
+    parameter is what lets the self-checks below run with no network at all.
+    """
+    return StructuredTool.from_function(
+        func=call_fn,
+        name=spec["name"],
+        description=spec["description"],
+        args_schema=spec.get("inputSchema") or {"type": "object", "properties": {}},
+    )
 '''),
 
-    md("""
-### The server you are about to launch
-
-Small enough to read in a minute, which is the point. Same three methods, same framing, stdlib
-only, and its own private copy of a ledger &mdash; it shares nothing with this notebook.
-"""),
-    code('MCP_SERVER_SOURCE = r"""' + MCP_SERVER_SOURCE +
-         '"""\nprint(f"{len(MCP_SERVER_SOURCE.splitlines())} lines of server")'),
-
-    md("""
-## Run it for real &mdash; over a real pipe
-
-No model and no network needed for this one. The cell writes that server to your work directory,
-launches it as a **separate process**, and talks to it over stdin and stdout with the framing from
-Section 2.
-
-Everything above the transport is the same code. That is the claim the protocol makes, and this
-is it being true.
-"""),
     code(r'''
-def talk_to_a_real_server():
-    import subprocess, sys as _sys
-    path = os.path.join(WORK, "ledger_mcp_server.py")
-    with open(path, "w") as fh:
-        fh.write(MCP_SERVER_SOURCE)
+# ---- Self-check: the object you built, no model and no network ----
+def _fake_call(**kwargs):
+    return f"called with {kwargs}"
 
-    payload = b"".join(encode(m) for m in [
-        {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
-        {"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}},
-        {"jsonrpc": "2.0", "id": 3, "method": "tools/call",
-         "params": {"name": "lookup_payment", "arguments": {"ref": "PMT-1003"}}},
-    ])
-    proc = subprocess.run([_sys.executable, path], input=payload,
-                          capture_output=True, timeout=60)
-    if proc.returncode != 0:
-        print("server exited", proc.returncode, proc.stderr.decode()[:300])
-        return
+check("to_langchain returns a StructuredTool",
+      lambda: isinstance(to_langchain(SPEC, _fake_call), StructuredTool))
+check("the name comes across unchanged",
+      lambda: to_langchain(SPEC, _fake_call).name == "listPrompts")
+check("the description is the prose, not the name or the schema",
+      lambda: to_langchain(SPEC, _fake_call).description.startswith("List prompts"),
+      "that sentence is the only thing that tells the model WHEN to use this tool")
+check("MCP's JSON Schema became the tool's arguments",
+      lambda: set(to_langchain(SPEC, _fake_call).args) == {"limit", "page"})
 
-    for msg in decode_all(proc.stdout):
-        result = msg.get("result", {})
-        if "serverInfo" in result:
-            print(f"  initialize -> {result['serverInfo']} protocol {result['protocolVersion']}")
-        elif "tools" in result:
-            print(f"  tools/list -> discovered {[t['name'] for t in result['tools']]}")
-        elif "content" in result:
-            print(f"  tools/call -> {result['content'][0]['text'][:88]}")
-
-guard(talk_to_a_real_server)
-'''),
-    md("""
-### Read it
-
-That was a real process boundary: a separate interpreter, its own memory, its own environment, and
-nothing shared with this notebook but two pipes. Give it different credentials and you have the
-governance story from the deck &mdash; a tool you can grant, revoke and audit on its own.
-
-You read that server before you ran it. Ask yourself what you actually know about a server you
-install from a registry with one line of JSON &mdash; and carry the question into Lab 4.5.
-"""),
-
-    code(r'''
+from langchain_core.utils.function_calling import convert_to_openai_tool
+check("and it renders onto the wire like any other LangChain tool",
+      lambda: convert_to_openai_tool(to_langchain(SPEC, _fake_call))["function"]["name"] == "listPrompts")
 score()
 '''),
+
     md("""
+## Section 2 &mdash; What your tool returns when the call fails
+
+Here is a run of this exact agent, built with an adapter that returned `""` whenever the server
+rejected a call. The question was *&ldquo;how many observations are in this project?&rdquo;*
+
+```
+  queryMetrics {"metrics":[{"measure":"id","aggregation":"count"}]}   -> ""
+  queryMetrics {"metrics":[{"measure":"id","aggregation":"count"}]}   -> ""
+  queryMetrics {"metrics":[{"measure":"id","aggregation":"count"}]}   -> ""
+  queryMetrics {"metrics":[{"measure":"id","aggregation":"count"}]}   -> ""
+  queryMetrics {"metrics":[{"measure":"id","aggregation":"count"}]}   -> ""
+
+  "there are 0 observations in this project"
+```
+
+There are 32. `measure: "id"` is not valid, and the server said so &mdash; but the adapter threw the
+message away and handed back an empty string. With nothing to correct from, the model repeated
+itself and then reported the emptiness as an answer.
+
+**A tool that fails silently does not produce a failure. It produces a confident wrong answer.**
+
+Fill in what a failed call should hand back.
+"""),
+    code(r'''
+def mcp_result_to_text(envelope: dict) -> str:
+    """Turn a raw JSON-RPC envelope from tools/call into what the model will read.
+
+    Three cases, and only one of them is success:
+      * a protocol-level "error"      -- the request was malformed or rejected
+      * a result with isError: true   -- the tool ran and failed
+      * a result with content         -- the tool ran and worked
+    """
+    if "error" in envelope:
+        message = str(envelope["error"].get("message", envelope["error"]))
+        return BLANK                          # what should the model see here?
+
+    result = envelope.get("result", {})
+    text = "".join(part.get("text", "") for part in result.get("content", []))
+
+    if result.get("isError"):
+        return "ERROR: " + text[:600]
+    return text[:2000] or "(the call succeeded and returned nothing)"
+''', r'''
+def mcp_result_to_text(envelope: dict) -> str:
+    """Turn a raw JSON-RPC envelope from tools/call into what the model will read.
+
+    Three cases, and only one of them is success:
+      * a protocol-level "error"      -- the request was malformed or rejected
+      * a result with isError: true   -- the tool ran and failed
+      * a result with content         -- the tool ran and worked
+    """
+    if "error" in envelope:
+        message = str(envelope["error"].get("message", envelope["error"]))
+        return "ERROR: " + message[:600]
+
+    result = envelope.get("result", {})
+    text = "".join(part.get("text", "") for part in result.get("content", []))
+
+    if result.get("isError"):
+        return "ERROR: " + text[:600]
+    return text[:2000] or "(the call succeeded and returned nothing)"
+'''),
+
+    code(r'''
+# ---- Self-check: real envelopes, captured from the server. Still no network ----
+REJECTED = {"jsonrpc": "2.0", "id": 1, "error": {"code": -32600,
+            "message": "Invalid metric id. Must be one of count,traceId,latency,totalTokens"}}
+FAILED   = {"jsonrpc": "2.0", "id": 1, "result": {
+            "content": [{"type": "text", "text": "project not found"}], "isError": True}}
+WORKED   = {"jsonrpc": "2.0", "id": 1, "result": {
+            "content": [{"type": "text", "text": '{"data":[{"count_count":32}]}'}]}}
+
+check("a rejected call comes back as readable text, not empty",
+      lambda: mcp_result_to_text(REJECTED).strip() != "",
+      "an empty string is what made the agent loop and then invent an answer")
+check("and it carries the reason the model needs to fix itself",
+      lambda: "Invalid metric" in mcp_result_to_text(REJECTED),
+      "the server listed the valid metrics -- pass that on and the model can retry correctly")
+check("a failed tool is distinguishable from a successful one",
+      lambda: mcp_result_to_text(FAILED) != mcp_result_to_text(WORKED))
+check("a successful call returns its content",
+      lambda: "count_count" in mcp_result_to_text(WORKED))
+check("success is never reported as an error",
+      lambda: not mcp_result_to_text(WORKED).startswith("ERROR"))
+score()
+'''),
+]
+
+LAB4 += [
+    md("""
+## Run it for real
+
+Now the two halves meet: a live session against Langfuse, your adapter, and an agent that has never
+heard of MCP.
+
+**The server publishes 85 tools.** You are going to bind three. That is not a limitation, it is the
+decision &mdash; your agent's capabilities are whatever you hand it, and every tool you add is
+context on every turn plus one more thing it might choose wrongly.
+"""),
+    code(r'''
+import base64, urllib.request
+
+LF_HOST = os.environ.get("LANGFUSE_HOST", "").rstrip("/")
+LF_PK   = os.environ.get("LANGFUSE_PUBLIC_KEY", "")
+LF_SK   = os.environ.get("LANGFUSE_SECRET_KEY", "")
+LF_URL  = LF_HOST + "/api/public/mcp" if LF_HOST else ""
+LF_AUTH = base64.b64encode(f"{LF_PK}:{LF_SK}".encode()).decode() if (LF_PK and LF_SK) else ""
+_session = {"id": None}
+
+
+def langfuse_ready() -> bool:
+    return bool(LF_HOST and LF_PK and LF_SK)
+
+
+def rpc(method: str, params: dict = None, timeout: int = 120) -> dict:
+    """One JSON-RPC call. Returns the WHOLE envelope so failures survive."""
+    body = json.dumps({"jsonrpc": "2.0", "id": 1, "method": method, "params": params or {}}).encode()
+    req = urllib.request.Request(LF_URL, data=body, method="POST")
+    req.add_header("Content-Type", "application/json")
+    req.add_header("Accept", "application/json, text/event-stream")
+    req.add_header("Authorization", "Basic " + LF_AUTH)
+    if _session["id"]:
+        req.add_header("Mcp-Session-Id", _session["id"])
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        raw, sid = r.read().decode(), r.headers.get("mcp-session-id")
+    if sid:
+        _session["id"] = sid
+    for line in raw.splitlines():
+        if line.startswith("data:"):
+            raw = line[5:].strip()
+            break
+    return json.loads(raw)
+
+
+# Three of eighty-five. Enough to answer a real question, small enough to reason about.
+WANTED = ["getMetricsSchema", "queryMetrics", "listPrompts"]
+
+
+def build_tools():
+    rpc("initialize", {"protocolVersion": "2025-06-18", "capabilities": {},
+                       "clientInfo": {"name": "lab-4-4", "version": "1.0"}})
+    published = rpc("tools/list", {})["result"]["tools"]
+
+    def bind(spec):
+        def call(**kwargs):
+            return mcp_result_to_text(rpc("tools/call", {"name": spec["name"], "arguments": kwargs}))
+        return to_langchain(dict(spec, description=spec.get("description", "")[:900]), call)
+
+    return published, [bind(s) for s in published if s["name"] in WANTED]
+
+
+if langfuse_ready():
+    published, tools = guard(build_tools, (None, None))
+    if tools:
+        print(f"the server publishes {len(published)} tools")
+        print(f"you bound          {len(tools)}: {[t.name for t in tools]}")
+        print(f"\nschema you are NOT sending on every turn: "
+              f"{(len(json.dumps(published)) - len(json.dumps([t.args for t in tools]))) // 4:,} tokens")
+else:
+    print("Langfuse is not configured in this sandbox - set LANGFUSE_HOST / _PUBLIC_KEY / _SECRET_KEY")
+'''),
+
+    md("""
+### The agent
+
+Nothing below mentions MCP. `create_agent` is handed three LangChain tools and has no idea where
+they came from &mdash; which is the entire point of having written the adapter.
+"""),
+    code(r'''
+def ask_langfuse(question: str):
+    from langchain.agents import create_agent
+    agent = create_agent(
+        model=get_llm(),
+        tools=tools,
+        system_prompt=("You answer questions about a Langfuse project using the tools provided. "
+                       "Call getMetricsSchema before guessing field names. "
+                       "If a tool returns an ERROR, read it and correct your arguments. Be brief."),
+    )
+    out = agent.invoke({"messages": [("user", question)]})
+    for m in out["messages"]:
+        for tc in (getattr(m, "tool_calls", None) or []):
+            print("  call:", tc["name"], json.dumps(tc["args"])[:96])
+        if type(m).__name__ == "ToolMessage" and str(m.content).startswith("ERROR"):
+            print("   ->", str(m.content)[:110])
+    return out["messages"][-1].content
+
+
+if llm_ready() and langfuse_ready() and tools:
+    print(guard(lambda: ask_langfuse(
+        "How many observations are in this project? Answer with the number.")))
+else:
+    print("Run it for real needs both the model and Langfuse configured. See the setup cell.")
+'''),
+
+    md("""
+### What to look for
+
+Watch the call trace, not just the answer.
+
+If the model gets an argument wrong &mdash; and it very often does on `queryMetrics`, whose valid
+measures it cannot guess &mdash; your adapter hands back the server's rejection *including the list
+of valid values*, and the next call is usually right. That recovery is not the model being clever.
+**It is your ten-line adapter choosing to pass the error on.**
+
+Swap `mcp_result_to_text` for one that returns `""` on failure and run it again if you want to see
+the difference. You will get five identical calls and a confident wrong number.
+
 ## Your turn
 
-1. Point `SERVER_TOOLS` at all four tools instead of two and re-run Section 4. You just granted
-   an agent the ability to release payments, and the diff was one line in a dict.
-2. Add `resources/list` and `resources/read`, and move `policy_for` behind a resource instead of a
-   tool. Which agent behaviours become impossible &mdash; and is that a loss or the point?
-3. Make the subprocess server emit a `Content-Length` ten bytes too long, and watch `decode_all`
-   quietly return fewer messages than you sent. Where does the timeout belong, and what should a
-   client do about a truncated stream?
+- Add `listObservations` to `WANTED` and ask something that needs two tools. Watch it chain.
+- Truncate the description to 40 characters in `to_langchain` and re-run. Same tools, same model,
+  worse selection &mdash; the prose was doing more work than the schema.
+- Bind all 85 and see what it costs you in tokens before the question is even read.
+- Point the same adapter at the Jira server from Lab 4.1. Nothing about it is Langfuse-specific,
+  which is what a protocol is for.
 """),
 ]
 
 
-# =========================================================================== #
-# Lab 4.5 -- challenge: the bridge, and what comes back through it
-# =========================================================================== #
 MCP_CARRIED = r'''
-# ------------------------------------------------- carried forward from Lab 4.4 (nothing to fill in)
-# The framing, the server and the client session you built, compressed into one cell. One
-# difference: this server's ledger has a `narrative` field, because a real one does -- the
-# counterparty writes it, and nobody reviews it.
+# ------------------------------------------------------- given to you, nothing to fill in here
+# A complete hand-rolled MCP server and client session in one cell: framing, tools/list,
+# tools/call, the lot. You are not asked to build it -- Lab 4.4 bridged a REMOTE server into
+# LangChain, and this challenge needs one you can poison on purpose, so here it is local.
+# One detail that matters: this ledger has a `narrative` field, because a real one does --
+# the counterparty writes it, and nobody reviews it.
 import re
 from mcp.types import (Tool, TextContent, CallToolResult, ListToolsResult,
                        InitializeResult, Implementation, ServerCapabilities,
@@ -2609,7 +2413,7 @@ LABS = [
     ("lab-4-01-opencode-jira-over-mcp",         LAB1),
     ("lab-4-02-langfuse-traces-over-mcp",      LAB2),
     ("lab-4-03-github-your-own-identity",      LAB3),
-    ("lab-4-04-mcp-from-the-wire-up",           LAB4),
+    ("lab-4-04-bridge-mcp-into-langchain",    LAB4),
     ("lab-4-05-challenge-bridge-and-boundary",  LAB5),
 ]
 
