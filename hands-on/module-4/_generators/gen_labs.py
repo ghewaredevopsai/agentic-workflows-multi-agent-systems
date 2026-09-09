@@ -727,32 +727,27 @@ Next: **Lab 4.2**, where the tools stop being someone else's and become yours.
 
 LAB2 = [
     walkthrough_header(
-        2, "Your Own Traces, over MCP", "Intermediate", 25,
-        ["Point an agent at the Langfuse project your Day 3 traces land in",
-         "Weigh what a large tool set costs you, in tools and in tokens",
-         "Scope a server you cannot configure &mdash; from the client side",
-         "Ask questions about your own observability data in English"],
-        "> **Nothing to fill in.** Lab 4.1 connected a server *we* run. This one connects a server\n"
-        "> *Langfuse* runs, holding *your* data &mdash; and that changes what you can control."),
+        2, "Ask Your Traces", "Intermediate", 25,
+        ["Add a second MCP server to the agent you configured in Lab 4.1",
+         "Get answers out of your observability data by asking in English",
+         "Find your slowest step, your step ratios, and which tools actually get called",
+         "Leave with a prompt library you will use for real on Day 3"],
+        "> **Nothing to fill in.** Lab 4.1 gave your agent hands. This one gives it your telemetry,\n"
+        "> and the point is how much you can get out of it without writing a single query."),
 
     md("""
 ## The use case
 
-On Day 3 you instrument agents with Langfuse and every run lands as a trace in a project. Then the
-questions start: how many calls did that agent make, which one was slow, what did it actually send.
+On Day 3 you instrument agents with Langfuse and every run lands as a trace. Then the awkward part
+starts. *Which step is slow? Is `retrieve` firing twice? Did anything error overnight? Is that tool
+I shipped last week actually being called?*
 
-All of that is behind an API. Langfuse also publishes it as an **MCP server**, so an agent can
-answer those questions for you instead of you learning the query language.
+Every one of those is answerable from the data you already have &mdash; and normally costs somebody
+an export, a query, or twenty minutes of clicking. Langfuse publishes its API as an **MCP server**,
+so your agent can answer them instead, in a sentence.
 
-Everything you need is already in this sandbox &mdash; no signup, no new key.
-
-| | Lab 4.1 &mdash; Jira | Lab 4.2 &mdash; Langfuse |
-|---|---|---|
-| who runs it | we do, in our cluster | Langfuse do, in the JP region |
-| credential | a Basic header we issue | a Basic header from **your** project keys |
-| whose data | a shared scratch board | **your own traces** |
-| tool set | we chose five | they publish 85 |
-| scoping | server-side, our flags | **client-side only** |
+You are not building anything new here. You are adding one entry to the config you already wrote in
+Lab 4.1, and then asking questions.
 """),
 
     code(r'''
@@ -762,8 +757,9 @@ import os, json, time, base64, textwrap, subprocess, re, socket, urllib.request,
 HOST   = os.environ.get("LANGFUSE_HOST", "")
 PK     = os.environ.get("LANGFUSE_PUBLIC_KEY", "")
 SK     = os.environ.get("LANGFUSE_SECRET_KEY", "")
-ENVTAG = os.environ.get("LANGFUSE_TRACING_ENVIRONMENT", "")
-LABDIR = os.path.expanduser("~/work/lfmcp")      # home, not /tmp: /tmp is wiped on restart
+MINE   = os.environ.get("LANGFUSE_TRACING_ENVIRONMENT", "")
+LABDIR = os.path.expanduser("~/work/mcplab")        # the SAME folder as Lab 4.1
+CONFIG_PATH = os.path.join(LABDIR, "opencode.json")
 
 MCP_URL = HOST.rstrip("/") + "/api/public/mcp" if HOST else ""
 AUTH    = base64.b64encode(f"{PK}:{SK}".encode()).decode() if (PK and SK) else ""
@@ -771,275 +767,177 @@ AUTH    = base64.b64encode(f"{PK}:{SK}".encode()).decode() if (PK and SK) else "
 def ready() -> bool:
     return bool(HOST and PK and SK)
 
+print("lab 4.1 config :", CONFIG_PATH, "-", "found" if os.path.exists(CONFIG_PATH) else "NOT FOUND")
 if ready():
-    print("endpoint   :", MCP_URL)
-    print("credential : Basic base64(public:secret) -- built from keys already in your environment")
-    print("your traces:", ENVTAG or "(environment tag not set)")
+    print("langfuse       :", MCP_URL)
+    print("your traces    :", MINE or "(environment tag not set)")
     os.makedirs(LABDIR, exist_ok=True)
-    print("lab folder :", LABDIR)
 else:
-    print("Not configured. This lab reads three variables the sandbox already sets:")
+    print("\nNot configured. This lab reads three variables the sandbox already sets:")
     for n in ("LANGFUSE_HOST", "LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY"):
         print(f"  {n:22} {'set' if os.environ.get(n) else 'MISSING'}")
-    print("\nEvery cell below skips cleanly until they are set. Ask the trainer.")
+    print("Every cell below skips cleanly until they are set.")
 '''),
 
     md("""
-## Step 1 &mdash; Connect
+## Step 1 &mdash; Add a second server to the agent you already have
 
-The same shape as Lab 4.1: `type: remote`, a URL, one header. Only the values differ &mdash; and
-this time the header is built from *your* project keys, so the server will answer about *your*
-project and nobody else's.
+Lab 4.1 left an `opencode.json` in this folder with one MCP server in it. We are going to **add**
+to it, not replace it &mdash; so the same agent ends up holding both Jira and Langfuse.
+
+That is worth noticing on its own: an agent's capabilities are a list you extend, and each entry is
+a separate grant with its own credential.
+""") ,
+    code(r'''
+def load_config() -> dict:
+    """Read Lab 4.1's config, or start a fresh one if you skipped that lab."""
+    if os.path.exists(CONFIG_PATH):
+        return json.load(open(CONFIG_PATH))
+    return {
+        "$schema": "https://opencode.ai/config.json",
+        "provider": {"litellm": {
+            "npm": "@ai-sdk/openai-compatible", "name": "LiteLLM Gateway",
+            "options": {"baseURL": "{env:LAB_LLM_BASE_URL}", "apiKey": "{env:LITELLM_API_KEY}"},
+            "models": {"qwen36-35b-a3b-lab": {"name": "Qwen3.6 35B A3B (lab)"}}}},
+        "mcp": {},
+    }
+
+
+if ready():
+    cfg = load_config()
+    before = sorted(cfg.get("mcp", {}))
+
+    # ---- the whole integration: one more entry in the mcp block --------------
+    cfg.setdefault("mcp", {})["langfuse"] = {
+        "type": "remote",
+        "url": MCP_URL,
+        "enabled": True,
+        # The key pair IS the project scope -- Langfuse works out which project to
+        # answer for from these credentials. Nothing else in the config names it.
+        "headers": {"Authorization": "Basic " + AUTH},
+    }
+    # Sensible default: let it read freely, never let it delete.
+    cfg.setdefault("permission", {}).update({"langfuse_delete*": "deny"})
+
+    with open(CONFIG_PATH, "w") as fh:
+        json.dump(cfg, fh, indent=2)
+
+    print("servers before :", before or "(none - you skipped Lab 4.1, that is fine)")
+    print("servers after  :", sorted(cfg["mcp"]))
+    print("\nwrote", CONFIG_PATH)
+else:
+    print("skipped - see the preflight cell")
+'''),
+
+    md("""
+## Step 2 &mdash; Confirm both are live
 """),
     code(r'''
-CONFIG = {
-    "$schema": "https://opencode.ai/config.json",
-    "provider": {
-        "litellm": {
-            "npm": "@ai-sdk/openai-compatible",
-            "name": "LiteLLM Gateway",
-            "options": {"baseURL": "{env:LAB_LLM_BASE_URL}", "apiKey": "{env:LITELLM_API_KEY}"},
-            "models": {"qwen36-35b-a3b-lab": {"name": "Qwen3.6 35B A3B (lab)"}},
-        }
-    },
-    "mcp": {
-        "langfuse": {
-            "type": "remote",
-            "url": MCP_URL,
-            "enabled": True,
-            # The key pair IS the project scope: Langfuse resolves which project to
-            # answer for from these credentials. Nothing else in the config names it.
-            "headers": {"Authorization": "Basic " + AUTH},
-        }
-    },
-}
-
-def write_config(cfg):
-    path = os.path.join(LABDIR, "opencode.json")
-    with open(path, "w") as fh:
-        json.dump(cfg, fh, indent=2)
-    return path
-
 def oc(*args, timeout=180):
     p = subprocess.run(["opencode", *args], cwd=LABDIR, capture_output=True, text=True, timeout=timeout)
     return re.sub(r"\x1b\[[0-9;?]*[a-zA-Z]", "", (p.stdout or "") + (p.stderr or ""))
 
 if ready():
-    write_config(CONFIG)
     print(oc("mcp", "list"))
 else:
     print("skipped - see the preflight cell")
 '''),
 
     md("""
-## Step 2 &mdash; Discover, and weigh it
+## Step 3 &mdash; Ask it something you would otherwise have queried
 
-`initialize`, then `tools/list` &mdash; the same two calls as Lab 4.1. What comes back is not the
-same size.
+In a terminal (**File &rarr; New &rarr; Terminal**), as in Lab 4.1. Start here, then work through
+the library below.
 """),
     code(r'''
-def rpc(method, params=None, sid=None, timeout=120):
-    body = json.dumps({"jsonrpc": "2.0", "id": 1, "method": method, "params": params or {}}).encode()
-    req = urllib.request.Request(MCP_URL, data=body, method="POST")
-    req.add_header("Content-Type", "application/json")
-    req.add_header("Accept", "application/json, text/event-stream")
-    req.add_header("Authorization", "Basic " + AUTH)
-    if sid:
-        req.add_header("Mcp-Session-Id", sid)
-    with urllib.request.urlopen(req, timeout=timeout) as r:
-        raw, sess = r.read().decode(), r.headers.get("mcp-session-id")
-    for line in raw.splitlines():
-        if line.startswith("data:"):
-            raw = line[5:].strip()
-            break
-    return json.loads(raw).get("result", {}), sess
-
-
-if ready():
-    init, session = rpc("initialize", {
-        "protocolVersion": "2025-06-18", "capabilities": {},
-        "clientInfo": {"name": "lab-4-2", "version": "1.0"}})
-    print("serverInfo:", init.get("serverInfo"))
-
-    tools = rpc("tools/list", {}, sid=session)[0]["tools"]
-    names = [t["name"] for t in tools]
-    mutating = [n for n in names if n.startswith(("create", "update", "delete"))]
-    schema_bytes = len(json.dumps(tools))
-
-    print(f"\ntools published : {len(names)}")
-    print(f"  of which write: {len(mutating)}  (create / update / delete)")
-    print(f"  schema weight : {schema_bytes:,} characters, roughly {schema_bytes//4:,} tokens")
-    print(f"                  ...re-sent to the model on EVERY turn, before your question")
-    print("\na few you can read:", ", ".join(n for n in names if n.startswith(("list", "get")))[:150], "...")
-    print("a few you cannot undo:", ", ".join(n for n in names if n.startswith("delete"))[:150], "...")
-else:
-    print("skipped - see the preflight cell")
-'''),
-
-    md("""
-Two things in that output are worth sitting with.
-
-**The token weight.** Those schemas are context you have already spent before the model reads your
-question. Discovery is not free, and it recurs on every turn of every run.
-
-**The `delete` tools.** They act on the project your own traces live in. Nothing here is malicious
-&mdash; Langfuse publish a complete API and that is reasonable of them. But your agent has been
-handed the destructive half along with the useful half, and the only thing standing between a
-loosely worded prompt and `deleteDashboard` is the model's judgement.
-"""),
-
-    md("""
-## Step 3 &mdash; Scope it, from the client
-
-In Lab 4.1 we cut the tool set with `--enabled-tools`, because we ran that server. Here we cannot:
-it is Langfuse's process, and their API is deliberately complete.
-
-So the boundary moves into your own config. `opencode` decides per tool: `allow` silently,
-`ask` prompts you, `deny` refuses. Wildcards work, and the specific name wins over the pattern.
-"""),
-    code(r'''
-CONFIG["permission"] = {
-    "langfuse_delete*": "deny",    # never, not even if asked nicely
-    "langfuse_create*": "ask",     # a human decides, in the moment
-    "langfuse_update*": "ask",
-}
-
-if ready():
-    write_config(CONFIG)
-    print(json.dumps(CONFIG["permission"], indent=2))
-    print("\nThe server still publishes all", len(names), "tools and still lists them.")
-    print("What changed is which ones THIS client is willing to call.")
-    print("\nNote what this does NOT do: the same key pair still works against the")
-    print("Langfuse REST API directly, where none of these rules apply. Client-side")
-    print("scoping constrains your agent, not your credential.")
-else:
-    print("skipped - see the preflight cell")
-'''),
-
-    md("""
-## Step 4 &mdash; Ask about your own data
-
-In a terminal (**File &rarr; New &rarr; Terminal**), as in Lab 4.1.
-
-If you have not run any Day 3 labs yet the counts will be small or zero &mdash; that is fine and it
-is still a real answer about a real project.
-"""),
-    code(r'''
-TASK = ("Use the langfuse MCP tools. How many observations are in this project, and what are the "
-        "three most recent ones? Answer briefly. Do not create, update or delete anything.")
+FIRST = ("Call getMetricsSchema first. Then show me average and maximum latency by observation "
+         "type and by name for the last 7 days, as a table sorted by average latency.")
 
 if ready():
     print("Open File > New > Terminal, then paste:\n")
-    print(f"cd {LABDIR} && \\\n  opencode run --model litellm/qwen36-35b-a3b-lab \\\n    \"{TASK}\"")
-    print("\nThen try one it is not allowed to do:\n")
-    print(f"cd {LABDIR} && \\\n  opencode run --model litellm/qwen36-35b-a3b-lab \\\n"
-          f"    \"Use the langfuse MCP tools to delete every dashboard in this project.\"")
+    print(f"cd {LABDIR} && \\\n  opencode run --model litellm/qwen36-35b-a3b-lab \\\n    \"{FIRST}\"")
 else:
     print("skipped - see the preflight cell")
 '''),
 
     md("""
-Run that second command and read the answer carefully, because it is not what most people expect.
+That table &mdash; every step you run, ranked by how slow it is &mdash; is the thing teams build a
+dashboard for. You asked for it in one sentence, and the agent worked out the query.
 
-The agent does not say *"I am not allowed to do that."* It says the tool **does not exist**. `deny`
-is not a policy the model is asked to respect &mdash; the tool never reaches it, so there is nothing
-to refuse and nothing to argue with. Measured on this sandbox: with `langfuse_delete*` denied, the
-agent looked, found the dashboard, and then reported that the server offers no way to delete one.
+Watch what it does when it gets something wrong, too. Langfuse rejects a bad dimension name with a
+message listing the valid ones, and the agent simply tries again with the right one. **Good tool
+errors are what make an agent recoverable** &mdash; the same lesson as Lab 4.1's failure envelope,
+seen from the client side.
+"""),
+]
 
-That is the same shape as Lab 4.1's scoped Jira server, arrived at from the other end. A capability
-the model was never offered is stronger than a capability it was told not to use.
+LAB2 += [
+    md("""
+## The prompt library
 
-## What this lab changed
+This is what to take away. Every question below is one a team normally answers with an export, a
+query, or twenty minutes of clicking. All of them were run against this project before being
+written down.
 
-Two servers, two labs, one protocol &mdash; and almost everything else different:
+**Three things that make them work:**
 
-| | 4.1 Jira | 4.2 Langfuse |
-|---|---|---|
-| tools | 5, because we chose 5 | 85, because they publish 85 |
-| where scoping happens | the server, our flag | the client, our config |
-| who the credential is | one shared service account | your project |
-| blast radius | a scratch board | your own observability data |
-
-**The lesson that survives both:** the tool list is a grant. In 4.1 you granted it by starting a
-process with certain flags. Here you granted it by writing a URL and a header, and then took some
-of it back in a `permission` block. Either way the decision was yours, it lived in a config file,
-and nothing in the protocol made it for you.
-
-**And the caveat that survives both:** scoping the *client* does not scope the *credential*. Those
-keys still work against the Langfuse REST API, where your `deny` rules mean nothing. If that
-matters, the answer is a narrower key &mdash; not a longer config.
-
-## A prompt library worth keeping
-
-This is the part to take away. Every question below is one a team normally answers by exporting
-data, writing a query, or clicking a UI for twenty minutes. Paste them into the same terminal.
-
-**Three things that make these work, all learned by running them:**
-
-1. **Start with `getMetricsSchema`.** Without it the agent guesses a dimension name, gets rejected,
-   and retries. It recovers &mdash; the server's errors are good enough to self-correct from, which
-   is worth watching once &mdash; but it costs turns. Prefix metrics questions with
-   *"call getMetricsSchema first, then ..."*.
+1. **Begin with *&ldquo;call getMetricsSchema first&rdquo;***. Otherwise the agent guesses a
+   dimension name, gets rejected and retries. It recovers, but it costs turns.
 2. **You share this project with the whole room.** Everyone's traces land here and only the
-   `environment` tag separates them. Yours is in `$LANGFUSE_TRACING_ENVIRONMENT`. Add
-   *"filter to environment = &lt;yours&gt;"* to see just your own work.
-3. ⚠️ **Cost reads zero here, and that is real, not broken.** `totalCost` is null on every
-   observation because the sandbox model has no priced entry in Langfuse. Ask a cost question and a
-   good agent will tell you the data is not there &mdash; which is the correct answer and a useful
-   thing to see it do. **Your observability is only ever as good as your instrumentation.** Use the
-   latency and structure questions below instead; they have real data.
+   `environment` tag separates them &mdash; yours is printed by the preflight cell above, and is
+   also in `$LANGFUSE_TRACING_ENVIRONMENT`. Add *&ldquo;filter to environment = &lt;yours&gt;&rdquo;*
+   to see only your own work.
+3. ⚠️ **Cost reads zero, and that is true rather than broken.** `totalCost` is null on every
+   observation because the sandbox model has no priced entry in Langfuse. Use the latency and
+   structure questions; they have real data.
 
-### Where the time is going
-
-```
-Call getMetricsSchema first. Then show me average and maximum latency by observation type
-and by name for the last 7 days, as a table sorted by average latency.
-```
-*Otherwise: sort a trace list by hand and open them one at a time.*
+### Where the time goes
 
 ```
 Call getMetricsSchema first. Then list the 10 slowest observations in the last 7 days with
 their name, type and latency. What do the slow ones have in common?
 ```
-*The question that finds your bottleneck. Spans and generations differ by orders of magnitude.*
+*Finds your bottleneck. Generations and spans differ by three orders of magnitude.*
 
 ```
-Compare average latency for the last 24 hours against the 24 hours before it. Has anything
-regressed?
+Compare average latency for the last 24 hours against the 24 hours before it.
+Has anything regressed?
 ```
-*Otherwise: two dashboard queries and a mental diff.*
+*A regression check without a dashboard. Run it each morning of a delivery.*
 
-### What the agents are actually doing
+### What your agents are actually doing
 
 ```
-Call getMetricsSchema first. Then break down observations by name for the last 7 days.
+Call getMetricsSchema first. Then break observations down by name for the last 7 days.
 Which steps run most often, and does the ratio between them look right?
 ```
-*This is how you notice a step firing three times when it should fire once.*
+*How you notice `retrieve` firing three times when it should fire once. Nobody spots that
+by reading traces.*
 
 ```
 Which tools are being called, and how often? Use the calledToolNames dimension.
 ```
-*Otherwise: parsing trace payloads by hand. This is the question that reveals a tool you
-shipped and nothing ever selects.*
+*The question that reveals a tool you shipped and nothing ever selects &mdash; which is a
+description problem, and Module 4 is where you fix it.*
 
 ```
 Are there observations with level ERROR or WARNING in the last 7 days? Show the most recent
 five and summarise what they have in common.
 ```
-*Otherwise: reading traces one at a time hoping to spot a pattern.*
+*Triage without opening five traces by hand.*
 
 ```
 Find the slowest observation in the last 7 days, fetch it in full, and explain in three
 sentences what it was doing.
 ```
-*The one to watch: it chains metrics &rarr; list &rarr; fetch, three tools off one sentence.*
+*Three tools off one sentence: metrics &rarr; list &rarr; fetch. This is the one that feels
+like having an analyst.*
 
-### Just mine
+### Just yours, and housekeeping
 
 ```
-Filter everything to environment = <your LANGFUSE_TRACING_ENVIRONMENT>. How many observations
-are mine, what types are they, and which was slowest?
+Filter everything to environment = <your LANGFUSE_TRACING_ENVIRONMENT>. How many
+observations are mine, what types are they, and which was slowest?
 ```
 *The one you will use most on Day 3, once the project is full of everyone's runs.*
 
@@ -1047,26 +945,62 @@ are mine, what types are they, and which was slowest?
 List the prompts in this project with their labels and versions, and tell me which have no
 production label.
 ```
-*Otherwise: clicking through the prompts UI.*
+*Prompt hygiene, which otherwise nobody audits until something breaks.*
 
-### Two that fail interestingly, and are worth running for that
-
-```
-Delete every dashboard in this project.
-```
-*Denied at the client. Read the reply &mdash; the agent reports the capability does not exist.*
+### One that fails, informatively
 
 ```
 What did this project cost last week, broken down by model?
 ```
-*Returns zeros, for the instrumentation reason above. A good agent says so and explains why;
-a bad one invents a number. Worth seeing which you have.*
+*Returns zeros, for the instrumentation reason above. A good agent tells you the data is not
+there and why; a weaker one invents a number. Worth finding out which you have &mdash; and it is
+a fair reminder that **your observability is only ever as good as your instrumentation.**
+"""),
+
+    md("""
+## One safety default, and then you are done
+
+Step 1 quietly added this alongside the server:
+
+```json
+"permission": { "langfuse_delete*": "deny" }
+```
+
+Langfuse publish their whole API, so the server offers plenty that deletes &mdash; dashboards,
+datasets, evaluators, models. Reading is what you came for; deleting is not.
+
+Try it and read the reply carefully:
+
+```
+Delete every dashboard in this project.
+```
+
+The agent does not say *&ldquo;I am not allowed.&rdquo;* It says the tool **does not exist**. `deny`
+withholds the tool rather than policing the call, so there is nothing for the model to be argued
+out of. A capability never offered beats a capability told not to use.
+
+## What this actually bought you
+
+One entry in a config file, and the questions at the top of this lab stopped needing a person.
+
+| the question | what it used to cost |
+|---|---|
+| which step is slowest | a dashboard, or sorting traces by hand |
+| is `retrieve` firing twice | reading traces one at a time |
+| did anything error overnight | someone remembering to look |
+| is that new tool ever called | parsing trace payloads |
+| what did my own run do | filtering a shared project by hand |
+
+None of that is new capability &mdash; the API could always answer it. What changed is that the
+distance between having the question and having the answer is now one sentence, which is the
+difference between a check you *could* run and one you actually do.
 
 ## Your turn
 
-- Change `langfuse_delete*` to `"ask"` and re-run the delete prompt. Notice where the decision lands.
-- Take one prompt above, run it, then check the answer in the Langfuse UI. Trust it only after that.
-- Keep this config. On Day 3, when a trace looks wrong, ask this agent before opening the UI.
+- Run the library against your own environment tag and see how thin it is today. Come back after
+  Day 3's labs and run it again &mdash; same prompts, real data.
+- Take one answer and verify it in the Langfuse UI. Trust the agent only after that.
+- Add a third server to the same config. Notice that nothing about the agent had to change.
 """),
 ]
 
