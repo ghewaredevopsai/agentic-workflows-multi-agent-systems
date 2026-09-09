@@ -701,17 +701,104 @@ an IAM policy.
 """),
 
     md("""
+## A prompt library worth keeping
+
+The ticket you just raised was the *mechanism*. This is the part that saves your team time. Every
+prompt below works with the five tools this server publishes — search, read, read a project,
+create, comment — and every one was run against this board before being written down.
+
+**Three ground rules first:**
+
+1. **Prefix anything you create with your sandbox name**, as the lab did. This board is shared with
+   the whole room.
+2. ⚠️ **Open the ticket after any write.** The agent writes good content in *guessed* markup: asked
+   for a structured description it produced `{expand:Title}==Context==...`, which Jira stored as
+   literal text rather than headings. The content was right, the formatting was not, and only
+   looking showed it. Add *"use plain text with blank lines between sections, no wiki markup"* if
+   you care how it reads.
+3. **Read-only prompts are safe to experiment with.** The write ones are real.
+
+### Triage — the twenty minutes before standup
+
+```
+Read every open issue in project MCPLAB, then give me a triage table: key, one-line summary
+of the problem, and which needs a human decision today versus which can wait. Order by
+urgency and say why for each.
+```
+*Verified: it ranks correctly and spots duplicates unprompted. Otherwise: opening every ticket.*
+
+```
+Which issues in MCPLAB mention PMT-1003? Summarise what we collectively know about that
+payment across all of them, and flag anything contradictory.
+```
+*One payment, several tickets, one answer. Otherwise: a search and four tabs.*
+
+```
+Summarise the MCPLAB queue for standup: three bullets — what changed, what is blocked,
+what needs a decision.
+```
+*Write your update from the board rather than from memory.*
+
+### Raising work that does not need rewriting
+
+```
+I want to raise this: "<paste your rough note, alert text or stack trace>". FIRST search
+MCPLAB for an existing ticket covering the same thing and tell me if one exists. If none
+does, create ONE issue with a clear summary and a description containing Context, Impact,
+Steps to reproduce and Acceptance criteria. Prefix the summary with [<your sandbox>].
+Use plain text, no wiki markup. Report what you did and the key.
+```
+*The highest-value prompt here. Verified: it ran three searches, correctly judged that the
+existing tickets covered single incidents rather than the recurring pattern, and then filed.
+**Duplicate checking is the part humans skip**, and it is the part that costs the team later.*
+
+```
+Turn this alert into a ticket someone can act on without asking me anything:
+"<paste the alert or log line>"
+```
+*Incident intake without the 3am prose.*
+
+### Enrichment — the notes nobody writes
+
+```
+For MCPLAB-2, add a comment stating which policy rule applies, what an operator should check
+before releasing, and what evidence they should attach. Keep it under 80 words.
+```
+*The context that makes a ticket actionable, on a ticket that already exists.*
+
+```
+Read the open MCPLAB issues and add a comment to each one linking it to any related issue
+you find, saying how they relate. Do not create anything new.
+```
+*Cross-referencing a backlog — correct, tedious, and never done by hand.*
+
+```
+Draft a handover comment for the ops lead covering everything currently open: what is
+waiting on whom, and what would go wrong if it waits another day.
+```
+*End-of-shift handover in one call.*
+
+### Two worth running to see how they fail
+
+```
+Delete MCPLAB-3.
+```
+*The tool was scoped out of this server, so it is not that permission was denied — from the
+agent's side the capability does not exist. Compare how that reads against a policy refusal.*
+
+```
+Assign MCPLAB-1 to me and move it to In Progress.
+```
+*Also absent. Notice that the agent tells you what it cannot do rather than pretending — and that
+widening the tool list is a decision someone has to make deliberately.*
+
 ## Your turn
 
-Nothing here is graded. Try a couple and watch which ones the agent gets right:
-
-- Ask it to **add a comment** to the issue it just created.
-- Ask it to **find every issue mentioning PMT-1003** and summarise them in one line.
-- Ask for something the server **cannot** do &mdash; delete the issue, say. The tool was scoped
-  out, so it is not that permission was denied: from the agent's side the capability simply does
-  not exist. Read how that failure reads compared with a policy refusal.
 - Open `opencode.json` and set `"enabled": false`. Re-run Step 4 and watch the same sentence
   produce a completely different answer. That single flag is the grant.
+- Run the triage prompt, then open the board and check it. Trust it only after that.
+- Take one prompt above and rewrite it for a project you actually work on. That is the version
+  worth keeping.
 """),
 
     md("""
