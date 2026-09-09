@@ -1459,198 +1459,35 @@ sys.stdout.buffer.write(out)
 
 
 LAB4 = [
-    header(4, "Ask Your App What It Just Did", "Advanced", 35,
-           ["Trace a payment-exception agent with one line of LangChain callback",
-            "Ask, in English, which tools it called and how many model round-trips it took",
-            "Turn those questions into behavioural tests that run against real traces",
-            "Catch a regression the unit tests cannot see"],
-           "> **The app is the point.** Labs 4.1&ndash;4.3 pointed agents at other people's systems.\n"
-           "> Here the system is *yours*, and MCP is how you interrogate it."),
+    header(4, "Langfuse MCP in a ReAct Agent", "Intermediate", 20,
+           ["Connect to the Langfuse MCP server from Python and list what it offers",
+            "Wrap the tools you want as LangChain tools",
+            "Hand them to a ReAct agent and watch it reason, call and answer"],
+           "> **Short one.** Labs 4.1&ndash;4.3 gave MCP servers to an agent someone else wrote.\n"
+           "> This is the same thing in twenty lines of your own code."),
     setup(4),
-    code(DOMAIN),
 
     md("""
 ## Concept
 
-You have an agent in front of a payments desk. It works &mdash; the answers look right.
+A ReAct agent loops: **reason &rarr; act &rarr; observe**, until it can answer. `act` means calling
+a tool, and LangChain does not care where that tool came from.
 
-Now the questions that actually matter in production:
+So putting an MCP server inside a ReAct agent is one translation step:
 
-- Did it **consult the policy**, or did it recall something plausible from training?
-- How many **model round-trips** did that answer cost?
-- After I reworded the system prompt, is it still calling the same tools?
-- Which step is slow?
+```
+MCP tools/list  ->  StructuredTool  ->  create_agent(tools=[...])
+```
 
-None of that is in the answer. All of it is in the trace. Langfuse already has it, and its MCP
-server turns those questions into things you can ask in English &mdash; and then, once you know the
-shape of the answer, into **assertions you can run in CI**.
-
-That last step is why this lab is graded. A question you can ask is useful; a question you can
-*fail a build on* is a test.
+`name`, `description` and `inputSchema` come straight across &mdash; `StructuredTool` accepts JSON
+Schema as `args_schema`, so there is no conversion to write.
 """),
 
     md("""
-## Section 1 &mdash; The app, traced
+## Step 1 &mdash; Talk to the server
 
-The agent below is deliberately ordinary: two tools over the module's ledger, one system prompt.
-The only unusual line is `CallbackHandler()`, which is all LangChain needs to emit a trace.
-
-`run_name` matters more than it looks &mdash; it is the handle you will use to find this run again
-among everyone else's.
-"""),
-    code(r'''
-from langchain_core.tools import tool
-from langchain.agents import create_agent
-from langfuse import get_client
-from langfuse.langchain import CallbackHandler
-
-import re as _re, socket as _socket
-# Your sandbox name, so your run is findable on a project the whole room shares.
-WHOAMI   = (_re.search(r"(u\d+)", _socket.gethostname()) or _re.match(r"(x)", "x")).group(1)
-RUN_NAME = f"triage-{WHOAMI}-{int(time.time())}"     # yours, findable, unique
-
-
-@tool
-def lookup_payment(ref: str) -> str:
-    """Fetch one payment from the ledger by reference, e.g. PMT-1003."""
-    return json.dumps(LEDGER.get(ref, {"error": "no such payment"}))
-
-
-@tool
-def policy_for(reason_code: str) -> str:
-    """Return the written policy rule for a payment's reason code."""
-    return POLICY.get(reason_code, "no rule on file")
-
-
-def build_app(system_prompt: str):
-    return create_agent(model=get_llm(), tools=[lookup_payment, policy_for],
-                        system_prompt=system_prompt)
-
-
-CAREFUL = ("You triage payment exceptions. Always look the payment up, then look up the policy "
-           "rule for its reason code before answering. Quote the rule. Be brief.")
-
-
-def run_traced(app, question: str, run_name: str):
-    """Invoke the app, tracing it, and return (answer, window).
-
-    The window is the point. Everyone in the room writes to this project, and you
-    will run this agent more than once yourself -- so a question like "did it call
-    policy_for" is meaningless unless it is asked about ONE run. Bracketing the
-    invoke with timestamps is the whole trick.
-    """
-    t0 = time.time() - 2
-    out = app.invoke({"messages": [("user", question)]},
-                     config={"callbacks": [CallbackHandler()], "run_name": run_name})
-    get_client().flush()                    # traces are batched; push them before we go looking
-    return out["messages"][-1].content, (t0, time.time() + 2)
-
-
-if llm_ready():
-    careful = guard(lambda: run_traced(build_app(CAREFUL), "Triage PMT-1003.", RUN_NAME), (None, None))
-    answer, CAREFUL_WINDOW = careful
-    print("run name :", RUN_NAME)
-    print("answer   :", str(answer)[:220])
-else:
-    CAREFUL_WINDOW = None
-    print("Run it for real needs the model. See the setup cell.")
-'''),
-
-    md("""
-## Section 2 &mdash; What counts as evidence
-
-Before asking Langfuse anything, decide what a *good* run looks like. That is the part people skip,
-and it is the whole difference between a dashboard and a test.
-
-For this agent, one claim matters more than the rest: **the answer quoted policy because it read
-policy**, not because the model remembered something similar. There is exactly one observation name
-that proves it.
-"""),
-    code(r'''
-# A real queryMetrics response, captured from this project. No network needed.
-BY_NAME = {"data": [
-    {"name": "triage-u31-1788996887", "count_count": 1},
-    {"name": "ChatOpenAI",            "count_count": 3},
-    {"name": "tools",                 "count_count": 2},
-    {"name": "lookup_payment",        "count_count": 1},
-    {"name": "policy_for",            "count_count": 1},
-]}
-
-
-def times_called(rows: dict, name: str) -> int:
-    """How many observations with this name are in a queryMetrics-by-name response."""
-    return sum(r["count_count"] for r in rows["data"] if r["name"] == name)
-
-
-def consulted_policy(rows: dict) -> bool:
-    """True when the run actually READ the policy rather than recalling one.
-
-    Which observation name is the evidence? Not the agent's name, not the model's.
-    """
-    return times_called(rows, BLANK) > 0
-
-
-def model_round_trips(rows: dict) -> int:
-    """How many times the agent went back to the model. Each one costs money and latency."""
-    return times_called(rows, "ChatOpenAI")
-''', r'''
-# A real queryMetrics response, captured from this project. No network needed.
-BY_NAME = {"data": [
-    {"name": "triage-u31-1788996887", "count_count": 1},
-    {"name": "ChatOpenAI",            "count_count": 3},
-    {"name": "tools",                 "count_count": 2},
-    {"name": "lookup_payment",        "count_count": 1},
-    {"name": "policy_for",            "count_count": 1},
-]}
-
-
-def times_called(rows: dict, name: str) -> int:
-    """How many observations with this name are in a queryMetrics-by-name response."""
-    return sum(r["count_count"] for r in rows["data"] if r["name"] == name)
-
-
-def consulted_policy(rows: dict) -> bool:
-    """True when the run actually READ the policy rather than recalling one."""
-    return times_called(rows, "policy_for") > 0
-
-
-def model_round_trips(rows: dict) -> int:
-    """How many times the agent went back to the model. Each one costs money and latency."""
-    return times_called(rows, "ChatOpenAI")
-'''),
-
-    code(r'''
-# ---- Self-check: your assertions, against captured traces. No model, no network ----
-LAZY = {"data": [{"name": "triage-u31-lazy", "count_count": 1},
-                 {"name": "ChatOpenAI", "count_count": 1},
-                 {"name": "lookup_payment", "count_count": 1}]}      # never opened the policy
-
-check("a run that called policy_for counts as having consulted policy",
-      lambda: consulted_policy(BY_NAME) is True)
-check("a run that skipped it does not",
-      lambda: consulted_policy(LAZY) is False,
-      "this agent answered anyway -- the trace is the only place that shows it guessed")
-check("round-trips are counted from the model observations",
-      lambda: model_round_trips(BY_NAME) == 3)
-check("and the cheap run is visibly cheaper",
-      lambda: model_round_trips(LAZY) < model_round_trips(BY_NAME))
-check("times_called does not confuse the run name with a tool",
-      lambda: times_called(BY_NAME, "lookup_payment") == 1)
-score()
-'''),
-]
-
-LAB4 += [
-    md("""
-## Run it for real &mdash; ask Langfuse about your own run
-
-The bridge below is given to you. It is the same shape as Lab 4.2's config, in Python instead of
-JSON: post to the MCP endpoint, hand back the text. Nothing here is new &mdash; the interesting part
-is the question you ask with it.
-
-⚠️ **One trap worth knowing.** `listObservations` will happily return the whole project's recent
-history and yours may not be on the first page &mdash; it looks exactly like your trace never
-arrived. **Ask `queryMetrics` with a `name` dimension instead.** That is how these were found.
+Two calls: `initialize`, then `tools/list`. Everything the sandbox needs is already in your
+environment.
 """),
     code(r'''
 import base64, urllib.request
@@ -1658,25 +1495,27 @@ import base64, urllib.request
 LF_URL  = os.environ.get("LANGFUSE_HOST", "").rstrip("/") + "/api/public/mcp"
 LF_AUTH = base64.b64encode(f"{os.environ.get('LANGFUSE_PUBLIC_KEY','')}:"
                            f"{os.environ.get('LANGFUSE_SECRET_KEY','')}".encode()).decode()
-_sess = {"id": None}
+_sid = {"v": None}
 
 
 def langfuse_ready() -> bool:
-    return all(os.environ.get(k) for k in ("LANGFUSE_HOST", "LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY"))
+    return all(os.environ.get(k) for k in
+               ("LANGFUSE_HOST", "LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY"))
 
 
 def mcp(method: str, params: dict = None) -> dict:
+    """One JSON-RPC call to the MCP server. Returns the whole envelope."""
     body = json.dumps({"jsonrpc": "2.0", "id": 1, "method": method, "params": params or {}}).encode()
     req = urllib.request.Request(LF_URL, data=body, method="POST")
     req.add_header("Content-Type", "application/json")
     req.add_header("Accept", "application/json, text/event-stream")
     req.add_header("Authorization", "Basic " + LF_AUTH)
-    if _sess["id"]:
-        req.add_header("Mcp-Session-Id", _sess["id"])
+    if _sid["v"]:
+        req.add_header("Mcp-Session-Id", _sid["v"])
     with urllib.request.urlopen(req, timeout=120) as r:
         raw, sid = r.read().decode(), r.headers.get("mcp-session-id")
     if sid:
-        _sess["id"] = sid
+        _sid["v"] = sid
     for line in raw.splitlines():
         if line.startswith("data:"):
             raw = line[5:].strip()
@@ -1684,149 +1523,156 @@ def mcp(method: str, params: dict = None) -> dict:
     return json.loads(raw)
 
 
-def names_in(window) -> dict:
-    """queryMetrics grouped by name, for ONE run's window -- the anatomy of what it did."""
-    start, end = window
+if langfuse_ready():
     mcp("initialize", {"protocolVersion": "2025-06-18", "capabilities": {},
                        "clientInfo": {"name": "lab-4-4", "version": "1.0"}})
-    env = mcp("tools/call", {"name": "queryMetrics", "arguments": {
-        "view": "observations",
-        "dimensions": [{"field": "name"}],
-        "metrics": [{"measure": "count", "aggregation": "count"}],
-        "filters": [],
-        "fromTimestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(start)),
-        "toTimestamp":   time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(end)),
-    }})
-    if "error" in env:
-        return {"data": [], "error": str(env["error"])[:200]}
-    text = "".join(c.get("text", "") for c in env.get("result", {}).get("content", []))
-    return json.loads(text) if text.strip().startswith("{") else {"data": []}
-
-
-if langfuse_ready() and llm_ready() and CAREFUL_WINDOW:
-    time.sleep(6)                                   # ingestion is not instant
-    rows = guard(lambda: names_in(CAREFUL_WINDOW), {"data": []})
-    print("everything THIS run did:\n")
-    for r in sorted(rows.get("data", []), key=lambda r: -r["count_count"])[:10]:
-        print(f"  {r['count_count']:>3}  {r['name']}")
-    print("\n--- your run, judged ---")
-    print("  consulted policy :", consulted_policy(rows))
-    print("  model round-trips:", model_round_trips(rows))
+    published = guard(lambda: mcp("tools/list", {})["result"]["tools"], [])
+    print(f"the server offers {len(published)} tools, for example:")
+    for t in published[:5]:
+        print(f"  {t['name']:24} {t.get('description','')[:56]}")
 else:
-    print("Needs both the model and Langfuse. See the setup cell.")
+    published = []
+    print("Langfuse is not configured here. Set LANGFUSE_HOST / _PUBLIC_KEY / _SECRET_KEY.")
 '''),
 
     md("""
-### The regression this catches
+## Step 2 &mdash; Wrap the ones you want
 
-Now change one word in the prompt and watch the trace change while the *answer* does not.
+You are not binding all of them. Pick the few that answer the question you care about &mdash; every
+tool you hand the agent is one more thing it can choose wrongly, and one more schema it carries on
+every turn.
+
+Fill in the blank: **which field of the MCP spec is the sentence the model reads when deciding
+whether to call this tool?**
 """),
     code(r'''
-# The change under test: same prompt, same question, but this build of the app was
-# never given the policy tool. It will still answer. Confidently.
-def build_lazy_app():
-    return create_agent(model=get_llm(), tools=[lookup_payment],
-                        system_prompt=CAREFUL)
+from langchain_core.tools import StructuredTool
+
+WANTED = ["getMetricsSchema", "queryMetrics", "listObservations"]
 
 
-if llm_ready() and langfuse_ready():
-    lazy_run = f"triage-{WHOAMI}-lazy-{int(time.time())}"
-    lazy_answer, lazy_window = guard(
-        lambda: run_traced(build_lazy_app(), "Triage PMT-1003.", lazy_run), (None, None))
-    print("answer:", str(lazy_answer)[:220])
-    print("\nReads well, doesn't it. Now the trace for THAT run alone:\n")
-    time.sleep(6)
-    after = guard(lambda: names_in(lazy_window), {"data": []}) if lazy_window else {"data": []}
-    for r in sorted(after.get("data", []), key=lambda r: -r["count_count"])[:8]:
-        print(f"  {r['count_count']:>3}  {r['name']}")
-    print("\n  consulted policy :", consulted_policy(after))
-    print("  round-trips      :", model_round_trips(after))
-    print("\npolicy_for is absent, so whatever rule it quoted, it did not read one.")
-    print("The answer never said so. Only the trace does.")
-else:
-    print("skipped - needs the model and Langfuse")
+def as_langchain_tool(spec: dict) -> StructuredTool:
+    """One MCP tool definition -> one LangChain tool."""
+    def call(**kwargs):
+        env = mcp("tools/call", {"name": spec["name"], "arguments": kwargs})
+        if "error" in env:                       # let the model see failures, or it will loop
+            return "ERROR: " + str(env["error"].get("message", env["error"]))[:400]
+        parts = env.get("result", {}).get("content", [])
+        return "".join(p.get("text", "") for p in parts)[:1500]
+
+    return StructuredTool.from_function(
+        func=call,
+        name=spec["name"],
+        description=spec[BLANK][:900],           # name? inputSchema? or the prose?
+        args_schema=spec.get("inputSchema") or {"type": "object", "properties": {}},
+    )
+
+
+tools = [as_langchain_tool(s) for s in published if s["name"] in WANTED]
+print("bridged:", [t.name for t in tools])
+''', r'''
+from langchain_core.tools import StructuredTool
+
+WANTED = ["getMetricsSchema", "queryMetrics", "listObservations"]
+
+
+def as_langchain_tool(spec: dict) -> StructuredTool:
+    """One MCP tool definition -> one LangChain tool."""
+    def call(**kwargs):
+        env = mcp("tools/call", {"name": spec["name"], "arguments": kwargs})
+        if "error" in env:                       # let the model see failures, or it will loop
+            return "ERROR: " + str(env["error"].get("message", env["error"]))[:400]
+        parts = env.get("result", {}).get("content", [])
+        return "".join(p.get("text", "") for p in parts)[:1500]
+
+    return StructuredTool.from_function(
+        func=call,
+        name=spec["name"],
+        description=spec["description"][:900],
+        args_schema=spec.get("inputSchema") or {"type": "object", "properties": {}},
+    )
+
+
+tools = [as_langchain_tool(s) for s in published if s["name"] in WANTED]
+print("bridged:", [t.name for t in tools])
+'''),
+
+    code(r'''
+# ---- Self-check: the objects you built. No model, no network ----
+SPEC = {"name": "listPrompts",
+        "description": "List prompts in the current Langfuse project.",
+        "inputSchema": {"type": "object",
+                        "properties": {"limit": {"type": "integer"}}, "required": []}}
+
+check("the wrapper produces a LangChain tool",
+      lambda: isinstance(as_langchain_tool(SPEC), StructuredTool))
+check("the name survives",
+      lambda: as_langchain_tool(SPEC).name == "listPrompts")
+check("the description is the prose the model reads",
+      lambda: as_langchain_tool(SPEC).description.startswith("List prompts"),
+      "the name says what it is called; only this says when to use it")
+check("MCP's JSON Schema became the tool's arguments",
+      lambda: set(as_langchain_tool(SPEC).args) == {"limit"})
+score()
 '''),
 
     md("""
-## Prompts worth keeping &mdash; and they double as tests
+## Step 3 &mdash; Give them to a ReAct agent
 
-Paste these into the `opencode` agent you configured in Lab 4.2, which already has the Langfuse
-server. Each is a question a developer asks about their own app, and each has an assertion hiding
-inside it.
+`create_agent` builds the reason&ndash;act&ndash;observe loop. It has no idea these tools speak MCP.
+"""),
+    code(r'''
+from langchain.agents import create_agent
 
-**Start every metrics prompt with *&ldquo;call getMetricsSchema first&rdquo;***, and add
-*&ldquo;filter to environment = &lt;yours&gt;&rdquo;* when the project is busy.
+SYSTEM = ("You answer questions about a Langfuse project using the tools provided. "
+          "Call getMetricsSchema before guessing field names. "
+          "If a tool returns an ERROR, read it and fix your arguments. Be brief.")
 
-### Did it behave?
 
-```
-Break observations down by name for the last 15 minutes. Did anything named policy_for run?
-If not, say so plainly.
-```
-*The test: **an agent that quotes policy must have read policy.** Nothing in the answer text
-tells you this. Run it after any prompt change.*
+def ask(question: str) -> str:
+    agent = create_agent(model=get_llm(), tools=tools, system_prompt=SYSTEM)
+    out = agent.invoke({"messages": [("user", question)]})
+    for m in out["messages"]:                       # show the act/observe steps
+        for tc in (getattr(m, "tool_calls", None) or []):
+            print("  act:", tc["name"], json.dumps(tc["args"])[:88])
+    return out["messages"][-1].content
 
-```
-For the last 15 minutes, how many observations are named ChatOpenAI, and how many are tools?
-Is that ratio what you would expect for an agent that calls two tools once each?
-```
-*The test: **round-trip count.** A jump here is a prompt that has started dithering, and it costs
-money on every single run.*
 
-### Is it still fast?
+if llm_ready() and tools:
+    print(guard(lambda: ask("How many observations are in this project? Just the number.")))
+else:
+    print("Run it for real needs the model and Langfuse. See the setup cell.")
+'''),
 
-```
-Call getMetricsSchema first. Then give me average and maximum latency by observation name for
-the last hour, sorted by average. Which step dominates?
-```
-*The test: **a step that got slower.** Usually a tool doing more work than it used to.*
+    md("""
+## What you just saw
 
-```
-Compare the last 15 minutes against the hour before it: observation count, and average
-latency by name. Has anything changed shape?
-```
-*The before-and-after you run around a deploy.*
+The `act:` lines are the ReAct loop. The agent asked for the schema, used it to shape a query, and
+answered &mdash; and if it got an argument wrong, the `ERROR:` your wrapper returned is what let it
+try again instead of looping.
 
-### What actually happened in one run?
+That is the whole integration: **twenty lines, and an MCP server is just tools now.**
+
+## A few more to try
 
 ```
-Find the observations whose name starts with "triage-" from the last 30 minutes, take the most
-recent, and tell me every step it ran in order with its latency.
+Which observation names appear most often in the last hour?
 ```
-*The one to reach for when a single request behaved oddly. Otherwise: opening a trace and
-scrolling.*
 
 ```
-Across the last hour, which tool names appear most often? Is there a tool that never appears
-at all?
+Call getMetricsSchema first, then give me average latency by observation name for today.
 ```
-*The test: **a tool nothing ever selects.** That is a description problem, and Module 4 is where
-you fix it &mdash; but you cannot fix what you cannot see.*
 
-## What this bought your app
-
-The agent's answer was the same in both runs. **The trace was not.** That gap is the whole reason
-this lab exists:
-
-| the question | where the answer lives |
-|---|---|
-| is the answer right? | the response &mdash; and a human reading it |
-| did it get there honestly? | the trace |
-| did it get more expensive? | the trace |
-| did my prompt change break something? | the trace |
-| which step is slow? | the trace |
-
-Unit tests cannot see any of that, because none of it is in the return value. Wiring Langfuse in
-over MCP turns all of it into questions you can ask in English &mdash; and the useful ones you keep
-and run every time you change the prompt.
+```
+List the three most recent observations with their name and type.
+```
 
 ## Your turn
 
-- Tighten `LAZY_PROMPT` until `consulted_policy` goes green again. That loop is prompt engineering
-  with a pass/fail.
-- Add a third tool the agent rarely needs, run it ten times, and find out whether it is ever chosen.
-- Write one more assertion for something you would want to fail a build on, and say out loud what
-  it would have caught.
+- Add `listPrompts` to `WANTED` and ask something that needs it. One line, one more capability.
+- Truncate the description to 30 characters and re-run. Same tools, worse choices &mdash; the prose
+  was doing the work.
+- Point the same wrapper at the Jira server from Lab 4.1. Nothing in it is Langfuse-specific.
 """),
 ]
 
@@ -2445,7 +2291,7 @@ LABS = [
     ("lab-4-01-opencode-jira-over-mcp",         LAB1),
     ("lab-4-02-langfuse-traces-over-mcp",      LAB2),
     ("lab-4-03-github-your-own-identity",      LAB3),
-    ("lab-4-04-ask-your-app-what-it-did",     LAB4),
+    ("lab-4-04-langfuse-mcp-in-a-react-agent", LAB4),
     ("lab-4-05-challenge-bridge-and-boundary",  LAB5),
 ]
 

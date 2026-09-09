@@ -98,17 +98,16 @@ footer a{color:#c7d2fe;text-decoration:none}
   </div>
 
   <div class="lab">
-    <div class="tags">35 min<span class="lvl">Advanced</span></div>
-    <h3><a href="lab-4-04-ask-your-app-what-it-did.ipynb">Lab 4.4 &mdash; Ask Your App What It Just Did</a></h3>
-    <p>Your agent works. But did it read the policy, or recall one? The answer is not in the
-      answer &mdash; it is in the trace.</p>
+    <div class="tags">20 min<span class="lvl">Intermediate</span></div>
+    <h3><a href="lab-4-04-langfuse-mcp-in-a-react-agent.ipynb">Lab 4.4 &mdash; Langfuse MCP in a ReAct Agent</a></h3>
+    <p>The same servers, now inside twenty lines of your own code: MCP tools handed to a
+      reason&ndash;act&ndash;observe loop.</p>
     <ul>
-      <li>Trace a payment-exception agent with one line of LangChain callback</li>
-      <li>Ask which tools it called and how many model round-trips it cost</li>
-      <li>Turn those questions into assertions you can fail a build on</li>
-      <li>Catch a prompt regression that leaves the answer looking fine</li>
+      <li><code>initialize</code> and <code>tools/list</code> from Python</li>
+      <li>Wrap the three you want as <code>StructuredTool</code> &mdash; JSON Schema and all</li>
+      <li>Hand them to <code>create_agent</code> and watch the act/observe steps</li>
     </ul>
-    <div class="sol">1 blank &middot; 5 checks &middot; solution: <code>solutions/lab-4-04-ask-your-app-what-it-did.ipynb</code></div>
+    <div class="sol">1 blank &middot; 4 checks &middot; solution: <code>solutions/lab-4-04-langfuse-mcp-in-a-react-agent.ipynb</code></div>
   </div>
 
   <div class="lab">
