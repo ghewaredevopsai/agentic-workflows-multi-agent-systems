@@ -53,12 +53,18 @@ Each notebook is self-contained and self-grading:
   each carries its own small case file &mdash; a customer support desk, a vendor research brief,
   and a production incident.
 
-**One lab is deliberately different.** Lab 4.1 is a *walkthrough*: there is nothing to fill in
-and nothing to score, and its solution notebook is the same file. It exists so you watch a real
-agent reach a real Jira over MCP before Module 4 asks you to build a server yourself. Run the
-cells in order and read the output &mdash; that is the lab. Two of its steps run in a JupyterLab
-terminal rather than in the notebook, because `opencode` is a terminal agent and watching the tool
-calls scroll past is most of the point.
+**Two labs are deliberately different.** Labs 4.1 and 4.2 are *walkthroughs*: there is nothing to
+fill in and nothing to score, and their solution notebooks are the same files. They exist so you
+watch real MCP servers do real work before the rest of Module 4 asks you to build one. Run the
+cells in order and read the output &mdash; that is the lab.
+
+- **4.1** connects your agent to a Jira board and has it raise a ticket from a sentence.
+- **4.2** adds a second server to *the same* agent &mdash; your Langfuse project &mdash; and leaves
+  you with a library of prompts for getting answers out of your own traces. Keep that config; it is
+  genuinely useful on Day 3.
+
+Some of their steps run in a JupyterLab terminal rather than in the notebook, because `opencode` is
+a terminal agent and watching the tool calls scroll past is most of the point.
 
 Open `hands-on/module-N/index.html` for the lab landing page of a module.
 
