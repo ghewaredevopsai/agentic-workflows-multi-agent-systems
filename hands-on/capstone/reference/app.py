@@ -47,8 +47,9 @@ def cost_usd(model, input_tokens, output_tokens):
 
 
 # ---------------------------------------------------------------- retrieval, per Module 6
-# There is no embedding model on this gateway, so retrieval is lexical -- which is what
-# Lab 6.1 built and, at a corpus of seven documents, is not the weak link.
+# Retrieval here is lexical, deliberately: at a corpus of seven policy documents it is not
+# the weak link, and it keeps the capstone free of a vector store to stand up. Module 6 does
+# the embedded version on a real Chroma collection if you want to swap it in.
 DOCS = [{"id": code, "text": f"{code}. {text}"} for code, text in POLICY.items()]
 DOCS.append({"id": "SANCTIONS_SCREENING", "text": WATCHLIST_NOTE})
 

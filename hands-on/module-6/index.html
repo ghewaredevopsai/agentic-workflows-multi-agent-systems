@@ -32,8 +32,8 @@ footer a{color:#c7d2fe;text-decoration:none}
 <header>
   <a class="home" href="../../course-outline-agentic-workflows-multi-agent-systems.html" title="Course outline">Home</a>
   <h1>Module 6 &mdash; Agentic RAG</h1>
-  <div class="tagline">Day 2 hands-on &middot; five labs, intermediate to advanced</div>
-  <div class="meta"><span>One case file throughout</span> &middot; <span>self-checked</span> &middot; <span>solutions provided</span></div>
+  <div class="tagline">Day 2 hands-on &middot; eight labs, beginner to advanced</div>
+  <div class="meta"><span>One handbook corpus throughout</span> &middot; <span>self-checked</span> &middot; <span>solutions provided</span></div>
 </header>
 
 <div class="container">
@@ -44,83 +44,122 @@ footer a{color:#c7d2fe;text-decoration:none}
       <code>[FAIL]</code> or <code>[TODO]</code>, and the last cell prints your
       <code>Score</code>.</p>
     <p><strong>Self-checks assert on the objects you built</strong> &mdash; a chunked
-      <code>Document</code>, a Chroma collection, a bound <code>@tool</code>, a compiled
-      <code>StateGraph</code>, a parser. None of that needs the gateway, so your score never depends
+      <code>Document</code>, a Chroma collection, a retriever, an LCEL chain. None of that needs the gateway, so your score never depends
       on a live model. Cells marked <strong>Run it for real</strong> do call the sandbox model &mdash;
       if it is unreachable they print how to fix it rather than crashing, so <em>Run All</em> is
       always safe on an untouched notebook.</p>
-    <p><strong>A corpus, not a ledger</strong> &mdash; two short operating documents about the same
-      payments, which the agent has to go and read. Retrieval runs on a real <strong>Chroma</strong>
-      collection, embedded by a thirty-line <code>Embeddings</code> class you can read line by line:
-      the sandbox has no egress, and chromadb's default embedding function wants an 80&nbsp;MB
-      download. Everything else &mdash; chunking, floors, metadata filters, citations, the metrics
-      &mdash; is identical whatever computes the similarity.</p>
+    <p><strong>A company handbook, and two different models.</strong> The corpus is a set of
+      short policy passages, each carrying a category, a source file and a page &mdash; metadata is
+      not decoration, it is the half of retrieval that is exact. Retrieval runs on a real
+      <strong>Chroma</strong> collection embedded by <strong>all-MiniLM-L6-v2</strong>, which runs
+      on your own pod: no gateway, no key, nothing billed. The <em>chat</em> model is the one on the
+      gateway. Keeping those two straight is most of this module.</p>
   </div>
 
         <div class="lab">
-    <div class="tags">35 min<span class="lvl">Intermediate</span></div>
-    <h3><a href="lab-6-01-a-retriever-you-can-inspect.ipynb">Lab 6.1 &mdash; A Retriever You Can Inspect</a></h3>
-    <p>Cut a document two ways and watch one of them put an answer permanently out of reach.</p>
+    <div class="tags">15 min<span class="lvl">Beginner</span></div>
+    <h3><a href="lab-6-01-hello-qwen-the-sandbox-model.ipynb">Lab 6.1 &mdash; Hello Qwen: the Sandbox Model</a></h3>
+    <p>Your first call, and the two settings that decide what the day costs.</p>
     <ul>
-      <li>Split with <code>MarkdownHeaderTextSplitter</code>, so a rule keeps the exception that qualifies it</li>
-      <li>Write an <code>Embeddings</code> class and index the corpus in <strong>Chroma</strong></li>
-      <li>Watch top-k return four confident chunks from a corpus that has nothing &mdash; then choose the floor</li>
-      <li>Scope with a metadata filter &mdash; a filter is also an access control</li>
+      <li>Put the standing instruction and the question in the roles they belong in</li>
+      <li>Pin <code>temperature</code>, because a measurement you cannot repeat is not one</li>
+      <li>Switch the model's own reasoning off, and watch the completion tokens halve</li>
+      <li>Read <code>usage_metadata</code> &mdash; the number Module 6 is about to make you care about</li>
     </ul>
-    <div class="sol">4 blanks &middot; 26 checks &middot; solution: <code>solutions/lab-6-01-a-retriever-you-can-inspect.ipynb</code></div>
+    <div class="sol">4 blanks &middot; 9 checks &middot; solution: <code>solutions/lab-6-01-hello-qwen-the-sandbox-model.ipynb</code></div>
   </div>
 
   <div class="lab">
-    <div class="tags">40 min<span class="lvl">Intermediate &rarr; Advanced</span></div>
-    <h3><a href="lab-6-02-retrieval-as-a-tool.ipynb">Lab 6.2 &mdash; Retrieval as a Tool the Agent Chooses</a></h3>
-    <p>Half the questions in the set need no corpus at all. A pipeline retrieves for all of them.</p>
+    <div class="tags">25 min<span class="lvl">Beginner</span></div>
+    <h3><a href="lab-6-02-understanding-embeddings.ipynb">Lab 6.2 &mdash; Understanding Embeddings</a></h3>
+    <p>Two questions with no words in common, and a number that says they mean the same thing.</p>
     <ul>
-      <li>Wrap the retriever in a <code>@tool</code> &mdash; and write the description the model actually reads</li>
-      <li>Offer it beside the ledger tool with <code>bind_tools</code>, and let the model decide</li>
-      <li>Price always-retrieve: the tokens, and the noise it puts next to the real context</li>
-      <li>Rewrite the user's words into the corpus's vocabulary</li>
+      <li>Turn a sentence into 384 numbers and look at them</li>
+      <li>Predict which pair scores highest, <em>then</em> measure &mdash; the gap is the lesson</li>
+      <li>Choose between <code>embed_query</code> and <code>embed_documents</code>, and know why there are two</li>
+      <li>Build a search engine in fifteen lines, which is all a vector store does</li>
     </ul>
-    <div class="sol">3 blanks &middot; 22 checks &middot; solution: <code>solutions/lab-6-02-retrieval-as-a-tool.ipynb</code></div>
+    <div class="sol">3 blanks &middot; 12 checks &middot; solution: <code>solutions/lab-6-02-understanding-embeddings.ipynb</code></div>
   </div>
 
   <div class="lab">
-    <div class="tags">40 min<span class="lvl">Advanced</span></div>
-    <h3><a href="lab-6-03-adequacy-and-multi-hop.ipynb">Lab 6.3 &mdash; Adequacy, Re-querying and Multi-Hop</a></h3>
-    <p>The loop a pipeline cannot have: judge your own retrieval, then ask again with what it taught you.</p>
+    <div class="tags">25 min<span class="lvl">Intermediate</span></div>
+    <h3><a href="lab-6-03-chromadb-basics.ipynb">Lab 6.3 &mdash; ChromaDB Basics</a></h3>
+    <p>Raw <code>chromadb</code>, one level below the wrapper &mdash; worth seeing once.</p>
     <ul>
-      <li>An adequacy test that can actually say no</li>
-      <li>Build retrieve &rarr; judge &rarr; re-query as a compiled <code>StateGraph</code></li>
-      <li>Re-query with a reason code the first hop taught you</li>
-      <li>A hop budget, a repeat detector, and &lsquo;I could not find it&rsquo; as a real outcome</li>
+      <li>Decide the metadata schema before you need it; you cannot filter on what you did not store</li>
+      <li>Watch a vague question rank the wrong passage first, by 0.001</li>
+      <li>See an off-topic question still return k confident results</li>
+      <li>Scope a search with <code>where</code> &mdash; the half of retrieval that is exact</li>
     </ul>
-    <div class="sol">2 blanks &middot; 19 checks &middot; solution: <code>solutions/lab-6-03-adequacy-and-multi-hop.ipynb</code></div>
+    <div class="sol">4 blanks &middot; 12 checks &middot; solution: <code>solutions/lab-6-03-chromadb-basics.ipynb</code></div>
   </div>
 
   <div class="lab">
-    <div class="tags">40 min<span class="lvl">Advanced</span></div>
-    <h3><a href="lab-6-04-citations-and-refusing.ipynb">Lab 6.4 &mdash; Citations Bound to Spans, and Refusing</a></h3>
-    <p>A citation that names a document proves nothing. A span is checkable by string comparison.</p>
+    <div class="tags">25 min<span class="lvl">Intermediate</span></div>
+    <h3><a href="lab-6-04-loading-and-splitting.ipynb">Lab 6.4 &mdash; Document Loading and Splitting</a></h3>
+    <p>The cut decides what can ever be retrieved together. Nothing downstream can undo it.</p>
     <ul>
-      <li>Declare a citation as a <strong>Pydantic</strong> schema the model has to fill</li>
-      <li>Pick the parser that actually rejects a bad one &mdash; one of the two does not</li>
-      <li>Bind each claim to the exact characters that support it, and drop the ones that cannot be bound</li>
-      <li>Refuse when the corpus cannot answer &mdash; structurally, and then in the prompt</li>
+      <li>Load a real file and see what a <code>Document</code> actually is</li>
+      <li>Choose <code>chunk_size</code> and <code>chunk_overlap</code>, and defend both</li>
+      <li>Separate a rule from the exception that qualifies it &mdash; then put it back</li>
+      <li>See what overlap buys, at the boundary where it matters</li>
     </ul>
-    <div class="sol">4 blanks &middot; 26 checks &middot; solution: <code>solutions/lab-6-04-citations-and-refusing.ipynb</code></div>
+    <div class="sol">3 blanks &middot; 11 checks &middot; solution: <code>solutions/lab-6-04-loading-and-splitting.ipynb</code></div>
   </div>
 
   <div class="lab">
-    <div class="tags">40 min<span class="lvl">Advanced &middot; challenge</span></div>
-    <h3><a href="lab-6-05-challenge-score-the-halves.ipynb">Lab 6.5 &mdash; Challenge: Score the Two Halves Apart</a></h3>
-    <p>A right answer from the wrong evidence passes every demo you will ever run.</p>
+    <div class="tags">25 min<span class="lvl">Intermediate</span></div>
+    <h3><a href="lab-6-05-langchain-and-chroma.ipynb">Lab 6.5 &mdash; LangChain and Chroma</a></h3>
+    <p>One call embeds and stores; the retriever it hands back is what the next lab pipes.</p>
     <ul>
-      <li>Label an eval set, measure recall@k and precision@k, and choose k with the numbers</li>
-      <li>Measure faithfulness and answer relevance with no labels at all</li>
-      <li>Put a run in the 2&times;2 and read off which half to fix</li>
-      <li>Meet the limits of an exact-match faithfulness score &mdash; on purpose</li>
+      <li>Embed and store a corpus with <code>Chroma.from_documents()</code></li>
+      <li>Read the distances that top-k throws away</li>
+      <li>Choose <code>similarity</code> or <code>mmr</code> on a question that actually needs the choice &mdash; and price what mmr costs</li>
+      <li>Scope a retriever with a filter, so the chain inherits it</li>
     </ul>
-    <div class="sol">3 blanks &middot; 21 checks &middot; solution: <code>solutions/lab-6-05-challenge-score-the-halves.ipynb</code></div>
+    <div class="sol">3 blanks &middot; 11 checks &middot; solution: <code>solutions/lab-6-05-langchain-and-chroma.ipynb</code></div>
   </div>
+
+  <div class="lab">
+    <div class="tags">30 min<span class="lvl">Intermediate</span></div>
+    <h3><a href="lab-6-06-your-first-rag-chain.ipynb">Lab 6.6 &mdash; Your First RAG Chain</a></h3>
+    <p>Retriever, prompt, model, parser &mdash; and the one sentence that stops it inventing an answer.</p>
+    <ul>
+      <li>Work out what <code>RunnablePassthrough</code> is actually for</li>
+      <li>Write the refusal clause, then measure the same question with and without it</li>
+      <li>Ask the corpus something it does not contain and watch which version makes something up</li>
+      <li>Notice that three chunks come back either way</li>
+    </ul>
+    <div class="sol">2 blanks &middot; 10 checks &middot; solution: <code>solutions/lab-6-06-your-first-rag-chain.ipynb</code></div>
+  </div>
+
+  <div class="lab">
+    <div class="tags">25 min<span class="lvl">Intermediate</span></div>
+    <h3><a href="lab-6-07-rag-with-citations.ipynb">Lab 6.7 &mdash; RAG with Citations</a></h3>
+    <p>A citation is a binding, not a footnote &mdash; the model can only name what it was given.</p>
+    <ul>
+      <li>Put the source and page <em>into</em> the context, because nothing else can produce them</li>
+      <li>Ask for a fixed citation format, not just &ldquo;cite your sources&rdquo;</li>
+      <li>Build a category-scoped assistant from a filtered retriever</li>
+      <li>Check that every source it named was really in the context</li>
+    </ul>
+    <div class="sol">3 blanks &middot; 11 checks &middot; solution: <code>solutions/lab-6-07-rag-with-citations.ipynb</code></div>
+  </div>
+
+  <div class="lab">
+    <div class="tags">30 min<span class="lvl">Advanced</span></div>
+    <h3><a href="lab-6-08-challenge-handbook-qa-bot.ipynb">Lab 6.8 &mdash; Challenge: a Handbook Q&amp;A Bot</a></h3>
+    <p>Every stage, yours to assemble &mdash; and every number, yours to pick.</p>
+    <ul>
+      <li>Load, split, embed, store, retrieve, answer and cite, with the scaffolding removed</li>
+      <li>Calibrate a confidence threshold against real distances before you choose it</li>
+      <li>Watch the threshold go wrong the moment you re-chunk the corpus</li>
+      <li>Report two numbers, not one &mdash; answered correctly, and refused correctly</li>
+    </ul>
+    <div class="sol">7 blanks &middot; 17 checks &middot; solution: <code>solutions/lab-6-08-challenge-handbook-qa-bot.ipynb</code></div>
+  </div>
+
 
   <div class="note">
     <strong>Regenerating.</strong> Labs and solutions are built from a single source

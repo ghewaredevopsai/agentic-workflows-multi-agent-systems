@@ -25,7 +25,7 @@ not academic:
 Hence the sentinel `BLANK`, which is undefined under both. Still offline: no
 cluster, no model, no network -- just a local kernel.
 """
-import io, json, os, sys, contextlib
+import io, json, os, sys, gc, contextlib
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 LABDIR = os.path.abspath(os.path.join(HERE, ".."))
@@ -75,6 +75,12 @@ def run_plain(path):
                 exec(compile("".join(c["source"]), f"{os.path.basename(path)}#{i}", "exec"), ns)
         except Exception as exc:
             crashed.append(f"cell {i}: {type(exc).__name__}: {exc}")
+    # Module 6 notebooks hold a torch embedding model and a Chroma collection in this
+    # namespace. Eight of them alive at once OOMKilled a 2560Mi sandbox (2026-09-10),
+    # and the run dies with exit 137 rather than reporting anything. Drop it explicitly.
+    ns.clear()
+    del ns
+    gc.collect()
     return tally(buf.getvalue()), crashed
 
 
@@ -114,8 +120,14 @@ def run_kernel(path):
     return tally(out), crashed
 
 
+# An optional argv filter, so one lab can be re-checked without paying for all of them.
+#     python3 verify_labs.py lab-6-04
+only = [a for a in sys.argv[1:] if not a.startswith("-")]
+
 bad = 0
 for fn in sorted(f for f in os.listdir(LABDIR) if f.endswith(".ipynb")):
+    if only and not any(o in fn for o in only):
+        continue
     path = os.path.join(LABDIR, fn)
     (p_todo, p_pass, p_fail), p_crash = run_plain(path)
     (k_todo, k_pass, k_fail), k_crash = run_kernel(path)

@@ -20,9 +20,9 @@ the endpoint is read from the environment, so the admin can point it anywhere wi
 | Package | Needed by | Notes |
 |---|---|---|
 | `mcp` (1.x) | Module 4, labs 4.4 and 4.5 | `mcp.types` &mdash; the SDK's own Pydantic models for `Tool`, `CallToolResult`, `InitializeResult`. **`langchain-mcp-adapters` is NOT installed and the labs do not use it**; the transport is hand-rolled, which is what the module teaches |
-| `chromadb` (1.x) | **all of Module 6** | the vector store. ⚠️ its `DefaultEmbeddingFunction` downloads a MiniLM ONNX model on first call and there is **no egress** &mdash; the labs never use it, they supply their own `Embeddings` subclass |
-| `langchain-chroma` (1.x) | **all of Module 6** | `Chroma` vector store wrapper; passes `embedding_function=None` through, so Chroma's default is never constructed |
-| `langchain-text-splitters` (1.x) | Module 6, lab 6.1 | `MarkdownHeaderTextSplitter`, `RecursiveCharacterTextSplitter` |
+| `chromadb` (1.x) | **all of Module 6** | the vector store, and also the embedding model. Its `DefaultEmbeddingFunction` / `ONNXMiniLM_L6_V2` is **all-MiniLM-L6-v2 over onnxruntime**, 384 dims, ~83 MB cached under `~/.cache/chroma/`. ⚠️ The old note here said there is "no egress" and the download is therefore impossible &mdash; **that was wrong**, measured 2026-09-10: `huggingface.co`, `pypi.org` and the Chroma S3 bucket all return 200 from a sandbox (`allow-egress-internet` NetworkPolicy). The cache is pre-warmed in all 31 PVCs anyway, so first use is ~2 s |
+| `langchain-chroma` (1.x) | **all of Module 6** | `Chroma` vector store wrapper. The labs pass an explicit `Embeddings`, so Chroma never has to guess |
+| `langchain-text-splitters` (1.x) | Module 6, labs 6.4 and 6.8 | `RecursiveCharacterTextSplitter`. ⚠️ **its top-level import pulls in `torch` (+750 MB resident)** &mdash; unavoidable, a narrow `.character` import does it too. Budget for it (see the memory note below) |
 | `langgraph-checkpoint` / `-sqlite` | Module 3, labs 3.6&ndash;3.8 | checkpointer behind `interrupt_before` / `update_state` / `get_state_history` |
 | `fastapi`, `uvicorn` | Module 9, labs 9.1&ndash;9.3 | the service boundary. Graded cells assert on `app.routes` and call handlers directly &mdash; **no server is ever started**, and `TestClient`/`httpx` is deliberately not relied on |
 | `langfuse` (4.x) | Modules 7 and 9, labs 7.2 and 9.4 | **no graded cell touches it**; every Langfuse cell is guarded and returns when unconfigured |
@@ -184,3 +184,23 @@ its output history, initialised to `""`. A blank spelled with underscores is the
 empty string* in a notebook and raises no `NameError`, so `[TODO]` silently becomes `[FAIL]` and a
 blank used as a loop guard never stops its loop. That is why the blank marker is **`BLANK`**, which
 is undefined under both. Do not change it back.
+
+### ⚠️ Module 6 memory budget, measured 2026-09-10
+
+A sandbox has **2560Mi for every kernel at once**, and JupyterLab culls a kernel only after
+**15 minutes idle** (`cull_idle_timeout=900`). Module 6 kernels are far heavier than Day 1's:
+
+| | resident |
+|---|---|
+| a Day 1 kernel (langchain + langgraph) | **~98 MB** |
+| Module 6 labs 6.1, 6.2, 6.3, 6.5, 6.6, 6.7 | **~285&ndash;370 MB** &mdash; ONNX MiniLM, no torch |
+| Module 6 labs 6.4 and 6.8 | **~820&ndash;1140 MB** &mdash; these import a splitter/loader, which drags in torch |
+| the same labs on `HuggingFaceEmbeddings` (rejected) | ~960&ndash;1170 MB **each**, torch everywhere |
+
+The embedding model is reached through **onnxruntime rather than torch** for exactly this
+reason: it took six of the eight labs off torch and cut a typical Module 6 kernel by ~3x.
+`HuggingFaceEmbeddings` gives identical vectors and costs ~840 MB per kernel instead of ~170.
+
+Practical limit: **two heavy labs plus a light one fits; three heavy ones will not.** If a
+cohort starts OOMKilling sandboxes during Module 6, the lever is `cull_idle_timeout`, not the
+memory limit &mdash; 31 &times; 2560Mi is already 79Gi against the namespace's 80Gi quota.
