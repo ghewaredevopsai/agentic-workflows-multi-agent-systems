@@ -90,7 +90,7 @@
       "description": "Total since the pod started. Counters reset on redeploy \u2014 that is your experiment boundary.",
       "gridPos": {
         "h": 4,
-        "w": 4,
+        "w": 3,
         "x": 0,
         "y": 1
       },
@@ -147,11 +147,11 @@
         "type": "prometheus",
         "uid": "prometheus-nuc"
       },
-      "description": "Total time over total requests, since pod start. A MEAN, not a percentile \u2014 the app's histogram buckets are millisecond-scale while it records seconds, so histogram_quantile cannot produce a true p95 yet.",
+      "description": "Total time over total requests, since pod start. Always correct, and the number to lead with; the p95 beside it is what a gate should actually use.",
       "gridPos": {
         "h": 4,
-        "w": 4,
-        "x": 4,
+        "w": 3,
+        "x": 3,
         "y": 1
       },
       "targets": [
@@ -201,8 +201,75 @@
     },
     {
       "type": "stat",
-      "title": "Tokens per request",
+      "title": "p95 end-to-end",
       "id": 4,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      },
+      "description": "Over the dashboard's time range. Needs an app image built 2026-09-11 or later \u2014 before that the histogram used millisecond-scale buckets for second-valued observations and every percentile was a bucket edge. TWO WAYS THIS READS WRONG: a pod still on an older image, and a time range that straddles the upgrade \u2014 histogram_quantile over a window containing BOTH boundary sets returns a bucket edge (10000), not a latency. If this reads 10000, shorten the range until it only covers the current image.",
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 6,
+        "y": 1
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(frontdeskai_request_duration_seconds_bucket{namespace=~\"$namespace\"}[$__range])))",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "decimals": 2,
+          "mappings": [],
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 20
+              },
+              {
+                "color": "red",
+                "value": 40
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Tokens per request",
+      "id": 5,
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus-nuc"
@@ -210,8 +277,8 @@
       "description": "The bill for one user question, across every agent it touched.",
       "gridPos": {
         "h": 4,
-        "w": 4,
-        "x": 8,
+        "w": 3,
+        "x": 9,
         "y": 1
       },
       "targets": [
@@ -262,7 +329,7 @@
     {
       "type": "stat",
       "title": "LLM calls per request",
-      "id": 5,
+      "id": 6,
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus-nuc"
@@ -270,7 +337,7 @@
       "description": "Fan-out. One question, this many model calls. The cheapest thing to tune is usually the number of calls, not the model.",
       "gridPos": {
         "h": 4,
-        "w": 4,
+        "w": 3,
         "x": 12,
         "y": 1
       },
@@ -322,7 +389,7 @@
     {
       "type": "stat",
       "title": "Escalation rate",
-      "id": 6,
+      "id": 7,
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus-nuc"
@@ -330,8 +397,8 @@
       "description": "Requests the manager had to take. Rising means the workers are losing ground.",
       "gridPos": {
         "h": 4,
-        "w": 4,
-        "x": 16,
+        "w": 3,
+        "x": 15,
         "y": 1
       },
       "targets": [
@@ -389,7 +456,7 @@
     {
       "type": "stat",
       "title": "Fallback rate",
-      "id": 7,
+      "id": 8,
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus-nuc"
@@ -397,8 +464,8 @@
       "description": "Static template answers \u2014 the QA gate refused the worker twice. Every one of these is a case for your eval set.",
       "gridPos": {
         "h": 4,
-        "w": 4,
-        "x": 20,
+        "w": 3,
+        "x": 18,
         "y": 1
       },
       "targets": [
@@ -454,14 +521,77 @@
       }
     },
     {
-      "type": "timeseries",
-      "title": "Mean end-to-end latency over time",
-      "id": 8,
+      "type": "stat",
+      "title": "Agent errors",
+      "id": 9,
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus-nuc"
       },
-      "description": "Watch the SHAPE, not the last value. Same build, same cases, and this line still moves \u2014 that spread is the interval your single number is hiding.",
+      "description": "Not a slow request \u2014 a request that did not work. Attribution question two in the deck.",
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 21,
+        "y": 1
+      },
+      "targets": [
+        {
+          "expr": "sum(frontdeskai_agent_errors_total{namespace=~\"$namespace\"}) or vector(0)",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "mappings": [],
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "End-to-end latency \u2014 mean, p50, p95",
+      "id": 10,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      },
+      "description": "Three lines, not one. The gap between p50 and p95 IS the interval \u2014 a mean on its own hides it, and a single run tells you nothing about either. Watch the shape, not the last value. (These use a short rate window, so they are unaffected by a histogram-boundary change further back in the range.)",
       "gridPos": {
         "h": 8,
         "w": 12,
@@ -477,6 +607,24 @@
             "uid": "prometheus-nuc"
           },
           "legendFormat": "mean"
+        },
+        {
+          "expr": "histogram_quantile(0.5, sum by (le) (rate(frontdeskai_request_duration_seconds_bucket{namespace=~\"$namespace\"}[$__rate_interval])))",
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          },
+          "legendFormat": "p50"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(frontdeskai_request_duration_seconds_bucket{namespace=~\"$namespace\"}[$__rate_interval])))",
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          },
+          "legendFormat": "p95"
         }
       ],
       "fieldConfig": {
@@ -507,7 +655,7 @@
     {
       "type": "timeseries",
       "title": "Requests per minute by category",
-      "id": 9,
+      "id": 11,
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus-nuc"
@@ -562,7 +710,7 @@
       "type": "row",
       "title": "The slowest step and the dearest step are not the same step",
       "collapsed": false,
-      "id": 10,
+      "id": 12,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -573,8 +721,8 @@
     },
     {
       "type": "bargauge",
-      "title": "Where the time goes \u2014 mean seconds per call, by agent",
-      "id": 11,
+      "title": "Where the time goes \u2014 mean seconds per call",
+      "id": 13,
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus-nuc"
@@ -582,7 +730,7 @@
       "description": "Mean duration of one call to this agent, since pod start. The tallest bar is where the wall clock goes.",
       "gridPos": {
         "h": 11,
-        "w": 12,
+        "w": 8,
         "x": 0,
         "y": 14
       },
@@ -636,17 +784,80 @@
     },
     {
       "type": "bargauge",
-      "title": "Where the tokens go \u2014 total tokens, by agent",
-      "id": 12,
+      "title": "Where the tail is \u2014 p95 seconds per call",
+      "id": 14,
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus-nuc"
       },
-      "description": "Cumulative tokens attributed to each agent. The tallest bar is where the bill goes \u2014 and it is usually not the same agent as on the left.",
+      "description": "The same agents at the 95th percentile, over the dashboard's time range. An agent whose mean is fine and whose p95 is not is the one your users complain about.",
       "gridPos": {
         "h": 11,
-        "w": 12,
-        "x": 12,
+        "w": 8,
+        "x": 8,
+        "y": 14
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, agent) (rate(frontdeskai_llm_call_duration_seconds_bucket{namespace=~\"$namespace\"}[$__range])))",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          },
+          "legendFormat": "{{agent}}",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "decimals": 2,
+          "color": {
+            "mode": "continuous-BlPu"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "showUnfilled": true,
+        "valueMode": "color",
+        "minVizWidth": 8,
+        "sortBy": "Value",
+        "sortOrder": "Descending",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "type": "bargauge",
+      "title": "Where the tokens go \u2014 total tokens",
+      "id": 15,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      },
+      "description": "Cumulative tokens attributed to each agent. The tallest bar is where the bill goes \u2014 and it is usually not the same agent as either bar to the left.",
+      "gridPos": {
+        "h": 11,
+        "w": 8,
+        "x": 16,
         "y": 14
       },
       "targets": [
@@ -701,7 +912,7 @@
       "type": "row",
       "title": "Trajectory \u2014 not just the answer, but how it got there",
       "collapsed": false,
-      "id": 13,
+      "id": 16,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -713,7 +924,7 @@
     {
       "type": "bargauge",
       "title": "LLM calls by agent \u2014 every ReAct iteration is its own bar",
-      "id": 14,
+      "id": 17,
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus-nuc"
@@ -776,7 +987,7 @@
     {
       "type": "stat",
       "title": "Calls that hit the 3-iteration cap",
-      "id": 15,
+      "id": 18,
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus-nuc"
@@ -839,7 +1050,7 @@
     {
       "type": "stat",
       "title": "Tool-calling error fallbacks",
-      "id": 16,
+      "id": 19,
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus-nuc"
@@ -902,7 +1113,7 @@
     {
       "type": "piechart",
       "title": "Requests by category",
-      "id": 17,
+      "id": 20,
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus-nuc"
@@ -957,7 +1168,7 @@
       "type": "row",
       "title": "Per-agent scorecard \u2014 the tuning worksheet",
       "collapsed": false,
-      "id": 18,
+      "id": 21,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -969,7 +1180,7 @@
     {
       "type": "table",
       "title": "Agent scorecard",
-      "id": 19,
+      "id": 22,
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus-nuc"
@@ -1179,7 +1390,7 @@
       "type": "row",
       "title": "Gates \u2014 the thresholds you agree in a calm week",
       "collapsed": false,
-      "id": 20,
+      "id": 23,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -1190,13 +1401,13 @@
     },
     {
       "type": "timeseries",
-      "title": "Mean end-to-end latency against its ceiling",
-      "id": 21,
+      "title": "p95 end-to-end latency against its ceiling",
+      "id": 24,
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus-nuc"
       },
-      "description": "The dashed line is a PLACEHOLDER ceiling of 20s. Replace it with a number your team agreed before anybody was under pressure.",
+      "description": "The deck gates on p95, not the mean, because the mean hides the requests people actually notice. The dashed line is a PLACEHOLDER ceiling of 20s \u2014 replace it with a number your team agreed before anybody was under pressure.",
       "gridPos": {
         "h": 8,
         "w": 8,
@@ -1205,8 +1416,17 @@
       },
       "targets": [
         {
-          "expr": "sum(rate(frontdeskai_request_duration_seconds_sum{namespace=~\"$namespace\"}[$__rate_interval])) / sum(rate(frontdeskai_request_duration_seconds_count{namespace=~\"$namespace\"}[$__rate_interval]))",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(frontdeskai_request_duration_seconds_bucket{namespace=~\"$namespace\"}[$__rate_interval])))",
           "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          },
+          "legendFormat": "p95"
+        },
+        {
+          "expr": "sum(rate(frontdeskai_request_duration_seconds_sum{namespace=~\"$namespace\"}[$__rate_interval])) / sum(rate(frontdeskai_request_duration_seconds_count{namespace=~\"$namespace\"}[$__rate_interval]))",
+          "refId": "B",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus-nuc"
@@ -1258,7 +1478,7 @@
     {
       "type": "timeseries",
       "title": "Tokens per request against its ceiling",
-      "id": 22,
+      "id": 25,
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus-nuc"
@@ -1325,7 +1545,7 @@
     {
       "type": "timeseries",
       "title": "Errors and fallbacks",
-      "id": 23,
+      "id": 26,
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus-nuc"
@@ -1394,7 +1614,7 @@
     {
       "type": "text",
       "title": "How to use this dashboard",
-      "id": 24,
+      "id": 27,
       "gridPos": {
         "h": 9,
         "w": 24,
@@ -1403,14 +1623,14 @@
       },
       "options": {
         "mode": "markdown",
-        "content": "**This is a report. A gate is a decision.** Nothing here blocks a deploy. To turn a number on this\npage into a gate, pick the panel, agree the ceiling while nobody is under pressure, and fail the\nbuild on it.\n\n**Read every number as a range.** These panels are means since the pod started. Redeploy resets the\ncounters, which is what makes a redeploy a clean experiment boundary: change one thing, replay the\nsame cases, compare. One run of ten cases cannot separate 70% from 80% \u2014 repeat the run, widen the\ncase set, and report the range.\n\n**When something is wrong, ask which step caused it, in this order:** did the right evidence reach\nthe agent (retrieval) \u00b7 did a tool return an error the agent ignored (the `_fb` bars) \u00b7 did the\nsupervisor route it to the wrong desk (category donut) \u00b7 did a handoff drop a constraint \u00b7 and only\nthen, was the evidence there and the model still got it wrong (generation). Four of those five get\nreported as \"the agent hallucinated\" and are not.\n\n**Two panels you should expect to disagree:** *Where the time goes* and *Where the tokens go*.\nCaching the slow agent makes the app fast and no cheaper; trimming the expensive agent's context\nmakes it cheaper and nobody notices the speed. Know which one you were asked to fix.\n\n**Metrics say which agent. Traces say why.** Nothing on this page can tell you whether the\nright evidence reached the agent \u2014 only the span tree can. Go to **Explore \u2192 Tempo** and search\nthe service name `frontdeskai-agenticaiu<N>`; one Tempo serves all 31 participants, which is why\nthe namespace is in the service name. `chat.send` is the parent span, `llm.<agent>` the children.\n\n*Latency here is a mean, not a p95 \u2014 see the panel description on \"Mean end-to-end latency\".*"
+        "content": "**This is a report. A gate is a decision.** Nothing here blocks a deploy. To turn a number on this\npage into a gate, pick the panel, agree the ceiling while nobody is under pressure, and fail the\nbuild on it.\n\n**Read every number as a range.** These panels are means since the pod started. Redeploy resets the\ncounters, which is what makes a redeploy a clean experiment boundary: change one thing, replay the\nsame cases, compare. One run of ten cases cannot separate 70% from 80% \u2014 repeat the run, widen the\ncase set, and report the range.\n\n**When something is wrong, ask which step caused it, in this order:** did the right evidence reach\nthe agent (retrieval) \u00b7 did a tool return an error the agent ignored (the `_fb` bars) \u00b7 did the\nsupervisor route it to the wrong desk (category donut) \u00b7 did a handoff drop a constraint \u00b7 and only\nthen, was the evidence there and the model still got it wrong (generation). Four of those five get\nreported as \"the agent hallucinated\" and are not.\n\n**Two panels you should expect to disagree:** *Where the time goes* and *Where the tokens go*.\nCaching the slow agent makes the app fast and no cheaper; trimming the expensive agent's context\nmakes it cheaper and nobody notices the speed. Know which one you were asked to fix.\n\n**Metrics say which agent. Traces say why.** Nothing on this page can tell you whether the\nright evidence reached the agent \u2014 only the span tree can. Go to **Explore \u2192 Tempo** and search\nthe service name `frontdeskai-agenticaiu<N>`; one Tempo serves all 31 participants, which is why\nthe namespace is in the service name. `chat.send` is the parent span, `llm.<agent>` the children.\n\n*Percentiles need an app image built 2026-09-11 or later; before that the histogram used\nmillisecond-scale buckets for values recorded in seconds, and every quantile was a bucket edge.\nThe means are correct on any image, which is why they are still shown alongside.*"
       }
     },
     {
       "type": "row",
       "title": "App and pod health",
       "collapsed": false,
-      "id": 25,
+      "id": 28,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -1422,7 +1642,7 @@
     {
       "type": "stat",
       "title": "Instances up",
-      "id": 26,
+      "id": 29,
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus-nuc"
@@ -1485,7 +1705,7 @@
     {
       "type": "stat",
       "title": "Pod restarts (1h)",
-      "id": 27,
+      "id": 30,
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus-nuc"
@@ -1552,7 +1772,7 @@
     {
       "type": "stat",
       "title": "Resident memory",
-      "id": 28,
+      "id": 31,
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus-nuc"
@@ -1612,7 +1832,7 @@
     {
       "type": "stat",
       "title": "Process CPU",
-      "id": 29,
+      "id": 32,
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus-nuc"
@@ -1672,7 +1892,7 @@
     {
       "type": "timeseries",
       "title": "Resident memory against the 1Gi namespace ceiling",
-      "id": 30,
+      "id": 33,
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus-nuc"

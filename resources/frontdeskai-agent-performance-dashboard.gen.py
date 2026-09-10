@@ -70,6 +70,8 @@ TOK = f'frontdeskai_llm_tokens_total{{{NS}}}'
 REQC = f'frontdeskai_request_duration_seconds_count{{{NS}}}'
 REQS = f'frontdeskai_request_duration_seconds_sum{{{NS}}}'
 CAT = f'frontdeskai_category_total{{{NS}}}'
+REQB = f'frontdeskai_request_duration_seconds_bucket{{{NS}}}'
+CALLB = f'frontdeskai_llm_call_duration_seconds_bucket{{{NS}}}'
 ESC = f'frontdeskai_escalations_total{{{NS}}}'
 FB = f'frontdeskai_fallbacks_total{{{NS}}}'
 ERR = f'frontdeskai_agent_errors_total{{{NS}}}'
@@ -77,24 +79,33 @@ ERR = f'frontdeskai_agent_errors_total{{{NS}}}'
 # ============================================ 1. the headline number
 row("Overall — and whether it is a number or an anecdote", 0)
 panels += [
-    stat("Requests handled", f'sum({CAT}) or vector(0)', 0, 1, decimals=0,
+    stat("Requests handled", f'sum({CAT}) or vector(0)', 0, 1, w=3, decimals=0,
          desc="Total since the pod started. Counters reset on redeploy — that is your experiment boundary."),
-    stat("Mean end-to-end latency", f'sum({REQS}) / sum({REQC})', 4, 1, unit="s", decimals=2,
-         desc="Total time over total requests, since pod start. A MEAN, not a percentile — the app's histogram buckets are millisecond-scale while it records seconds, so histogram_quantile cannot produce a true p95 yet."),
-    stat("Tokens per request", f'sum({TOK}) / sum({CAT})', 8, 1, decimals=0,
+    stat("Mean end-to-end latency", f'sum({REQS}) / sum({REQC})', 3, 1, w=3, unit="s", decimals=2,
+         desc="Total time over total requests, since pod start. Always correct, and the number to lead with; the p95 beside it is what a gate should actually use."),
+    stat("p95 end-to-end", f'histogram_quantile(0.95, sum by (le) (rate({REQB}[$__range])))', 6, 1, w=3,
+         unit="s", decimals=2,
+         steps=[{"color": "green", "value": None}, {"color": "orange", "value": 20}, {"color": "red", "value": 40}],
+         desc="Over the dashboard's time range. Needs an app image built 2026-09-11 or later — before that the histogram used millisecond-scale buckets for second-valued observations and every percentile was a bucket edge. TWO WAYS THIS READS WRONG: a pod still on an older image, and a time range that straddles the upgrade — histogram_quantile over a window containing BOTH boundary sets returns a bucket edge (10000), not a latency. If this reads 10000, shorten the range until it only covers the current image."),
+    stat("Tokens per request", f'sum({TOK}) / sum({CAT})', 9, 1, w=3, decimals=0,
          desc="The bill for one user question, across every agent it touched."),
-    stat("LLM calls per request", f'sum({CNT}) / sum({CAT})', 12, 1, decimals=2,
+    stat("LLM calls per request", f'sum({CNT}) / sum({CAT})', 12, 1, w=3, decimals=2,
          desc="Fan-out. One question, this many model calls. The cheapest thing to tune is usually the number of calls, not the model."),
-    stat("Escalation rate", f'(sum({ESC}) or vector(0)) / sum({CAT})', 16, 1, unit="percentunit", decimals=1,
+    stat("Escalation rate", f'(sum({ESC}) or vector(0)) / sum({CAT})', 15, 1, w=3, unit="percentunit", decimals=1,
          steps=[{"color": "green", "value": None}, {"color": "orange", "value": 0.2}, {"color": "red", "value": 0.4}],
          desc="Requests the manager had to take. Rising means the workers are losing ground."),
-    stat("Fallback rate", f'(sum({FB}) or vector(0)) / sum({CAT})', 20, 1, unit="percentunit", decimals=1,
+    stat("Fallback rate", f'(sum({FB}) or vector(0)) / sum({CAT})', 18, 1, w=3, unit="percentunit", decimals=1,
          steps=[{"color": "green", "value": None}, {"color": "orange", "value": 0.1}, {"color": "red", "value": 0.25}],
          desc="Static template answers — the QA gate refused the worker twice. Every one of these is a case for your eval set."),
-    ts("Mean end-to-end latency over time",
-       [tgt(f'sum(rate({REQS}[$__rate_interval])) / sum(rate({REQC}[$__rate_interval]))', "A", legend="mean")],
+    stat("Agent errors", f'sum({ERR}) or vector(0)', 21, 1, w=3, decimals=0,
+         steps=[{"color": "green", "value": None}, {"color": "red", "value": 1}],
+         desc="Not a slow request — a request that did not work. Attribution question two in the deck."),
+    ts("End-to-end latency — mean, p50, p95",
+       [tgt(f'sum(rate({REQS}[$__rate_interval])) / sum(rate({REQC}[$__rate_interval]))', "A", legend="mean"),
+        tgt(f'histogram_quantile(0.5, sum by (le) (rate({REQB}[$__rate_interval])))', "B", legend="p50"),
+        tgt(f'histogram_quantile(0.95, sum by (le) (rate({REQB}[$__rate_interval])))', "C", legend="p95")],
        0, 5, 12, 8, unit="s", decimals=2,
-       desc="Watch the SHAPE, not the last value. Same build, same cases, and this line still moves — that spread is the interval your single number is hiding."),
+       desc="Three lines, not one. The gap between p50 and p95 IS the interval — a mean on its own hides it, and a single run tells you nothing about either. Watch the shape, not the last value. (These use a short rate window, so they are unaffected by a histogram-boundary change further back in the range.)"),
     ts("Requests per minute by category",
        [tgt(f'sum by (category) (rate({CAT}[$__rate_interval]) * 60)', "A", legend="{{category}}")],
        12, 5, 12, 8, decimals=2, stack=True,
@@ -104,12 +115,16 @@ panels += [
 # ============================================ 2. slowest vs dearest
 row("The slowest step and the dearest step are not the same step", 13)
 panels += [
-    bargauge("Where the time goes — mean seconds per call, by agent",
-             f'sum by (agent) ({SUMD}) / sum by (agent) ({CNT})', 0, 14, 12, 11, unit="s", decimals=2,
+    bargauge("Where the time goes — mean seconds per call",
+             f'sum by (agent) ({SUMD}) / sum by (agent) ({CNT})', 0, 14, 8, 11, unit="s", decimals=2,
              desc="Mean duration of one call to this agent, since pod start. The tallest bar is where the wall clock goes."),
-    bargauge("Where the tokens go — total tokens, by agent",
-             f'sum by (agent) ({TOK})', 12, 14, 12, 11, decimals=0,
-             desc="Cumulative tokens attributed to each agent. The tallest bar is where the bill goes — and it is usually not the same agent as on the left."),
+    bargauge("Where the tail is — p95 seconds per call",
+             f'histogram_quantile(0.95, sum by (le, agent) (rate({CALLB}[$__range])))', 8, 14, 8, 11,
+             unit="s", decimals=2,
+             desc="The same agents at the 95th percentile, over the dashboard's time range. An agent whose mean is fine and whose p95 is not is the one your users complain about."),
+    bargauge("Where the tokens go — total tokens",
+             f'sum by (agent) ({TOK})', 16, 14, 8, 11, decimals=0,
+             desc="Cumulative tokens attributed to each agent. The tallest bar is where the bill goes — and it is usually not the same agent as either bar to the left."),
 ]
 
 # ============================================ 3. trajectory
@@ -180,11 +195,12 @@ panels.append({
 # ============================================ 5. gates
 row("Gates — the thresholds you agree in a calm week", 49)
 panels += [
-    ts("Mean end-to-end latency against its ceiling",
-       [tgt(f'sum(rate({REQS}[$__rate_interval])) / sum(rate({REQC}[$__rate_interval]))', "A", legend="mean")],
+    ts("p95 end-to-end latency against its ceiling",
+       [tgt(f'histogram_quantile(0.95, sum by (le) (rate({REQB}[$__rate_interval])))', "A", legend="p95"),
+        tgt(f'sum(rate({REQS}[$__rate_interval])) / sum(rate({REQC}[$__rate_interval]))', "B", legend="mean")],
        0, 50, 8, 8, unit="s", decimals=2, thresh_line=True,
        steps=[{"color": "green", "value": None}, {"color": "red", "value": 20}],
-       desc="The dashed line is a PLACEHOLDER ceiling of 20s. Replace it with a number your team agreed before anybody was under pressure."),
+       desc="The deck gates on p95, not the mean, because the mean hides the requests people actually notice. The dashed line is a PLACEHOLDER ceiling of 20s — replace it with a number your team agreed before anybody was under pressure."),
     ts("Tokens per request against its ceiling",
        [tgt(f'sum(rate({TOK}[$__rate_interval])) / sum(rate({CAT}[$__rate_interval]))', "A", legend="tokens/request")],
        8, 50, 8, 8, decimals=0, thresh_line=True,
@@ -221,7 +237,9 @@ right evidence reached the agent — only the span tree can. Go to **Explore →
 the service name `frontdeskai-agenticaiu<N>`; one Tempo serves all 31 participants, which is why
 the namespace is in the service name. `chat.send` is the parent span, `llm.<agent>` the children.
 
-*Latency here is a mean, not a p95 — see the panel description on "Mean end-to-end latency".*
+*Percentiles need an app image built 2026-09-11 or later; before that the histogram used
+millisecond-scale buckets for values recorded in seconds, and every quantile was a bucket edge.
+The means are correct on any image, which is why they are still shown alongside.*
 """.strip(), 0, 58, 24, 9),
 ]
 

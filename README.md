@@ -114,10 +114,12 @@ namespace.
 
 Two things to know before you read a number off it:
 
-- **Latency is a mean, not a percentile.** The app creates its histograms with second-valued
-  observations but no explicit bucket boundaries, so the default millisecond buckets swallow every
-  per-agent call into one. `histogram_quantile` cannot produce a real p95 until that is fixed, so
-  the dashboard shows true means and no fake percentiles.
+- **Percentiles need a current app image.** Until 2026-09-11 the app's histograms recorded seconds
+  into millisecond-scale buckets, so every percentile was a bucket edge rather than a measurement.
+  That is fixed, but a pod running an older image still reports the old buckets — and a time range
+  that straddles the upgrade reads `10000`, because the query is mixing two sets of bucket
+  boundaries. Shorten the range if you see that. Means are shown beside every percentile and are
+  correct either way.
 - **Counters reset when the pod restarts**, which is what makes a redeploy a clean experiment
   boundary: change one thing, replay the same cases, compare.
 
