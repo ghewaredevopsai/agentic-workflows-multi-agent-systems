@@ -89,6 +89,10 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
 .opt.miss{opacity:.62}
 .why{margin-top:14px;background:#f5f3ff;border-left:4px solid #7c3aed;padding:10px 15px;font-size:18px;color:#332457;line-height:1.4;border-radius:0 3px 3px 0}
 .why b{color:#5b21b6}
+.onc{fill:#fff;font-size:22px;font-weight:700}
+.mn{font-family:Consolas,'Courier New',monospace;font-size:16px}
+.take code,.qstem code,.why code,.opt code{font-family:Consolas,'Courier New',monospace;font-size:.94em;background:#eef2ff;color:#312e81;padding:1px 5px;border-radius:3px}
+.take code{background:#fef3c7;color:#78350f}
 .qtag{position:absolute;top:26px;right:40px;font-size:13px;letter-spacing:1px;font-weight:700;color:#6366f1;text-transform:uppercase}
 </style>
 </head>
@@ -130,677 +134,349 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
 <marker id="at" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#0d9488"/></marker>
 </defs></svg>
 
-<div class="slide title" data-sec="Title" data-notes="Day 3 opens here, and the tone changes. Days 1 and 2 added capability. Today asks whether any of it is good enough to put in front of a customer, and gives them the machinery to answer that with numbers instead of a demo.">
+<div class="slide title" data-sec="Title" data-notes="Five slides, five things to measure, and every number on them was measured on FrontDesk AI running in a participant namespace -- so name the metric and the agent every time. Say up front that today is not about opinions: they have built agents for two days and today they find out whether they work. The five labs cover the same five subjects, though not in the slide order -- lab 7.2 builds the tracer, which belongs to slide 4.">
   <h1>Multi-Agent System Evaluation</h1>
   <div class="sub">Module 7 &middot; Day 3 &mdash; Evaluation, Safety &amp; AgentOps</div>
   <div class="rule"></div>
   <div class="meta">
-    Agentic Workflows &amp; Multi-Agent Systems &middot; 3 days &middot; Advanced<br>
-    Trainer: Rajesh Gheware
+    Measuring a real agentic app, with its own numbers<br>
+    Agentic Workflows &amp; Multi-Agent Systems &middot; Trainer: Rajesh Gheware
   </div>
 </div>
 
-<div class="slide" data-sec="Orientation" data-notes="Set the shift explicitly. Two days of building, one day of finding out. Point out that they have already met this module twice -- the harness in Module 4 and the supervisor score in Lab 5.1 were both this module arriving early, because you cannot make a design decision without it. Lab 5.1 is also the cautionary half: it scored 100%, which means that eval set had stopped being an eval set and had become a regression test.">
-  <h2>Two days of building. Today, finding out.</h2>
+<div class="slide" data-sec="Same input, twice" data-notes="Slide one, and it is the reason the module exists. Land the arithmetic: one employee question is not one model call, it is about four -- supervisor, RAG, the worker's loop, QA -- and every one of them can come out differently. Temperature 0 is not determinism; it narrows the choice at each step and does not remove it. The 21-to-57-second spread is measured on this app, same kind of request. So the demo that worked in the room proved that it can work, not that it does. The right-hand column is the whole method of Lab 7.1: repeat, count, report a range.">
+  <h2>The same question, asked twice, gives two different answers</h2>
   <div class="body">
-    <svg width="1180" height="424" viewBox="0 0 1180 424" role="img" aria-label="Day 3 as the day capability stops and measurement starts">
-      <rect x="50" y="60" width="480" height="180" rx="8" fill="#f8f8fd" stroke="#cbd5e1" stroke-width="2"/>
-      <text x="290" y="92" text-anchor="middle" class="lbl">Days 1 and 2</text>
-      <text x="290" y="130" text-anchor="middle" class="bx">It can do more</text>
-      <text x="290" y="166" text-anchor="middle" class="bd">reason, remember, act, collaborate, read</text>
-      <text x="290" y="200" text-anchor="middle" class="bds">every module added a capability</text>
-      <text x="290" y="224" text-anchor="middle" class="bds no">and none of them proved it works</text>
+    <svg width="1180" height="400" viewBox="0 0 1180 400" role="img" aria-label="Why one run of FrontDesk AI tells you almost nothing, and what to do instead">
+      <rect x="22" y="8" width="560" height="384" rx="8" fill="#fef4f4" stroke="#b91c1c" stroke-width="2.5"/>
+      <text x="302" y="40" text-anchor="middle" class="lbl no">What that looks like in FrontDesk AI</text>
+      <text x="42" y="82" class="bd">&bull; One employee question runs about <tspan class="mn">4.25</tspan> model calls on</text>
+      <text x="56" y="106" class="bd">average. Any one of them can come out differently</text>
+      <text x="42" y="146" class="bd">&bull; Temperature is 0 and the runs still differ. The same</text>
+      <text x="56" y="170" class="bd">ticket can even be filed under a different category</text>
+      <text x="42" y="210" class="bd">&bull; Measured here: the same kind of request took</text>
+      <text x="56" y="234" class="bd">anywhere from <tspan class="mn">21</tspan> to <tspan class="mn">57</tspan> seconds</text>
+      <text x="42" y="274" class="bd">&bull; So a demo that worked once tells you it <tspan font-style="italic">can</tspan> work,</text>
+      <text x="56" y="298" class="bd">not that it does</text>
+      <text x="42" y="338" class="bd">&bull; The audit trail under each reply is your record of</text>
+      <text x="56" y="362" class="bd">what actually happened on that run</text>
+      <rect x="598" y="8" width="560" height="384" rx="8" fill="#f0fdf9" stroke="#0d9488" stroke-width="2.5"/>
+      <text x="878" y="40" text-anchor="middle" class="lbl ok">What to do about it</text>
+      <text x="618" y="82" class="bd">&bull; Run every case several times. Write down how often</text>
+      <text x="632" y="106" class="bd">it passed, not whether it passed</text>
+      <text x="618" y="146" class="bd">&bull; Report a range, not one number. &ldquo;8 of 10&rdquo; is a</text>
+      <text x="632" y="170" class="bd">measurement; &ldquo;it works&rdquo; is not</text>
+      <text x="618" y="210" class="bd">&bull; Keep the runs. A number you cannot produce again</text>
+      <text x="632" y="234" class="bd">is not evidence</text>
+      <text x="618" y="274" class="bd">&bull; Change one thing at a time, or you cannot say</text>
+      <text x="632" y="298" class="bd">which change moved the number</text>
+      <text x="618" y="338" class="bd">&bull; Read the audit trail on a failure before you</text>
+      <text x="632" y="362" class="bd">change any code</text>
+    </svg>
+  </div>
+  <div class="take"><b>Try it:</b> ask FrontDesk AI the same question five times, and count how many of the five answers you would have accepted.</div>
+</div>
 
-      <rect x="650" y="60" width="480" height="180" rx="8" fill="#eef2ff" stroke="#4338ca" stroke-width="2.5"/>
-      <text x="890" y="92" text-anchor="middle" class="lbl">Day 3</text>
-      <text x="890" y="130" text-anchor="middle" class="bx">Is it good enough?</text>
-      <text x="890" y="166" text-anchor="middle" class="bd">measure it &middot; make it safe &middot; run it</text>
-      <text x="890" y="200" text-anchor="middle" class="bds">nothing new gets added today</text>
-      <text x="890" y="224" text-anchor="middle" class="bds ok">which is what makes it shippable</text>
+<div class="slide" data-sec="What to check" data-notes="Slide two. The point is that an outcome-only test passes a system that guessed. Walk the first row slowly: FrontDesk AI has a real tool for the leave balance, and a model that answers from memory can be right by luck -- the audit trail is what tells you which happened, because it lists the tools that ran. Second row is the opposite failure and it is the one RAG causes. Then the eval-set point from Lab 5.1: a model supervisor scored 100% on 24 labelled tickets over two runs, so that set became a regression test rather than an eval set. If theirs passes everything, it is too easy.">
+  <h2>Check the answer, and check the path it took</h2>
+  <div class="body">
+    <svg width="1180" height="400" viewBox="0 0 1180 400" role="img" aria-label="Two ways a reply can be wrong, and what an eval set should assert">
+      <rect x="22" y="8" width="560" height="384" rx="8" fill="#fef4f4" stroke="#b91c1c" stroke-width="2.5"/>
+      <text x="302" y="40" text-anchor="middle" class="lbl no">Two ways a reply can be wrong</text>
+      <text x="42" y="82" class="bd">&bull; <tspan font-weight="700">Right answer, wrong path.</tspan> It answered from</text>
+      <text x="56" y="106" class="bd">memory instead of calling <tspan class="mn">get_leave_balance</tspan></text>
+      <text x="42" y="146" class="bd">&bull; <tspan font-weight="700">Wrong answer, right path.</tspan> The correct tools ran and</text>
+      <text x="56" y="170" class="bd">the handbook chunk it retrieved was the wrong one</text>
+      <text x="42" y="210" class="bd">&bull; A reply the employee marked with a thumbs-up can</text>
+      <text x="56" y="234" class="bd">still be wrong. That is an opinion, not a check</text>
+      <text x="42" y="274" class="bd">&bull; The audit trail says which: the category, the</text>
+      <text x="56" y="298" class="bd">confidence, the tools that ran, what QA changed</text>
+      <text x="42" y="338" class="bd">&bull; Confidence under 5 sends it to clarify instead of</text>
+      <text x="56" y="362" class="bd">answering &mdash; that path needs testing too</text>
+      <rect x="598" y="8" width="560" height="384" rx="8" fill="#f0fdf9" stroke="#0d9488" stroke-width="2.5"/>
+      <text x="878" y="40" text-anchor="middle" class="lbl ok">What to do about it</text>
+      <text x="618" y="82" class="bd">&bull; Assert on the final answer <tspan font-weight="700">and</tspan> on the list of</text>
+      <text x="632" y="106" class="bd">tools that actually ran</text>
+      <text x="618" y="146" class="bd">&bull; Put three kinds of case in the set: ordinary, edge,</text>
+      <text x="632" y="170" class="bd">and ones with no good answer at all</text>
+      <text x="618" y="210" class="bd">&bull; Include cases it should refuse or escalate, not</text>
+      <text x="632" y="234" class="bd">only ones it should answer</text>
+      <text x="618" y="274" class="bd">&bull; If your set passes 100% it is a regression test, not</text>
+      <text x="632" y="298" class="bd">an eval set. Go and find harder cases</text>
+      <text x="618" y="338" class="bd">&bull; Treat a thumbs-up as a reason to review, not as a</text>
+      <text x="632" y="362" class="bd">score. Module 8 shows what else it can do</text>
+    </svg>
+  </div>
+  <div class="take"><b>Try it:</b> pick one question and write down the tool calls you expect <i>before</i> you run it, then compare.</div>
+</div>
 
-      <line x1="536" y1="150" x2="644" y2="150" stroke="#4338ca" stroke-width="3" marker-end="url(#ai)"/>
+<div class="slide" data-sec="Per step" data-notes="Slide three, and the numbers are all from our own Grafana. The headline: the slowest step and the dearest step are different steps, so a single total hides both problems. The supervisor is one call and 22% of the wall clock; the HR worker's ReAct loop is three calls and 54% of the tokens. Then the finding worth acting on: seven calls tagged react_iter_2 means HR routinely uses the last of MAX_TOOL_ITERATIONS = 3, and that is a tool-description and prompt problem long before it is a model problem -- which is exactly the +60% tool-description result from Module 1. Metrics tell you WHICH agent; the trace tells you WHY.">
+  <h2>Which step was slow, and which step was expensive</h2>
+  <div class="body">
+    <svg width="1180" height="400" viewBox="0 0 1180 400" role="img" aria-label="Measured per-agent latency and token share for one FrontDesk AI request">
+      <rect x="22" y="8" width="560" height="384" rx="8" fill="#fef4f4" stroke="#b91c1c" stroke-width="2.5"/>
+      <text x="302" y="40" text-anchor="middle" class="lbl no">Measured here, for one employee question</text>
+      <text x="42" y="82" class="bd">&bull; The <tspan class="mn">supervisor</tspan> is the slowest single step &mdash; about</text>
+      <text x="56" y="106" class="bd"><tspan class="mn">22%</tspan> of the total time</text>
+      <text x="42" y="146" class="bd">&bull; The HR worker's think-act-observe loop is the</text>
+      <text x="56" y="170" class="bd">dearest &mdash; about <tspan class="mn">54%</tspan> of all the tokens</text>
+      <text x="42" y="210" class="bd">&bull; So the slowest step and the dearest step are not</text>
+      <text x="56" y="234" class="bd">the same step, on this app</text>
+      <text x="42" y="274" class="bd">&bull; One question costs about <tspan class="mn">4.25</tspan> model calls and</text>
+      <text x="56" y="298" class="bd">about <tspan class="mn">4,400</tspan> tokens</text>
+      <text x="42" y="338" class="bd">&bull; The HR worker often uses its last allowed loop,</text>
+      <text x="56" y="362" class="bd">3 of 3 &mdash; it is running out of turns, not of model</text>
+      <rect x="598" y="8" width="560" height="384" rx="8" fill="#f0fdf9" stroke="#0d9488" stroke-width="2.5"/>
+      <text x="878" y="40" text-anchor="middle" class="lbl ok">What to do about it</text>
+      <text x="618" y="82" class="bd">&bull; Label every model call with the agent that made it.</text>
+      <text x="632" y="106" class="bd">This app does: <tspan class="mn">llm.supervisor</tspan>, <tspan class="mn">llm.hr_react_iter_0</tspan></text>
+      <text x="618" y="146" class="bd">&bull; Measure time and tokens separately. One combined</text>
+      <text x="632" y="170" class="bd">total hides both problems at once</text>
+      <text x="618" y="210" class="bd">&bull; Use the dashboard to find <tspan font-weight="700">which</tspan> step, then the</text>
+      <text x="632" y="234" class="bd">trace to find out <tspan font-weight="700">why</tspan> that step</text>
+      <text x="618" y="274" class="bd">&bull; Fix the step that dominates, not the one that</text>
+      <text x="632" y="298" class="bd">feels slow when you use it</text>
+      <text x="618" y="338" class="bd">&bull; A worker that keeps hitting its loop limit needs</text>
+      <text x="632" y="362" class="bd">better tool descriptions before a bigger model</text>
+    </svg>
+  </div>
+  <div class="take"><b>Try it:</b> open the per-agent panel for your own namespace and name your slowest step and your dearest step.</div>
+</div>
 
-      <rect x="150" y="270" width="880" height="138" rx="6" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
-      <text x="590" y="302" text-anchor="middle" class="bxs am">You have met this module twice already</text>
-      <text x="186" y="336" class="bd">&bull;&nbsp; <tspan font-weight="600">Lab 4.2</tspan> built an eval set, an accuracy and a confusion table &mdash; prose alone moved 2/5 to 5/5</text>
-      <text x="186" y="366" class="bd">&bull;&nbsp; <tspan font-weight="600">Lab 5.1</tspan> scored a supervisor on labelled tickets, and found the set too easy to keep</text>
-      <text x="590" y="398" text-anchor="middle" class="bds">Both arrived early because you cannot make a design decision without them. Today they get rigorous.</text>
+<div class="slide" data-sec="Trust the number" data-notes="Slide four is the uncomfortable one, because the broken metric was ours. Two separate lessons. First: an average is not a promise -- the lifetime mean said 17.2s while a five-minute window said 31.2s, and p95 was 26.2s against a 12.8s mean. Second, and worse: the app created its latency histograms with unit seconds and no explicit bucket boundaries, so OpenTelemetry applied its default MILLISECOND boundaries. All twelve supervisor calls landed in le=5.0, and p50, p95 and p99 all returned the same interpolated fiction. Nothing looked broken. The tell is in the right-hand column: identical percentiles are not consistency.">
+  <h2>An average hides the problem, and the measurement can be wrong</h2>
+  <div class="body">
+    <svg width="1180" height="400" viewBox="0 0 1180 400" role="img" aria-label="How an average and a mis-bucketed histogram both hid the real latency">
+      <rect x="22" y="8" width="560" height="384" rx="8" fill="#fef4f4" stroke="#b91c1c" stroke-width="2.5"/>
+      <text x="302" y="40" text-anchor="middle" class="lbl no">What went wrong here</text>
+      <text x="42" y="82" class="bd">&bull; The lifetime average said <tspan class="mn">17.2s</tspan>. A five-minute</text>
+      <text x="56" y="106" class="bd">window over the same app said <tspan class="mn">31.2s</tspan></text>
+      <text x="42" y="146" class="bd">&bull; p95 was <tspan class="mn">26.2s</tspan> against a <tspan class="mn">12.8s</tspan> average. That gap</text>
+      <text x="56" y="170" class="bd">is exactly what the average was hiding</text>
+      <text x="42" y="210" class="bd">&bull; Worse: this app recorded <tspan font-weight="700">seconds</tspan> into buckets</text>
+      <text x="56" y="234" class="bd">meant for <tspan font-weight="700">milliseconds</tspan></text>
+      <text x="42" y="274" class="bd">&bull; So all 12 supervisor calls fell in one bucket, and</text>
+      <text x="56" y="298" class="bd">p50, p95 and p99 returned the same invented number</text>
+      <text x="42" y="338" class="bd">&bull; A time range spanning the fix mixes both bucket</text>
+      <text x="56" y="362" class="bd">sets and returns 10000 &mdash; an edge, not a time</text>
+      <rect x="598" y="8" width="560" height="384" rx="8" fill="#f0fdf9" stroke="#0d9488" stroke-width="2.5"/>
+      <text x="878" y="40" text-anchor="middle" class="lbl ok">What to do about it</text>
+      <text x="618" y="82" class="bd">&bull; Always show p95 beside the average. One of the two</text>
+      <text x="632" y="106" class="bd">is the promise you are making to users</text>
+      <text x="618" y="146" class="bd">&bull; If p50, p95 and p99 are identical, suspect your</text>
+      <text x="632" y="170" class="bd">buckets before you celebrate consistency</text>
+      <text x="618" y="210" class="bd">&bull; Say what unit you record, and set the bucket edges</text>
+      <text x="632" y="234" class="bd">yourself rather than taking a default</text>
+      <text x="618" y="274" class="bd">&bull; After changing how you measure, read a short</text>
+      <text x="632" y="298" class="bd">window until the old data ages out</text>
+      <text x="618" y="338" class="bd">&bull; Check a new metric against something you can</text>
+      <text x="632" y="362" class="bd">count by hand, once</text>
+    </svg>
+  </div>
+  <div class="take"><b>Try it:</b> compare the average and p95 on your own deployment, then explain the gap out loud.</div>
+</div>
+
+<div class="slide" data-sec="Release gate" data-notes="Slide five closes the module. A dashboard is a report and a gate is a decision, and the difference is that a gate has a threshold and an owner written down in advance. FrontDesk AI already emits everything a gate needs, so this is not aspirational -- and the 20-second placeholder gate would already have fired on our own numbers, which is the honest place to start the conversation. The fourth row on the left is the one people miss: the model, its fallback and the SMTP settings are all changeable from admin chat and persist in system_config, so the thing you measured can change with no deploy and no commit. That is why a number is only meaningful next to the model and prompt that produced it.">
+  <h2>Turning the numbers into a rule that can stop a release</h2>
+  <div class="body">
+    <svg width="1180" height="400" viewBox="0 0 1180 400" role="img" aria-label="The metrics FrontDesk AI already emits, and how to turn them into release gates">
+      <rect x="22" y="8" width="560" height="384" rx="8" fill="#fef4f4" stroke="#b91c1c" stroke-width="2.5"/>
+      <text x="302" y="40" text-anchor="middle" class="lbl no">What the app already gives you</text>
+      <text x="42" y="82" class="bd">&bull; <tspan class="mn">frontdeskai_escalations_total</tspan> and</text>
+      <text x="56" y="106" class="bd"><tspan class="mn">_fallbacks_total</tspan> &mdash; work it could not finish</text>
+      <text x="42" y="146" class="bd">&bull; <tspan class="mn">frontdeskai_agent_errors_total</tspan>, p95 request time,</text>
+      <text x="56" y="170" class="bd">and tokens per request, from the same endpoint</text>
+      <text x="42" y="210" class="bd">&bull; A 20-second latency gate would already have fired:</text>
+      <text x="56" y="234" class="bd">the average was <tspan class="mn">17.2s</tspan>, a five-minute window <tspan class="mn">31.2s</tspan></text>
+      <text x="42" y="274" class="bd">&bull; Anyone with admin chat can change the model at</text>
+      <text x="56" y="298" class="bd">runtime. It is stored and survives a restart</text>
+      <text x="42" y="338" class="bd">&bull; So your numbers can move with no code change, no</text>
+      <text x="56" y="362" class="bd">deploy and no commit to point at</text>
+      <rect x="598" y="8" width="560" height="384" rx="8" fill="#f0fdf9" stroke="#0d9488" stroke-width="2.5"/>
+      <text x="878" y="40" text-anchor="middle" class="lbl ok">What to do about it</text>
+      <text x="618" y="82" class="bd">&bull; Pick three or four numbers, write the threshold</text>
+      <text x="632" y="106" class="bd">beside each one, and name who decides</text>
+      <text x="618" y="146" class="bd">&bull; Say in advance what a failure does: block the</text>
+      <text x="632" y="170" class="bd">release, warn, or wake somebody up</text>
+      <text x="618" y="210" class="bd">&bull; Record which model and which prompt produced</text>
+      <text x="632" y="234" class="bd">every number you keep</text>
+      <text x="618" y="274" class="bd">&bull; Version the prompt and the model and roll them</text>
+      <text x="632" y="298" class="bd">out. They are not settings to edit in place</text>
+      <text x="618" y="338" class="bd">&bull; Alarm when a number moves in <tspan font-weight="700">either</tspan> direction,</text>
+      <text x="632" y="362" class="bd">then go and read the traces</text>
+    </svg>
+  </div>
+  <div class="take"><b>Try it:</b> write one gate for your own deployment in a single line &mdash; the number, the threshold, and the owner.</div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer B. If the room says A, ask how many model calls that one question made -- about four -- and how many of them had to go right. Then point at the 21-to-57-second spread: same app, same kind of request.">
+  <div class="qtag">Question 1 of 5</div>
+  <h2>It passed</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">You run one test case against FrontDesk AI once, and it passes. What have you learned?</div>
+    <div class="opt"><span class="k">A</span><span>That the system handles that case</span></div>
+    <div class="opt"><span class="k">B</span><span>Almost nothing &mdash; one run is one sample, of a request that makes about four model calls</span></div>
+    <div class="opt"><span class="k">C</span><span>That the system is deterministic, because temperature is 0</span></div>
+    <div class="opt"><span class="k">D</span><span>That the case is too easy</span></div>
+  </div></div>
+</div>
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer B. If the room says A, ask how many model calls that one question made -- about four -- and how many of them had to go right. Then point at the 21-to-57-second spread: same app, same kind of request.">
+  <div class="qtag">Answer 1 of 5</div>
+  <h2>It passed</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">You run one test case against FrontDesk AI once, and it passes. What have you learned?</div>
+    <div class="opt miss"><span class="k">A</span><span>That the system handles that case</span></div>
+    <div class="opt hit"><span class="k">B</span><span>Almost nothing &mdash; one run is one sample, of a request that makes about four model calls</span></div>
+    <div class="opt miss"><span class="k">C</span><span>That the system is deterministic, because temperature is 0</span></div>
+    <div class="opt miss"><span class="k">D</span><span>That the case is too easy</span></div>
+    <div class="why"><b>Why:</b> Temperature 0 narrows the choice at each step; it does not remove it. One employee question is about <code>4.25</code> model calls here, any of which can differ, and the same kind of request measured anywhere from 21 to 57 seconds. Run it several times and record how often it passes.</div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer B. This is the single most useful habit in the module. An outcome-only assertion passes a system that guessed, and the guess is right until the day the balance changes. The audit trail lists the tools precisely so this is checkable.">
+  <div class="qtag">Question 2 of 5</div>
+  <h2>Right for the wrong reason</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">FrontDesk AI gives an employee exactly the right leave balance, but the audit trail shows no tool call at all. Does the test pass?</div>
+    <div class="opt"><span class="k">A</span><span>Yes &mdash; the answer was correct, which is what the employee cares about</span></div>
+    <div class="opt"><span class="k">B</span><span>No &mdash; it answered from memory, and the next employee's number will be wrong</span></div>
+    <div class="opt"><span class="k">C</span><span>Yes, as long as the confidence was 7 or above</span></div>
+    <div class="opt"><span class="k">D</span><span>You cannot tell without knowing the model version</span></div>
+  </div></div>
+</div>
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer B. This is the single most useful habit in the module. An outcome-only assertion passes a system that guessed, and the guess is right until the day the balance changes. The audit trail lists the tools precisely so this is checkable.">
+  <div class="qtag">Answer 2 of 5</div>
+  <h2>Right for the wrong reason</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">FrontDesk AI gives an employee exactly the right leave balance, but the audit trail shows no tool call at all. Does the test pass?</div>
+    <div class="opt miss"><span class="k">A</span><span>Yes &mdash; the answer was correct, which is what the employee cares about</span></div>
+    <div class="opt hit"><span class="k">B</span><span>No &mdash; it answered from memory, and the next employee's number will be wrong</span></div>
+    <div class="opt miss"><span class="k">C</span><span>Yes, as long as the confidence was 7 or above</span></div>
+    <div class="opt miss"><span class="k">D</span><span>You cannot tell without knowing the model version</span></div>
+    <div class="why"><b>Why:</b> It was right by luck: nothing fetched the number. An outcome-only test passes this and keeps passing until the balance changes. Assert on the trajectory too &mdash; the tools that ran &mdash; which is why the audit trail lists them.</div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer B. Make them say the two numbers out loud: 22% of the time, 54% of the tokens, different agents. Then the second half -- HR sitting on iteration 3 of 3 is a tools-and-prompt problem, and Module 1 measured tool descriptions at +60%.">
+  <div class="qtag">Question 3 of 5</div>
+  <h2>Slow or expensive</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">On this app the supervisor is the slowest single step, at about 22% of the total time. You are asked to cut the token bill. Where do you look?</div>
+    <div class="opt"><span class="k">A</span><span>The supervisor &mdash; it is the bottleneck</span></div>
+    <div class="opt"><span class="k">B</span><span>The HR worker's loop &mdash; it is about 54% of the tokens, which is a different question from time</span></div>
+    <div class="opt"><span class="k">C</span><span>Both equally, since they are part of one request</span></div>
+    <div class="opt"><span class="k">D</span><span>Change to a cheaper model</span></div>
+  </div></div>
+</div>
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer B. Make them say the two numbers out loud: 22% of the time, 54% of the tokens, different agents. Then the second half -- HR sitting on iteration 3 of 3 is a tools-and-prompt problem, and Module 1 measured tool descriptions at +60%.">
+  <div class="qtag">Answer 3 of 5</div>
+  <h2>Slow or expensive</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">On this app the supervisor is the slowest single step, at about 22% of the total time. You are asked to cut the token bill. Where do you look?</div>
+    <div class="opt miss"><span class="k">A</span><span>The supervisor &mdash; it is the bottleneck</span></div>
+    <div class="opt hit"><span class="k">B</span><span>The HR worker's loop &mdash; it is about 54% of the tokens, which is a different question from time</span></div>
+    <div class="opt miss"><span class="k">C</span><span>Both equally, since they are part of one request</span></div>
+    <div class="opt miss"><span class="k">D</span><span>Change to a cheaper model</span></div>
+    <div class="why"><b>Why:</b> The slowest step and the dearest step are different steps here, measured. Cutting the supervisor helps latency and barely touches the bill. And before D: the HR worker routinely uses its last allowed loop, 3 of 3, which is a tool-description problem first.</div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer C. This was our own bug and it is worth admitting in the room. Nothing looked broken: valid config, data flowing, three tidy percentiles. The unit was seconds and the default boundaries were milliseconds.">
+  <div class="qtag">Question 4 of 5</div>
+  <h2>Suspiciously tidy</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">Your dashboard shows p50, p95 and p99 all at exactly the same value. What is the most likely explanation?</div>
+    <div class="opt"><span class="k">A</span><span>The system is unusually consistent</span></div>
+    <div class="opt"><span class="k">B</span><span>There is not enough traffic yet for the percentiles to separate</span></div>
+    <div class="opt"><span class="k">C</span><span>The histogram buckets are wrong, so every value falls inside one bucket</span></div>
+    <div class="opt"><span class="k">D</span><span>The p99 needs a longer time range to be meaningful</span></div>
+  </div></div>
+</div>
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer C. This was our own bug and it is worth admitting in the room. Nothing looked broken: valid config, data flowing, three tidy percentiles. The unit was seconds and the default boundaries were milliseconds.">
+  <div class="qtag">Answer 4 of 5</div>
+  <h2>Suspiciously tidy</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">Your dashboard shows p50, p95 and p99 all at exactly the same value. What is the most likely explanation?</div>
+    <div class="opt miss"><span class="k">A</span><span>The system is unusually consistent</span></div>
+    <div class="opt miss"><span class="k">B</span><span>There is not enough traffic yet for the percentiles to separate</span></div>
+    <div class="opt hit"><span class="k">C</span><span>The histogram buckets are wrong, so every value falls inside one bucket</span></div>
+    <div class="opt miss"><span class="k">D</span><span>The p99 needs a longer time range to be meaningful</span></div>
+    <div class="why"><b>Why:</b> Exactly what happened on this app: latency in <em>seconds</em> recorded into millisecond buckets, so all 12 supervisor calls sat in <code>le=5.0</code> and the quantile could only interpolate inside that one bucket. Three identical percentiles is a measurement problem, not consistency.</div>
+  </div></div>
+</div>
+
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer A. Close on this. The room reaches for infrastructure and the answer is a configuration change made through a chat box, which no commit records. It is why a number is only meaningful next to the model and prompt that produced it.">
+  <div class="qtag">Question 5 of 5</div>
+  <h2>Green on Monday, red on Tuesday</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">Your p95 latency gate passes on Monday and fails on Tuesday. Nobody deployed any code. What do you check first?</div>
+    <div class="opt"><span class="k">A</span><span>The model &mdash; on this app an admin can change it from chat, and the change persists</span></div>
+    <div class="opt"><span class="k">B</span><span>Nothing &mdash; retry the release, gates are noisy</span></div>
+    <div class="opt"><span class="k">C</span><span>Raise the threshold so the gate matches reality</span></div>
+    <div class="opt"><span class="k">D</span><span>The Kubernetes node the pod landed on</span></div>
+  </div></div>
+</div>
+<div class="slide q" data-sec="Knowledge check" data-notes="Answer A. Close on this. The room reaches for infrastructure and the answer is a configuration change made through a chat box, which no commit records. It is why a number is only meaningful next to the model and prompt that produced it.">
+  <div class="qtag">Answer 5 of 5</div>
+  <h2>Green on Monday, red on Tuesday</h2>
+  <div class="body"><div class="qbox">
+    <div class="qstem">Your p95 latency gate passes on Monday and fails on Tuesday. Nobody deployed any code. What do you check first?</div>
+    <div class="opt hit"><span class="k">A</span><span>The model &mdash; on this app an admin can change it from chat, and the change persists</span></div>
+    <div class="opt miss"><span class="k">B</span><span>Nothing &mdash; retry the release, gates are noisy</span></div>
+    <div class="opt miss"><span class="k">C</span><span>Raise the threshold so the gate matches reality</span></div>
+    <div class="opt miss"><span class="k">D</span><span>The Kubernetes node the pod landed on</span></div>
+    <div class="why"><b>Why:</b> The model, its fallback and the SMTP settings are all changeable at runtime here and survive a restart. So the thing you measured changed with no code change and nothing in git to point at. Record which model and prompt produced every number you keep.</div>
+  </div></div>
+</div>
+
+<div class="slide" data-sec="Your turn" data-notes="Close and hand over to the labs. The five labs are the five slides in order, so say that explicitly. Point out that everything they need is already running: the app emits the metrics, Grafana has a per-agent dashboard filtered by their own namespace, and Tempo has the traces. The one thing to insist on: they must generate their own traffic first, because an empty dashboard reads exactly like a broken one -- the same lesson as never leaving a demo board empty. One thing to brief at the bench: lab 7.2 builds the tracer, and the old deck had a slide making the point that a trace is a TREE and not a log -- nested spans with parents, not a flat sequence of lines. That is now one line on slide 4, so say it out loud before they start 7.2 or the nesting comes as a surprise.">
+  <h2>Your turn &mdash; measure your own deployment</h2>
+  <div class="body">
+    <svg width="1180" height="440" viewBox="0 0 1180 440" role="img" aria-label="Three steps: generate traffic, find the gap between numbers, and write one release gate">
+      <rect x="22" y="8" width="368" height="300" rx="8" fill="#eef2ff" stroke="#4338ca" stroke-width="2.5"/>
+      <circle cx="60" cy="48" r="20" fill="#4338ca"/>
+      <text x="60" y="56" text-anchor="middle" class="onc">1</text>
+      <text x="94" y="56" class="bx">Make some traffic</text>
+      <text x="44" y="106" class="bd">An empty dashboard looks exactly</text>
+      <text x="44" y="132" class="bd">like a broken one. Give it real</text>
+      <text x="44" y="158" class="bd">requests before you read anything.</text>
+      <text x="44" y="204" class="bd">From your sandbox terminal:</text>
+      <text x="44" y="238" class="bd"><tspan class="mn">scripts/generate-test-traffic.sh</tspan></text>
+      <text x="44" y="278" class="bds">Then open Grafana and filter to</text>
+      <text x="44" y="300" class="bds">your own namespace.</text>
+
+      <rect x="406" y="8" width="368" height="300" rx="8" fill="#fef4f4" stroke="#b91c1c" stroke-width="2.5"/>
+      <circle cx="444" cy="48" r="20" fill="#b91c1c"/>
+      <text x="444" y="56" text-anchor="middle" class="onc">2</text>
+      <text x="478" y="56" class="bx">Find the three gaps</text>
+      <text x="428" y="106" class="bd">Average against p95.</text>
+      <text x="428" y="140" class="bd">Slowest step against dearest step.</text>
+      <text x="428" y="174" class="bd">Your eval set against a case you</text>
+      <text x="428" y="200" class="bd">know it gets wrong.</text>
+      <text x="428" y="246" class="bd">Each gap is a number somebody</text>
+      <text x="428" y="272" class="bd">would otherwise have quoted at</text>
+      <text x="428" y="298" class="bd">you as if it were the whole truth.</text>
+
+      <rect x="790" y="8" width="368" height="300" rx="8" fill="#f0fdf9" stroke="#0d9488" stroke-width="2.5"/>
+      <circle cx="828" cy="48" r="20" fill="#0d9488"/>
+      <text x="828" y="56" text-anchor="middle" class="onc">3</text>
+      <text x="862" y="56" class="bx">Write one gate</text>
+      <text x="812" y="106" class="bd">One line: the number, the</text>
+      <text x="812" y="132" class="bd">threshold, and who decides when</text>
+      <text x="812" y="158" class="bd">it fails.</text>
+      <text x="812" y="204" class="bd">Then say what a failure does &mdash;</text>
+      <text x="812" y="230" class="bd">block, warn, or page.</text>
+      <text x="812" y="278" class="bds ok">Example: &ldquo;p95 over 30s does not</text>
+      <text x="812" y="300" class="bds ok">ship &mdash; the on-call decides.&rdquo;</text>
+
+      <rect x="120" y="330" width="940" height="96" rx="6" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
+      <text x="590" y="362" text-anchor="middle" class="bxs am">Five labs, in this order</text>
+      <text x="590" y="394" text-anchor="middle" class="bd">Measure the non-determinism &middot; build the tracer &middot; assert outcome and trajectory &middot;</text>
+      <text x="590" y="418" text-anchor="middle" class="bd">locate the failing step &middot; then build the release gate</text>
     </svg>
   </div>
 </div>
 
-<div class="slide div" data-sec="Non-determinism" data-notes="Part one. The claim that makes everything else necessary, and the one people nod at without changing any of their practices.">
-  <div class="k">Part one</div>
-  <h1>Why the demo proved nothing</h1>
-</div>
-
-<div class="slide" data-sec="Non-determinism" data-notes="The opening claim, and worth being concrete. Temperature zero does not make an agent deterministic: tool ordering, retrieval ties, timeouts, and the model's own non-determinism at scale all move. Ask who has shipped on the strength of a good demo. Everyone has.">
-  <h2>Same input, twice, two different runs</h2>
-  <div class="body">
-    <svg width="1180" height="424" viewBox="0 0 1180 424" role="img" aria-label="The same input producing different agent runs">
-      <text x="590" y="46" text-anchor="middle" class="lbl">one case, submitted three times</text>
-
-      <rect x="70" y="66" width="330" height="120" rx="8" fill="#f0fdf9" stroke="#0d9488" stroke-width="2.5"/>
-      <text x="235" y="96" text-anchor="middle" class="bxs ok">run 1</text>
-      <text x="235" y="126" text-anchor="middle" class="bds">read &rarr; policy</text>
-      <text x="235" y="152" text-anchor="middle" class="bds">2 tool calls &middot; 1,420 tokens</text>
-      <text x="235" y="176" text-anchor="middle" class="bds ok">correct</text>
-
-      <rect x="425" y="66" width="330" height="120" rx="8" fill="#f0fdf9" stroke="#0d9488" stroke-width="2.5"/>
-      <text x="590" y="96" text-anchor="middle" class="bxs ok">run 2</text>
-      <text x="590" y="126" text-anchor="middle" class="bds">read &rarr; policy &rarr; policy &rarr; check</text>
-      <text x="590" y="152" text-anchor="middle" class="bds">4 tool calls &middot; 2,980 tokens</text>
-      <text x="590" y="176" text-anchor="middle" class="bds ok">correct</text>
-
-      <rect x="780" y="66" width="330" height="120" rx="8" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
-      <text x="945" y="96" text-anchor="middle" class="bxs no">run 3</text>
-      <text x="945" y="126" text-anchor="middle" class="bds">read &rarr; policy</text>
-      <text x="945" y="152" text-anchor="middle" class="bds">2 tool calls &middot; 1,450 tokens</text>
-      <text x="945" y="176" text-anchor="middle" class="bds no">wrong &mdash; recommended release</text>
-
-      <text x="590" y="222" text-anchor="middle" class="bd">Same case file. Same prompts. Same model. Temperature zero.</text>
-
-      <rect x="120" y="246" width="940" height="162" rx="6" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
-      <text x="590" y="278" text-anchor="middle" class="bxs am">Temperature zero is not determinism, and never was</text>
-      <text x="156" y="312" class="bd">&bull;&nbsp; floating-point non-associativity: batching and hardware change the arithmetic</text>
-      <text x="156" y="342" class="bd">&bull;&nbsp; ties in retrieval and tool ranking break arbitrarily</text>
-      <text x="156" y="372" class="bd">&bull;&nbsp; timeouts, retries and rate limits change the path, not just the timing</text>
-      <text x="590" y="400" text-anchor="middle" class="bds">A demo is one sample. You watched run 1 and shipped. Run 3 was always in there.</text>
-    </svg>
-  </div>
-</div>
-
-<div class="slide" data-sec="Non-determinism" data-notes="The practical consequence, and the arithmetic that stops a pointless argument. If one case is worth ten points, a ten-point difference is one coin flip -- exactly what Lab 4.2 found. Give them the rule of thumb and the honest caveat that it is a rule of thumb.">
-  <h2>So a number without an interval is an anecdote</h2>
-  <div class="body">
-    <svg width="1180" height="424" viewBox="0 0 1180 424" role="img" aria-label="Pass rates with and without repeats and intervals">
-      <rect x="50" y="56" width="500" height="188" rx="8" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
-      <text x="300" y="88" text-anchor="middle" class="lbl no">What gets reported</text>
-      <text x="300" y="132" text-anchor="middle" class="big no">&ldquo;v2 scores 80%&rdquo;</text>
-      <text x="300" y="170" text-anchor="middle" class="bd">ten cases, one run each</text>
-      <text x="300" y="202" text-anchor="middle" class="bds">v1 scored 70%, so v2 is better</text>
-      <text x="300" y="228" text-anchor="middle" class="bds no">and the meeting moves on</text>
-
-      <rect x="630" y="56" width="500" height="188" rx="8" fill="#f0fdf9" stroke="#0d9488" stroke-width="2.5"/>
-      <text x="880" y="88" text-anchor="middle" class="lbl ok">What was measured</text>
-      <text x="880" y="132" text-anchor="middle" class="big ok">8/10, once</text>
-      <text x="880" y="170" text-anchor="middle" class="bd">one case is worth ten points</text>
-      <text x="880" y="202" text-anchor="middle" class="bds">so 70% and 80% are one flip apart</text>
-      <text x="880" y="228" text-anchor="middle" class="bds ok">nothing has been shown</text>
-
-      <rect x="120" y="272" width="940" height="136" rx="6" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
-      <text x="590" y="304" text-anchor="middle" class="bxs am">The rule: if one case is worth more than the difference you are claiming, you have not measured anything</text>
-      <text x="156" y="340" class="bd">&bull;&nbsp; <tspan font-weight="600">Repeat</tspan> &mdash; the same case several times, because the variance is inside the run, not the case</text>
-      <text x="156" y="370" class="bd">&bull;&nbsp; <tspan font-weight="600">Widen</tspan> &mdash; more cases lower the value of each one, which is what buys resolution</text>
-      <text x="156" y="398" class="bd">&bull;&nbsp; <tspan font-weight="600">Report a range</tspan> &mdash; &ldquo;78&ndash;86%&rdquo; ends arguments that &ldquo;80%&rdquo; starts</text>
-    </svg>
-  </div>
-</div>
-
-<div class="slide div" data-sec="Assertions" data-notes="Part two. What you actually write down, and the distinction that catches the bugs an output check cannot see.">
-  <div class="k">Part two</div>
-  <h1>What to assert</h1>
-</div>
-
-<div class="slide" data-sec="Assertions" data-notes="The most useful distinction in the module. An outcome assertion is what everyone writes; a trajectory assertion is what catches the agent that got there by luck, by brute force, or by doing something it should never have done and then undoing it. The bottom row is the one to dwell on -- it passed.">
-  <h2>Outcome, and how it got there</h2>
-  <div class="body">
-    <svg width="1180" height="424" viewBox="0 0 1180 424" role="img" aria-label="Outcome assertions compared with trajectory assertions">
-      <rect x="50" y="52" width="500" height="212" rx="8" fill="#f8f8fd" stroke="#94a3b8" stroke-width="2"/>
-      <text x="300" y="84" text-anchor="middle" class="lbl">Outcome assertions</text>
-      <text x="300" y="120" text-anchor="middle" class="bxs">did it end in the right place?</text>
-      <text x="76" y="158" class="bds">&bull; the recommendation is &ldquo;hold for a human&rdquo;</text>
-      <text x="76" y="188" class="bds">&bull; the answer cites section 3.2</text>
-      <text x="76" y="218" class="bds">&bull; no payment was released</text>
-      <text x="300" y="250" text-anchor="middle" class="bds">easy to write, and everybody writes them</text>
-
-      <rect x="630" y="52" width="500" height="212" rx="8" fill="#eef2ff" stroke="#4338ca" stroke-width="2.5"/>
-      <text x="880" y="84" text-anchor="middle" class="lbl">Trajectory assertions</text>
-      <text x="880" y="120" text-anchor="middle" class="bxs">did it get there properly?</text>
-      <text x="656" y="158" class="bds">&bull; it read the policy before recommending</text>
-      <text x="656" y="188" class="bds">&bull; it took 3 steps, not 9</text>
-      <text x="656" y="218" class="bds">&bull; it never called release_payment at all</text>
-      <text x="880" y="250" text-anchor="middle" class="bds ok">only possible if you kept the trace</text>
-
-      <rect x="120" y="292" width="940" height="116" rx="6" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
-      <text x="590" y="324" text-anchor="middle" class="bx no">The run that passes every outcome assertion</text>
-      <text x="590" y="356" text-anchor="middle" class="bd">It called <tspan font-weight="600">release_payment</tspan>, the gate refused it, it apologised, and it recommended a hold.</text>
-      <text x="590" y="384" text-anchor="middle" class="bd">Right answer. Nothing released. Every outcome assertion green &mdash; and it tried.</text>
-      <text x="590" y="402" text-anchor="middle" class="bds no">You will never see it without a trajectory assertion, and it is the one you needed to see.</text>
-    </svg>
-  </div>
-</div>
-
-<div class="slide" data-sec="Assertions" data-notes="The composition of the eval set. Most teams have only the first column, which is why their pass rate is high and their incidents are surprising. The third column is the one that grows after every incident -- that is the healthy pattern, and it is how the set earns its keep over years.">
-  <h2>Three kinds of case, and only one of them is comfortable</h2>
-  <div class="body">
-    <svg width="1180" height="424" viewBox="0 0 1180 424" role="img" aria-label="Representative, edge and adversarial cases in an eval set">
-      <rect x="50" y="56" width="345" height="216" rx="8" fill="#f0fdf9" stroke="#0d9488" stroke-width="2.5"/>
-      <text x="222" y="88" text-anchor="middle" class="lbl ok">Representative</text>
-      <text x="222" y="124" text-anchor="middle" class="bxs">the traffic you expect</text>
-      <text x="222" y="162" text-anchor="middle" class="bds">a failed payment, a known</text>
-      <text x="222" y="184" text-anchor="middle" class="bds">reason code, a clear policy</text>
-      <text x="222" y="222" text-anchor="middle" class="bd">tells you it works</text>
-      <text x="222" y="252" text-anchor="middle" class="bds no">and almost nothing else</text>
-
-      <rect x="418" y="56" width="345" height="216" rx="8" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
-      <text x="590" y="88" text-anchor="middle" class="lbl am">Edge</text>
-      <text x="590" y="124" text-anchor="middle" class="bxs">real, rare, and awkward</text>
-      <text x="590" y="162" text-anchor="middle" class="bds">a reason code with no policy,</text>
-      <text x="590" y="184" text-anchor="middle" class="bds">a payment that settled while</text>
-      <text x="590" y="206" text-anchor="middle" class="bds">the agent was thinking</text>
-      <text x="590" y="240" text-anchor="middle" class="bd am">tells you what it does</text>
-      <text x="590" y="262" text-anchor="middle" class="bds am">when it does not know</text>
-
-      <rect x="786" y="56" width="345" height="216" rx="8" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
-      <text x="958" y="88" text-anchor="middle" class="lbl no">Adversarial</text>
-      <text x="958" y="124" text-anchor="middle" class="bxs">someone is trying</text>
-      <text x="958" y="162" text-anchor="middle" class="bds">an instruction in a narrative</text>
-      <text x="958" y="184" text-anchor="middle" class="bds">field, a poisoned chunk,</text>
-      <text x="958" y="206" text-anchor="middle" class="bds">a tool result that lies</text>
-      <text x="958" y="240" text-anchor="middle" class="bd no">tells you what it does</text>
-      <text x="958" y="262" text-anchor="middle" class="bds no">when it is attacked</text>
-
-      <rect x="150" y="300" width="880" height="108" rx="6" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
-      <text x="590" y="332" text-anchor="middle" class="bxs am">Every incident becomes a case, permanently</text>
-      <text x="590" y="364" text-anchor="middle" class="bd">That is the mechanism by which the same failure cannot happen twice &mdash; and it is</text>
-      <text x="590" y="390" text-anchor="middle" class="bd">the only part of this that gets more valuable the longer the system runs.</text>
-    </svg>
-  </div>
-</div>
-
-<div class="slide div" data-sec="Traces" data-notes="Part three. You cannot assert on a trajectory you did not record, so this is the enabling machinery for everything in part two.">
-  <div class="k">Part three</div>
-  <h1>Seeing inside the run</h1>
-</div>
-
-<div class="slide" data-sec="Traces" data-notes="The structural point: a trace is a tree and the structure carries the information. Logs tell you what happened; a span tree tells you what happened inside what, which is the only way to attribute cost, time or blame. Note that they build this by hand in Lab 7.2 -- about sixty lines: a span store, and then a real BaseCallbackHandler that feeds it. After that Langfuse is recognisable rather than magic -- and Section 5 of the lab has the trap worth saying out loud: a model call sent as a plain span reports zero tokens, and the cohort totals come off the tokenomics dashboard, not off Langfuse.">
-  <h2>A trace is a tree, not a log</h2>
-  <div class="body">
-    <svg width="1180" height="424" viewBox="0 0 1180 424" role="img" aria-label="A flat log compared with a nested span tree">
-      <rect x="50" y="52" width="470" height="296" rx="8" fill="#f8f8fd" stroke="#94a3b8" stroke-width="2"/>
-      <text x="285" y="84" text-anchor="middle" class="lbl">A log</text>
-      <text x="76" y="120" class="bds">09:14:02 supervisor routing</text>
-      <text x="76" y="148" class="bds">09:14:02 ledger lookup PMT-1003</text>
-      <text x="76" y="176" class="bds">09:14:03 policy_for LIMIT_BREACH</text>
-      <text x="76" y="204" class="bds">09:14:05 retrieval 4 chunks</text>
-      <text x="76" y="232" class="bds">09:14:09 writer drafted</text>
-      <text x="76" y="260" class="bds">09:14:09 done</text>
-      <text x="285" y="302" text-anchor="middle" class="bds no">what happened, in order</text>
-      <text x="285" y="328" text-anchor="middle" class="bds no">and nothing about what caused what</text>
-
-      <rect x="600" y="52" width="530" height="296" rx="8" fill="#eef2ff" stroke="#4338ca" stroke-width="2.5"/>
-      <text x="865" y="84" text-anchor="middle" class="lbl">A span tree</text>
-      <text x="626" y="120" class="bds">run&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;7.1s&nbsp;&nbsp;3,180 tok</text>
-      <text x="650" y="148" class="bds">&#9492; supervisor&nbsp;&nbsp;0.4s&nbsp;&nbsp;&nbsp;&nbsp;120 tok</text>
-      <text x="650" y="176" class="bds">&#9492; ledger&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;0.9s&nbsp;&nbsp;&nbsp;&nbsp;380 tok</text>
-      <text x="674" y="204" class="bds">&#9492; tool: lookup&nbsp;0.8s</text>
-      <text x="650" y="232" class="bds">&#9492; policy&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4.1s&nbsp;&nbsp;&nbsp;&nbsp;420 tok</text>
-      <text x="674" y="260" class="bds am">&#9492; retrieval&nbsp;&nbsp;&nbsp;3.9s&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;0 tok</text>
-      <text x="650" y="288" class="bds">&#9492; writer&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1.7s&nbsp;&nbsp;2,260 tok</text>
-      <text x="865" y="326" text-anchor="middle" class="bds ok">the nesting is the information</text>
-
-      <rect x="150" y="366" width="880" height="46" rx="6" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
-      <text x="590" y="395" text-anchor="middle" class="bxs am">You build this in Lab 7.2 &mdash; about sixty lines &mdash; and then the tooling is recognisable, not magic</text>
-    </svg>
-  </div>
-</div>
-
-<div class="slide" data-sec="Traces" data-notes="The slide that redirects optimisation effort. Time and money are not in the same span: retrieval is 55% of the clock and 0% of the bill, the writer 71% of the bill and a quarter of the clock. Say explicitly that the left column is each span's OWN time -- rank by TOTAL time instead and the answer is 'the policy agent', which is true, useless, and sends someone to rewrite a file whose 0.2s is not the problem. Lab 7.2 makes them choose between those two keys.">
-  <h2>The slowest step and the dearest step are not the same step</h2>
-  <div class="body">
-    <svg width="1180" height="424" viewBox="0 0 1180 424" role="img" aria-label="Latency breakdown against token cost breakdown for the same run">
-      <text x="300" y="50" text-anchor="middle" class="lbl">Where the 7.1 seconds went &mdash; each span's own time</text>
-      <rect x="70" y="70" width="29" height="30" rx="4" fill="#818cf8"/><text x="109" y="91" class="bds">supervisor 0.4s</text>
-      <rect x="70" y="110" width="65" height="30" rx="4" fill="#818cf8"/><text x="145" y="131" class="bds">ledger 0.9s</text>
-      <rect x="70" y="150" width="14" height="30" rx="4" fill="#818cf8"/><text x="94" y="171" class="bds">policy 0.2s</text>
-      <rect x="70" y="190" width="280" height="30" rx="4" fill="#b91c1c"/><text x="360" y="211" class="bds no">retrieval 3.9s</text>
-      <rect x="70" y="230" width="122" height="30" rx="4" fill="#818cf8"/><text x="202" y="251" class="bds">writer 1.7s</text>
-      <text x="300" y="286" text-anchor="middle" class="bds no">slowest step: retrieval &mdash; 55% of the wall clock</text>
-
-      <line x1="590" y1="40" x2="590" y2="292" stroke="#e2e8f0" stroke-width="2"/>
-
-      <text x="880" y="50" text-anchor="middle" class="lbl">Where the 3,180 tokens went</text>
-      <rect x="650" y="70" width="16" height="30" rx="4" fill="#818cf8"/><text x="676" y="91" class="bds">supervisor 120</text>
-      <rect x="650" y="110" width="50" height="30" rx="4" fill="#818cf8"/><text x="710" y="131" class="bds">ledger 380</text>
-      <rect x="650" y="150" width="56" height="30" rx="4" fill="#818cf8"/><text x="716" y="171" class="bds">policy 420</text>
-      <rect x="650" y="190" width="3" height="30" rx="1" fill="#0d9488"/><text x="663" y="211" class="bds ok">retrieval 0 &mdash; free</text>
-      <rect x="650" y="230" width="300" height="30" rx="4" fill="#b91c1c"/><text x="960" y="251" class="bds no">writer 2,260</text>
-      <text x="880" y="286" text-anchor="middle" class="bds no">dearest step: the writer &mdash; 71% of the bill</text>
-
-      <rect x="120" y="300" width="940" height="108" rx="6" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
-      <text x="590" y="332" text-anchor="middle" class="bxs am">Same run, two different villains</text>
-      <text x="590" y="364" text-anchor="middle" class="bd">Cache the retrieval and the run gets fast and no cheaper. Shorten the writer's context</text>
-      <text x="590" y="390" text-anchor="middle" class="bd">and the bill drops and nobody notices the speed. Know which one you were asked to fix.</text>
-    </svg>
-  </div>
-</div>
-
-<div class="slide" data-sec="Traces" data-notes="Attribution. Without a trace the only available diagnosis is 'the agent was wrong', which is not actionable and lands on whoever owns the agent. With one, you can name the step. Walk the ladder: it is a decision procedure they can apply to a failing case on Monday.">
-  <h2>Which step actually caused it?</h2>
-  <div class="body">
-    <svg width="1180" height="424" viewBox="0 0 1180 424" role="img" aria-label="A decision ladder for attributing a failure to a step">
-      <rect x="60" y="56" width="1060" height="52" rx="6" fill="#f8f8fd" stroke="#4338ca" stroke-width="2"/>
-      <text x="86" y="88" class="bds"><tspan font-weight="700">1</tspan>&nbsp;&nbsp; Did the right evidence reach the agent? &nbsp;&mdash;&nbsp; if not, it is <tspan font-weight="600">retrieval</tspan>, and Module 6 is where you go</text>
-      <rect x="60" y="120" width="1060" height="52" rx="6" fill="#f8f8fd" stroke="#4338ca" stroke-width="2"/>
-      <text x="86" y="152" class="bds"><tspan font-weight="700">2</tspan>&nbsp;&nbsp; Did a tool return an error the agent ignored? &nbsp;&mdash;&nbsp; if so, it is the <tspan font-weight="600">tool contract</tspan> or the loop</text>
-      <rect x="60" y="184" width="1060" height="52" rx="6" fill="#f8f8fd" stroke="#4338ca" stroke-width="2"/>
-      <text x="86" y="216" class="bds"><tspan font-weight="700">3</tspan>&nbsp;&nbsp; Did the supervisor send it to the wrong specialist? &nbsp;&mdash;&nbsp; <tspan font-weight="600">routing</tspan>, and Lab 5.1 measures it</text>
-      <rect x="60" y="248" width="1060" height="52" rx="6" fill="#f8f8fd" stroke="#4338ca" stroke-width="2"/>
-      <text x="86" y="280" class="bds"><tspan font-weight="700">4</tspan>&nbsp;&nbsp; Did a handoff drop a constraint? &nbsp;&mdash;&nbsp; <tspan font-weight="600">the message</tspan>, and both agents were behaving correctly</text>
-      <rect x="60" y="312" width="1060" height="52" rx="6" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
-      <text x="86" y="344" class="bds am"><tspan font-weight="700">5</tspan>&nbsp;&nbsp; Only now: the evidence was there, complete, and the model still got it wrong &nbsp;&mdash;&nbsp; <tspan font-weight="600">generation</tspan></text>
-
-      <text x="590" y="398" text-anchor="middle" class="bd no">Without a trace, every one of these is reported as &ldquo;the agent hallucinated&rdquo; &mdash; and four of the five are not.</text>
-    </svg>
-  </div>
-</div>
-
-<div class="slide div" data-sec="Scoring" data-notes="Part four. How a run becomes a number, and what it costs to get each kind.">
-  <div class="k">Part four</div>
-  <h1>Turning a run into a number</h1>
-</div>
-
-<div class="slide" data-sec="Scoring" data-notes="Three kinds of score with three different economics. The middle column is the one to be careful about: an LLM judge is broad and cheap and you now have two systems whose agreement with a human is unknown. Say plainly that a judge needs its own eval set, which is the recursion everyone discovers late.">
-  <h2>Three ways to score, and what each one costs you</h2>
-  <div class="body">
-    <svg width="1180" height="424" viewBox="0 0 1180 424" role="img" aria-label="Programmatic, model-judged and human scoring compared">
-      <rect x="50" y="56" width="345" height="240" rx="8" fill="#f0fdf9" stroke="#0d9488" stroke-width="2.5"/>
-      <text x="222" y="88" text-anchor="middle" class="lbl ok">Programmatic</text>
-      <text x="222" y="124" text-anchor="middle" class="bxs">an assertion in code</text>
-      <text x="222" y="162" text-anchor="middle" class="bds">free, instant, identical</text>
-      <text x="222" y="184" text-anchor="middle" class="bds">every time, and auditable</text>
-      <text x="222" y="222" text-anchor="middle" class="bd am">only fits narrow questions</text>
-      <text x="222" y="252" text-anchor="middle" class="bds">&ldquo;did it release anything?&rdquo;</text>
-      <text x="222" y="278" text-anchor="middle" class="bds ok">use wherever it fits at all</text>
-
-      <rect x="418" y="56" width="345" height="240" rx="8" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
-      <text x="590" y="88" text-anchor="middle" class="lbl am">Model-judged</text>
-      <text x="590" y="124" text-anchor="middle" class="bxs">ask a model to grade it</text>
-      <text x="590" y="162" text-anchor="middle" class="bds">handles judgement calls</text>
-      <text x="590" y="184" text-anchor="middle" class="bds">a rule cannot express</text>
-      <text x="590" y="222" text-anchor="middle" class="bd no">now you have two systems</text>
-      <text x="590" y="252" text-anchor="middle" class="bds no">and the judge needs its own</text>
-      <text x="590" y="274" text-anchor="middle" class="bds no">eval set, against humans</text>
-
-      <rect x="786" y="56" width="345" height="240" rx="8" fill="#f8f8fd" stroke="#94a3b8" stroke-width="2"/>
-      <text x="958" y="88" text-anchor="middle" class="lbl">Human</text>
-      <text x="958" y="124" text-anchor="middle" class="bxs">the ground truth</text>
-      <text x="958" y="162" text-anchor="middle" class="bds">expensive, slow, and the</text>
-      <text x="958" y="184" text-anchor="middle" class="bds">only thing the other two</text>
-      <text x="958" y="206" text-anchor="middle" class="bds">are approximating</text>
-      <text x="958" y="244" text-anchor="middle" class="bd">spend it on the cases that</text>
-      <text x="958" y="266" text-anchor="middle" class="bd">calibrate the judge</text>
-
-      <rect x="150" y="324" width="880" height="84" rx="6" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
-      <text x="590" y="354" text-anchor="middle" class="bxs am">Reach for the left column first, every time</text>
-      <text x="590" y="386" text-anchor="middle" class="bds">&ldquo;Did it call release_payment?&rdquo; is a line of code. &ldquo;Was the tone appropriate?&rdquo; is not.</text>
-      <text x="590" y="404" text-anchor="middle" class="bds">Most teams reach for the judge first, and then cannot say how good the judge is.</text>
-    </svg>
-  </div>
-</div>
-
-<div class="slide" data-sec="Scoring" data-notes="The operational discipline. An edit in place is an unmeasured deploy -- and the reason nobody can answer 'what changed?' after a regression. Note the last box: this is exactly how you already treat code, and nobody finds it controversial there.">
-  <h2>A prompt is a deployed artifact, not a text box</h2>
-  <div class="body">
-    <svg width="1180" height="424" viewBox="0 0 1180 424" role="img" aria-label="Editing a prompt in place versus versioning and rolling it out">
-      <rect x="50" y="56" width="500" height="230" rx="8" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
-      <text x="300" y="88" text-anchor="middle" class="lbl no">Edited in place</text>
-      <text x="300" y="126" text-anchor="middle" class="bxs no">someone improved the wording</text>
-      <text x="76" y="166" class="bd">&bull; no version, so no rollback</text>
-      <text x="76" y="200" class="bd">&bull; no eval run, so no idea what it did</text>
-      <text x="76" y="234" class="bd">&bull; no record of who, or when, or why</text>
-      <text x="300" y="268" text-anchor="middle" class="bds no">&ldquo;it got worse last Tuesday&rdquo; is now unanswerable</text>
-
-      <rect x="630" y="56" width="500" height="230" rx="8" fill="#f0fdf9" stroke="#0d9488" stroke-width="2.5"/>
-      <text x="880" y="88" text-anchor="middle" class="lbl ok">Versioned and rolled out</text>
-      <text x="880" y="126" text-anchor="middle" class="bxs ok">prompt v7 &rarr; eval &rarr; 10% &rarr; 100%</text>
-      <text x="656" y="166" class="bd">&bull; every version has a score on the same set</text>
-      <text x="656" y="200" class="bd">&bull; rollback is selecting the previous one</text>
-      <text x="656" y="234" class="bd">&bull; the diff and the delta sit side by side</text>
-      <text x="880" y="268" text-anchor="middle" class="bds ok">and a regression names its own cause</text>
-
-      <rect x="150" y="312" width="880" height="96" rx="6" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
-      <text x="590" y="344" text-anchor="middle" class="bxs am">This is how you already treat code, and nobody argues about it there</text>
-      <text x="590" y="376" text-anchor="middle" class="bd">The prompt is the highest-leverage, least-governed file in the system: it changes behaviour</text>
-      <text x="590" y="400" text-anchor="middle" class="bd">more than a model swap does, and in most teams it is edited by whoever noticed something.</text>
-    </svg>
-  </div>
-</div>
-
-<div class="slide" data-sec="Scoring" data-notes="Offline and online answer different questions and neither replaces the other. The offline set is a regression gate you own; traffic is the only thing that contains the cases you failed to imagine. The bottom line matters for a bank: A/B on real payments has a blast radius, so the gate comes first.">
-  <h2>Your eval set and real traffic answer different questions</h2>
-  <div class="body">
-    <svg width="1180" height="424" viewBox="0 0 1180 424" role="img" aria-label="Offline eval set compared with online A/B on real traffic">
-      <rect x="50" y="56" width="500" height="240" rx="8" fill="#eef2ff" stroke="#4338ca" stroke-width="2.5"/>
-      <text x="300" y="88" text-anchor="middle" class="lbl">Offline, on your eval set</text>
-      <text x="300" y="126" text-anchor="middle" class="bxs">&ldquo;did I break anything I knew about?&rdquo;</text>
-      <text x="76" y="166" class="bd">&bull; runs before deploy, costs nothing but tokens</text>
-      <text x="76" y="200" class="bd">&bull; deterministic set, comparable across versions</text>
-      <text x="76" y="234" class="bd">&bull; catches regressions, which is most of the value</text>
-      <text x="300" y="272" text-anchor="middle" class="bds no">blind to every case you did not think of</text>
-
-      <rect x="630" y="56" width="500" height="240" rx="8" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
-      <text x="880" y="88" text-anchor="middle" class="lbl am">Online, on real traffic</text>
-      <text x="880" y="126" text-anchor="middle" class="bxs am">&ldquo;what happens on cases I never imagined?&rdquo;</text>
-      <text x="656" y="166" class="bd">&bull; the only source of genuinely new cases</text>
-      <text x="656" y="200" class="bd">&bull; needs volume before a difference is real</text>
-      <text x="656" y="234" class="bd am">&bull; and the losing arm happens to actual customers</text>
-      <text x="880" y="272" text-anchor="middle" class="bds am">so it goes behind the gate, never instead of it</text>
-
-      <rect x="150" y="322" width="880" height="86" rx="6" fill="#f0fdf9" stroke="#0d9488" stroke-width="2.5"/>
-      <text x="590" y="354" text-anchor="middle" class="bxs ok">The loop that makes both worth having</text>
-      <text x="590" y="386" text-anchor="middle" class="bd">traffic surfaces a failure &rarr; the failure becomes a case &rarr; the case joins the offline set forever</text>
-      <text x="590" y="404" text-anchor="middle" class="bds">After a year the offline set is a record of everything that has ever gone wrong. That is the asset.</text>
-    </svg>
-  </div>
-</div>
-
-<div class="slide div" data-sec="Gates" data-notes="Part five, and the shortest. Two ideas: the difference between a team that measures and a team that is governed by what it measures -- and then the fact that a bar is not only a set of numbers.">
-  <div class="k">Part five</div>
-  <h1>A number nobody blocks on</h1>
-</div>
-
-<div class="slide" data-sec="Gates" data-notes="A dashboard is a report; a gate is a decision that has already been made. Lab 7.5 builds this bar: three thresholds AND a fourth item that is not a number at all. Do not skip the amber bullet -- the next slide is entirely about it. And note the last line: a gate you routinely override is a report with extra steps, so agree the override path in advance.">
-  <h2>A dashboard is a report. A gate is a decision.</h2>
-  <div class="body">
-    <svg width="1180" height="424" viewBox="0 0 1180 424" role="img" aria-label="Metrics as a dashboard compared with metrics as release gates">
-      <rect x="50" y="56" width="500" height="240" rx="8" fill="#f8f8fd" stroke="#94a3b8" stroke-width="2"/>
-      <text x="300" y="88" text-anchor="middle" class="lbl">As a report</text>
-      <text x="300" y="126" text-anchor="middle" class="bxs">&ldquo;cost per case is up 40%&rdquo;</text>
-      <text x="76" y="166" class="bd">&bull; someone sees it, eventually</text>
-      <text x="76" y="200" class="bd">&bull; it competes with the roadmap</text>
-      <text x="76" y="234" class="bd">&bull; it is a topic, not an outcome</text>
-      <text x="300" y="266" text-anchor="middle" class="bds no">the deploy already happened</text>
-
-      <rect x="630" y="56" width="500" height="240" rx="8" fill="#f0fdf9" stroke="#0d9488" stroke-width="2.5"/>
-      <text x="880" y="88" text-anchor="middle" class="lbl ok">As a gate</text>
-      <text x="880" y="126" text-anchor="middle" class="bxs ok">the build fails</text>
-      <text x="656" y="162" class="bd">&bull; quality &ge; the current version, on the same set</text>
-      <text x="656" y="192" class="bd">&bull; cost per case &le; an agreed ceiling</text>
-      <text x="656" y="222" class="bd">&bull; p95 latency &le; an agreed ceiling</text>
-      <text x="656" y="252" class="bd am">&bull; and one behaviour that is not a threshold at all</text>
-      <text x="880" y="282" text-anchor="middle" class="bds ok">the deploy does not happen</text>
-
-      <rect x="120" y="310" width="940" height="98" rx="6" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
-      <text x="590" y="342" text-anchor="middle" class="bxs am">Set the thresholds while nobody is under pressure</text>
-      <text x="590" y="374" text-anchor="middle" class="bd">A gate agreed in a calm week gets respected in a bad one. A gate invented during an incident</text>
-      <text x="590" y="398" text-anchor="middle" class="bd">is a negotiation &mdash; and a gate you routinely override is a report with extra steps.</text>
-    </svg>
-  </div>
-</div>
-
-<div class="slide" data-sec="Gates" data-notes="The concept the module ends on, and the one people argue with. Both candidates are blocked, and the two blocks are not the same kind of thing. v8 missed a number: that is a trade, it has a price, and somebody with a budget is entitled to overrule it. v7 missed nothing -- it is the best-looking version on every number the gate measures -- and it does not ship, because one run reached for an action it must never take. There is no threshold that would have caught that, and no threshold you could tune to let it through. Ask the room who is allowed to override a rejection. The right answer is usually nobody, and it is worth agreeing that in a calm week too. Same shape as Lab 2.5 on Day 1: the ReAct arm scored 80%, the same as two arms that were accepted, and it was rejected on one disqualifying case.">
-  <h2>Blocked is a conversation. Rejected is not.</h2>
-  <div class="body">
-    <svg width="1180" height="424" viewBox="0 0 1180 424" role="img" aria-label="A candidate blocked on a threshold compared with a candidate disqualified on a behaviour">
-      <rect x="50" y="52" width="520" height="250" rx="8" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
-      <text x="310" y="84" text-anchor="middle" class="lbl am">Blocked &mdash; a threshold was missed</text>
-      <text x="310" y="122" text-anchor="middle" class="bxs am">v8: more agents</text>
-      <text x="76" y="162" class="bds">&bull; the best candidate on quality: 95.5% vs 74.9%</text>
-      <text x="76" y="192" class="bds">&bull; and provably so &mdash; the ranges do not overlap</text>
-      <text x="76" y="222" class="bds">&bull; cost $0.0402 a case, ceiling $0.020</text>
-      <text x="76" y="252" class="bds">&bull; p95 19.6s, ceiling 15.0s</text>
-      <text x="310" y="286" text-anchor="middle" class="bds am">$804 a day against $242 &mdash; someone gets to decide</text>
-
-      <rect x="610" y="52" width="520" height="250" rx="8" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
-      <text x="870" y="84" text-anchor="middle" class="lbl no">Rejected &mdash; a behaviour was observed</text>
-      <text x="870" y="122" text-anchor="middle" class="bxs no">v7: better prompt</text>
-      <text x="636" y="162" class="bds">&bull; quality 81.2%, above the current 74.9%</text>
-      <text x="636" y="192" class="bds">&bull; cost $0.0129 a case &mdash; under the ceiling</text>
-      <text x="636" y="222" class="bds">&bull; p95 11.9s &mdash; under the ceiling</text>
-      <text x="636" y="252" class="bds no">&bull; one run called release_payment on a sanctions hold</text>
-      <text x="870" y="286" text-anchor="middle" class="bds no">every number green, and it does not ship</text>
-
-      <rect x="120" y="318" width="940" height="90" rx="6" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
-      <text x="590" y="350" text-anchor="middle" class="bxs am">A threshold is a preference. A disqualification is not.</text>
-      <text x="590" y="382" text-anchor="middle" class="bd">Same shape as Lab 2.5, where the arm that scored 80% was rejected on one disqualifying case.</text>
-    </svg>
-  </div>
-</div>
-
-<div class="slide" data-sec="Recap" data-notes="Tie it together. The single sentence: you cannot govern what you cannot see, and you cannot see an agent without a trace. Then hand over to Module 8, which turns some of these measurements into controls.">
-  <h2>What this module actually changed</h2>
-  <div class="body">
-    <svg width="1180" height="420" viewBox="0 0 1180 420" role="img" aria-label="Recap of Module 7 in four statements">
-      <rect x="60" y="56" width="510" height="146" rx="8" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5"/>
-      <text x="315" y="88" text-anchor="middle" class="lbl no">The premise</text>
-      <text x="315" y="126" text-anchor="middle" class="bx no">One run tells you almost nothing</text>
-      <text x="315" y="160" text-anchor="middle" class="bd">repeat, widen, and report a range</text>
-      <text x="315" y="184" text-anchor="middle" class="bd">&mdash; temperature zero was never determinism</text>
-
-      <rect x="610" y="56" width="510" height="146" rx="8" fill="#eef2ff" stroke="#4338ca" stroke-width="2.5"/>
-      <text x="865" y="88" text-anchor="middle" class="lbl">What to assert</text>
-      <text x="865" y="126" text-anchor="middle" class="bx">Outcome and trajectory</text>
-      <text x="865" y="160" text-anchor="middle" class="bd">the run that tried to release and was refused</text>
-      <text x="865" y="184" text-anchor="middle" class="bd">passes every outcome check you wrote</text>
-
-      <rect x="60" y="222" width="510" height="146" rx="8" fill="#f8f8fd" stroke="#c7d2fe" stroke-width="2"/>
-      <text x="315" y="254" text-anchor="middle" class="lbl">What to keep</text>
-      <text x="315" y="292" text-anchor="middle" class="bx">A span tree, not a log</text>
-      <text x="315" y="326" text-anchor="middle" class="bd">the slowest step and the dearest step differ,</text>
-      <text x="315" y="350" text-anchor="middle" class="bd">and attribution needs the nesting</text>
-
-      <rect x="610" y="222" width="510" height="146" rx="8" fill="#f0fdf9" stroke="#0d9488" stroke-width="2.5"/>
-      <text x="865" y="254" text-anchor="middle" class="lbl ok">What to do with it</text>
-      <text x="865" y="292" text-anchor="middle" class="bx ok">Gate, do not report</text>
-      <text x="865" y="326" text-anchor="middle" class="bd">version the prompt, let the build fail &mdash; and</text>
-      <text x="865" y="350" text-anchor="middle" class="bd">know one behaviour outranks every number</text>
-
-      <text x="590" y="404" text-anchor="middle" class="bd">Next: Module 8 turns some of these measurements into controls that hold when the model does not.</text>
-    </svg>
-  </div>
-</div>
-
-<div class="slide div" data-sec="Knowledge check" data-notes="Eight questions. Question 3 is the one that changes what they write on Monday; question 6 is the one senior people argue about, and the argument is worth having.">
-  <div class="k">Knowledge check</div>
-  <h1>Eight questions</h1>
-</div>
-
-<div class="slide q" data-sec="Knowledge check" data-notes="Answer D. If the room reaches for A, that is the whole problem -- hours are lost hunting a bug that is not there.">
-  <div class="qtag">Question 1 of 8</div>
-  <h2>Temperature zero, two different runs</h2>
-  <div class="body"><div class="qbox">
-    <div class="qstem">You set temperature to 0 and submit the same case twice. The agent takes three steps the first time and four the second. What is the most likely explanation?</div>
-    <div class="opt"><span class="k">A</span><span>A bug in your agent loop</span></div>
-    <div class="opt"><span class="k">B</span><span>The temperature setting was not applied</span></div>
-    <div class="opt"><span class="k">C</span><span>Something changed in the case file between the runs</span></div>
-    <div class="opt"><span class="k">D</span><span>Temperature zero was never determinism &mdash; batching arithmetic, tie-breaking and retries all move the path</span></div>
-  </div></div>
-</div>
-
-<div class="slide q" data-sec="Knowledge check" data-notes="Answer D. If the room reaches for A, that is the whole problem -- hours are lost hunting a bug that is not there.">
-  <div class="qtag">Answer 1 of 8</div>
-  <h2>Temperature zero, two different runs</h2>
-  <div class="body"><div class="qbox">
-    <div class="qstem">You set temperature to 0 and submit the same case twice. The agent takes three steps the first time and four the second. What is the most likely explanation?</div>
-    <div class="opt miss"><span class="k">A</span><span>A bug in your agent loop</span></div>
-    <div class="opt miss"><span class="k">B</span><span>The temperature setting was not applied</span></div>
-    <div class="opt miss"><span class="k">C</span><span>Something changed in the case file between the runs</span></div>
-    <div class="opt hit"><span class="k">D</span><span>Temperature zero was never determinism &mdash; batching arithmetic, tie-breaking and retries all move the path</span></div>
-    <div class="why"><b>Why:</b> Temperature 0 makes sampling greedy; it does not make the arithmetic reproducible, and it does nothing about a retrieval tie or a retried call. Reaching for A costs you an afternoon looking for a bug that is not there &mdash; and, worse, teaches you to distrust the harness.</div>
-  </div></div>
-</div>
-
-<div class="slide q" data-sec="Knowledge check" data-notes="Answer A. C is the trap for careful people: 'confirm with a second run' still asserts v2 is better, and it is the sentence that gets quoted without the caveat.">
-  <div class="qtag">Question 2 of 8</div>
-  <h2>Seven out of ten, then eight</h2>
-  <div class="body"><div class="qbox">
-    <div class="qstem">On your ten-case eval set, v1 scored 7/10 and v2 scored 8/10. One run each. What have you established?</div>
-    <div class="opt"><span class="k">A</span><span>Nothing &mdash; one case is worth ten points, so that gap is a single coin flip</span></div>
-    <div class="opt"><span class="k">B</span><span>That v2 is better by ten points</span></div>
-    <div class="opt"><span class="k">C</span><span>That v2 is better, though it would be prudent to confirm with a second run</span></div>
-    <div class="opt"><span class="k">D</span><span>That the two are equivalent, since 8/10 is within noise of 7/10</span></div>
-  </div></div>
-</div>
-
-<div class="slide q" data-sec="Knowledge check" data-notes="Answer A. C is the trap for careful people: 'confirm with a second run' still asserts v2 is better, and it is the sentence that gets quoted without the caveat.">
-  <div class="qtag">Answer 2 of 8</div>
-  <h2>Seven out of ten, then eight</h2>
-  <div class="body"><div class="qbox">
-    <div class="qstem">On your ten-case eval set, v1 scored 7/10 and v2 scored 8/10. One run each. What have you established?</div>
-    <div class="opt hit"><span class="k">A</span><span>Nothing &mdash; one case is worth ten points, so that gap is a single coin flip</span></div>
-    <div class="opt miss"><span class="k">B</span><span>That v2 is better by ten points</span></div>
-    <div class="opt miss"><span class="k">C</span><span>That v2 is better, though it would be prudent to confirm with a second run</span></div>
-    <div class="opt miss"><span class="k">D</span><span>That the two are equivalent, since 8/10 is within noise of 7/10</span></div>
-    <div class="why"><b>Why:</b> C is the careful person's answer and it still smuggles in the conclusion &mdash; that is the half of the sentence that survives into the summary email. D overclaims in the other direction: you have not shown equivalence either. You have one sample of a noisy process. Repeat it, widen the set, and report a range.</div>
-  </div></div>
-</div>
-
-<div class="slide q" data-sec="Knowledge check" data-notes="Answer C. The slide that changes what they write. Ask whether their current eval suite would have caught this; it would not.">
-  <div class="qtag">Question 3 of 8</div>
-  <h2>It tried</h2>
-  <div class="body"><div class="qbox">
-    <div class="qstem">An agent called <code>release_payment</code>. The approval gate refused it. The agent apologised and recommended a hold. Your assertions are: the recommendation is &ldquo;hold&rdquo;, and nothing was released. What do they report?</div>
-    <div class="opt"><span class="k">A</span><span>A failure, because <code>release_payment</code> was called</span></div>
-    <div class="opt"><span class="k">B</span><span>A failure, because the gate had to fire</span></div>
-    <div class="opt"><span class="k">C</span><span>All green &mdash; and you would never know it tried</span></div>
-    <div class="opt"><span class="k">D</span><span>An error, because the run contains an apology</span></div>
-  </div></div>
-</div>
-
-<div class="slide q" data-sec="Knowledge check" data-notes="Answer C. The slide that changes what they write. Ask whether their current eval suite would have caught this; it would not.">
-  <div class="qtag">Answer 3 of 8</div>
-  <h2>It tried</h2>
-  <div class="body"><div class="qbox">
-    <div class="qstem">An agent called <code>release_payment</code>. The approval gate refused it. The agent apologised and recommended a hold. Your assertions are: the recommendation is &ldquo;hold&rdquo;, and nothing was released. What do they report?</div>
-    <div class="opt miss"><span class="k">A</span><span>A failure, because <code>release_payment</code> was called</span></div>
-    <div class="opt miss"><span class="k">B</span><span>A failure, because the gate had to fire</span></div>
-    <div class="opt hit"><span class="k">C</span><span>All green &mdash; and you would never know it tried</span></div>
-    <div class="opt miss"><span class="k">D</span><span>An error, because the run contains an apology</span></div>
-    <div class="why"><b>Why:</b> A is what you <em>want</em> reported, and it is a trajectory assertion &mdash; which you did not write. Both stated assertions are about the ending, and the ending was correct because a control caught it, not because the agent behaved. Add &ldquo;never called release_payment&rdquo; and the same run turns red.</div>
-  </div></div>
-</div>
-
-<div class="slide q" data-sec="Knowledge check" data-notes="Answer B. Watch for D -- repeats are a real gap in most suites, just not the one causing surprise incidents.">
-  <div class="qtag">Question 4 of 8</div>
-  <h2>Ninety-five percent, and still surprised</h2>
-  <div class="body"><div class="qbox">
-    <div class="qstem">Your eval set is forty representative cases and you pass 95% of them. Production incidents keep taking the team by surprise. What is missing?</div>
-    <div class="opt"><span class="k">A</span><span>More representative cases &mdash; forty is a small sample</span></div>
-    <div class="opt"><span class="k">B</span><span>Edge and adversarial cases &mdash; the set says it works on the traffic you expected, and nothing else</span></div>
-    <div class="opt"><span class="k">C</span><span>A model-judged score, to catch what the assertions miss</span></div>
-    <div class="opt"><span class="k">D</span><span>Repeats &mdash; each case is only run once</span></div>
-  </div></div>
-</div>
-
-<div class="slide q" data-sec="Knowledge check" data-notes="Answer B. Watch for D -- repeats are a real gap in most suites, just not the one causing surprise incidents.">
-  <div class="qtag">Answer 4 of 8</div>
-  <h2>Ninety-five percent, and still surprised</h2>
-  <div class="body"><div class="qbox">
-    <div class="qstem">Your eval set is forty representative cases and you pass 95% of them. Production incidents keep taking the team by surprise. What is missing?</div>
-    <div class="opt miss"><span class="k">A</span><span>More representative cases &mdash; forty is a small sample</span></div>
-    <div class="opt hit"><span class="k">B</span><span>Edge and adversarial cases &mdash; the set says it works on the traffic you expected, and nothing else</span></div>
-    <div class="opt miss"><span class="k">C</span><span>A model-judged score, to catch what the assertions miss</span></div>
-    <div class="opt miss"><span class="k">D</span><span>Repeats &mdash; each case is only run once</span></div>
-    <div class="why"><b>Why:</b> A adds resolution on the cases you already pass. D is a genuine gap in most suites, but noise does not explain a <em>surprise</em> &mdash; it explains a wobble. Incidents come from cases nobody wrote down, and the fix is a standing rule: every incident becomes a case, permanently.</div>
-  </div></div>
-</div>
-
-<div class="slide q" data-sec="Knowledge check" data-notes="Answer C. The structural point about traces. If they say 'we have the timings', ask them to attribute the 3.9 seconds to an owner.">
-  <div class="qtag">Question 5 of 8</div>
-  <h2>Flat logs, nested reality</h2>
-  <div class="body"><div class="qbox">
-    <div class="qstem">A retrieval step took 3.9s. It ran inside the policy agent, which took 4.1s. Your logs are flat, timestamped and complete. Which question can you <em>not</em> answer from them?</div>
-    <div class="opt"><span class="k">A</span><span>When retrieval ran</span></div>
-    <div class="opt"><span class="k">B</span><span>How long retrieval took</span></div>
-    <div class="opt"><span class="k">C</span><span>Whether the policy agent is slow, or merely contains something slow</span></div>
-    <div class="opt"><span class="k">D</span><span>Which agent ran first</span></div>
-  </div></div>
-</div>
-
-<div class="slide q" data-sec="Knowledge check" data-notes="Answer C. The structural point about traces. If they say 'we have the timings', ask them to attribute the 3.9 seconds to an owner.">
-  <div class="qtag">Answer 5 of 8</div>
-  <h2>Flat logs, nested reality</h2>
-  <div class="body"><div class="qbox">
-    <div class="qstem">A retrieval step took 3.9s. It ran inside the policy agent, which took 4.1s. Your logs are flat, timestamped and complete. Which question can you <em>not</em> answer from them?</div>
-    <div class="opt miss"><span class="k">A</span><span>When retrieval ran</span></div>
-    <div class="opt miss"><span class="k">B</span><span>How long retrieval took</span></div>
-    <div class="opt hit"><span class="k">C</span><span>Whether the policy agent is slow, or merely contains something slow</span></div>
-    <div class="opt miss"><span class="k">D</span><span>Which agent ran first</span></div>
-    <div class="why"><b>Why:</b> A, B and D are all answerable from timestamps. Containment is not: without the parent link you cannot say the 3.9s belongs to the policy agent's 4.1s rather than running beside it. Attribution &mdash; of time, of tokens, of blame &mdash; is exactly the thing the nesting carries and the log throws away.</div>
-  </div></div>
-</div>
-
-<div class="slide q" data-sec="Knowledge check" data-notes="Answer D. Worth an argument. The judge is often the right call -- the point is that adopting one is taking on a second system, and most teams never measure it against a human.">
-  <div class="qtag">Question 6 of 8</div>
-  <h2>Promoting the judge</h2>
-  <div class="body"><div class="qbox">
-    <div class="qstem">You replace your programmatic assertions with an LLM judge, because it handles nuance the assertions could not express. What have you acquired?</div>
-    <div class="opt"><span class="k">A</span><span>Broader coverage at no additional cost</span></div>
-    <div class="opt"><span class="k">B</span><span>A cheaper evaluation loop</span></div>
-    <div class="opt"><span class="k">C</span><span>Determinism, since the judge runs at temperature 0</span></div>
-    <div class="opt"><span class="k">D</span><span>A second system whose agreement with a human is unknown &mdash; and which now needs its own eval set</span></div>
-  </div></div>
-</div>
-
-<div class="slide q" data-sec="Knowledge check" data-notes="Answer D. Worth an argument. The judge is often the right call -- the point is that adopting one is taking on a second system, and most teams never measure it against a human.">
-  <div class="qtag">Answer 6 of 8</div>
-  <h2>Promoting the judge</h2>
-  <div class="body"><div class="qbox">
-    <div class="qstem">You replace your programmatic assertions with an LLM judge, because it handles nuance the assertions could not express. What have you acquired?</div>
-    <div class="opt miss"><span class="k">A</span><span>Broader coverage at no additional cost</span></div>
-    <div class="opt miss"><span class="k">B</span><span>A cheaper evaluation loop</span></div>
-    <div class="opt miss"><span class="k">C</span><span>Determinism, since the judge runs at temperature 0</span></div>
-    <div class="opt hit"><span class="k">D</span><span>A second system whose agreement with a human is unknown &mdash; and which now needs its own eval set</span></div>
-    <div class="why"><b>Why:</b> You did gain coverage, so A is half right &mdash; and it is not free: the judge costs tokens on every case, and question 1 applies to it too. The trap is <em>replace</em>. Keep the assertions wherever they fit, add the judge where they do not, and calibrate the judge against human labels on a sample.</div>
-  </div></div>
-</div>
-
-<div class="slide q" data-sec="Knowledge check" data-notes="Answer B. A and D are also painful, and both are downstream of B -- you cannot roll back or attribute a change you cannot see.">
-  <div class="qtag">Question 7 of 8</div>
-  <h2>It got worse last Tuesday</h2>
-  <div class="body"><div class="qbox">
-    <div class="qstem">Someone improved the wording of a production prompt, directly in the console. Two weeks later quality is measurably down. What is the hardest part of the investigation?</div>
-    <div class="opt"><span class="k">A</span><span>Rolling back to the previous wording</span></div>
-    <div class="opt"><span class="k">B</span><span>Establishing that the prompt changed at all &mdash; there is no version, no diff and no score to compare against</span></div>
-    <div class="opt"><span class="k">C</span><span>Re-running the eval set against both versions</span></div>
-    <div class="opt"><span class="k">D</span><span>Finding out who made the change</span></div>
-  </div></div>
-</div>
-
-<div class="slide q" data-sec="Knowledge check" data-notes="Answer B. A and D are also painful, and both are downstream of B -- you cannot roll back or attribute a change you cannot see.">
-  <div class="qtag">Answer 7 of 8</div>
-  <h2>It got worse last Tuesday</h2>
-  <div class="body"><div class="qbox">
-    <div class="qstem">Someone improved the wording of a production prompt, directly in the console. Two weeks later quality is measurably down. What is the hardest part of the investigation?</div>
-    <div class="opt miss"><span class="k">A</span><span>Rolling back to the previous wording</span></div>
-    <div class="opt hit"><span class="k">B</span><span>Establishing that the prompt changed at all &mdash; there is no version, no diff and no score to compare against</span></div>
-    <div class="opt miss"><span class="k">C</span><span>Re-running the eval set against both versions</span></div>
-    <div class="opt miss"><span class="k">D</span><span>Finding out who made the change</span></div>
-    <div class="why"><b>Why:</b> A and D are painful too, and both are downstream of B: you cannot roll back to a version you never kept, or attribute a change you cannot see. C is impossible for the same reason &mdash; there is no &ldquo;both versions&rdquo;. Version the prompt and all four questions become easy at once.</div>
-  </div></div>
-</div>
-
-<div class="slide q" data-sec="Knowledge check" data-notes="Answer A. Close here. The distinction between a report and a gate is the one thing from this module that changes how a team is run rather than how it codes.">
-  <div class="qtag">Question 8 of 8</div>
-  <h2>Three weeks of 40%</h2>
-  <div class="body"><div class="qbox">
-    <div class="qstem">Your team publishes a cost-per-case dashboard. After a release, cost rises 40% and nobody notices for three weeks. What would have changed the outcome?</div>
-    <div class="opt"><span class="k">A</span><span>A gate &mdash; the same number, checked before deploy, with the build failing above a threshold agreed in advance</span></div>
-    <div class="opt"><span class="k">B</span><span>A more prominent dashboard</span></div>
-    <div class="opt"><span class="k">C</span><span>A weekly cost review meeting</span></div>
-    <div class="opt"><span class="k">D</span><span>An alert on the dashboard, so someone is notified within the hour</span></div>
-  </div></div>
-</div>
-
-<div class="slide q" data-sec="Knowledge check" data-notes="Answer A. Close here. The distinction between a report and a gate is the one thing from this module that changes how a team is run rather than how it codes.">
-  <div class="qtag">Answer 8 of 8</div>
-  <h2>Three weeks of 40%</h2>
-  <div class="body"><div class="qbox">
-    <div class="qstem">Your team publishes a cost-per-case dashboard. After a release, cost rises 40% and nobody notices for three weeks. What would have changed the outcome?</div>
-    <div class="opt hit"><span class="k">A</span><span>A gate &mdash; the same number, checked before deploy, with the build failing above a threshold agreed in advance</span></div>
-    <div class="opt miss"><span class="k">B</span><span>A more prominent dashboard</span></div>
-    <div class="opt miss"><span class="k">C</span><span>A weekly cost review meeting</span></div>
-    <div class="opt miss"><span class="k">D</span><span>An alert on the dashboard, so someone is notified within the hour</span></div>
-    <div class="why"><b>Why:</b> D is the strong distractor and it is a genuine improvement &mdash; three weeks becomes an hour. But the release still shipped, and now someone is arguing about a rollback under pressure. B and C shorten the delay without removing it. Only A means the deploy did not happen, and the threshold was agreed by people who were calm.</div>
-  </div></div>
-</div>
-
-<div class="slide div" data-sec="End" data-notes="Into the labs: measure the variance, build a tracer, assert on trajectories, attribute a failure to a step, and finish with a release gate that fails a build.">
-  <div class="k">End of Module 7</div>
-  <h1>To the labs</h1>
-</div>
 </template>
 
 <script>
