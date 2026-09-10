@@ -1,0 +1,630 @@
+{
+  "title": "Agentic AI Workshop \u2014 Tokenomics",
+  "uid": "agenticai-tokenomics",
+  "tags": [
+    "agenticai",
+    "workshop",
+    "litellm"
+  ],
+  "timezone": "Asia/Kolkata",
+  "schemaVersion": 39,
+  "refresh": "30s",
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "cohort",
+        "label": "Cohort",
+        "type": "custom",
+        "query": "240093",
+        "current": {
+          "text": "240093",
+          "value": "240093"
+        },
+        "options": [
+          {
+            "text": "240093",
+            "value": "240093",
+            "selected": true
+          }
+        ]
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Total tokens \u2014 cohort",
+      "targets": [
+        {
+          "expr": "sum(litellm_total_tokens_metric_total{api_key_alias=~\"agenticai-$cohort-u.*\"})",
+          "legendFormat": "",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "graphMode": "area"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 0,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Input tokens",
+      "targets": [
+        {
+          "expr": "sum(litellm_input_tokens_metric_total{api_key_alias=~\"agenticai-$cohort-u.*\"})",
+          "legendFormat": "",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "graphMode": "area"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 4,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Output tokens",
+      "targets": [
+        {
+          "expr": "sum(litellm_output_tokens_metric_total{api_key_alias=~\"agenticai-$cohort-u.*\"})",
+          "legendFormat": "",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "graphMode": "area"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 8,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Requests",
+      "targets": [
+        {
+          "expr": "sum(litellm_requests_metric_total{api_key_alias=~\"agenticai-$cohort-u.*\"})",
+          "legendFormat": "",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "graphMode": "area"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 12,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Spend (DeepInfra)",
+      "targets": [
+        {
+          "expr": "sum(litellm_spend_metric_total{api_key_alias=~\"agenticai-$cohort-u.*\"})",
+          "legendFormat": "",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 4,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "graphMode": "area"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 16,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Active participants",
+      "targets": [
+        {
+          "expr": "count(count by (api_key_alias)(litellm_total_tokens_metric_total{api_key_alias=~\"agenticai-$cohort-u.*\"}))",
+          "legendFormat": "",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "graphMode": "area"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 20,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      }
+    },
+    {
+      "type": "table",
+      "title": "Per-participant tokenomics",
+      "targets": [
+        {
+          "expr": "sum by (api_key_alias)(litellm_input_tokens_metric_total{api_key_alias=~\"agenticai-$cohort-u.*\"})",
+          "refId": "A",
+          "format": "table",
+          "instant": true,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          }
+        },
+        {
+          "expr": "sum by (api_key_alias)(litellm_output_tokens_metric_total{api_key_alias=~\"agenticai-$cohort-u.*\"})",
+          "refId": "B",
+          "format": "table",
+          "instant": true,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          }
+        },
+        {
+          "expr": "sum by (api_key_alias)(litellm_total_tokens_metric_total{api_key_alias=~\"agenticai-$cohort-u.*\"})",
+          "refId": "C",
+          "format": "table",
+          "instant": true,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          }
+        },
+        {
+          "expr": "sum by (api_key_alias)(litellm_requests_metric_total{api_key_alias=~\"agenticai-$cohort-u.*\"})",
+          "refId": "D",
+          "format": "table",
+          "instant": true,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          }
+        },
+        {
+          "expr": "sum by (api_key_alias)(litellm_spend_metric_total{api_key_alias=~\"agenticai-$cohort-u.*\"})",
+          "refId": "E",
+          "format": "table",
+          "instant": true,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          }
+        }
+      ],
+      "transformations": [
+        {
+          "id": "joinByField",
+          "options": {
+            "byField": "api_key_alias",
+            "mode": "outer"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "Time 1": true,
+              "Time 2": true,
+              "Time 3": true,
+              "Time 4": true,
+              "Time 5": true
+            },
+            "renameByName": {
+              "api_key_alias": "Participant",
+              "Value #A": "Input tok",
+              "Value #B": "Output tok",
+              "Value #C": "Total tok",
+              "Value #D": "Requests",
+              "Value #E": "Spend $"
+            }
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "fields": {},
+            "sort": [
+              {
+                "field": "Total tok",
+                "desc": true
+              }
+            ]
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Spend $"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "currencyUSD"
+              },
+              {
+                "id": "decimals",
+                "value": 5
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true
+      },
+      "gridPos": {
+        "h": 11,
+        "w": 14,
+        "x": 0,
+        "y": 5
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      }
+    },
+    {
+      "type": "barchart",
+      "title": "Total tokens by participant",
+      "targets": [
+        {
+          "expr": "sort_desc(sum by (api_key_alias)(litellm_total_tokens_metric_total{api_key_alias=~\"agenticai-$cohort-u.*\"}))",
+          "legendFormat": "{{api_key_alias}}",
+          "refId": "A",
+          "format": "time_series",
+          "instant": true,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "legend": {
+          "showLegend": false
+        }
+      },
+      "gridPos": {
+        "h": 11,
+        "w": 10,
+        "x": 14,
+        "y": 5
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      }
+    },
+    {
+      "type": "piechart",
+      "title": "Backend split \u2014 Spark vs DeepInfra (tokens)",
+      "targets": [
+        {
+          "expr": "sum by (model)(litellm_total_tokens_metric_total{api_key_alias=~\"agenticai-$cohort-u.*\"})",
+          "legendFormat": "{{model}}",
+          "refId": "A",
+          "instant": true,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 16
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Token rate (5m) by participant",
+      "targets": [
+        {
+          "expr": "sum by (api_key_alias)(rate(litellm_total_tokens_metric_total{api_key_alias=~\"agenticai-$cohort-u.*\"}[5m]))",
+          "legendFormat": "{{api_key_alias}}",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 16,
+        "x": 8,
+        "y": 16
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Daily spend vs $2.50 cap (per participant)",
+      "targets": [
+        {
+          "expr": "sum by (api_key_alias)(litellm_spend_metric_total{api_key_alias=~\"agenticai-$cohort-u.*\"})",
+          "legendFormat": "{{api_key_alias}}",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 4,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 2.5
+              }
+            ]
+          },
+          "custom": {
+            "fillOpacity": 5,
+            "thresholdsStyle": {
+              "mode": "line"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 24
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      }
+    }
+  ]
+}

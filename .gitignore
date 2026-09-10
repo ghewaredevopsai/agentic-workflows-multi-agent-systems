@@ -61,6 +61,11 @@ __pycache__/
 credentials.*
 secrets.*
 *token*.json
+# ...but NOT the tokenomics dashboard. That rule is aimed at token.json /
+# access_token.json; "tokenomics" matches it by accident and the file is PromQL
+# and panel layout only -- checked for keys, bearers, passwords, auth URLs and
+# private IPs before this exception was added. Keep the exception this narrow.
+!resources/agenticai-tokenomics-dashboard.json
 
 # ---------------------------------------------------------------------------
 # OS / editor noise
