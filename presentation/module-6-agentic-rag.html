@@ -160,33 +160,6 @@ svg text.mono.ok{fill:#0f766e}
     Trainer: Rajesh Gheware
   </div>
 </div>
-<div class="slide" data-sec="Overview" data-notes="The spine of the module, as four questions rather than four topics. Say that each one is answered before the next is asked, and that by the fourth they will have built the thing. Ask the room, and keep the answers: which documents in your world would be worth making answerable this way? That is the capstone corpus, and it is a better question than any of mine.">
-  <h2>Four questions, in this order</h2>
-  <div class="body">
-    <svg width="1180" height="330" viewBox="0 0 1180 330" role="img" aria-label="The four questions the module answers, in order">
-      <rect x="40" y="20" width="540" height="130" rx="8" fill="#eef2ff" stroke="#4338ca" stroke-width="2.5"/>
-      <text x="66" y="56" class="bx">1 &middot; Why can&rsquo;t the model just answer?</text>
-      <text x="66" y="90" class="bds">What it does instead of admitting it does not</text>
-      <text x="66" y="114" class="bds">know &mdash; and what retrieval changes</text>
-
-      <rect x="600" y="20" width="540" height="130" rx="8" fill="#f0fdf9" stroke="#0d9488" stroke-width="2.5"/>
-      <text x="626" y="56" class="bx ok">2 &middot; How does a machine tell</text>
-      <text x="626" y="84" class="bx ok">&ldquo;refund&rdquo; from &ldquo;return&rdquo;?</text>
-      <text x="626" y="118" class="bds">Embeddings, and the arithmetic underneath</text>
-
-      <rect x="40" y="170" width="540" height="130" rx="8" fill="#fffbeb" stroke="#fbbf24" stroke-width="2.5"/>
-      <text x="66" y="206" class="bx am">3 &middot; Where do the vectors live?</text>
-      <text x="66" y="240" class="bds">A store, its metadata, and how a real</text>
-      <text x="66" y="264" class="bds">document gets cut up and put into one</text>
-
-      <rect x="600" y="170" width="540" height="130" rx="8" fill="#f8f8fd" stroke="#94a3b8" stroke-width="2.5"/>
-      <text x="626" y="206" class="bx">4 &middot; How does that become an answer</text>
-      <text x="626" y="234" class="bx">you can check?</text>
-      <text x="626" y="268" class="bds">The chain, the refusal, and the citation</text>
-    </svg>
-  </div>
-  <div class="take"><b>Each one is answered before the next is asked</b> &mdash; and by the fourth you have built the thing, on your own corpus, in the labs.</div>
-</div>
 <div class="slide" data-sec="Why RAG" data-notes="The whole reason for the module, on one slide. Land the red band first and slowly: the failure is not that the model lacks your data, it is that lacking it looks exactly like having it. Then the three verbs, and note that the footers answer the band line for line -- your data rather than its training, in the prompt rather than the weights, checkable rather than plausible. The open-book analogy is worth saying out loud: the student is not smarter with the book open, they have stopped guessing.">
   <h2>Why RAG exists</h2>
   <div class="body">
@@ -444,22 +417,24 @@ svg text.mono.ok{fill:#0f766e}
     </svg>
   </div>
 </div>
-<div class="slide" data-sec="Vector stores" data-notes="First code slide of part two. The collection is the unit of separation -- one per corpus, or per tenant, and it is far easier to get right at the start than to retrofit. Point at the metadatas list: those dictionaries are the difference between a demo and something a compliance team will accept.">
+<div class="slide" data-sec="Vector stores" data-notes="First code slide of part two. Answer the question before it is asked, because it always is: add() takes no model argument. The embedding function is attached to the COLLECTION, once, at creation -- everything written to it afterwards is embedded the same way, which is the only thing that makes the vectors comparable. Chroma will default it silently if you omit it, and its default is the all-MiniLM-L6-v2 from two slides ago; name it anyway, so the next person reading the code knows what the vectors are. The collection is also the unit of separation -- one per corpus, or per tenant, far easier to get right at the start than to retrofit. Then point at the metadatas list: those dictionaries are the difference between a demo and something a compliance team will accept.">
   <h2>Collections and metadata</h2>
   <div class="body">
-    <svg width="1180" height="400" viewBox="0 0 1180 400" role="img" aria-label="Creating a Chroma collection and adding documents with metadata">
-      <rect x="50" y="10" width="1080" height="380" rx="8" class="cp"/>
-      <text class="co" x="76" y="48" xml:space="preserve"><tspan class="k">import</tspan><tspan> chromadb</tspan></text>
-      <text class="co" x="76" y="98" xml:space="preserve"><tspan class="c"># a client that keeps what you write</tspan></text>
-      <text class="co" x="76" y="124" xml:space="preserve"><tspan>client = chromadb.</tspan><tspan class="f">PersistentClient</tspan><tspan>(path="./chroma_db")</tspan></text>
-      <text class="co" x="76" y="174" xml:space="preserve"><tspan class="c"># a collection is the unit of separation -- one per corpus</tspan></text>
-      <text class="co" x="76" y="200" xml:space="preserve"><tspan>collection = client.</tspan><tspan class="f">get_or_create_collection</tspan><tspan>("company_docs")</tspan></text>
-      <text class="co" x="76" y="250" xml:space="preserve"><tspan>collection.</tspan><tspan class="f">add</tspan><tspan>(</tspan></text>
-      <text class="co" x="76" y="276" xml:space="preserve"><tspan>    documents=["Refund within 30 days of purchase",</tspan></text>
-      <text class="co" x="76" y="302" xml:space="preserve"><tspan>               "Free shipping on orders above Rs 500"],</tspan></text>
-      <text class="co" x="76" y="328" xml:space="preserve"><tspan>    metadatas=[{"source": "policy.pdf", "page": </tspan><tspan class="s">3</tspan><tspan>},</tspan></text>
-      <text class="co" x="76" y="354" xml:space="preserve"><tspan>               {"source": "policy.pdf", "page": </tspan><tspan class="s">7</tspan><tspan>}],</tspan></text>
-      <text class="co" x="76" y="380" xml:space="preserve"><tspan>    ids=["doc1", "doc2"])</tspan></text>
+    <svg width="1180" height="428" viewBox="0 0 1180 428" role="img" aria-label="Creating a Chroma collection with an embedding function, then adding documents with metadata">
+      <rect x="50" y="6" width="1080" height="408" rx="8" class="cp"/>
+      <text class="co" x="76" y="42" xml:space="preserve"><tspan class="k">import</tspan><tspan> chromadb</tspan></text>
+      <text class="co" x="76" y="68" xml:space="preserve"><tspan class="k">from</tspan><tspan> chromadb.utils.embedding_functions </tspan><tspan class="k">import</tspan><tspan> DefaultEmbeddingFunction</tspan></text>
+      <text class="co" x="76" y="112" xml:space="preserve"><tspan class="c"># the model is named ONCE, on the collection -- never on add()</tspan></text>
+      <text class="co" x="76" y="138" xml:space="preserve"><tspan>client = chromadb.</tspan><tspan class="f">PersistentClient</tspan><tspan>(path="./chroma_db")</tspan></text>
+      <text class="co" x="76" y="164" xml:space="preserve"><tspan>collection = client.</tspan><tspan class="f">get_or_create_collection</tspan><tspan>(</tspan></text>
+      <text class="co" x="76" y="190" xml:space="preserve"><tspan>    "company_docs", embedding_function=</tspan><tspan class="f">DefaultEmbeddingFunction</tspan><tspan>())</tspan></text>
+      <text class="co" x="76" y="234" xml:space="preserve"><tspan>collection.</tspan><tspan class="f">add</tspan><tspan>(</tspan></text>
+      <text class="co" x="76" y="260" xml:space="preserve"><tspan>    documents=["Refund within 30 days of purchase",</tspan></text>
+      <text class="co" x="76" y="286" xml:space="preserve"><tspan>               "Free shipping on orders above Rs 500"],</tspan></text>
+      <text class="co" x="76" y="312" xml:space="preserve"><tspan>    metadatas=[{"source": "policy.pdf", "page": </tspan><tspan class="s">3</tspan><tspan>},</tspan></text>
+      <text class="co" x="76" y="338" xml:space="preserve"><tspan>               {"source": "policy.pdf", "page": </tspan><tspan class="s">7</tspan><tspan>}],</tspan></text>
+      <text class="co" x="76" y="364" xml:space="preserve"><tspan>    ids=["doc1", "doc2"])</tspan><tspan class="c">   # no model argument here</tspan></text>
+      <text class="co" x="76" y="394" xml:space="preserve"><tspan class="c"># DefaultEmbeddingFunction() is the all-MiniLM-L6-v2 from two slides ago</tspan></text>
     </svg>
   </div>
   <div class="take"><b>Metadata is the filter you will actually use.</b> Similarity narrows by meaning; metadata narrows by fact &mdash; source, page, date, entitlement. Production retrieval is nearly always both.</div>

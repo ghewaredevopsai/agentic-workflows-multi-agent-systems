@@ -35,9 +35,10 @@ Ported from the flagship session-5 labs (2026-09-10). Two substitutions were for
 both are real:
   * Groq -> the sandbox gateway. ChatOpenAI against LAB_LLM_BASE_URL / LAB_LLM_MODEL,
     i.e. qwen through LiteLLM. No key to register, no vendor to sign up with.
-  * langchain_huggingface -> langchain_community. The modern package is not in the
-    sandbox image; the deprecated import path is, and works. all-MiniLM-L6-v2 itself is
-    unchanged, and its cache is pre-warmed in every sandbox PVC.
+  * HuggingFaceEmbeddings -> a ~10-line Embeddings adapter over chromadb's
+    ONNXMiniLM_L6_V2. Same model (all-MiniLM-L6-v2) and same vectors, reached through
+    onnxruntime rather than torch: ~170 MB per kernel instead of ~840, against a 2.5 GB
+    sandbox. The cache is pre-warmed in every sandbox PVC.
 """
 import json, os, re, sys
 
