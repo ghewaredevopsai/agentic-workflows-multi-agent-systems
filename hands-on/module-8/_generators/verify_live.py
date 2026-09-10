@@ -7,10 +7,10 @@ create_agent runs, the tool bindings, the structured outputs and the checkpointe
 actually work against the served model.
 
     python3 verify_live.py                 # every solution
-    python3 verify_live.py lab-8-03        # just the ones whose name matches
+    python3 verify_live.py lab-8-01        # just the ones whose name matches
 
 Run it ON THE CLUSTER (or anywhere the LAB_LLM_* variables point at a live gateway).
-It makes real model calls and costs real tokens -- a full Module 8 pass is about a cent.
+It makes real model calls and costs real tokens -- a full Module 8 pass is two model calls.
 """
 import os, sys, json, time
 

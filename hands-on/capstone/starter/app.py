@@ -105,7 +105,7 @@ def retrieve(query, k=3):
 # TODO 2 -- one model call that must return an object              (Modules 2, 8)
 #
 # Return None rather than guessing. A service that coerces a bad reply into a decision
-# is Lab 8.2's coercing validator, one layer out.
+# is a coercing validator, one layer out.
 # ===========================================================================
 async def ask_json(system, prompt, usage, retries=1):
     raise NotImplementedError("TODO 2: call the model, parse an object, or return None")

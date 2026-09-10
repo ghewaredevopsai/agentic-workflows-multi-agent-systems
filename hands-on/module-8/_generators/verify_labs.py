@@ -38,7 +38,12 @@ CELL_TIMEOUT = int(os.environ.get("LAB_CELL_TIMEOUT", "120"))
 # cluster -- where all of them are set -- so the run stops being free and deterministic.
 for v in ("LAB_LLM_BASE_URL", "LAB_LLM_MODEL",
           "OPENAI_BASE_URL", "OPENAI_API_BASE", "OPENAI_MODEL",
-          "LITELLM_BASE_URL", "LITELLM_MODEL"):
+          "LITELLM_BASE_URL", "LITELLM_MODEL",
+          # Section 4 acts on a real GitHub repository. It reads its token from
+          # getpass(), which returns "" with nobody at the keyboard -- but scrub the
+          # usual token names too, so no future edit can make an "offline"
+          # verification open an issue or push a branch.
+          "GITHUB_TOKEN", "GITHUB_PAT", "GH_TOKEN"):
     os.environ.pop(v, None)
 
 import nbformat
@@ -86,7 +91,8 @@ def run_plain(path):
 # Scrub inside the kernel too, so both halves really do run with no model reachable.
 SCRUB = ("import os\n"
          "for _v in ('LAB_LLM_BASE_URL','LAB_LLM_MODEL','OPENAI_BASE_URL','OPENAI_API_BASE',\n"
-         "           'OPENAI_MODEL','LITELLM_BASE_URL','LITELLM_MODEL'):\n"
+         "           'OPENAI_MODEL','LITELLM_BASE_URL','LITELLM_MODEL',\n"
+         "           'GITHUB_TOKEN','GITHUB_PAT','GH_TOKEN'):\n"
          "    os.environ.pop(_v, None)\n")
 
 

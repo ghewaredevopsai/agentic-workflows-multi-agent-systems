@@ -92,7 +92,7 @@ def _post(url, payload, timeout=REQUEST_TIMEOUT):
 
 # --------------------------------------------------------------------------- contract
 def validate(body, case):
-    """Return the response, or raise. Never repair, never guess -- Lab 8.2's rule."""
+    """Return the response, or raise. Never repair, never guess."""
     if not isinstance(body, dict):
         raise ContractViolation(f"expected an object, got {type(body).__name__}")
     missing = [f for f in REQUIRED_FIELDS if f not in body]

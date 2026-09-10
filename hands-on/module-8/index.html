@@ -32,96 +32,41 @@ footer a{color:#c7d2fe;text-decoration:none}
 <header>
   <a class="home" href="../../course-outline-agentic-workflows-multi-agent-systems.html" title="Course outline">Home</a>
   <h1>Module 8 &mdash; Safety &amp; Guardrails</h1>
-  <div class="tagline">Day 3 hands-on &middot; five labs, intermediate to advanced</div>
-  <div class="meta"><span>One case file throughout</span> &middot; <span>self-checked</span> &middot; <span>solutions provided</span></div>
+  <div class="tagline">Day 3 hands-on &middot; one lab, advanced</div>
+  <div class="meta"><span>Ends in a real pull request</span> &middot; <span>self-checked</span> &middot; <span>solution provided</span></div>
 </header>
 
 <div class="container">
 
   <div class="how">
-    <p><strong>How these labs work.</strong> Fill every <code>BLANK</code>, then run the
-      <strong>Self-check</strong> cell under each section. It prints <code>[PASS]</code>,
-      <code>[FAIL]</code> or <code>[TODO]</code>, and the last cell prints your
-      <code>Score</code>.</p>
-    <p><strong>You write real Pydantic, LangChain and LangGraph code in every lab.</strong> The
-      <strong>Self-check</strong> cells assert on the objects you build &mdash; a contract that
-      refuses, a <code>@tool</code> that refuses, a compiled graph with an approval gate in it.
-      Refusal is deterministic, so those checks never depend on a live model. Cells marked
-      <strong>Run it for real</strong> put your guardrail in front of the sandbox model; if it is
-      unreachable they print how to fix it rather than crashing, so <em>Run All</em> is always safe
-      on an untouched notebook.</p>
-    <p><strong>Controls, not measurements.</strong> A measurement tells you how often something
-      happens; a control decides what happens. The interesting assertion about a guardrail is what
-      it <em>refuses</em> &mdash; feed a poisoned or malformed object to the contract and watch it
-      be rejected &mdash; and that is exactly the assertion that needs no endpoint. The
-      <strong>Run it for real</strong> cells put the sandbox model on the other side: as a
-      detector, as a source of malformed output, as an agent meeting a gate, and as your red-team
-      opponent.</p>
-  </div>
-
-            <div class="lab">
-    <div class="tags">35 min<span class="lvl">Intermediate &rarr; Advanced</span></div>
-    <h3><a href="lab-8-01-measure-the-detector.ipynb">Lab 8.1 &mdash; Measure the Detector</a></h3>
-    <p>60% detection, 10% false alarms &mdash; and a five-minute paraphrase that beats it at any threshold.</p>
-    <ul>
-      <li>Build a keyword detector and measure BOTH error rates</li>
-      <li>Write the schema a model-judged detector may answer in</li>
-      <li>Put the detector inside the <code>@tool</code> that uses the untrusted text</li>
-      <li>Write the bypass, and see how little effort it took</li>
-    </ul>
-  <div class="sol">3 blanks &middot; 29 checks &middot; solution: <code>solutions/lab-8-01-measure-the-detector.ipynb</code></div>
+    <p><strong>How this lab works.</strong> Sections 1 to 3 are ordinary lab work: fill every
+      <code>BLANK</code>, then run the <strong>Self-check</strong> cell under each section. It
+      prints <code>[PASS]</code>, <code>[FAIL]</code> or <code>[TODO]</code>, and the last cell
+      prints your <code>Score</code>. Those checks are pure functions over a small in-memory
+      store, so they are deterministic and need no model and no network. One cell marked
+      <strong>Run it for real</strong> calls the sandbox model to show the attack landing; it
+      prints rather than asserts, because model behaviour is not a thing to grade.</p>
+    <p><strong>Section 4 is different, and it is the point of the lab.</strong> It acts on a real
+      public repository &mdash; it creates a fork, an issue or a comment on one, a branch and a
+      pull request, all under your own GitHub account and your own name. Nothing in it is scored,
+      and every cell self-skips until you enter a token. You will need a <strong>classic</strong>
+      personal access token with the single <code>public_repo</code> scope: GitHub does not let a
+      fine-grained token write to a public repository you do not own.</p>
   </div>
 
   <div class="lab">
-    <div class="tags">35 min<span class="lvl">Advanced</span></div>
-    <h3><a href="lab-8-02-contracts-between-hops.ipynb">Lab 8.2 &mdash; Contracts Between Every Hop</a></h3>
-    <p>Two parsers, the same constructor call, the same hostile JSON. Only one of them refuses it.</p>
+    <div class="tags">50 min<span class="lvl">Advanced</span></div>
+    <h3><a href="lab-8-01-poison-the-example-store.ipynb">Lab 8.1 &mdash; Poison the Example Store, Then Fix It</a></h3>
+    <p>The thumbs-up button is an injection channel: one employee's text, retrieved into every
+      other employee's prompt. Prove it, fix it, then send the fix upstream.</p>
     <ul>
-      <li>A Pydantic contract that rejects rather than coerces</li>
-      <li>Choose the output parser that validates &mdash; one of the two does not</li>
-      <li>Put the contract on every edge of a compiled <code>StateGraph</code></li>
-      <li>Decide what a violation does: retry, escalate, or stop</li>
+      <li>Reproduce a stored cross-user injection with the app's own few-shot code</li>
+      <li>Decide whether the missing check belongs at write time or at read time, and write it</li>
+      <li>Measure whether the model obeys the planted rule &mdash; and what makes it stop</li>
+      <li>Fork the app, raise the issue upstream, or comment if it is already raised</li>
+      <li>Open a pull request from your own account, with a regression test under it</li>
     </ul>
-  <div class="sol">3 blanks &middot; 27 checks &middot; solution: <code>solutions/lab-8-02-contracts-between-hops.ipynb</code></div>
-  </div>
-
-  <div class="lab">
-    <div class="tags">35 min<span class="lvl">Advanced</span></div>
-    <h3><a href="lab-8-03-data-boundaries.ipynb">Lab 8.3 &mdash; Data Boundaries: Prompt, Trace, Vector Store</a></h3>
-    <p>You built a tracer yesterday. Today you find out it is a customer database nobody classified.</p>
-    <ul>
-      <li>Decide the boundary once, then put it in the tool</li>
-      <li>Point the same decision at a real LangChain callback handler</li>
-      <li>Check <code>Document</code>s before they are embedded &mdash; the store you cannot un-write</li>
-      <li>Give every store a retention number somebody chose</li>
-    </ul>
-  <div class="sol">2 blanks &middot; 24 checks &middot; solution: <code>solutions/lab-8-03-data-boundaries.ipynb</code></div>
-  </div>
-
-  <div class="lab">
-    <div class="tags">35 min<span class="lvl">Advanced</span></div>
-    <h3><a href="lab-8-04-blast-radius.ipynb">Lab 8.4 &mdash; Blast Radius and Tool Governance</a></h3>
-    <p>&ldquo;Is it secure?&rdquo; has no answer. &ldquo;What could an attacker do with it?&rdquo; is a list you can shorten.</p>
-    <ul>
-      <li>Classify every tool: read, reversible write, irreversible</li>
-      <li>Build the approval gate as a routing node &mdash; no checkpointer needed</li>
-      <li>Compute blast radius, shrink it, and find out what breaks</li>
-      <li>Produce a grant a reviewer can approve in a minute</li>
-    </ul>
-  <div class="sol">3 blanks &middot; 32 checks &middot; solution: <code>solutions/lab-8-04-blast-radius.ipynb</code></div>
-  </div>
-
-  <div class="lab">
-    <div class="tags">40 min<span class="lvl">Advanced &middot; challenge</span></div>
-    <h3><a href="lab-8-05-challenge-red-team.ipynb">Lab 8.5 &mdash; Challenge: Red-Team Your Own System</a></h3>
-    <p>Nine attacks, four layers, two survivors &mdash; and only one of them can do any damage.</p>
-    <ul>
-      <li>Assemble the four layers; two of them are objects you built</li>
-      <li>Record which layer stopped each attempt, and which never fired</li>
-      <li>Separate a clever bypass from an actual incident</li>
-      <li>Write the refusal clause that took a reviewer from 0/3 to 3/3</li>
-    </ul>
-  <div class="sol">3 blanks &middot; 37 checks &middot; solution: <code>solutions/lab-8-05-challenge-red-team.ipynb</code></div>
+  <div class="sol">3 blanks &middot; 9 checks &middot; solution: <code>solutions/lab-8-01-poison-the-example-store.ipynb</code></div>
   </div>
 
   <div class="note">
