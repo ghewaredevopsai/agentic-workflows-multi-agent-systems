@@ -22,7 +22,7 @@ approval gate, citations, cost and latency exactly.
 
 It CANNOT see inside your service. `trajectory` and `usage` are self-reported: a service
 that lies about them passes. That is not a hole to be plugged, it is the honest boundary
-of an external check -- the same one Lab 9.3 found in `kubectl --dry-run=server`, which
+of an external check -- the same one in `kubectl --dry-run=server`, which
 proves an object is legal and says nothing about whether it is a good idea. The design
 requirements (supervisor + specialists, the ledger over MCP, Agentic RAG, a critic) are
 checked by a person reading your code and your traces, and the traces are the reason

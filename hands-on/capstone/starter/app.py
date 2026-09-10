@@ -13,8 +13,8 @@ hope works at the end of the afternoon.
 WHAT IS ALREADY HERE
   * the response contract, so the harness can talk to you from the start
   * the MCP client, pointed at ledger_mcp.py (Lab 4.4, made persistent)
-  * cost accounting from tokens (Lab 9.4 -- the gateway reports tokens and no money)
-  * the two probes, answering different questions (Lab 9.2)
+  * cost accounting from tokens (the gateway reports tokens and no money)
+  * the two probes, answering different questions
 
 WHAT YOU WRITE
   * retrieval over the policy corpus                          (Module 6)
@@ -44,7 +44,7 @@ from mcp_client import MCPClient, MCPError                                      
 BASE  = os.environ.get("LAB_LLM_BASE_URL") or os.environ.get("OPENAI_BASE_URL")
 MODEL = os.environ.get("LAB_LLM_MODEL")    or os.environ.get("OPENAI_MODEL")
 
-# AsyncOpenAI, not OpenAI -- Lab 9.1 measured what a synchronous client does to a worker
+# AsyncOpenAI, not OpenAI -- a synchronous client serialises an async worker
 # serving four callers at once, and the acceptance harness uses four by default.
 client = AsyncOpenAI(base_url=BASE, api_key=os.environ.get("OPENAI_API_KEY", "sandbox"),
                      timeout=90.0, max_retries=1)
@@ -160,7 +160,7 @@ def healthz():
 
 @app.get("/readyz")
 def readyz():
-    """Readiness. A STATUS CODE, not a body -- Lab 9.2."""
+    """Readiness. A STATUS CODE, not a body."""
     if BASE and MODEL:
         return JSONResponse({"ready": True, "model": MODEL})
     return JSONResponse({"ready": False, "why": "LLM env not set"}, status_code=503)
@@ -187,7 +187,7 @@ async def investigate(body: Ask):
         # ===================================================================
         pass
     except Exception as exc:
-        # A service returns its failures. Lab 9.1: 5xx means WE broke, and a caller
+        # A service returns its failures. 5xx means WE broke, and a caller
         # cannot act on a stack trace.
         reason = f"{type(exc).__name__}: {str(exc)[:160]}"
 

@@ -32,8 +32,8 @@ footer a{color:#c7d2fe;text-decoration:none}
 <header>
   <a class="home" href="../../course-outline-agentic-workflows-multi-agent-systems.html" title="Course outline">Home</a>
   <h1>Module 9 &mdash; Deployment &amp; AgentOps</h1>
-  <div class="tagline">Day 3 hands-on &middot; five labs, intermediate to advanced</div>
-  <div class="meta"><span>No cluster required</span> &middot; <span>self-checked</span> &middot; <span>solutions provided</span></div>
+  <div class="tagline">Day 3 hands-on &middot; one lab, advanced</div>
+  <div class="meta"><span>Nothing graded needs a cluster</span> &middot; <span>self-checked</span> &middot; <span>solution provided</span></div>
 </header>
 
 <div class="container">
@@ -43,86 +43,33 @@ footer a{color:#c7d2fe;text-decoration:none}
       <strong>Self-check</strong> cell under each section. It prints <code>[PASS]</code>,
       <code>[FAIL]</code> or <code>[TODO]</code>, and the last cell prints your
       <code>Score</code>.</p>
-    <p><strong>You write real framework code.</strong> A FastAPI app and its routes, Pydantic
-      request and response contracts, LangChain tools and an agent behind the boundary, and
-      Kubernetes manifests as Python dicts. The self-checks assert on <em>the objects you built</em>
-      &mdash; a route table, a schema, a compiled tool, a manifest &mdash; so they are
-      deterministic.</p>
-    <p><strong>Your score never depends on a live model.</strong> Only cells marked
-      <strong>Run it for real</strong> call the sandbox model &mdash; if it is unreachable they
-      print how to fix it rather than crashing, so <em>Run All</em> is always safe on an untouched
+    <p><strong>You write the manifests that ship a real service.</strong> Kubernetes objects as
+      Python dicts &mdash; a ConfigMap, a PVC, a Deployment, a Service and an Ingress &mdash; and
+      the self-checks assert on <em>the objects you built</em>, so they are deterministic.</p>
+    <p><strong>Your score never depends on the cluster.</strong> Only cells marked
+      <strong>Run it for real</strong> touch your namespace &mdash; if it is not set they print
+      what to do instead of crashing, so <em>Run All</em> is always safe on an untouched
       notebook.</p>
     <p><strong>Nothing graded here needs a cluster.</strong> A Kubernetes manifest <em>is</em>
-      JSON and YAML is a surface syntax over it, so the linting is a predicate over a Python dict;
-      the kubelet's probe loop is twenty lines. <code>kubectl apply --dry-run=server</code>, your
-      own namespace and the tracing backend live only in the <strong>Run it for real</strong>
-      cells &mdash; and a full starter manifest ships beside these notebooks as
-      <code>app-deploy-example.yaml</code>.</p>
+      JSON and YAML is a surface syntax over it, so every rule is a predicate over a Python dict
+      and runs offline in milliseconds. The whole design is graded before anything is applied;
+      applying it comes after, in the <strong>Run it for real</strong> cells.</p>
   </div>
 
   <div class="lab">
-    <div class="tags">35 min<span class="lvl">Intermediate &rarr; Advanced</span></div>
-    <h3><a href="lab-9-01-the-service-boundary.ipynb">Lab 9.1 &mdash; The Service Boundary</a></h3>
-    <p>Same answers, same code, no error anywhere &mdash; and ten callers take ten times as long.</p>
+    <div class="tags">45 min<span class="lvl">Advanced</span></div>
+    <h3><a href="lab-9-01-deploy-the-frontdesk-service.ipynb">Lab 9.1 &mdash; Deploy the FrontDesk Service</a></h3>
+    <p>Three days of agents in a notebook. This one puts a multi-agent service on a cluster, in
+      your namespace, on your hostname, and asks it a question.</p>
     <ul>
-      <li>Write the request and response contracts as Pydantic models on a real FastAPI app</li>
-      <li>Put the approval gate in front of the agent, where it needs no checkpointer</li>
-      <li>Find out why a refusal must not be a 5xx</li>
-      <li>Measure what one blocking call does to an async worker under load</li>
+      <li>Read your namespace and host from the environment, never from a hostname</li>
+      <li>Build the five objects a deployment needs, as dicts you can lint offline</li>
+      <li>Make the four decisions this cluster forces &mdash; and avoid the trap that has already
+        broken this app once</li>
+      <li>Apply them, wait for the rollout, and get a grounded answer out of the running service</li>
     </ul>
-    <div class="sol">3 blanks &middot; 32 checks &middot; solution: <code>solutions/lab-9-01-the-service-boundary.ipynb</code></div>
+    <div class="sol">5 blanks &middot; 18 checks &middot; solution: <code>solutions/lab-9-01-deploy-the-frontdesk-service.ipynb</code></div>
   </div>
-
-  <div class="lab">
-    <div class="tags">35 min<span class="lvl">Advanced</span></div>
-    <h3><a href="lab-9-02-probes-that-can-fail.ipynb">Lab 9.2 &mdash; Probes That Can Actually Fail</a></h3>
-    <p>The gateway blinked for thirty seconds, so Kubernetes restarted three healthy processes.</p>
-    <ul>
-      <li>Write <code>/healthz</code> and <code>/readyz</code> as real FastAPI routes that answer different questions</li>
-      <li>Decide which failures restart a container and which only drain traffic</li>
-      <li>Simulate the kubelet and price <code>failureThreshold</code> in seconds of traffic</li>
-      <li>Find out what a readiness check that calls the model costs per day</li>
-    </ul>
-    <div class="sol">4 blanks &middot; 24 checks &middot; solution: <code>solutions/lab-9-02-probes-that-can-fail.ipynb</code></div>
-  </div>
-
-  <div class="lab">
-    <div class="tags">35 min<span class="lvl">Advanced</span></div>
-    <h3><a href="lab-9-03-the-manifest-is-the-deploy.ipynb">Lab 9.3 &mdash; The Manifest Is the Deployment</a></h3>
-    <p>Five blocking findings in a manifest that looks perfectly ordinary &mdash; and one rule that is wrong.</p>
-    <ul>
-      <li>Turn the production-readiness checklist into rules that run</li>
-      <li>Decide which findings block a release and which are only worth an argument</li>
-      <li>Catch a probe path the app does not serve, by reading the app's own route table</li>
-      <li>Send the object you linted to a real API server with <code>--dry-run=server</code></li>
-    </ul>
-    <div class="sol">3 blanks &middot; 30 checks &middot; solution: <code>solutions/lab-9-03-the-manifest-is-the-deploy.ipynb</code></div>
-  </div>
-
-  <div class="lab">
-    <div class="tags">35 min<span class="lvl">Advanced</span></div>
-    <h3><a href="lab-9-04-spans-you-can-bill.ipynb">Lab 9.4 &mdash; Spans You Can Bill</a></h3>
-    <p>Three of six questions cannot be answered at any price, because nobody recorded the attribute.</p>
-    <ul>
-      <li>Build the span attributes from the model's own usage metadata</li>
-      <li>Be honest about where the bill actually comes from</li>
-      <li>Work out which questions your instrumentation can answer, and which it cannot</li>
-      <li>Choose the labels a metric may carry, and the traces tail sampling must keep</li>
-    </ul>
-    <div class="sol">3 blanks &middot; 39 checks &middot; solution: <code>solutions/lab-9-04-spans-you-can-bill.ipynb</code></div>
-  </div>
-
-  <div class="lab">
-    <div class="tags">40 min<span class="lvl">Advanced &middot; challenge</span></div>
-    <h3><a href="lab-9-05-challenge-up-and-wrong.ipynb">Lab 9.5 &mdash; Challenge: The Service That Is Up and Wrong</a></h3>
-    <p>Every golden signal flat and green, and one payment in twelve went out without a human.</p>
-    <ul>
-      <li>Find an incident in which every conventional signal is green</li>
-      <li>Decide which direction each metric has to move before it is worth a page</li>
-      <li>Pick a scaling signal that moves when CPU does not</li>
-      <li>Leave with the runbook page for an agentic service</li>
-    </ul>
-    <div class="sol">3 blanks &middot; 33 checks &middot; solution: <code>solutions/lab-9-05-challenge-up-and-wrong.ipynb</code></div>
   </div>
 
   <div class="note">

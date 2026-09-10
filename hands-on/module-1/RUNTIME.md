@@ -24,9 +24,9 @@ the endpoint is read from the environment, so the admin can point it anywhere wi
 | `langchain-chroma` (1.x) | **all of Module 6** | `Chroma` vector store wrapper. The labs pass an explicit `Embeddings`, so Chroma never has to guess |
 | `langchain-text-splitters` (1.x) | Module 6, labs 6.4 and 6.8 | `RecursiveCharacterTextSplitter`. ⚠️ **its top-level import pulls in `torch` (+750 MB resident)** &mdash; unavoidable, a narrow `.character` import does it too. Budget for it (see the memory note below) |
 | `langgraph-checkpoint` / `-sqlite` | Module 3, labs 3.6&ndash;3.8 | checkpointer behind `interrupt_before` / `update_state` / `get_state_history` |
-| `fastapi`, `uvicorn` | Module 9, labs 9.1&ndash;9.3 | the service boundary. Graded cells assert on `app.routes` and call handlers directly &mdash; **no server is ever started**, and `TestClient`/`httpx` is deliberately not relied on |
-| `langfuse` (4.x) | Modules 7 and 9, labs 7.2 and 9.4 | **no graded cell touches it**; every Langfuse cell is guarded and returns when unconfigured |
-| `kubernetes` | Module 9 | present in the image; graded cells never need an API server |
+| `fastapi`, `uvicorn` | the capstone | the service boundary. Graded cells assert on `app.routes` and call handlers directly &mdash; **no server is ever started**, and `TestClient`/`httpx` is deliberately not relied on. ⚠️ Module 9 no longer builds a FastAPI app: since 2026-09-11 its single lab deploys the published FrontDesk AI image instead |
+| `langfuse` (4.x) | Module 7, lab 7.2 | **no graded cell touches it**; every Langfuse cell is guarded and returns when unconfigured |
+| `kubernetes` | Module 9 | present in the image, though lab 9.1 shells out to `kubectl`; graded cells never need an API server |
 
 **Nothing new is required for the Day 1 rebuild.** Every import above is already pinned in the lab
 image's `requirements.txt` and present in the running sandbox. ⚠️ The pins are floors and very
@@ -94,7 +94,7 @@ LAB_LLM_BASE_URL=http://<service>.agenticai.svc.cluster.local:<port>/v1
 **These values are deliberately not baked into the notebooks.** If they are unset, every live cell
 prints the two `export` lines it needs and continues — it never raises.
 
-Module 9's labs and the capstone additionally read `APP_NAMESPACE` and `APP_HOST` — the namespace
+Module 9's lab and the capstone additionally read `APP_NAMESPACE` and `APP_HOST` — the namespace
 a participant deploys into and the hostname it is published at. Both are injected into the sandbox;
 if they are unset, nothing breaks and every cell that would have used them says so instead.
 

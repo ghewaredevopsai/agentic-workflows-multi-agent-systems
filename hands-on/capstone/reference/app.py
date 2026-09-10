@@ -29,14 +29,14 @@ from mcp_client import MCPClient, MCPError                          # noqa: E402
 BASE  = os.environ.get("LAB_LLM_BASE_URL") or os.environ.get("OPENAI_BASE_URL")
 MODEL = os.environ.get("LAB_LLM_MODEL")    or os.environ.get("OPENAI_MODEL")
 
-# AsyncOpenAI, not OpenAI. Lab 9.1 measured what the synchronous client does to a worker
+# AsyncOpenAI, not OpenAI. A synchronous client serialises an async worker
 # serving four callers: the answers are identical and the fourth one waits for the first three.
 client = AsyncOpenAI(base_url=BASE, api_key=os.environ.get("OPENAI_API_KEY", "sandbox"),
                      timeout=90.0, max_retries=1)
 
-# ---------------------------------------------------------------- cost, per Lab 9.4
+# ---------------------------------------------------------------- cost
 # The gateway reports TOKENS and no money, so cost is derived here. That is the whole
-# reason Lab 9.4 insisted on recording the token counts alongside the dollar figure: the
+# reason to record the token counts alongside the dollar figure: the
 # rate is a stand-in for a price sheet and will change, and the history has to survive it.
 RATES = {"default": {"in": 0.0002, "out": 0.0006}}       # USD per 1,000 tokens
 
@@ -296,7 +296,7 @@ class Ask(BaseModel):
 
 @app.get("/healthz")
 def healthz():
-    """Liveness. Local only -- Lab 9.2: restarting this process will not fix the gateway."""
+    """Liveness. Local only -- restarting this process will not fix the gateway."""
     return {"status": "ok"}
 
 

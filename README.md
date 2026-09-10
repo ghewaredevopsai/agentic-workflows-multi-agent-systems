@@ -1,6 +1,6 @@
 # Agentic Workflows & Multi-Agent Systems
 
-**3 days · Advanced · 9 modules · 49 labs · capstone**
+**3 days · Advanced · 9 modules · 45 labs · capstone**
 
 Course material for an instructor-led course by Rajesh Gheware (Gheware UniGPS Solutions LLP).
 Participants build, evaluate and operate multi-agent systems — and learn when *not* to build one.
