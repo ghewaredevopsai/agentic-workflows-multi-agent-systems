@@ -1488,9 +1488,15 @@ Schema as `args_schema`, so there is no conversion to write.
 
 Two calls: `initialize`, then `tools/list`. Everything the sandbox needs is already in your
 environment.
+
+One thing to know before the agent starts calling tools: Langfuse Cloud allows **30 API calls a
+minute for the whole project**, and every participant on this course shares that project. An agent
+run makes fifteen to twenty calls, so `429 Too Many Requests` is a normal thing to meet here. The
+client below waits out the `Retry-After` the server sends rather than failing the run &mdash; a
+shared credential has a shared budget, and code that talks to one has to expect it.
 """),
     code(r'''
-import base64, urllib.request
+import base64, urllib.request, urllib.error
 
 LF_URL  = os.environ.get("LANGFUSE_HOST", "").rstrip("/") + "/api/public/mcp"
 LF_AUTH = base64.b64encode(f"{os.environ.get('LANGFUSE_PUBLIC_KEY','')}:"
@@ -1503,17 +1509,35 @@ def langfuse_ready() -> bool:
                ("LANGFUSE_HOST", "LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY"))
 
 
-def mcp(method: str, params: dict = None) -> dict:
-    """One JSON-RPC call to the MCP server. Returns the whole envelope."""
+def mcp(method: str, params: dict = None, tries: int = 4) -> dict:
+    """One JSON-RPC call to the MCP server. Returns the whole envelope -- never raises.
+
+    Langfuse Cloud allows 30 API calls a minute for the whole project, and everyone on this
+    course shares it, so a 429 here is a busy neighbour rather than a bug. Wait out the
+    Retry-After it sends and try again; if it is still busy, hand the failure back as an
+    error envelope so the agent can read it instead of dying mid-run.
+    """
     body = json.dumps({"jsonrpc": "2.0", "id": 1, "method": method, "params": params or {}}).encode()
-    req = urllib.request.Request(LF_URL, data=body, method="POST")
-    req.add_header("Content-Type", "application/json")
-    req.add_header("Accept", "application/json, text/event-stream")
-    req.add_header("Authorization", "Basic " + LF_AUTH)
-    if _sid["v"]:
-        req.add_header("Mcp-Session-Id", _sid["v"])
-    with urllib.request.urlopen(req, timeout=120) as r:
-        raw, sid = r.read().decode(), r.headers.get("mcp-session-id")
+    for attempt in range(1, tries + 1):
+        req = urllib.request.Request(LF_URL, data=body, method="POST")
+        req.add_header("Content-Type", "application/json")
+        req.add_header("Accept", "application/json, text/event-stream")
+        req.add_header("Authorization", "Basic " + LF_AUTH)
+        if _sid["v"]:
+            req.add_header("Mcp-Session-Id", _sid["v"])
+        try:
+            with urllib.request.urlopen(req, timeout=120) as r:
+                raw, sid = r.read().decode(), r.headers.get("mcp-session-id")
+            break
+        except urllib.error.HTTPError as exc:
+            if exc.code == 429 and attempt < tries:
+                wait = int(exc.headers.get("Retry-After") or 20)
+                print(f"  (Langfuse is rate limited -- waiting {wait}s, attempt {attempt}/{tries})")
+                time.sleep(wait)
+                continue
+            return {"error": {"code": exc.code, "message": f"HTTP {exc.code} {exc.reason}"}}
+        except Exception as exc:
+            return {"error": {"code": -1, "message": f"{type(exc).__name__}: {exc}"}}
     if sid:
         _sid["v"] = sid
     for line in raw.splitlines():
@@ -1526,10 +1550,12 @@ def mcp(method: str, params: dict = None) -> dict:
 if langfuse_ready():
     mcp("initialize", {"protocolVersion": "2025-06-18", "capabilities": {},
                        "clientInfo": {"name": "lab-4-4", "version": "1.0"}})
-    published = guard(lambda: mcp("tools/list", {})["result"]["tools"], [])
+    published = guard(lambda: mcp("tools/list", {}).get("result", {}).get("tools", []), [])
     print(f"the server offers {len(published)} tools, for example:")
     for t in published[:5]:
         print(f"  {t['name']:24} {t.get('description','')[:56]}")
+    if not published:
+        print("  (none came back -- if you were rate limited, wait a minute and re-run this cell)")
 else:
     published = []
     print("Langfuse is not configured here. Set LANGFUSE_HOST / _PUBLIC_KEY / _SECRET_KEY.")
