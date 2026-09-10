@@ -1548,7 +1548,11 @@ whether to call this tool?**
     code(r'''
 from langchain_core.tools import StructuredTool
 
-WANTED = ["getMetricsSchema", "queryMetrics", "listObservations"]
+WANTED = ["getMetricsSchema",            # which measures queryMetrics accepts
+          "queryMetrics",               # aggregate: how many, how slow, by name
+          "getObservationFieldSchema",  # which field names listObservations accepts
+          "listObservations",           # find individual ones
+          "getObservation"]             # fetch one in full
 
 
 def as_langchain_tool(spec: dict) -> StructuredTool:
@@ -1573,7 +1577,11 @@ print("bridged:", [t.name for t in tools])
 ''', r'''
 from langchain_core.tools import StructuredTool
 
-WANTED = ["getMetricsSchema", "queryMetrics", "listObservations"]
+WANTED = ["getMetricsSchema",            # which measures queryMetrics accepts
+          "queryMetrics",               # aggregate: how many, how slow, by name
+          "getObservationFieldSchema",  # which field names listObservations accepts
+          "listObservations",           # find individual ones
+          "getObservation"]             # fetch one in full
 
 
 def as_langchain_tool(spec: dict) -> StructuredTool:
@@ -1624,9 +1632,14 @@ score()
     code(r'''
 from langchain.agents import create_agent
 
-SYSTEM = ("You answer questions about a Langfuse project using the tools provided. "
-          "Call getMetricsSchema before guessing field names. "
-          "If a tool returns an ERROR, read it and fix your arguments. Be brief.")
+SYSTEM = (
+    "You answer questions about a Langfuse project using the tools provided.\n"
+    "Call getMetricsSchema before any queryMetrics call, and getObservationFieldSchema "
+    "before any listObservations call. Use only the names they list -- guessing a field "
+    "or measure name costs several wasted turns.\n"
+    "Latency is measured in milliseconds.\n"
+    "If a tool returns an ERROR, read it and correct your arguments. Be brief."
+)
 
 
 def ask(question: str) -> str:
@@ -1638,8 +1651,11 @@ def ask(question: str) -> str:
     return out["messages"][-1].content
 
 
+QUESTION = ("Find the slowest observation in the last 7 days, fetch it in full, "
+            "and explain in three sentences what it was doing.")
+
 if llm_ready() and tools:
-    print(guard(lambda: ask("How many observations are in this project? Just the number.")))
+    print(guard(lambda: ask(QUESTION)))
 else:
     print("Run it for real needs the model and Langfuse. See the setup cell.")
 '''),
@@ -1647,25 +1663,46 @@ else:
     md("""
 ## What you just saw
 
-The `act:` lines are the ReAct loop. The agent asked for the schema, used it to shape a query, and
-answered &mdash; and if it got an argument wrong, the `ERROR:` your wrapper returned is what let it
-try again instead of looping.
+Read the `act:` lines. That one English sentence became a chain: ask the schema what exists,
+`queryMetrics` to rank observations by latency, `listObservations` to identify the slow one,
+`getObservation` to read it in full &mdash; then the model wrote the summary. **You sequenced none
+of that.** You handed it five tools and a question in English.
+
+On this model and this question, expect **fifteen to twenty `act:` lines and two to three
+minutes**, with visible retries: the model proposes an argument, the server returns `ERROR:`, it
+reads it and tries again. That recovery is why the wrapper *returns* error text instead of raising
+&mdash; a raise ends the turn, a returned string lets the model correct itself. The agent is
+slower and more argumentative than the four lines of summary suggest. Watch the middle, not just
+the answer.
+
+`getObservationFieldSchema` is in `WANTED` for a reason worth knowing. An earlier version bound
+only the other four, and the model tried to call `getObservationFieldSchema` anyway &mdash; a tool
+it had never been given &mdash; then spent six turns guessing `start_time` versus `startTime`.
+**It named the tool it was missing.** What an agent reaches for and cannot find is the best signal
+you get about what to bind next.
+
+And the honest result of binding it: the field-name guessing stopped, the answer got richer &mdash;
+and the **turn count did not drop at all**. The model simply moved its uncertainty to the shape of
+`queryMetrics`. Adding a tool removed one failure mode; it did not buy speed. Measure that before
+you promise it to anyone.
 
 That is the whole integration: **twenty lines, and an MCP server is just tools now.**
 
-## A few more to try
+## Now interrogate it yourself
 
-```
-Which observation names appear most often in the last hour?
+`ask()` is the entire interface. Edit `QUESTION` and re-run the cell, or call it directly:
+
+```python
+ask("Which observation names appear most often in the last hour?")
+ask("Give me average and maximum latency by observation name for today.")
+ask("List the three most recent observations with their name, type and latency.")
+ask("Find the most recent GENERATION and tell me which model it used.")
+ask("Are there any observations with level ERROR? Show me the most recent one in full.")
 ```
 
-```
-Call getMetricsSchema first, then give me average latency by observation name for today.
-```
-
-```
-List the three most recent observations with their name and type.
-```
+Questions answered by one aggregate finish in two or three steps. Ones that end in "&hellip;and
+fetch it in full" chain three tools, because finding a thing and reading a thing are different
+tools &mdash; the agent works that out from the descriptions, not from you.
 
 ## Your turn
 
