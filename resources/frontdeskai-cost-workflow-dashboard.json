@@ -1,0 +1,2219 @@
+{
+  "title": "FrontDesk AI \u2014 Cost & Workflow Legs",
+  "uid": "frontdeskai-cost-workflow",
+  "description": "Time and cost per request, broken down by workflow leg and specialist desk, per participant namespace. The cost rate is derived live from the gateway's own billing rather than hardcoded. Queries the NUC Prometheus (uid prometheus-nuc).",
+  "tags": [
+    "agenticai",
+    "workshop",
+    "frontdeskai",
+    "cost",
+    "evaluation"
+  ],
+  "timezone": "Asia/Kolkata",
+  "schemaVersion": 39,
+  "editable": true,
+  "graphTooltip": 1,
+  "refresh": "30s",
+  "time": {
+    "from": "now-3h",
+    "to": "now"
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "namespace",
+        "label": "Participant",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus-nuc"
+        },
+        "query": {
+          "query": "label_values(up{job=\"frontdeskai-participants\"}, namespace)",
+          "refId": "var"
+        },
+        "definition": "label_values(up{job=\"frontdeskai-participants\"}, namespace)",
+        "refresh": 2,
+        "sort": 7,
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".*",
+        "current": {
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "options": []
+      }
+    ]
+  },
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "datasource",
+          "uid": "grafana"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "row",
+      "title": "What one request costs",
+      "collapsed": false,
+      "id": 1,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "panels": []
+    },
+    {
+      "type": "stat",
+      "title": "Cost per request",
+      "id": 2,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      },
+      "description": "Total tokens x the gateway's own blended rate, over requests handled. This is the number Module 7 says to put a ceiling on.",
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 0,
+        "y": 1
+      },
+      "targets": [
+        {
+          "expr": "sum(frontdeskai_llm_tokens_total{namespace=~\"$namespace\"}) * scalar(sum(litellm_spend_metric_total) / sum(litellm_total_tokens_metric_total)) / sum(frontdeskai_category_total{namespace=~\"$namespace\"})",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 6,
+          "mappings": [],
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Cost per 1,000 requests",
+      "id": 3,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      },
+      "description": "The same number at a scale you can argue about in a planning meeting. Six decimal places is not a budget.",
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 4,
+        "y": 1
+      },
+      "targets": [
+        {
+          "expr": "sum(frontdeskai_llm_tokens_total{namespace=~\"$namespace\"}) * scalar(sum(litellm_spend_metric_total) / sum(litellm_total_tokens_metric_total)) / sum(frontdeskai_category_total{namespace=~\"$namespace\"}) * 1000",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 3,
+          "mappings": [],
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Tokens per request",
+      "id": 4,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      },
+      "description": null,
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 8,
+        "y": 1
+      },
+      "targets": [
+        {
+          "expr": "sum(frontdeskai_llm_tokens_total{namespace=~\"$namespace\"}) / sum(frontdeskai_category_total{namespace=~\"$namespace\"})",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "mappings": [],
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Seconds per request",
+      "id": 5,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      },
+      "description": "Mean end-to-end. Time and cost are different bills paid by different legs \u2014 that is what the rest of this dashboard is for.",
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 12,
+        "y": 1
+      },
+      "targets": [
+        {
+          "expr": "sum(frontdeskai_request_duration_seconds_sum{namespace=~\"$namespace\"}) / sum(frontdeskai_request_duration_seconds_count{namespace=~\"$namespace\"})",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "decimals": 2,
+          "mappings": [],
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "LLM calls per request",
+      "id": 6,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      },
+      "description": "Every leg of the workflow is a billable call. Fan-out is the cost lever you control most directly.",
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 16,
+        "y": 1
+      },
+      "targets": [
+        {
+          "expr": "sum(frontdeskai_llm_call_duration_seconds_count{namespace=~\"$namespace\"}) / sum(frontdeskai_category_total{namespace=~\"$namespace\"})",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 2,
+          "mappings": [],
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Gateway rate",
+      "id": 7,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      },
+      "description": "USD per MILLION tokens, derived live from the gateway's own spend divided by its own token count \u2014 nothing is hardcoded here. Blended across input and output, because the app records total tokens only.",
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 20,
+        "y": 1
+      },
+      "targets": [
+        {
+          "expr": "scalar(sum(litellm_spend_metric_total) / sum(litellm_total_tokens_metric_total)) * 1e6",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 4,
+          "mappings": [],
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "type": "row",
+      "title": "The workflow, leg by leg",
+      "collapsed": false,
+      "id": 8,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 5
+      },
+      "panels": []
+    },
+    {
+      "type": "canvas",
+      "title": "Cost of each leg, per request",
+      "id": 9,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      },
+      "description": "The pipeline as it actually runs: the supervisor classifies, the worker's ReAct loop reads tools, a failed tool call falls back, the worker writes the answer, and the manager takes it if it escalates. Each box shows USD per request spent in that leg. A leg with no traffic reads 0.",
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 6
+      },
+      "targets": [
+        {
+          "expr": "sum by (leg) ((sum by (leg) (label_replace(label_replace(label_replace(label_replace(label_replace(sum by (agent) (frontdeskai_llm_tokens_total{namespace=~\"$namespace\"}), \"leg\", \"1 supervisor\", \"agent\", \"supervisor\"), \"leg\", \"5 manager\", \"agent\", \"manager\"), \"leg\", \"2 react loop\", \"agent\", \".*_react_iter_[0-9]+\"), \"leg\", \"3 tool-error fallback\", \"agent\", \".*_react_iter_[0-9]+_fb\"), \"leg\", \"4 final answer\", \"agent\", \".*_worker_final\")) * scalar(sum(litellm_spend_metric_total) / sum(litellm_total_tokens_metric_total))) / scalar(sum(frontdeskai_category_total{namespace=~\"$namespace\"})))",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          },
+          "format": "table",
+          "instant": true
+        }
+      ],
+      "transformations": [
+        {
+          "id": "rowsToFields",
+          "options": {
+            "mappings": [
+              {
+                "fieldName": "leg",
+                "handlerKey": "field.name"
+              },
+              {
+                "fieldName": "Value",
+                "handlerKey": "field.value"
+              }
+            ]
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 6
+        },
+        "overrides": []
+      },
+      "options": {
+        "inlineEditing": false,
+        "showAdvancedTypes": true,
+        "panZoom": false,
+        "infinitePan": false,
+        "root": {
+          "type": "frame",
+          "name": "Element 1",
+          "elements": [
+            {
+              "type": "text",
+              "name": "lbl-supervisor",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#a5b4fc"
+                },
+                "size": 12,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "supervisor"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "color": {
+                  "fixed": "transparent"
+                },
+                "width": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "placement": {
+                "top": 26,
+                "left": 16,
+                "width": 176,
+                "height": 24,
+                "rotation": 0
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "supervisor",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#f8fafc"
+                },
+                "size": 18,
+                "text": {
+                  "mode": "field",
+                  "field": "1 supervisor",
+                  "fixed": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#1e1b4b"
+                }
+              },
+              "border": {
+                "color": {
+                  "fixed": "#818cf8"
+                },
+                "width": 2
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "placement": {
+                "top": 54,
+                "left": 16,
+                "width": 176,
+                "height": 86,
+                "rotation": 0
+              },
+              "connections": [
+                {
+                  "source": {
+                    "x": 1,
+                    "y": 0
+                  },
+                  "target": {
+                    "x": -1,
+                    "y": 0
+                  },
+                  "targetName": "react loop",
+                  "color": {
+                    "fixed": "#818cf8"
+                  },
+                  "size": {
+                    "fixed": 2
+                  },
+                  "path": "straight"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "name": "cap-supervisor",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#64748b"
+                },
+                "size": 11,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "USD per request"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "color": {
+                  "fixed": "transparent"
+                },
+                "width": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "placement": {
+                "top": 146,
+                "left": 16,
+                "width": 176,
+                "height": 24,
+                "rotation": 0
+              }
+            },
+            {
+              "type": "text",
+              "name": "lbl-react loop",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#a5b4fc"
+                },
+                "size": 12,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "react loop"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "color": {
+                  "fixed": "transparent"
+                },
+                "width": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "placement": {
+                "top": 26,
+                "left": 212,
+                "width": 176,
+                "height": 24,
+                "rotation": 0
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "react loop",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#f8fafc"
+                },
+                "size": 18,
+                "text": {
+                  "mode": "field",
+                  "field": "2 react loop",
+                  "fixed": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#1e1b4b"
+                }
+              },
+              "border": {
+                "color": {
+                  "fixed": "#818cf8"
+                },
+                "width": 2
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "placement": {
+                "top": 54,
+                "left": 212,
+                "width": 176,
+                "height": 86,
+                "rotation": 0
+              },
+              "connections": [
+                {
+                  "source": {
+                    "x": 1,
+                    "y": 0
+                  },
+                  "target": {
+                    "x": -1,
+                    "y": 0
+                  },
+                  "targetName": "tool-error fallback",
+                  "color": {
+                    "fixed": "#818cf8"
+                  },
+                  "size": {
+                    "fixed": 2
+                  },
+                  "path": "straight"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "name": "cap-react loop",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#64748b"
+                },
+                "size": 11,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "USD per request"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "color": {
+                  "fixed": "transparent"
+                },
+                "width": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "placement": {
+                "top": 146,
+                "left": 212,
+                "width": 176,
+                "height": 24,
+                "rotation": 0
+              }
+            },
+            {
+              "type": "text",
+              "name": "lbl-tool-error fallback",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#a5b4fc"
+                },
+                "size": 12,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "tool-error fallback"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "color": {
+                  "fixed": "transparent"
+                },
+                "width": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "placement": {
+                "top": 26,
+                "left": 408,
+                "width": 176,
+                "height": 24,
+                "rotation": 0
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "tool-error fallback",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#f8fafc"
+                },
+                "size": 18,
+                "text": {
+                  "mode": "field",
+                  "field": "3 tool-error fallback",
+                  "fixed": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#1e1b4b"
+                }
+              },
+              "border": {
+                "color": {
+                  "fixed": "#818cf8"
+                },
+                "width": 2
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "placement": {
+                "top": 54,
+                "left": 408,
+                "width": 176,
+                "height": 86,
+                "rotation": 0
+              },
+              "connections": [
+                {
+                  "source": {
+                    "x": 1,
+                    "y": 0
+                  },
+                  "target": {
+                    "x": -1,
+                    "y": 0
+                  },
+                  "targetName": "final answer",
+                  "color": {
+                    "fixed": "#818cf8"
+                  },
+                  "size": {
+                    "fixed": 2
+                  },
+                  "path": "straight"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "name": "cap-tool-error fallback",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#64748b"
+                },
+                "size": 11,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "USD per request"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "color": {
+                  "fixed": "transparent"
+                },
+                "width": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "placement": {
+                "top": 146,
+                "left": 408,
+                "width": 176,
+                "height": 24,
+                "rotation": 0
+              }
+            },
+            {
+              "type": "text",
+              "name": "lbl-final answer",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#a5b4fc"
+                },
+                "size": 12,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "final answer"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "color": {
+                  "fixed": "transparent"
+                },
+                "width": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "placement": {
+                "top": 26,
+                "left": 604,
+                "width": 176,
+                "height": 24,
+                "rotation": 0
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "final answer",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#f8fafc"
+                },
+                "size": 18,
+                "text": {
+                  "mode": "field",
+                  "field": "4 final answer",
+                  "fixed": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#1e1b4b"
+                }
+              },
+              "border": {
+                "color": {
+                  "fixed": "#818cf8"
+                },
+                "width": 2
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "placement": {
+                "top": 54,
+                "left": 604,
+                "width": 176,
+                "height": 86,
+                "rotation": 0
+              },
+              "connections": [
+                {
+                  "source": {
+                    "x": 1,
+                    "y": 0
+                  },
+                  "target": {
+                    "x": -1,
+                    "y": 0
+                  },
+                  "targetName": "manager",
+                  "color": {
+                    "fixed": "#818cf8"
+                  },
+                  "size": {
+                    "fixed": 2
+                  },
+                  "path": "straight"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "name": "cap-final answer",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#64748b"
+                },
+                "size": 11,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "USD per request"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "color": {
+                  "fixed": "transparent"
+                },
+                "width": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "placement": {
+                "top": 146,
+                "left": 604,
+                "width": 176,
+                "height": 24,
+                "rotation": 0
+              }
+            },
+            {
+              "type": "text",
+              "name": "lbl-manager",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#a5b4fc"
+                },
+                "size": 12,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "manager"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "color": {
+                  "fixed": "transparent"
+                },
+                "width": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "placement": {
+                "top": 26,
+                "left": 800,
+                "width": 176,
+                "height": 24,
+                "rotation": 0
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "manager",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#f8fafc"
+                },
+                "size": 18,
+                "text": {
+                  "mode": "field",
+                  "field": "5 manager",
+                  "fixed": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "#1e1b4b"
+                }
+              },
+              "border": {
+                "color": {
+                  "fixed": "#818cf8"
+                },
+                "width": 2
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "placement": {
+                "top": 54,
+                "left": 800,
+                "width": 176,
+                "height": 86,
+                "rotation": 0
+              }
+            },
+            {
+              "type": "text",
+              "name": "cap-manager",
+              "config": {
+                "align": "center",
+                "valign": "middle",
+                "color": {
+                  "fixed": "#64748b"
+                },
+                "size": 11,
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "USD per request"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "color": {
+                  "fixed": "transparent"
+                },
+                "width": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "placement": {
+                "top": 146,
+                "left": 800,
+                "width": 176,
+                "height": 24,
+                "rotation": 0
+              }
+            }
+          ],
+          "background": {
+            "color": {
+              "fixed": "transparent"
+            }
+          },
+          "border": {
+            "color": {
+              "fixed": "transparent"
+            },
+            "width": 0
+          },
+          "constraint": {
+            "horizontal": "left",
+            "vertical": "top"
+          },
+          "placement": {
+            "top": 0,
+            "left": 0,
+            "width": 100,
+            "height": 100
+          }
+        }
+      }
+    },
+    {
+      "type": "row",
+      "title": "Where the money goes, and where the time goes",
+      "collapsed": false,
+      "id": 10,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 15
+      },
+      "panels": []
+    },
+    {
+      "type": "bargauge",
+      "title": "Cost by leg (USD)",
+      "id": 11,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      },
+      "description": "Cumulative since the pod started.",
+      "gridPos": {
+        "h": 9,
+        "w": 8,
+        "x": 0,
+        "y": 16
+      },
+      "targets": [
+        {
+          "expr": "sum by (leg) (label_replace(label_replace(label_replace(label_replace(label_replace(sum by (agent) (frontdeskai_llm_tokens_total{namespace=~\"$namespace\"}), \"leg\", \"1 supervisor\", \"agent\", \"supervisor\"), \"leg\", \"5 manager\", \"agent\", \"manager\"), \"leg\", \"2 react loop\", \"agent\", \".*_react_iter_[0-9]+\"), \"leg\", \"3 tool-error fallback\", \"agent\", \".*_react_iter_[0-9]+_fb\"), \"leg\", \"4 final answer\", \"agent\", \".*_worker_final\")) * scalar(sum(litellm_spend_metric_total) / sum(litellm_total_tokens_metric_total))",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          },
+          "legendFormat": "{{leg}}",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 6,
+          "color": {
+            "mode": "continuous-BlPu"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "showUnfilled": true,
+        "valueMode": "color",
+        "minVizWidth": 8,
+        "sortBy": "Name",
+        "sortOrder": "Ascending",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "type": "bargauge",
+      "title": "Time by leg (seconds)",
+      "id": 12,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      },
+      "description": "The same five legs by wall clock. Compare with the bar to the left: the leg that costs most and the leg that takes longest are rarely the same, and caching one does nothing for the other.",
+      "gridPos": {
+        "h": 9,
+        "w": 8,
+        "x": 8,
+        "y": 16
+      },
+      "targets": [
+        {
+          "expr": "sum by (leg) (label_replace(label_replace(label_replace(label_replace(label_replace(sum by (agent) (frontdeskai_llm_call_duration_seconds_sum{namespace=~\"$namespace\"}), \"leg\", \"1 supervisor\", \"agent\", \"supervisor\"), \"leg\", \"5 manager\", \"agent\", \"manager\"), \"leg\", \"2 react loop\", \"agent\", \".*_react_iter_[0-9]+\"), \"leg\", \"3 tool-error fallback\", \"agent\", \".*_react_iter_[0-9]+_fb\"), \"leg\", \"4 final answer\", \"agent\", \".*_worker_final\"))",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          },
+          "legendFormat": "{{leg}}",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "decimals": 1,
+          "color": {
+            "mode": "continuous-BlPu"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "showUnfilled": true,
+        "valueMode": "color",
+        "minVizWidth": 8,
+        "sortBy": "Name",
+        "sortOrder": "Ascending",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "type": "piechart",
+      "title": "Share of spend by leg",
+      "id": 13,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      },
+      "description": "If one leg owns most of this pie, that is where a prompt or a model change pays for itself.",
+      "gridPos": {
+        "h": 9,
+        "w": 8,
+        "x": 16,
+        "y": 16
+      },
+      "targets": [
+        {
+          "expr": "sum by (leg) (label_replace(label_replace(label_replace(label_replace(label_replace(sum by (agent) (frontdeskai_llm_tokens_total{namespace=~\"$namespace\"}), \"leg\", \"1 supervisor\", \"agent\", \"supervisor\"), \"leg\", \"5 manager\", \"agent\", \"manager\"), \"leg\", \"2 react loop\", \"agent\", \".*_react_iter_[0-9]+\"), \"leg\", \"3 tool-error fallback\", \"agent\", \".*_react_iter_[0-9]+_fb\"), \"leg\", \"4 final answer\", \"agent\", \".*_worker_final\")) * scalar(sum(litellm_spend_metric_total) / sum(litellm_total_tokens_metric_total))",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          },
+          "legendFormat": "{{leg}}",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 6
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true,
+          "values": [
+            "value",
+            "percent"
+          ]
+        },
+        "pieType": "donut",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "type": "table",
+      "title": "Leg scorecard",
+      "id": 14,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      },
+      "description": "One row per workflow leg. Cost per request is the column a gate should watch; calls per request tells you whether the leg is expensive because it is slow or because it runs too often.",
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 25
+      },
+      "targets": [
+        {
+          "expr": "sum by (leg) (label_replace(label_replace(label_replace(label_replace(label_replace(sum by (agent) (frontdeskai_llm_call_duration_seconds_count{namespace=~\"$namespace\"}), \"leg\", \"1 supervisor\", \"agent\", \"supervisor\"), \"leg\", \"5 manager\", \"agent\", \"manager\"), \"leg\", \"2 react loop\", \"agent\", \".*_react_iter_[0-9]+\"), \"leg\", \"3 tool-error fallback\", \"agent\", \".*_react_iter_[0-9]+_fb\"), \"leg\", \"4 final answer\", \"agent\", \".*_worker_final\"))",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          },
+          "format": "table",
+          "instant": true
+        },
+        {
+          "expr": "sum by (leg) (label_replace(label_replace(label_replace(label_replace(label_replace(sum by (agent) (frontdeskai_llm_call_duration_seconds_count{namespace=~\"$namespace\"}), \"leg\", \"1 supervisor\", \"agent\", \"supervisor\"), \"leg\", \"5 manager\", \"agent\", \"manager\"), \"leg\", \"2 react loop\", \"agent\", \".*_react_iter_[0-9]+\"), \"leg\", \"3 tool-error fallback\", \"agent\", \".*_react_iter_[0-9]+_fb\"), \"leg\", \"4 final answer\", \"agent\", \".*_worker_final\")) / scalar(sum(frontdeskai_category_total{namespace=~\"$namespace\"}))",
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          },
+          "format": "table",
+          "instant": true
+        },
+        {
+          "expr": "sum by (leg) (label_replace(label_replace(label_replace(label_replace(label_replace(sum by (agent) (frontdeskai_llm_call_duration_seconds_sum{namespace=~\"$namespace\"}), \"leg\", \"1 supervisor\", \"agent\", \"supervisor\"), \"leg\", \"5 manager\", \"agent\", \"manager\"), \"leg\", \"2 react loop\", \"agent\", \".*_react_iter_[0-9]+\"), \"leg\", \"3 tool-error fallback\", \"agent\", \".*_react_iter_[0-9]+_fb\"), \"leg\", \"4 final answer\", \"agent\", \".*_worker_final\"))",
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          },
+          "format": "table",
+          "instant": true
+        },
+        {
+          "expr": "sum by (leg) (label_replace(label_replace(label_replace(label_replace(label_replace(sum by (agent) (frontdeskai_llm_tokens_total{namespace=~\"$namespace\"}), \"leg\", \"1 supervisor\", \"agent\", \"supervisor\"), \"leg\", \"5 manager\", \"agent\", \"manager\"), \"leg\", \"2 react loop\", \"agent\", \".*_react_iter_[0-9]+\"), \"leg\", \"3 tool-error fallback\", \"agent\", \".*_react_iter_[0-9]+_fb\"), \"leg\", \"4 final answer\", \"agent\", \".*_worker_final\"))",
+          "refId": "D",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          },
+          "format": "table",
+          "instant": true
+        },
+        {
+          "expr": "sum by (leg) (label_replace(label_replace(label_replace(label_replace(label_replace(sum by (agent) (frontdeskai_llm_tokens_total{namespace=~\"$namespace\"}), \"leg\", \"1 supervisor\", \"agent\", \"supervisor\"), \"leg\", \"5 manager\", \"agent\", \"manager\"), \"leg\", \"2 react loop\", \"agent\", \".*_react_iter_[0-9]+\"), \"leg\", \"3 tool-error fallback\", \"agent\", \".*_react_iter_[0-9]+_fb\"), \"leg\", \"4 final answer\", \"agent\", \".*_worker_final\")) * scalar(sum(litellm_spend_metric_total) / sum(litellm_total_tokens_metric_total))",
+          "refId": "E",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          },
+          "format": "table",
+          "instant": true
+        },
+        {
+          "expr": "(sum by (leg) (label_replace(label_replace(label_replace(label_replace(label_replace(sum by (agent) (frontdeskai_llm_tokens_total{namespace=~\"$namespace\"}), \"leg\", \"1 supervisor\", \"agent\", \"supervisor\"), \"leg\", \"5 manager\", \"agent\", \"manager\"), \"leg\", \"2 react loop\", \"agent\", \".*_react_iter_[0-9]+\"), \"leg\", \"3 tool-error fallback\", \"agent\", \".*_react_iter_[0-9]+_fb\"), \"leg\", \"4 final answer\", \"agent\", \".*_worker_final\")) * scalar(sum(litellm_spend_metric_total) / sum(litellm_total_tokens_metric_total))) / scalar(sum(frontdeskai_category_total{namespace=~\"$namespace\"}))",
+          "refId": "F",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          },
+          "format": "table",
+          "instant": true
+        },
+        {
+          "expr": "(sum by (leg) (label_replace(label_replace(label_replace(label_replace(label_replace(sum by (agent) (frontdeskai_llm_tokens_total{namespace=~\"$namespace\"}), \"leg\", \"1 supervisor\", \"agent\", \"supervisor\"), \"leg\", \"5 manager\", \"agent\", \"manager\"), \"leg\", \"2 react loop\", \"agent\", \".*_react_iter_[0-9]+\"), \"leg\", \"3 tool-error fallback\", \"agent\", \".*_react_iter_[0-9]+_fb\"), \"leg\", \"4 final answer\", \"agent\", \".*_worker_final\")) * scalar(sum(litellm_spend_metric_total) / sum(litellm_total_tokens_metric_total))) / scalar(sum(sum by (leg) (label_replace(label_replace(label_replace(label_replace(label_replace(sum by (agent) (frontdeskai_llm_tokens_total{namespace=~\"$namespace\"}), \"leg\", \"1 supervisor\", \"agent\", \"supervisor\"), \"leg\", \"5 manager\", \"agent\", \"manager\"), \"leg\", \"2 react loop\", \"agent\", \".*_react_iter_[0-9]+\"), \"leg\", \"3 tool-error fallback\", \"agent\", \".*_react_iter_[0-9]+_fb\"), \"leg\", \"4 final answer\", \"agent\", \".*_worker_final\")) * scalar(sum(litellm_spend_metric_total) / sum(litellm_total_tokens_metric_total))))",
+          "refId": "G",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          },
+          "format": "table",
+          "instant": true
+        }
+      ],
+      "transformations": [
+        {
+          "id": "joinByField",
+          "options": {
+            "byField": "leg",
+            "mode": "outer"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "Time 1": true,
+              "Time 2": true,
+              "Time 3": true,
+              "Time 4": true,
+              "Time 5": true,
+              "Time 6": true,
+              "Time 7": true
+            },
+            "renameByName": {
+              "leg": "Leg",
+              "Value #A": "Calls",
+              "Value #B": "Calls per request",
+              "Value #C": "Seconds",
+              "Value #D": "Tokens",
+              "Value #E": "Cost",
+              "Value #F": "Cost per request",
+              "Value #G": "Share of spend"
+            }
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "fields": {},
+            "sort": [
+              {
+                "field": "Leg",
+                "desc": false
+              }
+            ]
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "inspect": false
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "Cost.*"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "currencyUSD"
+              },
+              {
+                "id": "decimals",
+                "value": 6
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Seconds"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "s"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Calls per request"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 2
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Share of spend"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percentunit"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "gradient"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 0.35
+                    },
+                    {
+                      "color": "red",
+                      "value": 0.6
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "footer": {
+          "show": false
+        }
+      }
+    },
+    {
+      "type": "row",
+      "title": "Which specialist desk the money goes to",
+      "collapsed": false,
+      "id": 15,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 35
+      },
+      "panels": []
+    },
+    {
+      "type": "barchart",
+      "title": "Spend by desk (USD)",
+      "id": 16,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      },
+      "description": "Worker spend only. The supervisor and the manager belong to no desk and are excluded, so this total is LESS than the app total \u2014 the routing and escalation legs are on the leg breakdown above.",
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 36
+      },
+      "targets": [
+        {
+          "expr": "sort_desc(sum by (desk) (label_replace(sum by (agent) (frontdeskai_llm_tokens_total{namespace=~\"$namespace\", agent!~\"supervisor|manager\"}), \"desk\", \"$1\", \"agent\", \"([a-z]+)_(?:react_iter|worker).*\")) * scalar(sum(litellm_spend_metric_total) / sum(litellm_total_tokens_metric_total)))",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          },
+          "legendFormat": "{{desk}}",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 6,
+          "custom": {
+            "fillOpacity": 80,
+            "lineWidth": 0
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "showValue": "always",
+        "xTickLabelRotation": 0,
+        "legend": {
+          "showLegend": false
+        }
+      }
+    },
+    {
+      "type": "barchart",
+      "title": "Requests routed to each desk",
+      "id": 17,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      },
+      "description": "Read together with the bar on the left. A desk taking few requests but most of the spend is the one to look at first.",
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 36
+      },
+      "targets": [
+        {
+          "expr": "sort_desc(sum by (category) (frontdeskai_category_total{namespace=~\"$namespace\"}))",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          },
+          "legendFormat": "{{category}}",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "custom": {
+            "fillOpacity": 80,
+            "lineWidth": 0
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "showValue": "always",
+        "xTickLabelRotation": 0,
+        "legend": {
+          "showLegend": false
+        }
+      }
+    },
+    {
+      "type": "row",
+      "title": "Over time, and across participants",
+      "collapsed": false,
+      "id": 18,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 45
+      },
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "Spend rate by leg",
+      "id": 19,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      },
+      "description": "USD per hour at the current rate, stacked by leg. Useful for seeing a change land, not for forecasting a bill.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 46
+      },
+      "targets": [
+        {
+          "expr": "sum by (leg) (label_replace(label_replace(label_replace(label_replace(label_replace(sum by (agent) (rate(frontdeskai_llm_tokens_total{namespace=~\"$namespace\"}[$__rate_interval])), \"leg\", \"1 supervisor\", \"agent\", \"supervisor\"), \"leg\", \"5 manager\", \"agent\", \"manager\"), \"leg\", \"2 react loop\", \"agent\", \".*_react_iter_[0-9]+\"), \"leg\", \"3 tool-error fallback\", \"agent\", \".*_react_iter_[0-9]+_fb\"), \"leg\", \"4 final answer\", \"agent\", \".*_worker_final\")) * scalar(sum(litellm_spend_metric_total) / sum(litellm_total_tokens_metric_total)) * 3600",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          },
+          "legendFormat": "{{leg}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "custom": {
+            "fillOpacity": 40,
+            "lineWidth": 1,
+            "showPoints": "never",
+            "stacking": {
+              "mode": "normal"
+            }
+          },
+          "decimals": 4
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Cost per request over time",
+      "id": 20,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      },
+      "description": "The number to watch after a prompt change. Cost per case moves quietly when a prompt grows.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 46
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(frontdeskai_llm_tokens_total{namespace=~\"$namespace\"}[$__rate_interval])) * scalar(sum(litellm_spend_metric_total) / sum(litellm_total_tokens_metric_total)) / sum(rate(frontdeskai_category_total{namespace=~\"$namespace\"}[$__rate_interval]))",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          },
+          "legendFormat": "cost per request"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "custom": {
+            "fillOpacity": 10,
+            "lineWidth": 1,
+            "showPoints": "never"
+          },
+          "decimals": 6
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "type": "barchart",
+      "title": "Cost per request, by participant",
+      "id": 21,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      },
+      "description": "Select All in the Participant variable to compare. Everyone is running the same app against the same model, so a large spread is a difference in prompts, tools or traffic \u2014 not in the platform.",
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 54
+      },
+      "targets": [
+        {
+          "expr": "sort_desc(sum by (namespace) (frontdeskai_llm_tokens_total{namespace=~\"$namespace\"}) * scalar(sum(litellm_spend_metric_total) / sum(litellm_total_tokens_metric_total)) / sum by (namespace) (frontdeskai_category_total{namespace=~\"$namespace\"}))",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          },
+          "legendFormat": "{{namespace}}",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 6,
+          "custom": {
+            "fillOpacity": 80,
+            "lineWidth": 0
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "showValue": "always",
+        "xTickLabelRotation": 0,
+        "legend": {
+          "showLegend": false
+        }
+      }
+    },
+    {
+      "type": "barchart",
+      "title": "Total app spend, by participant",
+      "id": 22,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      },
+      "description": "Attributed from the app's own token counter, so this is the deployed app only.",
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 54
+      },
+      "targets": [
+        {
+          "expr": "sort_desc(sum by (namespace) (frontdeskai_llm_tokens_total{namespace=~\"$namespace\"}) * scalar(sum(litellm_spend_metric_total) / sum(litellm_total_tokens_metric_total)))",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          },
+          "legendFormat": "{{namespace}}",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 6,
+          "custom": {
+            "fillOpacity": 80,
+            "lineWidth": 0
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "showValue": "always",
+        "xTickLabelRotation": 0,
+        "legend": {
+          "showLegend": false
+        }
+      }
+    },
+    {
+      "type": "row",
+      "title": "Cross-check, and the budget",
+      "collapsed": false,
+      "id": 23,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 63
+      },
+      "panels": []
+    },
+    {
+      "type": "stat",
+      "title": "App spend (derived)",
+      "id": 24,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      },
+      "description": "From the app's own per-agent token counter. Resets when the pod restarts.",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 64
+      },
+      "targets": [
+        {
+          "expr": "sum(frontdeskai_llm_tokens_total{namespace=~\"$namespace\"}) * scalar(sum(litellm_spend_metric_total) / sum(litellm_total_tokens_metric_total))",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 5,
+          "mappings": [],
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Key spend (gateway)",
+      "id": 25,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      },
+      "description": "What the gateway has billed this participant's key. It includes their NOTEBOOK work as well as the app, so it should be LARGER than the derived figure \u2014 if it is smaller, the derivation is wrong.",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 64
+      },
+      "targets": [
+        {
+          "expr": "sum(sum by (namespace) (label_replace(sum by (api_key_alias) (litellm_spend_metric_total), \"namespace\", \"agenticaiu$1\", \"api_key_alias\", \"agenticai-[0-9]+-u([0-9]+)\")) and on(namespace) (frontdeskai_category_total{namespace=~\"$namespace\"} > bool -1))",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 5,
+          "mappings": [],
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Requests handled",
+      "id": 26,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      },
+      "description": null,
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 64
+      },
+      "targets": [
+        {
+          "expr": "sum(frontdeskai_category_total{namespace=~\"$namespace\"}) or vector(0)",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "mappings": [],
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Share of the $2.50 daily cap",
+      "id": 27,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      },
+      "description": "Each participant key is capped at $2.50/day. Over budget the gateway returns HTTP 400 rather than falling back, so this is worth watching during a long session.",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 64
+      },
+      "targets": [
+        {
+          "expr": "sum(sum by (namespace) (label_replace(sum by (api_key_alias) (litellm_spend_metric_total), \"namespace\", \"agenticaiu$1\", \"api_key_alias\", \"agenticai-[0-9]+-u([0-9]+)\"))) / 2.5",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "decimals": 1,
+          "mappings": [],
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.6
+              },
+              {
+                "color": "red",
+                "value": 0.9
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "type": "text",
+      "title": "How the cost number is built",
+      "id": 28,
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 68
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "**There is no price list in this dashboard.** The rate comes from the gateway's own accounting \u2014\n`sum(litellm_spend_metric_total) / sum(litellm_total_tokens_metric_total)` \u2014 so it re-derives itself\nif the tariff changes. Per-leg cost is then that rate times the tokens the app attributes to each\nagent. Three consequences worth knowing before you quote a number from here:\n\n- **It is a blended input/output rate.** The app records total tokens per call, not the split, so a\n  leg with an unusual input:output ratio is approximated. The *ranking* of legs is solid; the\n  absolute figure is an estimate.\n- **\"Per request\" means per request on average.** Prometheus stores aggregates. For one specific\n  request \u2014 which agent, in what order, how long each took \u2014 the span tree is in Grafana's Explore\n  under the **Tempo** datasource, service name `frontdeskai-<your namespace>`.\n- **Counters reset when the pod restarts**, so a redeploy is a clean experiment boundary: change one\n  thing, replay the same cases, compare cost per request before and after.\n\n**Module 7's point, in one line:** cost per case is a gate, not a report. Pick the ceiling while\nnobody is under pressure, and fail the build on it \u2014 and remember the leg that costs the most and\nthe leg that takes the longest are usually different legs, so know which one you were asked to fix."
+      }
+    }
+  ]
+}

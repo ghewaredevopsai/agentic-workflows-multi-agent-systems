@@ -103,6 +103,7 @@ python3 resources/frontdeskai-agent-performance-dashboard.gen.py
 | Dashboard | uid | What it is for |
 |---|---|---|
 | `frontdeskai-agent-performance-dashboard.json` | `frontdeskai-agent-performance` | Per-agent evaluation and tuning for the app you deploy in Module 9 |
+| `frontdeskai-cost-workflow-dashboard.json` | `frontdeskai-cost-workflow` | Time and cost per request, by workflow leg and by specialist desk |
 | `agenticai-sandbox-dashboard.json` | `agenticai-sandbox-monitor` | Health of the JupyterLab sandboxes themselves |
 
 **FrontDesk AI — Agent Performance** is the one you use. It is organised the way Module 7 is: the
@@ -122,6 +123,18 @@ Two things to know before you read a number off it:
   correct either way.
 - **Counters reset when the pod restarts**, which is what makes a redeploy a clean experiment
   boundary: change one thing, replay the same cases, compare.
+
+**Cost & Workflow Legs** answers Module 7's cost question. It collapses the agents into the five
+legs the request actually passes through — supervisor, the worker's ReAct loop, the tool-error
+fallback, the worker's final answer, the manager — and shows time and cost in each, per request,
+per namespace. The pipeline is drawn as a diagram with live USD-per-request in each box, and the
+same numbers appear as bars, a donut, a sortable scorecard and a per-participant comparison.
+
+**No price is hardcoded in it.** The rate is derived live from the gateway's own accounting —
+spend divided by tokens billed — so a tariff change re-derives itself. Two things follow: it is a
+*blended* input/output rate, so leg *rankings* are solid while absolutes are estimates; and
+"per request" means per request on average, because Prometheus stores aggregates. For one specific
+request, use the trace.
 
 Metrics tell you *which* agent. For *why*, the span tree is in Grafana's Explore under the Tempo
 datasource — search the service name `frontdeskai-<your namespace>`.
