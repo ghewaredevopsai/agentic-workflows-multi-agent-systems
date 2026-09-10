@@ -268,6 +268,13 @@ SECRETS = {
     "app":       "frontdeskai-secret",   # SECRET_KEY + first-login password, created at deploy
 }
 
+# ------------------------------------------------------- where telemetry goes
+# Tempo lives in the `monitoring` namespace and is shared by the whole cohort.
+# Your namespace is allowed to reach 4317 (send spans); your SANDBOX is allowed to
+# reach 3200 (read them back), which is what the last cell of this lab uses.
+TEMPO_OTLP  = "http://tempo.monitoring.svc.cluster.local:4317"
+TEMPO_QUERY = "http://tempo.monitoring.svc.cluster.local:3200"
+
 NS   = APP_NS   or "your-namespace"      # placeholder keeps every cell runnable offline
 HOST = APP_HOST or f"{NS}-app.example"
 
@@ -365,8 +372,10 @@ def build_configmap(ns):
         "LLM_FALLBACK_MODEL":          "",     # empty model disables the fallback
         "SEED_DEMO_DATA":              "true",
         "SQLITE_DIR":                  "/shared/.sqlite",
-        "OTEL_SERVICE_NAME":           APP_NAME,
-        "OTEL_EXPORTER_OTLP_ENDPOINT": "",     # no collector here; empty skips the exporter
+        # One Tempo serves all 31 of you, so the service name has to carry your
+        # namespace or you cannot find your own traces among everyone else's.
+        "OTEL_SERVICE_NAME":           f"{APP_NAME}-{ns}",
+        "OTEL_EXPORTER_OTLP_ENDPOINT": TEMPO_OTLP,
         "LOG_LEVEL":                   "INFO",
         "ENV":                         "production",
     }
@@ -522,6 +531,14 @@ check("the Ingress backend names the Service and its port 80",
 check("the Ingress claims your own host",
       lambda: by_kind("Ingress")["spec"]["rules"][0]["host"] == HOST)
 
+check("spans are exported, not silently dropped",
+      lambda: by_kind("ConfigMap")["data"]["OTEL_EXPORTER_OTLP_ENDPOINT"] == TEMPO_OTLP,
+      "an EMPTY endpoint disables the exporter; a WRONG one drops every span in silence")
+
+check("your traces are findable among the whole cohort's",
+      lambda: by_kind("ConfigMap")["data"]["OTEL_SERVICE_NAME"].endswith(NS),
+      "one Tempo, 31 services -- the name has to carry your namespace")
+
 check("every object lands in your namespace, read from APP_NAMESPACE",
       lambda: {m["metadata"]["namespace"] for m in all_manifests()} == {NS})
 
@@ -625,41 +642,103 @@ guard(wait_for_it)
 
 TALK = '''
 # --- Run it for real: ask the running service a question -------------------
-# This is the whole course in one request: HTTP -> supervisor -> RAG -> a domain
-# worker with tools -> escalation check -> QA gate -> a grounded answer.
+# The whole course in one request: HTTP -> supervisor -> RAG -> a domain worker
+# with tools -> escalation check -> QA gate -> a grounded answer.
+#
+# This asks the pod directly rather than going through your public hostname, for
+# two reasons worth knowing. Cloudflare sits in front of that host and gives up
+# at ~100s with a 524 -- an agent doing three tool-calling turns can exceed that
+# when the gateway is busy, and the 524 looks like your app is broken when it is
+# still working. It also answers the default Python user agent with 403 and
+# `error code: 1010`. Open the URL in a BROWSER to see the real thing.
 def talk_to_it():
-    if not APPLIED or not APP_HOST:
+    if not APPLIED:
         print("The app is not deployed from this kernel, so there is nothing to ask.")
-        print("Once it is up, open https://<your -app host>/ and sign in.")
         return
-    import urllib.request, urllib.parse, http.cookiejar
-    jar = http.cookiejar.CookieJar()
-    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar))
-    # Your host is behind Cloudflare, which answers the default Python user agent with
-    # 403 and `error code: 1010` -- a block from the edge that never reaches your app,
-    # and looks exactly like a broken deployment from here. Anything scripted against a
-    # public hostname needs a user agent.
-    opener.addheaders = [("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) frontdeskai-lab")]
-    base = "https://" + APP_HOST
-
-    def post(path, fields):
-        data = urllib.parse.urlencode(fields).encode()
-        return opener.open(base + path, data=data, timeout=180)
-
+    ask_py = (
+        "import json,urllib.request,urllib.parse,http.cookiejar;"
+        "j=http.cookiejar.CookieJar();"
+        "o=urllib.request.build_opener(urllib.request.HTTPCookieProcessor(j));"
+        "p=lambda u,d: o.open('http://127.0.0.1:8000'+u,"
+        " data=urllib.parse.urlencode(d).encode(), timeout=600);"
+        "p('/login', {'email':'rajesh.kumar@unigps.in','password':'brainupgrade'});"
+        "r=json.loads(p('/chat/send', {'message':'What is my current leave balance?'}).read());"
+        "print(json.dumps({'category':r['category'],'audit':r['audit'],"
+        "'response':r['response'][:400]}))"
+    )
+    out = kubectl("exec", f"deploy/{APP_NAME}", "--", "python3", "-c", ask_py)
+    if out.returncode != 0:
+        print("the request did not complete:", (out.stderr or out.stdout).strip()[:300])
+        return
     try:
-        post("/login", {"email": "rajesh.kumar@unigps.in", "password": "brainupgrade"})
-        resp = post("/chat/send", {"message": "What is my current leave balance?"})
-        answer = json.loads(resp.read())
-    except Exception as exc:
-        print(f"could not reach the app yet ({type(exc).__name__}) -- give the rollout a minute")
+        answer = json.loads(out.stdout.strip().splitlines()[-1])
+    except Exception:
+        print(out.stdout.strip()[:400])
         return
-
-    print("category :", answer["category"], "| confidence:", answer["confidence"])
+    print("category:", answer["category"])
     for line in answer["audit"]:
         print("  ", line)
-    print("\\n" + answer["response"][:400])
+    print()
+    print(answer["response"])
 
 guard(talk_to_it)
+'''
+
+
+TRACES = '''
+# --- Run it for real: read your own trace back out of Tempo ----------------
+# The request above emitted spans. This asks Tempo what it actually received --
+# which is the only way to know your telemetry works. "The exporter is
+# configured" is not evidence: BatchSpanProcessor swallows export failures, so a
+# misconfigured endpoint looks exactly like a healthy one from inside the app.
+def read_my_traces():
+    import urllib.request, urllib.parse
+    if not APP_NS:
+        print("APP_NAMESPACE is unset in this kernel, so there is no service to look up.")
+        return
+    svc = f"{APP_NAME}-{APP_NS}"
+
+    def get(path):
+        return json.load(urllib.request.urlopen(TEMPO_QUERY + path, timeout=30))
+
+    try:
+        q = urllib.parse.quote(f"service.name={svc}")
+        found = get(f"/api/search?tags={q}&limit=5").get("traces", [])
+    except Exception as exc:
+        print(f"could not reach Tempo ({type(exc).__name__}). Spans are batched, so give")
+        print("it about ten seconds after a request and run this cell again.")
+        return
+
+    if not found:
+        print(f"Tempo has no traces for {svc} yet -- spans are batched. Wait ~10s, re-run.")
+        return
+
+    print(f"{len(found)} trace(s) for {svc}")
+    # Prefer a trace whose ROOT span has already arrived. Spans are batched, so the
+    # very newest trace is often still partial -- its root lands last.
+    complete = [t for t in found if t.get("rootTraceName")] or found
+    newest = max(complete, key=lambda t: int(t.get("startTimeUnixNano", 0)))
+    print(f"  {newest.get('rootTraceName')}  {newest.get('durationMs')} ms  {newest['traceID']}")
+    print()
+
+    rows = []
+    for b in get(f"/api/traces/{newest['traceID']}").get("batches", []):
+        for ss in b.get("scopeSpans", []):
+            for sp in ss.get("spans", []):
+                ms = (int(sp["endTimeUnixNano"]) - int(sp["startTimeUnixNano"])) / 1e6
+                attrs = {a["key"]: list(a["value"].values())[0]
+                         for a in sp.get("attributes", [])}
+                rows.append((ms, sp["name"], attrs))
+    rows.sort(reverse=True)
+    print("  slowest spans:")
+    for ms, name, attrs in rows[:6]:
+        extra = attrs.get("llm.tokens") or attrs.get("chat.category") or ""
+        print(f"    {name:30} {ms:9.1f} ms  {extra}")
+    print()
+    print("  Which step dominates? That is what a trace answers and a latency metric")
+    print(f"  does not. In Grafana: Explore -> Tempo -> service.name = {svc}")
+
+guard(read_my_traces)
 '''
 
 
@@ -673,7 +752,9 @@ LAB1 = [
             "Make the four decisions this cluster forces &mdash; and avoid the trap that has "
             "already broken this app once",
             "Apply them, wait for the rollout, and get a grounded answer out of the "
-            "running service"],
+            "running service",
+            "Read your own trace back out of Tempo &mdash; the only evidence that telemetry "
+            "works"],
            "> **Everything before this ran in a notebook.** This lab puts a multi-agent service\n"
            "> on a cluster, in your own namespace, on your own hostname, reachable from a\n"
            "> browser. The manifests are Python dicts and the self-checks are predicates over\n"
@@ -718,6 +799,7 @@ real**: they need your namespace, and they print what to do instead if it is not
     code(APPLY),
     code(ROLLOUT),
     code(TALK),
+    code(TRACES),
 
     code('''
 score()
