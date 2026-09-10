@@ -1,0 +1,1975 @@
+{
+  "title": "Agentic AI Workshop \u2014 Sandbox Monitor",
+  "uid": "agenticai-sandbox-monitor",
+  "description": "Health of the 31 agenticai JupyterLab sandboxes on Spark K3s. Queries the NUC Prometheus (uid prometheus-nuc) \u2014 Spark's own Prometheus is agent-mode and answers no queries.",
+  "tags": [
+    "agenticai",
+    "workshop",
+    "sandbox"
+  ],
+  "timezone": "Asia/Kolkata",
+  "schemaVersion": 39,
+  "editable": true,
+  "graphTooltip": 1,
+  "refresh": "30s",
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "templating": {
+    "list": []
+  },
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "datasource",
+          "uid": "grafana"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "row",
+      "title": "Sandbox overview",
+      "collapsed": false,
+      "id": 1,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "panels": []
+    },
+    {
+      "type": "stat",
+      "title": "Sandboxes defined",
+      "id": 2,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 0,
+        "y": 1
+      },
+      "targets": [
+        {
+          "expr": "count(kube_statefulset_replicas{namespace=\"agenticai\"})",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "mappings": [],
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "UP",
+      "id": 3,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 4,
+        "y": 1
+      },
+      "targets": [
+        {
+          "expr": "count(kube_statefulset_status_replicas_ready{namespace=\"agenticai\"} == kube_statefulset_replicas{namespace=\"agenticai\"} and kube_statefulset_replicas{namespace=\"agenticai\"} > 0) or vector(0)",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "mappings": [],
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "dark-gray",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "description": "All desired replicas ready."
+    },
+    {
+      "type": "stat",
+      "title": "DOWN",
+      "id": 4,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 8,
+        "y": 1
+      },
+      "targets": [
+        {
+          "expr": "count(kube_statefulset_status_replicas_ready{namespace=\"agenticai\"} < kube_statefulset_replicas{namespace=\"agenticai\"} and kube_statefulset_replicas{namespace=\"agenticai\"} > 0) or vector(0)",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "mappings": [],
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "description": "Scaled up but not ready \u2014 the one that needs you during a session."
+    },
+    {
+      "type": "stat",
+      "title": "Scaled to 0",
+      "id": 5,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 12,
+        "y": 1
+      },
+      "targets": [
+        {
+          "expr": "count(kube_statefulset_replicas{namespace=\"agenticai\"} == 0) or vector(0)",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "mappings": [],
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "dark-gray",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "description": "Expected between cohorts; a problem during one."
+    },
+    {
+      "type": "stat",
+      "title": "Container restarts (24h)",
+      "id": 6,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 16,
+        "y": 1
+      },
+      "targets": [
+        {
+          "expr": "sum(increase(kube_pod_container_status_restarts_total{namespace=\"agenticai\"}[24h])) or vector(0)",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "mappings": [],
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 3
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "OOMKilled containers",
+      "id": 7,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 20,
+        "y": 1
+      },
+      "targets": [
+        {
+          "expr": "count(kube_pod_container_status_last_terminated_reason{namespace=\"agenticai\", reason=\"OOMKilled\"} == 1) or vector(0)",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "mappings": [],
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "description": "Last termination reason was OOMKilled. Accumulated Jupyter kernels are the usual cause."
+    },
+    {
+      "type": "row",
+      "title": "Per-sandbox status",
+      "collapsed": false,
+      "id": 8,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 5
+      },
+      "panels": []
+    },
+    {
+      "type": "table",
+      "title": "Sandbox health",
+      "id": 9,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 6
+      },
+      "targets": [
+        {
+          "expr": "kube_statefulset_replicas{namespace=\"agenticai\"}",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          },
+          "format": "table",
+          "instant": true
+        },
+        {
+          "expr": "kube_statefulset_status_replicas_ready{namespace=\"agenticai\"}",
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          },
+          "format": "table",
+          "instant": true
+        },
+        {
+          "expr": "sum by (statefulset) (label_replace(kube_pod_container_status_restarts_total{namespace=\"agenticai\"}, \"statefulset\", \"$1\", \"pod\", \"(.*)-[0-9]+\"))",
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          },
+          "format": "table",
+          "instant": true
+        }
+      ],
+      "transformations": [
+        {
+          "id": "seriesToColumns",
+          "options": {
+            "byField": "statefulset"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "Time 1": true,
+              "Time 2": true,
+              "Time 3": true,
+              "__name__": true,
+              "__name__ 1": true,
+              "__name__ 2": true,
+              "__name__ 3": true,
+              "job": true,
+              "job 1": true,
+              "job 2": true,
+              "job 3": true,
+              "instance": true,
+              "instance 1": true,
+              "instance 2": true,
+              "instance 3": true,
+              "namespace": true,
+              "namespace 1": true,
+              "namespace 2": true,
+              "namespace 3": true,
+              "cluster": true,
+              "cluster 1": true,
+              "cluster 2": true,
+              "cluster 3": true,
+              "source_cluster": true,
+              "source_cluster 1": true,
+              "source_cluster 2": true,
+              "source_cluster 3": true,
+              "uid": true,
+              "uid 1": true,
+              "uid 2": true,
+              "uid 3": true
+            },
+            "renameByName": {
+              "statefulset": "Sandbox",
+              "Value #A": "Desired",
+              "Value #B": "Ready",
+              "Value #C": "Restarts"
+            }
+          }
+        },
+        {
+          "id": "calculateField",
+          "options": {
+            "alias": "Status",
+            "mode": "binary",
+            "binary": {
+              "left": "Ready",
+              "operator": "/",
+              "right": "Desired"
+            },
+            "replaceFields": false
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "inspect": false
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Status"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "basic"
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "0": {
+                        "text": "DOWN",
+                        "color": "red",
+                        "index": 0
+                      },
+                      "1": {
+                        "text": "UP",
+                        "color": "green",
+                        "index": 1
+                      }
+                    }
+                  },
+                  {
+                    "type": "special",
+                    "options": {
+                      "match": "nan",
+                      "result": {
+                        "text": "SCALED DOWN",
+                        "color": "dark-gray",
+                        "index": 2
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "custom.width",
+                "value": 140
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Sandbox"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 180
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "footer": {
+          "show": false
+        },
+        "sortBy": [
+          {
+            "displayName": "Sandbox",
+            "desc": false
+          }
+        ]
+      },
+      "description": "Desired vs ready replicas per sandbox, with lifetime container restarts."
+    },
+    {
+      "type": "row",
+      "title": "Availability over time",
+      "collapsed": false,
+      "id": 10,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 18
+      },
+      "panels": []
+    },
+    {
+      "type": "state-timeline",
+      "title": "Sandbox availability",
+      "id": 11,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 19
+      },
+      "targets": [
+        {
+          "expr": "clamp_min(kube_statefulset_status_replicas_ready{namespace=\"agenticai\"}, 0) / clamp_min(kube_statefulset_replicas{namespace=\"agenticai\"}, 1) * (kube_statefulset_replicas{namespace=\"agenticai\"} > bool 0) + (kube_statefulset_replicas{namespace=\"agenticai\"} == bool 0) * -1",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          },
+          "legendFormat": "{{statefulset}}",
+          "step": "60"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "fillOpacity": 70,
+            "lineWidth": 0,
+            "spanNulls": false
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "DOWN",
+                  "color": "red",
+                  "index": 0
+                },
+                "1": {
+                  "text": "UP",
+                  "color": "green",
+                  "index": 1
+                }
+              }
+            },
+            {
+              "type": "range",
+              "options": {
+                "from": -1,
+                "to": 0,
+                "result": {
+                  "text": "SCALED DOWN",
+                  "color": "dark-gray",
+                  "index": 2
+                }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "dark-gray",
+                "value": -0.5
+              },
+              {
+                "color": "green",
+                "value": 0.5
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "mergeValues": true,
+        "showValue": "never",
+        "alignValue": "center",
+        "rowHeight": 0.8,
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "description": "1 = ready, 0 = not ready, -1 = scaled to 0."
+    },
+    {
+      "type": "row",
+      "title": "Downtime",
+      "collapsed": false,
+      "id": 12,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 29
+      },
+      "panels": []
+    },
+    {
+      "type": "stat",
+      "title": "Total sandbox downtime (7d)",
+      "id": 13,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 0,
+        "y": 30
+      },
+      "targets": [
+        {
+          "expr": "sum(sum_over_time(((kube_statefulset_replicas{namespace=\"agenticai\"} - kube_statefulset_status_replicas_ready{namespace=\"agenticai\"}) > bool 0)[7d:1m])) or vector(0)",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "m",
+          "decimals": 0,
+          "mappings": [],
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 30
+              },
+              {
+                "color": "red",
+                "value": 120
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "description": "Sandbox-minutes where a scaled-up sandbox was not ready. Scaled-to-0 does not count."
+    },
+    {
+      "type": "table",
+      "title": "Downtime by sandbox (7d)",
+      "id": 14,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 18,
+        "x": 6,
+        "y": 30
+      },
+      "targets": [
+        {
+          "expr": "sum by (statefulset) (sum_over_time(((kube_statefulset_replicas{namespace=\"agenticai\"} - kube_statefulset_status_replicas_ready{namespace=\"agenticai\"}) > bool 0)[7d:1m])) > 0",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          },
+          "format": "table",
+          "instant": true
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "renameByName": {
+              "statefulset": "Sandbox",
+              "Value": "Downtime (min)"
+            }
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "fields": {},
+            "sort": [
+              {
+                "field": "Downtime (min)",
+                "desc": true
+              }
+            ]
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "inspect": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "footer": {
+          "show": false
+        }
+      }
+    },
+    {
+      "type": "row",
+      "title": "Memory & CPU per sandbox",
+      "collapsed": false,
+      "id": 15,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 38
+      },
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "Jupyter memory \u2014 share of its limit",
+      "id": 16,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 39
+      },
+      "targets": [
+        {
+          "expr": "sum by (pod) (container_memory_working_set_bytes{namespace=\"agenticai\", container=\"jupyter\"}) / on(pod) sum by (pod) (kube_pod_container_resource_limits{namespace=\"agenticai\", container=\"jupyter\", resource=\"memory\"})",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          },
+          "legendFormat": "{{pod}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "custom": {
+            "fillOpacity": 8,
+            "lineWidth": 1,
+            "showPoints": "never",
+            "thresholdsStyle": {
+              "mode": "dashed"
+            }
+          },
+          "decimals": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.8
+              },
+              {
+                "color": "red",
+                "value": 0.92
+              }
+            ]
+          },
+          "max": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "description": "Working set over the pod's memory limit (2560Mi). Above the red line the kernel culler is losing to accumulated notebooks."
+    },
+    {
+      "type": "timeseries",
+      "title": "CPU used per sandbox",
+      "id": 17,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 39
+      },
+      "targets": [
+        {
+          "expr": "sum by (pod) (rate(container_cpu_usage_seconds_total{namespace=\"agenticai\", container=\"jupyter\"}[5m]))",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          },
+          "legendFormat": "{{pod}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "fillOpacity": 8,
+            "lineWidth": 1,
+            "showPoints": "never"
+          },
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "description": "Cores, 5m rate."
+    },
+    {
+      "type": "table",
+      "title": "Memory right now",
+      "id": 18,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 14,
+        "x": 0,
+        "y": 48
+      },
+      "targets": [
+        {
+          "expr": "sum by (pod) (container_memory_working_set_bytes{namespace=\"agenticai\", container=\"jupyter\"})",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          },
+          "format": "table",
+          "instant": true
+        },
+        {
+          "expr": "sum by (pod) (kube_pod_container_resource_limits{namespace=\"agenticai\", container=\"jupyter\", resource=\"memory\"})",
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          },
+          "format": "table",
+          "instant": true
+        },
+        {
+          "expr": "sum by (pod) (container_memory_working_set_bytes{namespace=\"agenticai\", container=\"jupyter\"}) / on(pod) sum by (pod) (kube_pod_container_resource_limits{namespace=\"agenticai\", container=\"jupyter\", resource=\"memory\"})",
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          },
+          "format": "table",
+          "instant": true
+        }
+      ],
+      "transformations": [
+        {
+          "id": "joinByField",
+          "options": {
+            "byField": "pod",
+            "mode": "outer"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "Time 1": true,
+              "Time 2": true,
+              "Time 3": true
+            },
+            "renameByName": {
+              "pod": "Sandbox",
+              "Value #A": "Working set",
+              "Value #B": "Limit",
+              "Value #C": "Share"
+            }
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "fields": {},
+            "sort": [
+              {
+                "field": "Share",
+                "desc": true
+              }
+            ]
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "inspect": false
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "Working set|Limit"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "bytes"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Share"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percentunit"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "gradient"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 0.8
+                    },
+                    {
+                      "color": "red",
+                      "value": 0.92
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "footer": {
+          "show": false
+        }
+      }
+    },
+    {
+      "type": "table",
+      "title": "OOMKills \u2014 last termination reason",
+      "id": 19,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 10,
+        "x": 14,
+        "y": 48
+      },
+      "targets": [
+        {
+          "expr": "kube_pod_container_status_last_terminated_reason{namespace=\"agenticai\", reason=\"OOMKilled\"} == 1",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          },
+          "format": "table",
+          "instant": true
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "__name__": true,
+              "job": true,
+              "instance": true,
+              "namespace": true,
+              "cluster": true,
+              "source_cluster": true,
+              "uid": true,
+              "Value": true,
+              "container": true
+            },
+            "renameByName": {
+              "pod": "Sandbox",
+              "reason": "Reason"
+            }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "inspect": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "footer": {
+          "show": false
+        }
+      },
+      "description": "A row here means that container was last killed for memory. It clears when the pod is replaced."
+    },
+    {
+      "type": "row",
+      "title": "Namespace quota and the DGX node",
+      "collapsed": false,
+      "id": 20,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 57
+      },
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "Namespace memory limits committed, against the quota",
+      "id": 21,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 58
+      },
+      "targets": [
+        {
+          "expr": "kube_resourcequota{namespace=\"agenticai\", resource=\"limits.memory\", type=\"used\"}",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          },
+          "legendFormat": "committed"
+        },
+        {
+          "expr": "kube_resourcequota{namespace=\"agenticai\", resource=\"limits.memory\", type=\"hard\"}",
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          },
+          "legendFormat": "quota (hard)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "custom": {
+            "fillOpacity": 8,
+            "lineWidth": 1,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "description": "participants x per-sandbox limit must stay under the hard quota. This is the ceiling on cohort size."
+    },
+    {
+      "type": "stat",
+      "title": "Quota committed",
+      "id": 22,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 12,
+        "y": 58
+      },
+      "targets": [
+        {
+          "expr": "kube_resourcequota{namespace=\"agenticai\", resource=\"limits.memory\", type=\"used\"} / ignoring(type) kube_resourcequota{namespace=\"agenticai\", resource=\"limits.memory\", type=\"hard\"}",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "decimals": 1,
+          "mappings": [],
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.85
+              },
+              {
+                "color": "red",
+                "value": 0.97
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Node memory available",
+      "id": 23,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 16,
+        "y": 58
+      },
+      "targets": [
+        {
+          "expr": "node_memory_MemAvailable_bytes{cluster=\"spark\"}",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "decimals": 1,
+          "mappings": [],
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Node load1",
+      "id": 24,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 20,
+        "y": 58
+      },
+      "targets": [
+        {
+          "expr": "node_load1{cluster=\"spark\"}",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 2,
+          "mappings": [],
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Root fs available",
+      "id": 25,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 12,
+        "y": 62
+      },
+      "targets": [
+        {
+          "expr": "node_filesystem_avail_bytes{cluster=\"spark\", mountpoint=\"/\"}",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "decimals": 1,
+          "mappings": [],
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "GPU utilisation",
+      "id": 26,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 16,
+        "y": 62
+      },
+      "targets": [
+        {
+          "expr": "DCGM_FI_DEV_GPU_UTIL",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 0,
+          "mappings": [],
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "GPU temp",
+      "id": 27,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 20,
+        "y": 62
+      },
+      "targets": [
+        {
+          "expr": "DCGM_FI_DEV_GPU_TEMP",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius",
+          "decimals": 0,
+          "mappings": [],
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 75
+              },
+              {
+                "color": "red",
+                "value": 85
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "DGX \u2014 GPU utilisation and power",
+      "id": 28,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 66
+      },
+      "targets": [
+        {
+          "expr": "DCGM_FI_DEV_GPU_UTIL",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          },
+          "legendFormat": "GPU util %"
+        },
+        {
+          "expr": "DCGM_FI_DEV_MEM_COPY_UTIL",
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          },
+          "legendFormat": "memory copy %"
+        },
+        {
+          "expr": "DCGM_FI_DEV_POWER_USAGE",
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          },
+          "legendFormat": "power (W)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "fillOpacity": 8,
+            "lineWidth": 1,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "description": "Zero while the vLLM failover leg is scaled down."
+    },
+    {
+      "type": "timeseries",
+      "title": "Node memory available and namespace working set",
+      "id": 29,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 66
+      },
+      "targets": [
+        {
+          "expr": "node_memory_MemAvailable_bytes{cluster=\"spark\"}",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          },
+          "legendFormat": "node available"
+        },
+        {
+          "expr": "sum(container_memory_working_set_bytes{namespace=\"agenticai\"})",
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          },
+          "legendFormat": "agenticai working set"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "custom": {
+            "fillOpacity": 8,
+            "lineWidth": 1,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "type": "row",
+      "title": "Pods and storage",
+      "collapsed": false,
+      "id": 30,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 74
+      },
+      "panels": []
+    },
+    {
+      "type": "table",
+      "title": "Pods not Running",
+      "id": 31,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 75
+      },
+      "targets": [
+        {
+          "expr": "kube_pod_status_phase{namespace=\"agenticai\", phase=~\"Pending|Failed|Unknown\"} == 1",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          },
+          "format": "table",
+          "instant": true
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "__name__": true,
+              "job": true,
+              "instance": true,
+              "namespace": true,
+              "cluster": true,
+              "source_cluster": true,
+              "uid": true,
+              "Value": true
+            },
+            "renameByName": {
+              "pod": "Pod",
+              "phase": "Phase"
+            }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "inspect": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "footer": {
+          "show": false
+        }
+      },
+      "description": "Empty is the healthy state."
+    },
+    {
+      "type": "table",
+      "title": "PVC status",
+      "id": 32,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 75
+      },
+      "targets": [
+        {
+          "expr": "kube_persistentvolumeclaim_status_phase{namespace=\"agenticai\"} == 1",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          },
+          "format": "table",
+          "instant": true
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "__name__": true,
+              "job": true,
+              "instance": true,
+              "namespace": true,
+              "cluster": true,
+              "source_cluster": true,
+              "uid": true,
+              "Value": true,
+              "storageclass": true,
+              "volumename": true
+            },
+            "renameByName": {
+              "persistentvolumeclaim": "PVC",
+              "phase": "Phase"
+            }
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "fields": {},
+            "sort": [
+              {
+                "field": "PVC",
+                "desc": false
+              }
+            ]
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "inspect": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "footer": {
+          "show": false
+        }
+      },
+      "description": "Retained between cohorts \u2014 a PVC that is not Bound means a sandbox will not come back."
+    }
+  ]
+}

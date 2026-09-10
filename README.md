@@ -29,6 +29,7 @@ Day 3 closes with a capstone: a payment-exception investigation service, accepte
 | `hands-on/capstone/` | Brief, eval set, `acceptance.py` (the gate), a starter and a reference service |
 | `presentation/faq-day-1-*.html` | Day 1 FAQ and quick revision — searchable, printable |
 | `resources/video-resources.html` | Post-session curated videos, mapped to the modules |
+| `resources/*-dashboard.json` | Grafana dashboards, with the generator that produces each one |
 
 Everything is plain HTML and Jupyter notebooks. There is no build, no package manager and no test
 framework at the repository level.
@@ -89,6 +90,39 @@ OPENAI_API_KEY     # any non-empty value if the gateway does not authenticate
 If a value is unset, every live cell prints the `export` lines it needs and continues.
 
 Module 9 and the capstone additionally read `APP_NAMESPACE` and `APP_HOST`.
+
+## Dashboards
+
+Two Grafana dashboards ship in `resources/`, as JSON plus the small Python generator that writes
+it. Edit the generator and re-run it; do not hand-edit the JSON.
+
+```bash
+python3 resources/frontdeskai-agent-performance-dashboard.gen.py
+```
+
+| Dashboard | uid | What it is for |
+|---|---|---|
+| `frontdeskai-agent-performance-dashboard.json` | `frontdeskai-agent-performance` | Per-agent evaluation and tuning for the app you deploy in Module 9 |
+| `agenticai-sandbox-dashboard.json` | `agenticai-sandbox-monitor` | Health of the JupyterLab sandboxes themselves |
+
+**FrontDesk AI — Agent Performance** is the one you use. It is organised the way Module 7 is: the
+headline numbers and whether they are measurements or anecdotes; where the time goes against where
+the tokens go, which are rarely the same agent; the trajectory the run took, including how many
+ReAct iterations each worker burned; a per-agent scorecard to sort; and a gates row with
+placeholder ceilings for you to replace. A **Participant** variable filters every panel by
+namespace.
+
+Two things to know before you read a number off it:
+
+- **Latency is a mean, not a percentile.** The app creates its histograms with second-valued
+  observations but no explicit bucket boundaries, so the default millisecond buckets swallow every
+  per-agent call into one. `histogram_quantile` cannot produce a real p95 until that is fixed, so
+  the dashboard shows true means and no fake percentiles.
+- **Counters reset when the pod restarts**, which is what makes a redeploy a clean experiment
+  boundary: change one thing, replay the same cases, compare.
+
+Metrics tell you *which* agent. For *why*, the span tree is in Grafana's Explore under the Tempo
+datasource — search the service name `frontdeskai-<your namespace>`.
 
 ## Working on this material
 

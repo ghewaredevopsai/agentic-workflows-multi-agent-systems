@@ -1,0 +1,1739 @@
+{
+  "title": "FrontDesk AI \u2014 Agent Performance",
+  "uid": "frontdeskai-agent-performance",
+  "description": "Per-agent evaluation and tuning for the FrontDesk AI app each participant deploys into their own namespace. Built against Module 7: outcome and trajectory, the slowest step vs the dearest step, and gates rather than reports. Queries the NUC Prometheus (uid prometheus-nuc); Spark's own Prometheus is agent-mode.",
+  "tags": [
+    "agenticai",
+    "workshop",
+    "frontdeskai",
+    "evaluation"
+  ],
+  "timezone": "Asia/Kolkata",
+  "schemaVersion": 39,
+  "editable": true,
+  "graphTooltip": 1,
+  "refresh": "30s",
+  "time": {
+    "from": "now-3h",
+    "to": "now"
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "namespace",
+        "label": "Participant",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus-nuc"
+        },
+        "query": {
+          "query": "label_values(up{job=\"frontdeskai-participants\"}, namespace)",
+          "refId": "var"
+        },
+        "definition": "label_values(up{job=\"frontdeskai-participants\"}, namespace)",
+        "refresh": 2,
+        "sort": 7,
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".*",
+        "current": {
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "options": []
+      }
+    ]
+  },
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "datasource",
+          "uid": "grafana"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "row",
+      "title": "Overall \u2014 and whether it is a number or an anecdote",
+      "collapsed": false,
+      "id": 1,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "panels": []
+    },
+    {
+      "type": "stat",
+      "title": "Requests handled",
+      "id": 2,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      },
+      "description": "Total since the pod started. Counters reset on redeploy \u2014 that is your experiment boundary.",
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 0,
+        "y": 1
+      },
+      "targets": [
+        {
+          "expr": "sum(frontdeskai_category_total{namespace=~\"$namespace\"}) or vector(0)",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "mappings": [],
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Mean end-to-end latency",
+      "id": 3,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      },
+      "description": "Total time over total requests, since pod start. A MEAN, not a percentile \u2014 the app's histogram buckets are millisecond-scale while it records seconds, so histogram_quantile cannot produce a true p95 yet.",
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 4,
+        "y": 1
+      },
+      "targets": [
+        {
+          "expr": "sum(frontdeskai_request_duration_seconds_sum{namespace=~\"$namespace\"}) / sum(frontdeskai_request_duration_seconds_count{namespace=~\"$namespace\"})",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "decimals": 2,
+          "mappings": [],
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Tokens per request",
+      "id": 4,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      },
+      "description": "The bill for one user question, across every agent it touched.",
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 8,
+        "y": 1
+      },
+      "targets": [
+        {
+          "expr": "sum(frontdeskai_llm_tokens_total{namespace=~\"$namespace\"}) / sum(frontdeskai_category_total{namespace=~\"$namespace\"})",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "mappings": [],
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "LLM calls per request",
+      "id": 5,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      },
+      "description": "Fan-out. One question, this many model calls. The cheapest thing to tune is usually the number of calls, not the model.",
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 12,
+        "y": 1
+      },
+      "targets": [
+        {
+          "expr": "sum(frontdeskai_llm_call_duration_seconds_count{namespace=~\"$namespace\"}) / sum(frontdeskai_category_total{namespace=~\"$namespace\"})",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 2,
+          "mappings": [],
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Escalation rate",
+      "id": 6,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      },
+      "description": "Requests the manager had to take. Rising means the workers are losing ground.",
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 16,
+        "y": 1
+      },
+      "targets": [
+        {
+          "expr": "(sum(frontdeskai_escalations_total{namespace=~\"$namespace\"}) or vector(0)) / sum(frontdeskai_category_total{namespace=~\"$namespace\"})",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "decimals": 1,
+          "mappings": [],
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.2
+              },
+              {
+                "color": "red",
+                "value": 0.4
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Fallback rate",
+      "id": 7,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      },
+      "description": "Static template answers \u2014 the QA gate refused the worker twice. Every one of these is a case for your eval set.",
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 20,
+        "y": 1
+      },
+      "targets": [
+        {
+          "expr": "(sum(frontdeskai_fallbacks_total{namespace=~\"$namespace\"}) or vector(0)) / sum(frontdeskai_category_total{namespace=~\"$namespace\"})",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "decimals": 1,
+          "mappings": [],
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.1
+              },
+              {
+                "color": "red",
+                "value": 0.25
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Mean end-to-end latency over time",
+      "id": 8,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      },
+      "description": "Watch the SHAPE, not the last value. Same build, same cases, and this line still moves \u2014 that spread is the interval your single number is hiding.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 5
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(frontdeskai_request_duration_seconds_sum{namespace=~\"$namespace\"}[$__rate_interval])) / sum(rate(frontdeskai_request_duration_seconds_count{namespace=~\"$namespace\"}[$__rate_interval]))",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          },
+          "legendFormat": "mean"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "fillOpacity": 10,
+            "lineWidth": 2,
+            "showPoints": "auto",
+            "pointSize": 5
+          },
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Requests per minute by category",
+      "id": 9,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      },
+      "description": "Which desks are actually being exercised. A category with no traffic is a category you have not evaluated.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 5
+      },
+      "targets": [
+        {
+          "expr": "sum by (category) (rate(frontdeskai_category_total{namespace=~\"$namespace\"}[$__rate_interval]) * 60)",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          },
+          "legendFormat": "{{category}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "fillOpacity": 40,
+            "lineWidth": 2,
+            "showPoints": "auto",
+            "pointSize": 5,
+            "stacking": {
+              "mode": "normal"
+            }
+          },
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "type": "row",
+      "title": "The slowest step and the dearest step are not the same step",
+      "collapsed": false,
+      "id": 10,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 13
+      },
+      "panels": []
+    },
+    {
+      "type": "bargauge",
+      "title": "Where the time goes \u2014 mean seconds per call, by agent",
+      "id": 11,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      },
+      "description": "Mean duration of one call to this agent, since pod start. The tallest bar is where the wall clock goes.",
+      "gridPos": {
+        "h": 11,
+        "w": 12,
+        "x": 0,
+        "y": 14
+      },
+      "targets": [
+        {
+          "expr": "sum by (agent) (frontdeskai_llm_call_duration_seconds_sum{namespace=~\"$namespace\"}) / sum by (agent) (frontdeskai_llm_call_duration_seconds_count{namespace=~\"$namespace\"})",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          },
+          "legendFormat": "{{agent}}",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "decimals": 2,
+          "color": {
+            "mode": "continuous-BlPu"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "showUnfilled": true,
+        "valueMode": "color",
+        "minVizWidth": 8,
+        "sortBy": "Value",
+        "sortOrder": "Descending",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "type": "bargauge",
+      "title": "Where the tokens go \u2014 total tokens, by agent",
+      "id": 12,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      },
+      "description": "Cumulative tokens attributed to each agent. The tallest bar is where the bill goes \u2014 and it is usually not the same agent as on the left.",
+      "gridPos": {
+        "h": 11,
+        "w": 12,
+        "x": 12,
+        "y": 14
+      },
+      "targets": [
+        {
+          "expr": "sum by (agent) (frontdeskai_llm_tokens_total{namespace=~\"$namespace\"})",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          },
+          "legendFormat": "{{agent}}",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "continuous-BlPu"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "showUnfilled": true,
+        "valueMode": "color",
+        "minVizWidth": 8,
+        "sortBy": "Value",
+        "sortOrder": "Descending",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "type": "row",
+      "title": "Trajectory \u2014 not just the answer, but how it got there",
+      "collapsed": false,
+      "id": 13,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 25
+      },
+      "panels": []
+    },
+    {
+      "type": "bargauge",
+      "title": "LLM calls by agent \u2014 every ReAct iteration is its own bar",
+      "id": 14,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      },
+      "description": "Agent names encode the path: <worker>_react_iter_<n> is one think-act-observe round, _worker_final is the answer, _fb is the tool-calling error fallback. Reading down the bars tells you how many steps each worker took.",
+      "gridPos": {
+        "h": 10,
+        "w": 14,
+        "x": 0,
+        "y": 26
+      },
+      "targets": [
+        {
+          "expr": "sum by (agent) (frontdeskai_llm_call_duration_seconds_count{namespace=~\"$namespace\"})",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          },
+          "legendFormat": "{{agent}}",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "continuous-BlPu"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "showUnfilled": true,
+        "valueMode": "color",
+        "minVizWidth": 8,
+        "sortBy": "Value",
+        "sortOrder": "Descending",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Calls that hit the 3-iteration cap",
+      "id": 15,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      },
+      "description": "MAX_TOOL_ITERATIONS is 3, so a call tagged _react_iter_2 used the last one it had. A worker that routinely reaches this is not converging \u2014 look at its tools and its prompt, not at the model.",
+      "gridPos": {
+        "h": 5,
+        "w": 5,
+        "x": 14,
+        "y": 26
+      },
+      "targets": [
+        {
+          "expr": "sum(frontdeskai_llm_call_duration_seconds_count{namespace=~\"$namespace\", agent=~\".*_react_iter_2\"}) or vector(0)",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "mappings": [],
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Tool-calling error fallbacks",
+      "id": 16,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      },
+      "description": "The worker's tool call raised, and it answered without tools. This is the deck's second attribution question \u2014 a tool returning an error, not the model hallucinating.",
+      "gridPos": {
+        "h": 5,
+        "w": 5,
+        "x": 19,
+        "y": 26
+      },
+      "targets": [
+        {
+          "expr": "sum(frontdeskai_llm_call_duration_seconds_count{namespace=~\"$namespace\", agent=~\".*_fb\"}) or vector(0)",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "mappings": [],
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "type": "piechart",
+      "title": "Requests by category",
+      "id": 17,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      },
+      "description": "Where the supervisor sent the traffic. Compare against what you believe your traffic mix is.",
+      "gridPos": {
+        "h": 5,
+        "w": 10,
+        "x": 14,
+        "y": 31
+      },
+      "targets": [
+        {
+          "expr": "sum by (category) (frontdeskai_category_total{namespace=~\"$namespace\"})",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          },
+          "legendFormat": "{{category}}",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true,
+          "values": [
+            "value",
+            "percent"
+          ]
+        },
+        "pieType": "donut",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "type": "row",
+      "title": "Per-agent scorecard \u2014 the tuning worksheet",
+      "collapsed": false,
+      "id": 18,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 36
+      },
+      "panels": []
+    },
+    {
+      "type": "table",
+      "title": "Agent scorecard",
+      "id": 19,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      },
+      "description": "One row per agent. Sort by any column. 'Share of time' and 'Share of tokens' disagreeing is the whole point of the module: fix the one you were actually asked to fix.",
+      "gridPos": {
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 37
+      },
+      "targets": [
+        {
+          "expr": "sum by (agent) (frontdeskai_llm_call_duration_seconds_count{namespace=~\"$namespace\"})",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          },
+          "format": "table",
+          "instant": true
+        },
+        {
+          "expr": "sum by (agent) (frontdeskai_llm_call_duration_seconds_sum{namespace=~\"$namespace\"}) / sum by (agent) (frontdeskai_llm_call_duration_seconds_count{namespace=~\"$namespace\"})",
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          },
+          "format": "table",
+          "instant": true
+        },
+        {
+          "expr": "sum by (agent) (frontdeskai_llm_tokens_total{namespace=~\"$namespace\"})",
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          },
+          "format": "table",
+          "instant": true
+        },
+        {
+          "expr": "sum by (agent) (frontdeskai_llm_tokens_total{namespace=~\"$namespace\"}) / sum by (agent) (frontdeskai_llm_call_duration_seconds_count{namespace=~\"$namespace\"})",
+          "refId": "D",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          },
+          "format": "table",
+          "instant": true
+        },
+        {
+          "expr": "sum by (agent) (frontdeskai_llm_call_duration_seconds_sum{namespace=~\"$namespace\"}) / scalar(sum(frontdeskai_llm_call_duration_seconds_sum{namespace=~\"$namespace\"}))",
+          "refId": "E",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          },
+          "format": "table",
+          "instant": true
+        },
+        {
+          "expr": "sum by (agent) (frontdeskai_llm_tokens_total{namespace=~\"$namespace\"}) / scalar(sum(frontdeskai_llm_tokens_total{namespace=~\"$namespace\"}))",
+          "refId": "F",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          },
+          "format": "table",
+          "instant": true
+        }
+      ],
+      "transformations": [
+        {
+          "id": "joinByField",
+          "options": {
+            "byField": "agent",
+            "mode": "outer"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "Time 1": true,
+              "Time 2": true,
+              "Time 3": true,
+              "Time 4": true,
+              "Time 5": true,
+              "Time 6": true
+            },
+            "renameByName": {
+              "agent": "Agent",
+              "Value #A": "Calls",
+              "Value #B": "Mean seconds",
+              "Value #C": "Tokens",
+              "Value #D": "Tokens per call",
+              "Value #E": "Share of time",
+              "Value #F": "Share of tokens"
+            }
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "fields": {},
+            "sort": [
+              {
+                "field": "Share of tokens",
+                "desc": true
+              }
+            ]
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "inspect": false
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Mean seconds"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "s"
+              },
+              {
+                "id": "decimals",
+                "value": 2
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Tokens per call"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "Share of .*"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percentunit"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "gradient"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 0.3
+                    },
+                    {
+                      "color": "red",
+                      "value": 0.5
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "footer": {
+          "show": false
+        }
+      }
+    },
+    {
+      "type": "row",
+      "title": "Gates \u2014 the thresholds you agree in a calm week",
+      "collapsed": false,
+      "id": 20,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 49
+      },
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "Mean end-to-end latency against its ceiling",
+      "id": 21,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      },
+      "description": "The dashed line is a PLACEHOLDER ceiling of 20s. Replace it with a number your team agreed before anybody was under pressure.",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 50
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(frontdeskai_request_duration_seconds_sum{namespace=~\"$namespace\"}[$__rate_interval])) / sum(rate(frontdeskai_request_duration_seconds_count{namespace=~\"$namespace\"}[$__rate_interval]))",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          },
+          "legendFormat": "mean"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "fillOpacity": 10,
+            "lineWidth": 2,
+            "showPoints": "auto",
+            "pointSize": 5,
+            "thresholdsStyle": {
+              "mode": "dashed"
+            }
+          },
+          "decimals": 2,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 20
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Tokens per request against its ceiling",
+      "id": 22,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      },
+      "description": "Placeholder ceiling of 6000. Cost per case is the number that moves quietly when a prompt grows.",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 50
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(frontdeskai_llm_tokens_total{namespace=~\"$namespace\"}[$__rate_interval])) / sum(rate(frontdeskai_category_total{namespace=~\"$namespace\"}[$__rate_interval]))",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          },
+          "legendFormat": "tokens/request"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "fillOpacity": 10,
+            "lineWidth": 2,
+            "showPoints": "auto",
+            "pointSize": 5,
+            "thresholdsStyle": {
+              "mode": "dashed"
+            }
+          },
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 6000
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Errors and fallbacks",
+      "id": 23,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      },
+      "description": "The behaviour column. An agent error is not a slow request \u2014 it is a request that did not work.",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 50
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(frontdeskai_agent_errors_total{namespace=~\"$namespace\"}[$__rate_interval]) * 60) or vector(0)",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          },
+          "legendFormat": "agent errors/min"
+        },
+        {
+          "expr": "sum(rate(frontdeskai_fallbacks_total{namespace=~\"$namespace\"}[$__rate_interval]) * 60) or vector(0)",
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          },
+          "legendFormat": "fallbacks/min"
+        },
+        {
+          "expr": "sum(rate(frontdeskai_escalations_total{namespace=~\"$namespace\"}[$__rate_interval]) * 60) or vector(0)",
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          },
+          "legendFormat": "escalations/min"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "fillOpacity": 10,
+            "lineWidth": 2,
+            "showPoints": "auto",
+            "pointSize": 5
+          },
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "type": "text",
+      "title": "How to use this dashboard",
+      "id": 24,
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 58
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "**This is a report. A gate is a decision.** Nothing here blocks a deploy. To turn a number on this\npage into a gate, pick the panel, agree the ceiling while nobody is under pressure, and fail the\nbuild on it.\n\n**Read every number as a range.** These panels are means since the pod started. Redeploy resets the\ncounters, which is what makes a redeploy a clean experiment boundary: change one thing, replay the\nsame cases, compare. One run of ten cases cannot separate 70% from 80% \u2014 repeat the run, widen the\ncase set, and report the range.\n\n**When something is wrong, ask which step caused it, in this order:** did the right evidence reach\nthe agent (retrieval) \u00b7 did a tool return an error the agent ignored (the `_fb` bars) \u00b7 did the\nsupervisor route it to the wrong desk (category donut) \u00b7 did a handoff drop a constraint \u00b7 and only\nthen, was the evidence there and the model still got it wrong (generation). Four of those five get\nreported as \"the agent hallucinated\" and are not.\n\n**Two panels you should expect to disagree:** *Where the time goes* and *Where the tokens go*.\nCaching the slow agent makes the app fast and no cheaper; trimming the expensive agent's context\nmakes it cheaper and nobody notices the speed. Know which one you were asked to fix.\n\n**Metrics say which agent. Traces say why.** Nothing on this page can tell you whether the\nright evidence reached the agent \u2014 only the span tree can. Go to **Explore \u2192 Tempo** and search\nthe service name `frontdeskai-agenticaiu<N>`; one Tempo serves all 31 participants, which is why\nthe namespace is in the service name. `chat.send` is the parent span, `llm.<agent>` the children.\n\n*Latency here is a mean, not a p95 \u2014 see the panel description on \"Mean end-to-end latency\".*"
+      }
+    },
+    {
+      "type": "row",
+      "title": "App and pod health",
+      "collapsed": false,
+      "id": 25,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 67
+      },
+      "panels": []
+    },
+    {
+      "type": "stat",
+      "title": "Instances up",
+      "id": 26,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      },
+      "description": null,
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 68
+      },
+      "targets": [
+        {
+          "expr": "sum(up{job=\"frontdeskai-participants\", namespace=~\"$namespace\"}) or vector(0)",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "mappings": [],
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Pod restarts (1h)",
+      "id": 27,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      },
+      "description": "A restart resets every counter on this page.",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 68
+      },
+      "targets": [
+        {
+          "expr": "sum(increase(kube_pod_container_status_restarts_total{namespace=~\"$namespace\"}[1h])) or vector(0)",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "mappings": [],
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 3
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Resident memory",
+      "id": 28,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      },
+      "description": "The participant namespace grants 1Gi of memory limits in total, so this is the whole budget.",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 68
+      },
+      "targets": [
+        {
+          "expr": "sum(process_resident_memory_bytes{job=\"frontdeskai-participants\", namespace=~\"$namespace\"})",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "decimals": 1,
+          "mappings": [],
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Process CPU",
+      "id": 29,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      },
+      "description": "Cores. The app is I/O-bound on the model, so this stays low even when latency is high.",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 68
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(process_cpu_seconds_total{job=\"frontdeskai-participants\", namespace=~\"$namespace\"}[$__rate_interval]))",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 3,
+          "mappings": [],
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Resident memory against the 1Gi namespace ceiling",
+      "id": 30,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-nuc"
+      },
+      "description": "The namespace ResourceQuota grants 1Gi of limits.memory in total, which one pod at a 1Gi limit consumes entirely.",
+      "gridPos": {
+        "h": 7,
+        "w": 24,
+        "x": 0,
+        "y": 72
+      },
+      "targets": [
+        {
+          "expr": "process_resident_memory_bytes{job=\"frontdeskai-participants\", namespace=~\"$namespace\"}",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-nuc"
+          },
+          "legendFormat": "{{namespace}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "custom": {
+            "fillOpacity": 10,
+            "lineWidth": 2,
+            "showPoints": "auto",
+            "pointSize": 5,
+            "thresholdsStyle": {
+              "mode": "dashed"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1073741824
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    }
+  ]
+}
