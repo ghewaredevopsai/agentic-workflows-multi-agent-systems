@@ -93,8 +93,9 @@ Module 9 and the capstone additionally read `APP_NAMESPACE` and `APP_HOST`.
 
 ## Dashboards
 
-Two Grafana dashboards ship in `resources/`, as JSON plus the small Python generator that writes
-it. Edit the generator and re-run it; do not hand-edit the JSON.
+Four Grafana dashboards ship in `resources/`. Three come with the small Python generator that
+writes them — edit the generator and re-run it, do not hand-edit those JSON files. The tokenomics
+one has no generator and is hand-maintained JSON.
 
 ```bash
 python3 resources/frontdeskai-agent-performance-dashboard.gen.py
@@ -104,6 +105,7 @@ python3 resources/frontdeskai-agent-performance-dashboard.gen.py
 |---|---|---|
 | `frontdeskai-agent-performance-dashboard.json` | `frontdeskai-agent-performance` | Per-agent evaluation and tuning for the app you deploy in Module 9 |
 | `frontdeskai-cost-workflow-dashboard.json` | `frontdeskai-cost-workflow` | Time and cost per request, by workflow leg and by specialist desk |
+| `agenticai-tokenomics-dashboard.json` | `agenticai-tokenomics` | Token spend across the cohort and per participant |
 | `agenticai-sandbox-dashboard.json` | `agenticai-sandbox-monitor` | Health of the JupyterLab sandboxes themselves |
 
 **FrontDesk AI — Agent Performance** is the one you use. It is organised the way Module 7 is: the
