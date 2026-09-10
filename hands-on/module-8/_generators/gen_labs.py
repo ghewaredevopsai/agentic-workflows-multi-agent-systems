@@ -931,11 +931,17 @@ is most of what code review actually is.
 # Three files. app/fewshot.py carries the owner, app/app.py supplies it on the way in,
 # app/agents.py supplies it on the way out -- from the ContextVar, never from the prompt.
 
+# (file, anchor, replacement, marker). The MARKER is what makes re-running this cell
+# safe: it appears only once the hunk is applied. Do not try to infer that from the
+# anchor -- three of these replacements CONTAIN their own anchor, so "the anchor is
+# gone" is never true for them, and the cell would patch again and add a duplicate.
+# Python accepts a duplicate dict key silently, so nothing downstream would notice.
 PATCHES = [
     ("app/fewshot.py",
      'def add_example(example_id: str, question: str, answer: str, category: str, confidence: int) -> None:',
      'def add_example(example_id: str, question: str, answer: str, category: str,\n'
-     '                confidence: int, email: str) -> None:'),
+     '                confidence: int, email: str) -> None:',
+     'confidence: int, email: str) -> None:'),
     ("app/fewshot.py",
      '            "answer": answer[:1000],  # cap stored answer length\n'
      '            "category": category,\n'
@@ -943,18 +949,22 @@ PATCHES = [
      '            "answer": answer[:1000],  # cap stored answer length\n'
      '            "category": category,\n'
      '            "confidence": confidence,\n'
-     '            "email": email,  # who produced it -- required in order to retrieve it'),
+     '            "email": email,  # who produced it -- required in order to retrieve it',
+     '"email": email,  # who produced it'),
     ("app/fewshot.py",
      'def retrieve_examples(query: str, category: str, top_k: int = 2) -> list[dict]:',
-     'def retrieve_examples(query: str, category: str, email: str, top_k: int = 2) -> list[dict]:'),
+     'def retrieve_examples(query: str, category: str, email: str, top_k: int = 2) -> list[dict]:',
+     'category: str, email: str, top_k'),
     ("app/fewshot.py",
      '        where={"category": category},',
      '        # Scoped to the employee asking. Examples stored before this fix carry no\n'
      '        # "email" and match nothing here, so an unowned example is served to nobody.\n'
-     '        where={"$and": [{"category": category}, {"email": email}]},'),
+     '        where={"$and": [{"category": category}, {"email": email}]},',
+     'where={"$and": [{"category": category}, {"email": email}]}'),
     ("app/app.py",
      '    fewshot_add(example_id, question, answer, category, confidence)',
-     '    fewshot_add(example_id, question, answer, category, confidence, user)'),
+     '    fewshot_add(example_id, question, answer, category, confidence, user)',
+     'category, confidence, user)'),
     ("app/agents.py",
      '        examples = retrieve_examples(\n'
      '            query=state["request"],\n'
@@ -976,15 +986,16 @@ PATCHES = [
      '            category=category,\n'
      '            email=email,\n'
      '            top_k=2,\n'
-     '        )'),
+     '        )',
+     'from auth import current_user_email'),
 ]
 
 def apply_patches():
-    for rel, old, new in PATCHES:
+    for rel, old, new, marker in PATCHES:
         path = os.path.join(REPO_DIR, rel)
         text = open(path, encoding="utf-8").read()
-        if old not in text and new.split("\n")[0] in text:
-            print("  = " + rel + ": already applied")
+        if marker in text:
+            print("  = " + rel + ": already applied (" + marker[:38] + ")")
             continue
         n = text.count(old)
         if n != 1:
