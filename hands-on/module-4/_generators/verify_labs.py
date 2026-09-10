@@ -123,6 +123,12 @@ def run_kernel(path):
     return tally(out), crashed
 
 
+# Walkthrough labs are followed, not filled in: zero blanks by design, so the
+# "no [TODO]" check below would flag all three as BROKEN. Same set as verify.py.
+WALKTHROUGH = {"lab-4-01-opencode-jira-over-mcp.ipynb",
+               "lab-4-02-langfuse-traces-over-mcp.ipynb",
+               "lab-4-03-github-your-own-identity.ipynb"}
+
 bad = 0
 for fn in sorted(f for f in os.listdir(LABDIR) if f.endswith(".ipynb")):
     path = os.path.join(LABDIR, fn)
@@ -136,7 +142,7 @@ for fn in sorted(f for f in os.listdir(LABDIR) if f.endswith(".ipynb")):
             "MISMATCH plain vs kernel -- the notebook depends on IPython-only "
             f"semantics: plain={p_todo}/{p_pass}/{p_fail} kernel={k_todo}/{k_pass}/{k_fail} "
             "(todo/pass/fail)")
-    if k_todo == 0:
+    if k_todo == 0 and fn not in WALKTHROUGH:
         problems.append("no [TODO] in an untouched lab -- blanks are not raising NameError")
 
     # A [FAIL] in an UNTOUCHED lab is usually a lie: a helper inside the self-check cell
@@ -150,7 +156,12 @@ for fn in sorted(f for f in os.listdir(LABDIR) if f.endswith(".ipynb")):
                      f"'not done yet' and not a swallowed NameError")
 
     status = "OK    " if not problems else "BROKEN"
-    print(f"[{status}] {fn:44} {k_todo} todo, {k_pass} pass, {k_fail} fail, {len(k_crash)} crash")
+    if fn in WALKTHROUGH:
+        print(f"[{status}] {fn:44} walkthrough: survived Run All, "
+              f"{len(k_crash)} crash (no blanks by design)")
+    else:
+        print(f"[{status}] {fn:44} {k_todo} todo, {k_pass} pass, "
+              f"{k_fail} fail, {len(k_crash)} crash")
     for n in notes:
         print("     note  " + n)
     for p in problems:
