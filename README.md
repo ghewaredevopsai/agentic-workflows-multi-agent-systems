@@ -138,8 +138,16 @@ spend divided by tokens billed — so a tariff change re-derives itself. Two thi
 "per request" means per request on average, because Prometheus stores aggregates. For one specific
 request, use the trace.
 
-Metrics tell you *which* agent. For *why*, the span tree is in Grafana's Explore under the Tempo
-datasource — search the service name `frontdeskai-<your namespace>`.
+Metrics tell you *which* agent. For *why*, Grafana's Explore has two more datasources:
+
+| datasource | query | answers |
+|---|---|---|
+| **Tempo** | service name `frontdeskai-<your namespace>` | the span tree — `chat.send` and one `llm.*` child per agent step, with timings |
+| **Loki** | `{namespace="<your namespace>", app="frontdeskai"}` | your app's logs; add `agent=~".+"` for just the LLM-call lines, labelled per agent |
+
+A log line carries the trace id of the span that produced it, and Grafana renders it as a **View
+trace** button that jumps straight to Tempo. ⚠️ `trace_id` is deliberately *not* a Loki label — one
+label value per trace would blow up the index — so the jump works but `{trace_id="..."}` does not.
 
 ## Working on this material
 
