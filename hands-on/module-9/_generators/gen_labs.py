@@ -222,6 +222,16 @@ def setup(num, extra=""):
 # gateway your notebooks use. It is already built and published; this lab is
 # about getting it running in YOUR namespace, which is the part the course has
 # not covered yet.
+HOME_WORK_EXTRA = """
+# ---- this lab clones a repo, so it works under ~/work, not /tmp -------------
+# /tmp does not survive an OOMKill and a restart mid-lab would take the clone.
+HOME_WORK = os.path.expanduser("~/work")
+if APP_NS:                       # always present in a sandbox; absent on a laptop
+    os.makedirs(HOME_WORK, exist_ok=True)
+print("workdir   :", HOME_WORK)
+"""
+
+
 INFO_CLUSTER = """
 ## What you are deploying, and where
 
@@ -262,12 +272,47 @@ in &mdash; that one does have general internet access. Yours does not.
 
 Nothing else on the internet. Not PyPI, not Hugging Face, not a model vendor.
 
-### Three Secrets are already there for you
+### Three Secrets, and one of them is yours to supply
 
-You do not create these and you never copy their values out:
-`<your-namespace>-llm` (gateway URL, model name, your own capped key),
-`<your-namespace>-langfuse` (tracing keys), and `frontdeskai-secret`
-(`SECRET_KEY` and the first-login password, created during the deploy).
+You never copy a value out of any of these. They arrive in the pod by reference.
+
+| Secret | Where it comes from | What is in it |
+|---|---|---|
+| `<your-namespace>-llm` | published for you | the gateway URL, the model name, and your own daily-capped key |
+| `frontdeskai-secret` | created by the deploy script | `SECRET_KEY` and the first-login password |
+| `frontdeskai-langfuse` | **created by the deploy script from your own `.env`** | your Langfuse public key, secret key and region host |
+
+### Before you deploy: clone the app, and bring your own Langfuse keys
+
+Two things to do first, both in a terminal.
+
+**1. Clone the app.** You have been reading this code all week; now you need it on disk, because
+its own deploy script is what puts it on the cluster.
+
+```
+git clone https://github.com/brainupgrade-in/aiagentic-comp-frontdeskai.git ~/work/frontdeskai
+```
+
+**2. Give it your own Langfuse project.** Tracing is per participant, so nobody can read anyone
+else's prompts. Sign in at Langfuse, create a project, take an API key pair, then:
+
+```
+cd ~/work/frontdeskai
+cp .env.example .env        # then fill in the three LANGFUSE_ values
+```
+
+That is the **same `.env` the app reads with `load_dotenv()`** when you run it locally, so one
+file configures both paths. It is gitignored, so your keys cannot be committed.
+
+⚠️ **Two ways this fails silently, and neither raises an error.** The app reads `LANGFUSE_HOST`;
+the SDK docs call the same thing `LANGFUSE_BASE_URL`, so the deploy script accepts either and
+translates &mdash; but a third spelling disables tracing with no message anywhere. And **a key
+pair belongs to one region**: an EU pair returns `401` against the US host. Match the host to
+where you made the keys.
+
+Skip step 2 entirely and the app still deploys and runs. You just get no LLM tracing, and the
+script prints exactly what to put in the file.
+
 """
 
 
@@ -311,14 +356,26 @@ already broken this app once.
 INFO_APPLY = """
 ## Section 2 &mdash; Put it on the cluster
 
-A Kubernetes manifest **is** JSON, and YAML is just a friendlier surface over it &mdash; so the
-dicts you linted are exactly what `kubectl` receives. Nothing is translated in between, which
-is why linting them offline was worth doing.
+You are not going to hand-apply the JSON you just linted. The repo ships
+`scripts/deploy-spark.sh`, which takes **no arguments** &mdash; `APP_NAMESPACE` and `APP_HOST`
+are already exported in your sandbox &mdash; and it applies the same five objects plus two
+Secrets, one of them built from your `.env`.
 
-These cells are marked **Run it for real**. They need `APP_NAMESPACE`, and they print what to
-do instead if it is not set. The next two write the five objects to disk as JSON, create the
-app Secret, and apply the set.
+So why lint the dicts at all? Because the script is somebody else's decision until you have
+checked it. The next four cells, in order:
+
+1. **clone** the app repo, or pull it if you already have it
+2. **check your `.env`** &mdash; which of the three Langfuse names are set, never their values
+3. **compare the repo's manifests against your own five answers**, and print where they differ
+4. **run the script**, which creates the Secrets and applies the set
+
+Step 3 is the one worth slowing down for. If the repo and your answer disagree, one of you is
+wrong about this cluster, and finding out now is cheaper than finding out from a hung rollout.
+
+These cells are marked **Run it for real**: they need your namespace, and they print what to do
+instead when it is not set.
 """
+
 
 
 MD_PROBE = """
@@ -374,11 +431,11 @@ APP_IMAGE = "brainupgrade/frontdeskai:latest"
 APP_PORT  = 8000            # what uvicorn listens on inside the container
 APP_NAME  = "frontdeskai"   # every object in this lab is named after it
 
-# Secrets already published into your namespace. You never copy their values.
+# The three Secrets this deployment reads. You never copy their values.
 SECRETS = {
-    "llm":      "{ns}-llm",             # gateway base URL, model name, your capped key
-    "langfuse": "{ns}-langfuse",        # tracing keys, scoped to your environment tag
-    "app":      "frontdeskai-secret",   # SECRET_KEY + first-login password, made at deploy
+    "llm":      "{ns}-llm",                # published for you: gateway URL, model, your key
+    "app":      "frontdeskai-secret",      # made at deploy: SECRET_KEY + first-login password
+    "langfuse": "frontdeskai-langfuse",    # made at deploy from YOUR .env -- your own project
 }
 
 # The three quota numbers the self-checks below actually compare against.
@@ -620,62 +677,133 @@ check("every object lands in your namespace, and inside the quota",
 # --------------------------------------------------------------------------- #
 # live cells
 # --------------------------------------------------------------------------- #
-WRITE_OUT = '''
-# The manifest set, on disk, exactly as kubectl will receive it.
-def write_manifests():
-    doc = {"apiVersion": "v1", "kind": "List", "items": all_manifests()}
-    path = os.path.join(WORK, "frontdeskai.json")
-    with open(path, "w") as fh:
-        json.dump(doc, fh, indent=2)
-    print("wrote", path)
-    for m in doc["items"]:
-        print(f"  {m['kind']:<22} {m['metadata']['name']}")
-    print("\\napply it with:")
-    print(f"  kubectl -n {NS} apply -f {path}")
-    return path
+CLONE = '''
+# --- Run it for real: get the app's source -----------------------------------
+import subprocess
 
-MANIFEST_PATH = guard(write_manifests)
+APP_REPO_URL = "https://github.com/brainupgrade-in/aiagentic-comp-frontdeskai.git"
+APP_REPO_DIR = os.path.join(HOME_WORK, "frontdeskai")
+
+def sh(*args, cwd=None):
+    p = subprocess.run(args, cwd=cwd, capture_output=True, text=True)
+    return p.returncode, (p.stdout + p.stderr).strip()
+
+def clone_app():
+    if os.path.isdir(os.path.join(APP_REPO_DIR, ".git")):
+        rc, out = sh("git", "pull", "--ff-only", cwd=APP_REPO_DIR)
+        print("already cloned; git pull ->", out.splitlines()[-1] if out else "ok")
+    else:
+        rc, out = sh("git", "clone", "--depth", "20", APP_REPO_URL, APP_REPO_DIR)
+        if rc:
+            print("clone failed:", out[-400:]); return
+        print("cloned into", APP_REPO_DIR)
+    for f in ("scripts/deploy-spark.sh", ".env.example", "app/agents.py"):
+        mark = "ok " if os.path.exists(os.path.join(APP_REPO_DIR, f)) else "MISSING "
+        print(f"  {mark}{f}")
+
+# Gated on APP_NAMESPACE like every other live cell. Without it you are not in a
+# sandbox, and an offline verification run must not reach GitHub or write a clone.
+if APP_NS:
+    clone_app()
+else:
+    print("APP_NAMESPACE is unset, so this is not a sandbox -- skipping the clone.")
+    print("In a sandbox terminal it is already exported.")
 '''
 
-APPLY = '''
-# --- Run it for real: create the app Secret, then apply the set -------------
-# SECRET_KEY is the Fernet key for encrypted per-skill config in the app's database.
-# It must survive a redeploy, or previously stored skill credentials become unreadable,
-# so this reuses the existing one when there is one.
-import subprocess, secrets as _secrets
+ENVCHECK = '''
+# --- Run it for real: your own Langfuse keys, in the app's .env --------------
+# This only reports WHICH names are set. It never prints a key.
+ENV_FILE = os.path.join(APP_REPO_DIR, ".env")
 
+def check_env():
+    if not os.path.exists(ENV_FILE):
+        print("No .env yet. In a terminal:")
+        print(f"  cp {APP_REPO_DIR}/.env.example {ENV_FILE}")
+        print(f"  nano {ENV_FILE}        # fill in the three LANGFUSE_ values")
+        return
+    seen = {}
+    for line in open(ENV_FILE, encoding="utf-8", errors="replace"):
+        line = line.strip()
+        if line.startswith("#") or "=" not in line:
+            continue
+        k, v = line.split("=", 1)
+        seen[k.strip()] = v.strip().strip("\\"'")
+
+    host = seen.get("LANGFUSE_HOST") or seen.get("LANGFUSE_BASE_URL") or ""
+    for name in ("LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY"):
+        print(f"  {'set    ' if seen.get(name) else 'MISSING'} {name}")
+    print(f"  {'set    ' if host else 'MISSING'} LANGFUSE_HOST -> {host or '(none)'}")
+
+    if seen.get("LANGFUSE_BASE_URL") and not seen.get("LANGFUSE_HOST"):
+        print("\\n  note: you used LANGFUSE_BASE_URL. The deploy accepts it, the app reads")
+        print("        LANGFUSE_HOST, and the script translates. Either name works.")
+    if host and not any(host.startswith(p) for p in ("http://", "https://")):
+        print("\\n  warning: the host needs its scheme -- https://<region>.cloud.langfuse.com")
+    if all(seen.get(k) for k in ("LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY")) and host:
+        print("\\n  Ready. The deploy will turn these into the frontdeskai-langfuse Secret.")
+    else:
+        print("\\n  Without all three the app still deploys -- you just get no LLM tracing.")
+
+check_env()
+'''
+
+VERIFY_REPO = '''
+# --- Run it for real: does the repo agree with the decisions you made? -------
+# You predicted five things from your namespace's limits. The manifests the deploy
+# script is about to apply are in the clone. Check them against your answers rather
+# than taking anyone's word for it -- including this lab's.
+import re
+
+def verify_repo():
+    m = os.path.join(APP_REPO_DIR, "scripts", "manifests", "spark")
+    if not os.path.isdir(m):
+        print("No clone yet -- run the clone cell above."); return
+    read = lambda f: open(os.path.join(m, f), encoding="utf-8").read()
+    dep, svc, cm = read("deployment.yaml"), read("service.yaml"), read("configmap.yaml")
+
+    expected = [
+        ("strategy",  update_strategy()["type"],
+         re.search(r"strategy:\\s*\\n\\s*type:\\s*(\\w+)", dep).group(1)),
+        ("Service type", service_type(),
+         re.search(r"type:\\s*(\\w+)", svc).group(1)),
+        ("LLM provider", llm_provider(),
+         re.search(r'LLM_PROVIDER:\\s*"?(\\w+)', cm).group(1)),
+    ]
+    for label, mine, theirs in expected:
+        verdict = "agrees" if mine == theirs else "DIFFERS"
+        print(f"  {verdict:8} {label:14} you: {mine!r}  repo: {theirs!r}")
+
+    home_in_cm = bool(re.search(r"^\\s{2}HOME:", cm, re.M))
+    want_home  = bool(home_override())
+    print(f"  {'agrees' if home_in_cm == want_home else 'DIFFERS':8} HOME override  "
+          f"you: {want_home}  repo: {home_in_cm}")
+    print(f"  {'agrees' if 'frontdeskai-langfuse' in dep else 'DIFFERS':8} "
+          f"your Langfuse Secret is mounted, optional")
+
+guard(verify_repo)
+'''
+
+DEPLOY = '''
+# --- Run it for real: let the repo's own script deploy it --------------------
+# One command. It creates the two Secrets -- including yours, from the .env -- and
+# applies the five objects. Everything it does is in scripts/deploy-spark.sh, which
+# is worth reading: it is the same five objects you just linted.
 def kubectl(*args, **kw):
     return subprocess.run(("kubectl", "-n", APP_NS) + args,
                           capture_output=True, text=True, **kw)
 
 def deploy():
-    if not APP_NS:
-        print("APP_NAMESPACE is unset in this kernel, so there is no namespace to deploy into.")
-        print("In a sandbox terminal this is already exported. Skipping the cluster steps.")
+    if not APP_NS or not APP_HOST:
+        print("APP_NAMESPACE / APP_HOST are unset in this kernel, so there is nothing")
+        print("to deploy into. In a sandbox terminal both are already exported.")
         return False
-    if not MANIFEST_PATH:
-        print("No manifest file was written -- fill the blanks above and re-run that cell.")
-        return False
-
-    existing = kubectl("get", "secret", "frontdeskai-secret",
-                       "-o", "jsonpath={.data.SECRET_KEY}")
-    if existing.returncode == 0 and existing.stdout.strip():
-        import base64
-        key = base64.b64decode(existing.stdout).decode()
-        print("reusing the existing SECRET_KEY")
-    else:
-        key = _secrets.token_urlsafe(32)
-        print("generating a SECRET_KEY")
-    made = kubectl("create", "secret", "generic", "frontdeskai-secret",
-                   f"--from-literal=SECRET_KEY={key}",
-                   "--from-literal=AUTH_PASSWORD=brainupgrade",
-                   "--dry-run=client", "-o", "json")
-    subprocess.run(("kubectl", "-n", APP_NS, "apply", "-f", "-"),
-                   input=made.stdout, capture_output=True, text=True)
-
-    out = kubectl("apply", "-f", MANIFEST_PATH)
-    print(out.stdout.strip() or out.stderr.strip())
-    return out.returncode == 0
+    script = os.path.join(APP_REPO_DIR, "scripts", "deploy-spark.sh")
+    if not os.path.exists(script):
+        print("No clone yet -- run the clone cell above."); return False
+    p = subprocess.run(("bash", script), cwd=APP_REPO_DIR,
+                       capture_output=True, text=True, timeout=900)
+    print((p.stdout + p.stderr).strip()[-2500:])
+    return p.returncode == 0
 
 APPLIED = guard(deploy) or False
 '''
@@ -805,7 +933,7 @@ LAB1 = [
            "> on a cluster, in your own namespace, on your own hostname, reachable from a\n"
            "> browser. You are not asked to type the manifests out: they are written for you,\n"
            "> and what you supply are the five decisions inside them."),
-    setup(1),
+    setup(1, HOME_WORK_EXTRA),
     md(INFO_CLUSTER),
     code(FACTS),
 
@@ -815,8 +943,10 @@ LAB1 = [
     code(CHECKS),
 
     md(INFO_APPLY),
-    code(WRITE_OUT),
-    code(APPLY),
+    code(CLONE),
+    code(ENVCHECK),
+    code(VERIFY_REPO),
+    code(DEPLOY),
 
     md(MD_PROBE),
     code(ROLLOUT),

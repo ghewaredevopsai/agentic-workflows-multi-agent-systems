@@ -66,7 +66,9 @@ footer a{color:#c7d2fe;text-decoration:none}
       <li>Make the five choices those limits force &mdash; including the one that has already
         broken this app once</li>
       <li>Lint the whole manifest set offline, before anything is scheduled</li>
-      <li>Apply them, wait for the rollout, and get a grounded answer out of the running service</li>
+      <li>Clone the app, point it at your own Langfuse project through its <code>.env</code>, and
+        let its deploy script apply the set</li>
+      <li>Wait for the rollout and get a grounded answer out of the running service</li>
       <li>Read your own trace back out of Tempo &mdash; the only evidence that telemetry works</li>
     </ul>
     <div class="sol">5 blanks &middot; 13 checks &middot; solution: <code>solutions/lab-9-01-deploy-the-frontdesk-service.ipynb</code></div>
