@@ -62,14 +62,14 @@ footer a{color:#c7d2fe;text-decoration:none}
     <p>Three days of agents in a notebook. This one puts a multi-agent service on a cluster, in
       your namespace, on your hostname, and asks it a question.</p>
     <ul>
-      <li>Read your namespace and host from the environment, never from a hostname</li>
-      <li>Build the five objects a deployment needs, as dicts you can lint offline</li>
-      <li>Make the four decisions this cluster forces &mdash; and avoid the trap that has already
+      <li>Read what your namespace allows, and what it can reach</li>
+      <li>Make the five choices those limits force &mdash; including the one that has already
         broken this app once</li>
+      <li>Lint the whole manifest set offline, before anything is scheduled</li>
       <li>Apply them, wait for the rollout, and get a grounded answer out of the running service</li>
       <li>Read your own trace back out of Tempo &mdash; the only evidence that telemetry works</li>
     </ul>
-    <div class="sol">5 blanks &middot; 20 checks &middot; solution: <code>solutions/lab-9-01-deploy-the-frontdesk-service.ipynb</code></div>
+    <div class="sol">5 blanks &middot; 13 checks &middot; solution: <code>solutions/lab-9-01-deploy-the-frontdesk-service.ipynb</code></div>
   </div>
   </div>
 

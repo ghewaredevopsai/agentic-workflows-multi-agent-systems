@@ -222,56 +222,170 @@ def setup(num, extra=""):
 # gateway your notebooks use. It is already built and published; this lab is
 # about getting it running in YOUR namespace, which is the part the course has
 # not covered yet.
+INFO_CLUSTER = """
+## What you are deploying, and where
+
+**FrontDesk AI** &mdash; a FastAPI service wrapping the LangGraph support desk you have been
+studying all week: supervisor &rarr; RAG &rarr; a domain worker with tools &rarr; escalation
+&rarr; QA gate. The image is already built and published, so there is nothing to compile here.
+
+You are putting it in **your own namespace**, on **your own hostname**, and a browser will
+reach it. That is a different job from running a notebook, and most of it is decided before
+`kubectl` is involved.
+
+### Your namespace is not an unlimited machine
+
+Read these off your own quota any time with
+`kubectl -n $APP_NAMESPACE describe quota`. Three of them force a decision below.
+
+| Limit | Value | Why it matters |
+|---|---|---|
+| `limits.memory` | **1Gi &mdash; for the whole namespace** | one pod at a 1Gi limit uses all of it |
+| `services.nodeports` | **0** | not "a few". Zero |
+| `services.loadbalancers` | **0** | so there is exactly one way in |
+| `services` | 3 | |
+| `persistentvolumeclaims` | 2 | |
+| `pods` | 8 | |
+| `requests.storage` | 5Gi | |
+
+### And it can only reach four things
+
+Its NetworkPolicy is `participant-egress`. This is **not** the sandbox your notebook runs
+in &mdash; that one does have general internet access. Yours does not.
+
+| Allowed out | For |
+|---|---|
+| `kube-system` :53/UDP | DNS |
+| `llm-serving` any port | the LiteLLM gateway &mdash; how the app reaches a model |
+| `ingress-nginx` pods | so your Ingress can reach back in |
+| `tempo` :4317 &middot; `langfuse` :3000 | telemetry |
+
+Nothing else on the internet. Not PyPI, not Hugging Face, not a model vendor.
+
+### Three Secrets are already there for you
+
+You do not create these and you never copy their values out:
+`<your-namespace>-llm` (gateway URL, model name, your own capped key),
+`<your-namespace>-langfuse` (tracing keys), and `frontdeskai-secret`
+(`SECRET_KEY` and the first-login password, created during the deploy).
+"""
+
+
+INFO_OBJECTS = """
+## Section 1 &mdash; The five objects, and the five answers
+
+A deployment of this app is five Kubernetes objects. You do not type them out &mdash; they are
+written for you in the cell after next &mdash; but you do have to decide five things inside
+them, and each answer is forced by a number in the panel above.
+
+| Object | What it carries |
+|---|---|
+| **ConfigMap** | non-secret settings: which provider, which model, where spans go. Never a credential |
+| **PersistentVolumeClaim** | 1Gi at `/shared` for SQLite and the vector store |
+| **Deployment** | one replica, the image, both probes, requests and limits, and `envFrom` |
+| **Service** | gives the pod a stable name inside the cluster, port 80 &rarr; 8000 |
+| **Ingress** | claims your public hostname and sends it to the Service |
+
+### The four decisions
+
+| Decision | The fact that forces it | What to weigh |
+|---|---|---|
+| `update_strategy()` | `limits.memory` is 1Gi for the **whole namespace** | a `RollingUpdate` starts the replacement pod *before* stopping the old one, so for a moment two pods each want 1Gi. The second is quota-denied and the rollout hangs with no useful message |
+| `service_type()` | `nodeports: 0`, `loadbalancers: 0` | an Ingress reaches a Service from *inside* the cluster, so it does not need either |
+| `llm_provider()` | egress reaches `llm-serving` and nothing else | `groq`, `ollama` and `openrouter` each call a vendor over the internet. `litellm` points at an OpenAI-compatible gateway and reads its URL and key from the environment |
+| `gateway_secret()` | the three Secrets listed above | which one holds the gateway credential |
+
+### And one trap
+
+`home_override()` looks like housekeeping and is not. The image bakes ChromaDB's embedding
+model into `/opt/appcache` and points `HOME` there, because `chromadb` resolves its cache from
+`Path.home()` and **downloads the model on first use** &mdash; which your namespace has no
+egress to do. The app also mounts a PVC at `/shared`, which is a very tempting `HOME`.
+
+Set `HOME` to `/shared` and the app crash-loops on `httpx.ConnectError` during startup
+indexing, while every manifest is valid and both probes are configured correctly. It has
+already broken this app once.
+"""
+
+
+INFO_APPLY = """
+## Section 2 &mdash; Put it on the cluster
+
+A Kubernetes manifest **is** JSON, and YAML is just a friendlier surface over it &mdash; so the
+dicts you linted are exactly what `kubectl` receives. Nothing is translated in between, which
+is why linting them offline was worth doing.
+
+These cells are marked **Run it for real**. They need `APP_NAMESPACE`, and they print what to
+do instead if it is not set. The next two write the five objects to disk as JSON, create the
+app Secret, and apply the set.
+"""
+
+
+MD_PROBE = """
+### Waiting, and asking the probe its own question
+
+The first image pull is the slow part, so the rollout can take a couple of minutes.
+
+Then the cell asks `/health` **from inside the running container**. The obvious way would be to
+`kubectl run` a small curl pod &mdash; try it, and it is refused with
+`exceeded quota: limits.memory=1Gi, used: 1Gi`, because your app is already holding the entire
+namespace budget. A debugging pod is still a pod. `exec` borrows the container you have already
+paid for, and this image ships Python.
+"""
+
+
+MD_ASK = """
+### Asking the running service a real question
+
+This is the whole course in one HTTP request: supervisor &rarr; RAG &rarr; a domain worker with
+tools &rarr; escalation check &rarr; QA gate &rarr; a grounded answer. Watch the audit trail it
+prints &mdash; that is the same trail you have been reading all week, now coming out of a
+service instead of a notebook.
+
+⚠️ **It asks the pod directly rather than your public hostname, and that is deliberate.**
+Cloudflare sits in front of that host and gives up at about 100 seconds with a `524`; an agent
+doing three tool-calling turns can exceed that whenever the gateway is busy, and the `524` looks
+exactly like a broken app while the pod is still working. It also answers the default Python
+user agent with `403 error code: 1010`. **Open the hostname in a browser** to see the real
+thing, and let this cell use `kubectl exec`.
+"""
+
+
+MD_TRACE = """
+### Reading your own trace back out
+
+The request you just made emitted spans. This asks Tempo what it actually **received**.
+
+That distinction is the point: *&ldquo;the exporter is configured&rdquo;* is not evidence.
+`BatchSpanProcessor` swallows export failures, so a wrong endpoint looks exactly like a healthy
+one from inside the app &mdash; no error, no warning, no spans. The only proof is reading them
+back.
+
+Spans are batched, so give it about ten seconds after a request. If the newest trace looks
+partial, that is why: a trace's root span lands last.
+"""
+
+
+
 FACTS = '''
-# ------------------------------------------------------- what you are deploying
-# FrontDesk AI: a FastAPI service wrapping a LangGraph multi-agent support desk.
-# Supervisor -> RAG -> a domain worker with tools -> escalation -> QA gate.
-# Published image, nothing to build here.
+# ------------------------------------------------------- the few values code needs
+# Everything else about this cluster is in the panel above -- read that, not this.
 APP_IMAGE = "brainupgrade/frontdeskai:latest"
 APP_PORT  = 8000            # what uvicorn listens on inside the container
 APP_NAME  = "frontdeskai"   # every object in this lab is named after it
 
-# A real deployment pins a digest instead of a moving tag, so that two rollouts
-# of "the same" version really are. `latest` is used here because the workshop
-# rebuilds the image during the course.
-
-# ------------------------------------------------------- what your namespace allows
-# Read from your own ResourceQuota with:  kubectl -n $APP_NAMESPACE describe quota
-# These are the numbers, not a simplification -- three of them drive a decision below.
-QUOTA = {
-    "pods":                   8,
-    "requests.cpu":       "500m",
-    "requests.memory":   "512Mi",
-    "limits.cpu":            "1",
-    "limits.memory":       "1Gi",     # <- the whole namespace, not per pod
-    "services":               3,
-    "services.nodeports":     0,      # <- zero, not "a few"
-    "persistentvolumeclaims": 2,
-    "requests.storage":    "5Gi",
-}
-
-# ------------------------------------------------------- what your namespace can reach
-# NetworkPolicy `participant-egress`. This is NOT the sandbox namespace, which does
-# have general internet egress -- yours does not.
-EGRESS_ALLOWED = [
-    "kube-system :53/UDP        (DNS)",
-    "llm-serving  any port      (the LiteLLM gateway -- how the app reaches a model)",
-    "ingress-nginx pods         (so your Ingress can reach back in)",
-    "langfuse     :3000         (tracing)",
-]
-
-# ------------------------------------------------------- secrets already in your namespace
-# Published for you. You do not create these and you never copy their values.
+# Secrets already published into your namespace. You never copy their values.
 SECRETS = {
-    "llm":       "{ns}-llm",             # gateway base URL, model name, your own capped key
-    "langfuse":  "{ns}-langfuse",        # tracing keys, scoped to your environment tag
-    "app":       "frontdeskai-secret",   # SECRET_KEY + first-login password, created at deploy
+    "llm":      "{ns}-llm",             # gateway base URL, model name, your capped key
+    "langfuse": "{ns}-langfuse",        # tracing keys, scoped to your environment tag
+    "app":      "frontdeskai-secret",   # SECRET_KEY + first-login password, made at deploy
 }
 
-# ------------------------------------------------------- where telemetry goes
-# Tempo lives in the `monitoring` namespace and is shared by the whole cohort.
-# Your namespace is allowed to reach 4317 (send spans); your SANDBOX is allowed to
-# reach 3200 (read them back), which is what the last cell of this lab uses.
+# The three quota numbers the self-checks below actually compare against.
+QUOTA = {"limits.memory": "1Gi", "services": 3, "persistentvolumeclaims": 2}
+
+# Tempo is shared by the whole cohort: your namespace may SEND to 4317, your
+# sandbox may READ from 3200, which is what the last cell of this lab uses.
 TEMPO_OTLP  = "http://tempo.monitoring.svc.cluster.local:4317"
 TEMPO_QUERY = "http://tempo.monitoring.svc.cluster.local:3200"
 
@@ -287,77 +401,51 @@ print("host      :", HOST)
 # the four decisions
 # --------------------------------------------------------------------------- #
 DECISIONS_LAB = '''
-# Four decisions and one trap. Each is forced by something printed above -- the
-# quota, the network policy, or the image. None is a Python puzzle: the mechanics
-# are given, the answer is the choice.
+# Five answers. The reasoning for each one is in the panel above -- none of these
+# is a Python puzzle, and the mechanics are already written.
 
 def update_strategy() -> dict:
-    """Rollout strategy for one replica whose memory LIMIT is 1Gi.
-
-    limits.memory for the WHOLE namespace is also 1Gi. A RollingUpdate starts the
-    replacement pod before stopping the old one, so for a moment two pods each
-    want 1Gi. What happens to the second one, and to your rollout?
-    """
-    return {"type": BLANK}                 # "RollingUpdate" | "Recreate"
+    """One replica, 1Gi limit, and 1Gi for the whole namespace."""
+    return {"type": BLANK}              # "RollingUpdate" | "Recreate"
 
 
 def service_type() -> str:
-    """How the Service is exposed.
-
-    services.nodeports is 0 in your quota, and services.loadbalancers is 0 too.
-    An Ingress reaches a Service from inside the cluster.
-    """
-    return BLANK                           # "ClusterIP" | "NodePort" | "LoadBalancer"
+    """services.nodeports is 0, and so is services.loadbalancers."""
+    return BLANK                        # "ClusterIP" | "NodePort" | "LoadBalancer"
 
 
 def llm_provider() -> str:
-    """Which provider the app uses for its LLM calls.
-
-    agents.py knows four. "groq", "ollama" and "openrouter" each reach a vendor
-    over the internet. "litellm" points at an OpenAI-compatible gateway whose base
-    URL and key it reads from the environment. Re-read EGRESS_ALLOWED before you
-    answer -- this is the decision that makes the app work here at all.
-    """
-    return BLANK                           # "groq" | "ollama" | "openrouter" | "litellm"
+    """Only the in-cluster gateway is reachable from this namespace."""
+    return BLANK                        # "groq" | "ollama" | "openrouter" | "litellm"
 
 
 def gateway_secret(ns: str) -> str:
-    """Which existing Secret carries that credential, mounted with envFrom.
-
-    SECRETS is printed above. Return the KEY into it; the formatting is done here.
-    """
-    return SECRETS[BLANK].format(ns=ns)    # "llm" | "langfuse" | "app"
+    """Which Secret carries that credential. Return the key into SECRETS."""
+    return SECRETS[BLANK].format(ns=ns) # "llm" | "langfuse" | "app"
 
 
 def home_override() -> dict:
-    """Extra env for HOME, if any. This one has bitten before.
-
-    The image bakes ChromaDB's embedding model into /opt/appcache and points HOME
-    at it, because chromadb resolves its cache from Path.home() and downloads the
-    model on first use -- which your namespace has no egress to do. The app also
-    has a PVC mounted at /shared for its database, which is a tempting home.
-    """
-    return BLANK                           # {} | {"HOME": "/shared"}
+    """Extra env for HOME, if any. This is the trap."""
+    return BLANK                        # {} | {"HOME": "/shared"}
 '''
 
 DECISIONS_SOL = (DECISIONS_LAB
-    .replace('{"type": BLANK}                 #', '{"type": "Recreate"}            #')
-    .replace('return BLANK                           # "ClusterIP"',
-             'return "ClusterIP"                     # "ClusterIP"')
-    .replace('return BLANK                           # "groq"',
-             'return "litellm"                       # "groq"')
+    .replace('{"type": BLANK}              #', '{"type": "Recreate"}         #')
+    .replace('return BLANK                        # "ClusterIP"',
+             'return "ClusterIP"                  # "ClusterIP"')
+    .replace('return BLANK                        # "groq"',
+             'return "litellm"                    # "groq"')
     .replace('SECRETS[BLANK]', 'SECRETS["llm"]')
-    .replace('return BLANK                           # {}',
-             'return {}                              # {}'))
+    .replace('return BLANK                        # {}',
+             'return {}                           # {}'))
 
 
 # --------------------------------------------------------------------------- #
 # the five objects
 # --------------------------------------------------------------------------- #
 BUILDERS = '''
-# The five objects, given. Read them: this is the same YAML you have seen, written
-# as dicts -- a Kubernetes manifest IS JSON, and YAML is a surface syntax over it.
-# kubectl takes either, so the thing you lint below is the thing you apply.
+# The five objects, written for you. The five calls you filled in are the only
+# things that vary.
 
 def meta(name, ns):
     return {"name": name, "namespace": ns, "labels": {"app": APP_NAME}}
@@ -372,8 +460,6 @@ def build_configmap(ns):
         "LLM_FALLBACK_MODEL":          "",     # empty model disables the fallback
         "SEED_DEMO_DATA":              "true",
         "SQLITE_DIR":                  "/shared/.sqlite",
-        # One Tempo serves all 31 of you, so the service name has to carry your
-        # namespace or you cannot find your own traces among everyone else's.
         "OTEL_SERVICE_NAME":           f"{APP_NAME}-{ns}",
         "OTEL_EXPORTER_OTLP_ENDPOINT": TEMPO_OTLP,
         "LOG_LEVEL":                   "INFO",
@@ -402,8 +488,6 @@ def build_deployment(ns):
                         "image": APP_IMAGE,
                         "imagePullPolicy": "Always",
                         "ports": [{"containerPort": APP_PORT, "name": "http"}],
-                        # Config and credentials arrive whole, by reference. No value
-                        # of a secret is ever written into a manifest.
                         "envFrom": [
                             {"configMapRef": {"name": f"{APP_NAME}-config"}},
                             {"secretRef": {"name": gateway_secret(ns), "optional": True}},
@@ -462,8 +546,6 @@ def all_manifests(ns=None, host=None):
 # --------------------------------------------------------------------------- #
 CHECKS = '''
 # --- Self-check: the manifest set  (pure dicts -- no cluster, no model, no network)
-SECRETISH = ("KEY", "TOKEN", "SECRET", "PASSWORD", "CREDENTIAL")
-
 def by_kind(kind):
     return next(m for m in all_manifests() if m["kind"] == kind)
 
@@ -473,64 +555,52 @@ def container():
 def mem_to_mi(v):
     return int(v[:-2]) * 1024 if v.endswith("Gi") else int(v[:-2])
 
-check("the rollout fits the namespace's 1Gi limits budget",
+# the four decisions
+check("Recreate, because there is no room for a second pod",
       lambda: by_kind("Deployment")["spec"]["strategy"]["type"] == "Recreate",
-      "a RollingUpdate needs a second pod, and there is no room for one")
+      "a RollingUpdate starts the new pod before stopping the old one")
 
-check("the Service is a type the quota permits",
-      lambda: by_kind("Service")["spec"]["type"] == "ClusterIP",
-      "services.nodeports is 0")
-
-check("no object anywhere asks for a NodePort",
-      lambda: not any("nodePort" in json.dumps(m) for m in all_manifests()))
+check("ClusterIP, because the quota allows no NodePort",
+      lambda: by_kind("Service")["spec"]["type"] == "ClusterIP"
+              and not any("nodePort" in json.dumps(m) for m in all_manifests()))
 
 check("the app is pointed at the in-cluster gateway",
       lambda: by_kind("ConfigMap")["data"]["LLM_PROVIDER"] == "litellm",
       "the other three providers need internet egress this namespace does not have")
 
-check("the fallback is disabled rather than left pointing at a vendor",
-      lambda: by_kind("ConfigMap")["data"]["LLM_FALLBACK_MODEL"] == "")
-
-check("HOME is left as the image set it",
-      lambda: "HOME" not in by_kind("ConfigMap")["data"],
-      "moving HOME hides the baked embedding model, and there is no egress to re-fetch it")
-
-check("the gateway credential comes from the per-participant Secret",
+check("the gateway credential comes from your own -llm Secret",
       lambda: any(r.get("secretRef", {}).get("name", "").endswith("-llm")
                   for r in container()["envFrom"]))
 
+# the trap
+check("HOME is left exactly as the image set it",
+      lambda: "HOME" not in by_kind("ConfigMap")["data"],
+      "moving HOME hides the baked embedding model, and there is no egress to re-fetch it")
+
+# credentials
 check("config and credentials arrive by reference, not by value",
       lambda: not container().get("env"),
       "envFrom only -- a literal in a manifest is a credential in git")
 
-check("no manifest contains a secret-looking literal",
-      lambda: not any(s in k.upper() and isinstance(v, str) and v
-                      for m in all_manifests() if m["kind"] == "ConfigMap"
-                      for k, v in m["data"].items() for s in SECRETISH))
-
-check("both probes exist",
-      lambda: container()["livenessProbe"] and container()["readinessProbe"])
-
-check("the probes ask the port the container actually listens on",
-      lambda: container()["livenessProbe"]["httpGet"]["port"] == APP_PORT == 8000)
-
-check("requests and limits are both stated",
-      lambda: container()["resources"]["requests"] and container()["resources"]["limits"])
+# the pod can be told whether it is healthy
+check("both probes exist and ask the port the container listens on",
+      lambda: container()["livenessProbe"]["httpGet"]["port"] == APP_PORT == 8000
+              and container()["readinessProbe"]["httpGet"]["port"] == APP_PORT)
 
 check("the memory limit does not exceed the whole namespace budget",
       lambda: mem_to_mi(container()["resources"]["limits"]["memory"])
               <= mem_to_mi(QUOTA["limits.memory"]))
 
-check("the Service targets the container port, not the Service port",
-      lambda: by_kind("Service")["spec"]["ports"][0]["targetPort"] == APP_PORT)
-
-check("the Ingress backend names the Service and its port 80",
-      lambda: (lambda b: b["service"]["name"] == APP_NAME and b["service"]["port"]["number"] == 80)(
-          by_kind("Ingress")["spec"]["rules"][0]["http"]["paths"][0]["backend"]))
+# the route in
+check("the Service targets the container port, and the Ingress targets the Service",
+      lambda: by_kind("Service")["spec"]["ports"][0]["targetPort"] == APP_PORT
+              and by_kind("Ingress")["spec"]["rules"][0]["http"]["paths"][0]
+                  ["backend"]["service"]["port"]["number"] == 80)
 
 check("the Ingress claims your own host",
       lambda: by_kind("Ingress")["spec"]["rules"][0]["host"] == HOST)
 
+# telemetry
 check("spans are exported, not silently dropped",
       lambda: by_kind("ConfigMap")["data"]["OTEL_EXPORTER_OTLP_ENDPOINT"] == TEMPO_OTLP,
       "an EMPTY endpoint disables the exporter; a WRONG one drops every span in silence")
@@ -539,11 +609,9 @@ check("your traces are findable among the whole cohort's",
       lambda: by_kind("ConfigMap")["data"]["OTEL_SERVICE_NAME"].endswith(NS),
       "one Tempo, 31 services -- the name has to carry your namespace")
 
-check("every object lands in your namespace, read from APP_NAMESPACE",
-      lambda: {m["metadata"]["namespace"] for m in all_manifests()} == {NS})
-
-check("the object count stays inside the quota",
-      lambda: sum(1 for m in all_manifests() if m["kind"] == "Service") <= QUOTA["services"]
+check("every object lands in your namespace, and inside the quota",
+      lambda: {m["metadata"]["namespace"] for m in all_manifests()} == {NS}
+              and sum(1 for m in all_manifests() if m["kind"] == "Service") <= QUOTA["services"]
               and sum(1 for m in all_manifests()
                       if m["kind"] == "PersistentVolumeClaim") <= QUOTA["persistentvolumeclaims"])
 '''
@@ -625,12 +693,6 @@ def wait_for_it():
     pods = kubectl("get", "pods", "-l", "app=frontdeskai", "--no-headers")
     print(pods.stdout.strip())
 
-    # Ask the readiness probe's own question -- from INSIDE the running container.
-    #
-    # The obvious way to do this is `kubectl run` a curl pod. Try it: it is refused
-    # with `exceeded quota: limits.memory=1Gi, used: 1Gi`, because your app is already
-    # holding the entire namespace budget. A debugging pod is a pod. `exec` borrows
-    # the container you already paid for, and the app image ships Python.
     hit = kubectl("exec", f"deploy/{APP_NAME}", "--", "python3", "-c",
                   "import urllib.request as u;"
                   f"print(u.urlopen('http://127.0.0.1:{APP_PORT}/health').status)")
@@ -642,15 +704,6 @@ guard(wait_for_it)
 
 TALK = '''
 # --- Run it for real: ask the running service a question -------------------
-# The whole course in one request: HTTP -> supervisor -> RAG -> a domain worker
-# with tools -> escalation check -> QA gate -> a grounded answer.
-#
-# This asks the pod directly rather than going through your public hostname, for
-# two reasons worth knowing. Cloudflare sits in front of that host and gives up
-# at ~100s with a 524 -- an agent doing three tool-calling turns can exceed that
-# when the gateway is busy, and the 524 looks like your app is broken when it is
-# still working. It also answers the default Python user agent with 403 and
-# `error code: 1010`. Open the URL in a BROWSER to see the real thing.
 def talk_to_it():
     if not APPLIED:
         print("The app is not deployed from this kernel, so there is nothing to ask.")
@@ -687,10 +740,6 @@ guard(talk_to_it)
 
 TRACES = '''
 # --- Run it for real: read your own trace back out of Tempo ----------------
-# The request above emitted spans. This asks Tempo what it actually received --
-# which is the only way to know your telemetry works. "The exporter is
-# configured" is not evidence: BatchSpanProcessor swallows export failures, so a
-# misconfigured endpoint looks exactly like a healthy one from inside the app.
 def read_my_traces():
     import urllib.request, urllib.parse
     if not APP_NS:
@@ -714,8 +763,6 @@ def read_my_traces():
         return
 
     print(f"{len(found)} trace(s) for {svc}")
-    # Prefer a trace whose ROOT span has already arrived. Spans are batched, so the
-    # very newest trace is often still partial -- its root lands last.
     complete = [t for t in found if t.get("rootTraceName")] or found
     newest = max(complete, key=lambda t: int(t.get("startTimeUnixNano", 0)))
     print(f"  {newest.get('rootTraceName')}  {newest.get('durationMs')} ms  {newest['traceID']}")
@@ -747,58 +794,37 @@ guard(read_my_traces)
 # --------------------------------------------------------------------------- #
 LAB1 = [
     header(1, "Deploy the FrontDesk Service", "Advanced", 45,
-           ["Read your namespace and host from the environment, never from a hostname",
-            "Build the five objects a deployment needs, as dicts you can lint offline",
-            "Make the four decisions this cluster forces &mdash; and avoid the trap that has "
+           ["Read what your namespace allows, and what it can reach",
+            "Make the five choices those limits force &mdash; including the one that has "
             "already broken this app once",
-            "Apply them, wait for the rollout, and get a grounded answer out of the "
+            "Lint the whole manifest set offline, before anything is scheduled",
+            "Apply it, wait for the rollout, and get a grounded answer out of the "
             "running service",
-            "Read your own trace back out of Tempo &mdash; the only evidence that telemetry "
-            "works"],
+            "Read your own trace back out of Tempo &mdash; the only evidence telemetry works"],
            "> **Everything before this ran in a notebook.** This lab puts a multi-agent service\n"
            "> on a cluster, in your own namespace, on your own hostname, reachable from a\n"
-           "> browser. The manifests are Python dicts and the self-checks are predicates over\n"
-           "> them, so the whole design is graded before anything is applied."),
+           "> browser. You are not asked to type the manifests out: they are written for you,\n"
+           "> and what you supply are the five decisions inside them."),
     setup(1),
+    md(INFO_CLUSTER),
     code(FACTS),
 
-    md("""
-## Concept
-
-You have built agents for three days. Shipping one is a different job, and most of it is
-decided before `kubectl` is involved.
-
-A namespace is not an unlimited machine. Yours grants **1Gi of memory limits in total**, **zero
-NodePorts**, three Services and two PVCs, and its NetworkPolicy reaches **DNS, the model gateway,
-the ingress controller and the tracing backend &mdash; and nothing else on the internet**. Every
-one of those numbers removes an option that would otherwise look reasonable, and two of them
-remove the option that is the *default*.
-
-So the manifest is where the design lives. Written as dicts it is also where the design can be
-**checked** &mdash; every rule below is a predicate over an object, runs offline in
-milliseconds, and fails before a pod is ever scheduled.
-"""),
-
-    md("""
-## Section 1 &mdash; The manifest set
-
-Four decisions and one trap. Read `FACTS` above before you answer any of them: each is forced by
-a number or a policy printed there, and none of them is a Python puzzle.
-"""),
+    md(INFO_OBJECTS),
     code(DECISIONS_LAB, DECISIONS_SOL),
     code(BUILDERS),
     code(CHECKS),
 
-    md("""
-## Section 2 &mdash; Put it on the cluster
-
-The dicts you just linted are what `kubectl` receives. These cells are marked **Run it for
-real**: they need your namespace, and they print what to do instead if it is not set.
-"""),
+    md(INFO_APPLY),
     code(WRITE_OUT),
     code(APPLY),
+
+    md(MD_PROBE),
     code(ROLLOUT),
+
+    md(MD_ASK),
     code(TALK),
+
+    md(MD_TRACE),
     code(TRACES),
 
     code('''
