@@ -1,0 +1,746 @@
+<meta charset="utf-8">
+<title>Observability Setup &mdash; FrontDesk AI and the Lab Cluster</title>
+<style>
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: #f5f5fb;
+  color: #2d3748;
+  font-size: 14px;
+  line-height: 1.45;
+}
+a { color: #4338ca; }
+header {
+  background: linear-gradient(135deg, #1e1b4b 0%, #4338ca 100%);
+  color: #fff; padding: 14px 18px; text-align: center;
+  border-bottom: 3px solid #818cf8;
+}
+header h1 { margin: 0; font-size: 1.35em; }
+header .tagline { margin-top: 4px; color: #c7d2fe; font-size: 0.9em; font-weight: 600; }
+header .meta { margin-top: 6px; color: #c3c9de; font-size: 0.82em; }
+.container {
+  max-width: 1020px; margin: 12px auto; background: #fff;
+  padding: 14px 22px 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1);
+}
+h2 {
+  background: linear-gradient(135deg, #1e1b4b 0%, #4f46e5 140%);
+  color: #fff; padding: 5px 12px; margin: 20px 0 10px 0;
+  border-radius: 3px; font-size: 1.0em; font-weight: 600;
+  border-left: 4px solid #fbbf24;
+}
+h3 { font-size: 0.95em; color: #312e81; margin: 14px 0 6px 0; }
+p { margin: 0 0 8px 0; }
+.intro {
+  background: #f0fdf9; border-left: 3px solid #0d9488;
+  padding: 9px 13px; font-size: 0.9em; color: #134e4a;
+  border-radius: 0 3px 3px 0; margin-bottom: 12px;
+}
+.intro p:last-child { margin-bottom: 0; }
+.warn {
+  background: #fef2f2; border-left: 3px solid #b91c1c;
+  padding: 8px 13px; font-size: 0.87em; color: #7f1d1d;
+  border-radius: 0 3px 3px 0; margin: 10px 0;
+}
+.take {
+  background: #fffbeb; border-left: 3px solid #fbbf24;
+  padding: 8px 13px; font-size: 0.88em; color: #4b3a10;
+  border-radius: 0 3px 3px 0; margin: 10px 0;
+}
+.take strong { color: #92400e; }
+.note {
+  background: #f5f3ff; border-left: 3px solid #7c3aed;
+  padding: 8px 13px; margin: 10px 0; font-size: 0.86em; color: #3b2a6b;
+  border-radius: 0 3px 3px 0;
+}
+figure { margin: 12px 0 14px 0; }
+figure svg { width: 100%; height: auto; display: block; }
+figcaption {
+  font-size: 0.82em; color: #6b7280; text-align: center;
+  margin-top: 5px; font-style: italic;
+}
+table { border-collapse: collapse; width: 100%; font-size: 0.85em; margin: 8px 0 12px 0; }
+th {
+  background: #312e81; color: #fff; text-align: left;
+  padding: 5px 8px; font-weight: 600;
+}
+td { padding: 5px 8px; border-bottom: 1px solid #e5e7eb; vertical-align: top; }
+tr:nth-child(even) td { background: #f8f8fd; }
+code {
+  font-family: 'JetBrains Mono', Consolas, monospace; font-size: 0.92em;
+  background: #eef2ff; color: #3730a3; padding: 0 3px; border-radius: 2px;
+}
+.ok { color: #0d9488; font-weight: 700; }
+.no { color: #b91c1c; font-weight: 700; }
+ul { margin: 0 0 8px 0; padding-left: 20px; }
+li { margin-bottom: 3px; font-size: 0.9em; }
+footer {
+  background: #1e1b4b; color: #fff; text-align: center;
+  padding: 10px; font-size: 0.8em;
+}
+footer a { color: #c7d2fe; text-decoration: none; }
+
+/* --- shared SVG classes --- */
+.lbl  { font-family: 'Segoe UI', sans-serif; font-size: 12px; fill: #1f2937; }
+.lblw { font-family: 'Segoe UI', sans-serif; font-size: 12px; fill: #ffffff; }
+.big  { font-family: 'Segoe UI', sans-serif; font-size: 14px; font-weight: 700; fill: #1e1b4b; }
+.bigw { font-family: 'Segoe UI', sans-serif; font-size: 14px; font-weight: 700; fill: #ffffff; }
+.sm   { font-family: 'Segoe UI', sans-serif; font-size: 10.5px; fill: #4b5563; }
+.smw  { font-family: 'Segoe UI', sans-serif; font-size: 10.5px; fill: #c7d2fe; }
+.mono { font-family: Consolas, monospace; font-size: 10.5px; fill: #3730a3; }
+.monow{ font-family: Consolas, monospace; font-size: 10.5px; fill: #e0e7ff; }
+.bx   { fill: #eef2ff; stroke: #4338ca; stroke-width: 1.5; }
+.bxd  { fill: #1e1b4b; stroke: #4338ca; stroke-width: 1.5; }
+.bxa  { fill: #fffbeb; stroke: #fbbf24; stroke-width: 1.5; }
+.bxg  { fill: #f0fdf9; stroke: #0d9488; stroke-width: 1.5; }
+.bxr  { fill: #fef2f2; stroke: #b91c1c; stroke-width: 1.5; }
+.bxq  { fill: #f8f8fd; stroke: #94a3b8; stroke-width: 1.5; stroke-dasharray: 5 3; }
+.ar   { stroke: #4338ca; stroke-width: 1.6; fill: none; }
+.arg  { stroke: #0d9488; stroke-width: 1.6; fill: none; }
+.arr  { stroke: #b91c1c; stroke-width: 1.6; fill: none; }
+.arq  { stroke: #94a3b8; stroke-width: 1.6; fill: none; stroke-dasharray: 5 3; }
+.tk   { font-family: 'Segoe UI', sans-serif; font-size: 11px; font-weight: 700; fill: #92400e; }
+.svno { font-family: 'Segoe UI', sans-serif; font-size: 11.5px; font-weight: 700; fill: #b91c1c; }
+
+@media print {
+  @page { size: A4; margin: 10mm; }
+  body { font-size: 10.5px; background: #fff; }
+  .container { box-shadow: none; margin: 0; max-width: 100%; padding: 0; }
+  h2, figure, table, .warn, .take, .note, .intro { break-inside: avoid; page-break-inside: avoid; }
+}
+</style>
+
+<header>
+  <h1>Observability Setup</h1>
+  <div class="tagline">FrontDesk AI &middot; and the lab cluster it runs on</div>
+  <div class="meta">Grafana &middot; Prometheus &middot; Loki &middot; Tempo &mdash; what is deployed, and how the pieces reach each other</div>
+</header>
+
+<div class="container">
+
+<div class="intro">
+  <p><strong>The one-sentence idea.</strong> A running system is a black box. Observability is
+  the practice of making it tell you three things about itself &mdash; <em>numbers</em> over time,
+  <em>lines of text</em> about single events, and a <em>map</em> of one request as it moves through
+  the parts. Grafana is the single window you look at all three through.</p>
+  <p>Everything on this page was checked against the running cluster rather than copied from a
+  plan. Where something is configured but not yet working, it says so rather than pretending.</p>
+</div>
+
+<h2>1 &middot; The four tools, in plain words</h2>
+
+<p>Every one of these is a Grafana Labs project, and they are built to be used together. The
+easiest way to remember which is which is to think of a hospital.</p>
+
+<figure>
+<svg viewBox="0 0 900 250" role="img" aria-label="The four observability tools and what each one does">
+  <!-- Prometheus -->
+  <rect class="bx" x="10" y="15" width="205" height="150" rx="6"/>
+  <rect class="bxd" x="10" y="15" width="205" height="26" rx="6"/>
+  <rect class="bxd" x="10" y="32" width="205" height="9"/>
+  <text class="bigw" x="112" y="33" text-anchor="middle">PROMETHEUS</text>
+  <text class="big" x="112" y="62" text-anchor="middle">Metrics</text>
+  <text class="sm" x="112" y="80" text-anchor="middle">Numbers, sampled every 30s</text>
+  <text class="sm" x="112" y="94" text-anchor="middle">and kept as a time series</text>
+  <text class="lbl" x="112" y="118" text-anchor="middle">&ldquo;How many? How fast?&rdquo;</text>
+  <text class="sm" x="112" y="140" text-anchor="middle">Hospital: the vitals monitor</text>
+  <text class="sm" x="112" y="154" text-anchor="middle">beeping beside the bed</text>
+
+  <!-- Loki -->
+  <rect class="bx" x="238" y="15" width="205" height="150" rx="6"/>
+  <rect class="bxd" x="238" y="15" width="205" height="26" rx="6"/>
+  <rect class="bxd" x="238" y="32" width="205" height="9"/>
+  <text class="bigw" x="340" y="33" text-anchor="middle">LOKI</text>
+  <text class="big" x="340" y="62" text-anchor="middle">Logs</text>
+  <text class="sm" x="340" y="80" text-anchor="middle">Every line the app printed,</text>
+  <text class="sm" x="340" y="94" text-anchor="middle">searchable by label</text>
+  <text class="lbl" x="340" y="118" text-anchor="middle">&ldquo;What exactly happened?&rdquo;</text>
+  <text class="sm" x="340" y="140" text-anchor="middle">Hospital: the nurse&rsquo;s</text>
+  <text class="sm" x="340" y="154" text-anchor="middle">handwritten notes</text>
+
+  <!-- Tempo -->
+  <rect class="bx" x="466" y="15" width="205" height="150" rx="6"/>
+  <rect class="bxd" x="466" y="15" width="205" height="26" rx="6"/>
+  <rect class="bxd" x="466" y="32" width="205" height="9"/>
+  <text class="bigw" x="568" y="33" text-anchor="middle">TEMPO</text>
+  <text class="big" x="568" y="62" text-anchor="middle">Traces</text>
+  <text class="sm" x="568" y="80" text-anchor="middle">One request, broken into</text>
+  <text class="sm" x="568" y="94" text-anchor="middle">timed steps called spans</text>
+  <text class="lbl" x="568" y="118" text-anchor="middle">&ldquo;Where did the time go?&rdquo;</text>
+  <text class="sm" x="568" y="140" text-anchor="middle">Hospital: the patient&rsquo;s</text>
+  <text class="sm" x="568" y="154" text-anchor="middle">journey through departments</text>
+
+  <!-- Grafana -->
+  <rect class="bxa" x="694" y="15" width="196" height="150" rx="6"/>
+  <rect x="694" y="15" width="196" height="26" rx="6" fill="#b45309"/>
+  <rect x="694" y="32" width="196" height="9" fill="#b45309"/>
+  <text class="bigw" x="792" y="33" text-anchor="middle">GRAFANA</text>
+  <text class="big" x="792" y="62" text-anchor="middle">The window</text>
+  <text class="sm" x="792" y="80" text-anchor="middle">Reads all three above and</text>
+  <text class="sm" x="792" y="94" text-anchor="middle">draws them on one screen</text>
+  <text class="lbl" x="792" y="118" text-anchor="middle">&ldquo;Show me.&rdquo;</text>
+  <text class="sm" x="792" y="140" text-anchor="middle">Hospital: the doctor&rsquo;s</text>
+  <text class="sm" x="792" y="154" text-anchor="middle">chart on the wall</text>
+
+  <path class="ar" d="M112 167 L112 186"/>
+  <path class="ar" d="M340 167 L340 186"/>
+  <path class="ar" d="M568 167 L568 186"/>
+  <path class="ar" d="M112 186 L792 186 L792 169" marker-end="url(#a1)"/>
+  <text class="tk" x="400" y="220" text-anchor="middle">Three different kinds of evidence &mdash; one place to look at them</text>
+  <text class="sm" x="400" y="238" text-anchor="middle">Grafana stores nothing itself. It only asks the three stores questions and draws the answers.</text>
+  <defs>
+    <marker id="a1" markerWidth="9" markerHeight="9" refX="7" refY="3.2" orient="auto">
+      <path d="M0,0 L7,3.2 L0,6.4 z" fill="#4338ca"/>
+    </marker>
+  </defs>
+</svg>
+<figcaption>Metrics tell you <em>something is wrong</em>. Traces tell you <em>where</em>. Logs tell you <em>why</em>. All four are live on the cluster.</figcaption>
+</figure>
+
+<div class="intro">
+  <strong>Status &mdash; all four are deployed and carrying real data.</strong>
+  Grafana, Prometheus, Tempo and, since 11 September 2026, <strong>Loki and its log shipper
+  Promtail</strong> are all running in the <code>monitoring</code> namespace, and Grafana has a
+  datasource for each. Logs from every one of the 31 sandboxes and from every deployed app are
+  landing in Loki now, and the <strong>log&nbsp;&harr;&nbsp;trace jump works in both
+  directions</strong> &mdash; all verified by querying the live cluster, not by reading the
+  configuration.
+</div>
+
+<h2>2 &middot; The big picture &mdash; one chat message, three signals</h2>
+
+<p>A participant asks FrontDesk AI a question. That single HTTP request produces all three kinds
+of evidence at once, each taking a different road to a different store.</p>
+
+<figure>
+<svg viewBox="0 0 900 424" role="img" aria-label="How the three telemetry signals travel from the app to Grafana">
+  <rect x="8" y="36" width="212" height="196" rx="6" fill="#f8f8fd" stroke="#818cf8" stroke-width="1.2" stroke-dasharray="4 3"/>
+  <text class="mono" x="16" y="52">namespace agenticaiu&lt;N&gt;</text>
+  <text class="sm" x="16" y="66">(the participant&rsquo;s own space)</text>
+
+  <rect class="bx" x="22" y="78" width="184" height="56" rx="5"/>
+  <text class="big" x="114" y="98" text-anchor="middle">FrontDesk AI</text>
+  <text class="sm" x="114" y="114" text-anchor="middle">FastAPI, one pod, port 8000</text>
+  <text class="sm" x="114" y="127" text-anchor="middle">supervisor &rarr; worker &rarr; QA</text>
+
+  <text class="sm" x="114" y="152" text-anchor="middle">produces, for every request:</text>
+  <rect class="bxg" x="22" y="160" width="184" height="20" rx="3"/>
+  <text class="lbl" x="114" y="174" text-anchor="middle">metrics on <tspan font-family="Consolas,monospace">/metrics</tspan></text>
+  <rect class="bxg" x="22" y="184" width="184" height="20" rx="3"/>
+  <text class="lbl" x="114" y="198" text-anchor="middle">spans over OTLP</text>
+  <rect class="bxg" x="22" y="208" width="184" height="20" rx="3"/>
+  <text class="lbl" x="114" y="222" text-anchor="middle">JSON log lines to stdout</text>
+
+  <rect x="424" y="20" width="462" height="252" rx="6" fill="#f8f8fd" stroke="#818cf8" stroke-width="1.2" stroke-dasharray="4 3"/>
+  <text class="mono" x="432" y="36">namespace monitoring</text>
+
+  <rect class="bx" x="440" y="48" width="210" height="50" rx="5"/>
+  <text class="big" x="545" y="67" text-anchor="middle">Prometheus</text>
+  <text class="sm" x="545" y="82" text-anchor="middle">scrapes pods labelled</text>
+  <text class="sm" x="545" y="93" text-anchor="middle"><tspan font-family="Consolas,monospace">app=frontdeskai</tspan>, every 30s</text>
+
+  <rect class="bx" x="440" y="110" width="210" height="50" rx="5"/>
+  <text class="big" x="545" y="129" text-anchor="middle">Tempo</text>
+  <text class="sm" x="545" y="144" text-anchor="middle">spans in on 4317, queries on</text>
+  <text class="sm" x="545" y="155" text-anchor="middle">3200, kept 14 days</text>
+
+  <rect class="bx" x="440" y="172" width="210" height="50" rx="5"/>
+  <text class="big" x="545" y="191" text-anchor="middle">Loki</text>
+  <text class="sm" x="545" y="206" text-anchor="middle">lines in on 3100, kept 14 days,</text>
+  <text class="sm" x="545" y="217" text-anchor="middle">50&nbsp;Gi of disk</text>
+
+  <rect class="bxa" x="664" y="108" width="206" height="56" rx="5"/>
+  <text class="big" x="767" y="130" text-anchor="middle">Grafana</text>
+  <text class="sm" x="767" y="148" text-anchor="middle">one window on all three</text>
+
+  <path class="ar" d="M650 73 C 658 73, 658 110, 658 132" marker-end="url(#a2)"/>
+  <path class="ar" d="M650 136 L658 136" marker-end="url(#a2)"/>
+  <path class="ar" d="M650 197 C 658 197, 658 160, 658 140" marker-end="url(#a2)"/>
+
+  <rect class="bxa" x="664" y="196" width="206" height="50" rx="5"/>
+  <text class="big" x="767" y="216" text-anchor="middle">You, in a browser</text>
+  <text class="sm" x="767" y="234" text-anchor="middle">dashboards and Explore</text>
+  <path class="ar" d="M767 166 L767 192" marker-end="url(#a2)"/>
+
+  <path class="ar" d="M434 73 C 340 73, 300 170, 214 170" marker-end="url(#a2)"/>
+  <text class="sm" x="322" y="104" text-anchor="middle">pull &mdash; Prometheus</text>
+  <text class="sm" x="322" y="116" text-anchor="middle">reaches in and asks</text>
+
+  <path class="arg" d="M214 194 C 300 194, 340 135, 434 135" marker-end="url(#a2g)"/>
+  <text class="sm" x="328" y="176" text-anchor="middle">push &mdash; the app sends</text>
+
+  <path class="ar" d="M114 232 L114 326" marker-end="url(#a2)"/>
+  <rect class="bxg" x="34" y="332" width="160" height="46" rx="5"/>
+  <text class="big" x="114" y="352" text-anchor="middle">the node&rsquo;s own disk</text>
+  <text class="mono" x="114" y="369" text-anchor="middle">/var/log/pods</text>
+
+  <path class="ar" d="M198 355 L236 355" marker-end="url(#a2)"/>
+
+  <rect class="bxg" x="240" y="332" width="170" height="46" rx="5"/>
+  <text class="big" x="325" y="352" text-anchor="middle">Promtail</text>
+  <text class="sm" x="325" y="369" text-anchor="middle">one per node, tails the files</text>
+
+  <path class="ar" d="M390 332 L390 197 L434 197" marker-end="url(#a2)"/>
+  <text class="sm" x="382" y="256" text-anchor="end">ships them to Loki</text>
+  <text class="sm" x="382" y="268" text-anchor="end">on port 3100</text>
+
+  <text class="tk" x="450" y="406" text-anchor="middle">Three roads &mdash; and the third one never touches the network from the app. That difference matters; see section 6.</text>
+
+  <defs>
+    <marker id="a2" markerWidth="9" markerHeight="9" refX="7" refY="3.2" orient="auto">
+      <path d="M0,0 L7,3.2 L0,6.4 z" fill="#4338ca"/>
+    </marker>
+    <marker id="a2g" markerWidth="9" markerHeight="9" refX="7" refY="3.2" orient="auto">
+      <path d="M0,0 L7,3.2 L0,6.4 z" fill="#0d9488"/>
+    </marker>
+  </defs>
+</svg>
+<figcaption>The same request, three roads. Only Grafana sees all of them.</figcaption>
+</figure>
+
+<h2>3 &middot; What FrontDesk AI reports about itself</h2>
+
+<p>The app does not get observed by magic. Roughly 300 lines in <code>app/observability.py</code>
+set up three exporters at startup, and every agent call is wrapped in one context manager,
+<code>trace_llm_call("agent_name")</code>, which starts a span, times it, counts its tokens and
+writes a correlated log line &mdash; all at once.</p>
+
+<h3>Metrics &mdash; seven numbers, served at <code>GET /metrics</code></h3>
+
+<table>
+<tr><th style="width:38%">Metric</th><th style="width:14%">Type</th><th style="width:13%">Labels</th><th>What it answers</th></tr>
+<tr><td><code>frontdeskai_request_duration_seconds</code></td><td>Histogram</td><td>category</td><td>How long a whole question took, end to end</td></tr>
+<tr><td><code>frontdeskai_llm_call_duration_seconds</code></td><td>Histogram</td><td>agent</td><td>How long each individual agent took</td></tr>
+<tr><td><code>frontdeskai_llm_tokens_total</code></td><td>Counter</td><td>agent</td><td>How many tokens each agent burned &mdash; the cost driver</td></tr>
+<tr><td><code>frontdeskai_category_total</code></td><td>Counter</td><td>category</td><td>What people are actually asking about</td></tr>
+<tr><td><code>frontdeskai_escalations_total</code></td><td>Counter</td><td>category</td><td>How often it gave up and called a manager</td></tr>
+<tr><td><code>frontdeskai_fallbacks_total</code></td><td>Counter</td><td>category</td><td>How often it served a canned answer instead of a real one</td></tr>
+<tr><td><code>frontdeskai_agent_errors_total</code></td><td>Counter</td><td>agent</td><td>Which agent is failing</td></tr>
+</table>
+
+<div class="note">
+The <code>agent</code> label carries more than a name. A worker that reasons in a loop reports
+<code>hr_react_iter_0</code>, <code>hr_react_iter_1</code> &hellip; and finally
+<code>hr_worker_final</code>. So the metric does not just say <em>which</em> agent ran &mdash; it
+draws the shape of how it thought. A series tagged <code>_react_iter_2</code> means that worker
+used the very last reasoning step it was allowed.
+</div>
+
+<h3>Traces &mdash; one request, drawn as a tree</h3>
+
+<figure>
+<svg viewBox="0 0 900 262" role="img" aria-label="Span hierarchy of a single chat request">
+  <text class="big" x="14" y="18">A single call to <tspan font-family="Consolas,monospace">POST /chat/send</tspan>, as Tempo shows it</text>
+  <text class="sm" x="14" y="34">Bar length = time taken. The gaps and the staircase are the whole point.</text>
+
+  <rect class="bxd" x="14" y="46" width="626" height="26" rx="3"/>
+  <text class="monow" x="24" y="63">chat.send</text>
+  <text class="smw" x="628" y="63" text-anchor="end">the user waited this long</text>
+
+  <rect class="bx" x="36" y="80" width="116" height="22" rx="3"/>
+  <text class="mono" x="44" y="95">llm.supervisor</text>
+  <text class="sm" x="652" y="95">which desk should answer this?</text>
+
+  <rect class="bx" x="158" y="108" width="134" height="22" rx="3"/>
+  <text class="mono" x="166" y="123">llm.hr_react_iter_0</text>
+  <text class="sm" x="652" y="123">think, call a tool, read the result</text>
+
+  <rect class="bx" x="298" y="136" width="134" height="22" rx="3"/>
+  <text class="mono" x="306" y="151">llm.hr_react_iter_1</text>
+  <text class="sm" x="652" y="151">still not enough &mdash; go round again</text>
+
+  <rect class="bxa" x="438" y="164" width="134" height="22" rx="3"/>
+  <text class="mono" x="446" y="179">llm.hr_worker_final</text>
+  <text class="sm" x="652" y="179">write the answer</text>
+
+  <rect class="bxg" x="548" y="192" width="92" height="22" rx="3"/>
+  <text class="mono" x="556" y="207">llm.manager</text>
+  <text class="sm" x="652" y="207">only if it escalated</text>
+
+  <line x1="14" y1="228" x2="640" y2="228" stroke="#94a3b8" stroke-width="1"/>
+  <text class="sm" x="14" y="244">0s</text>
+  <text class="sm" x="640" y="244" text-anchor="end">~20&ndash;30s</text>
+  <text class="tk" x="327" y="244" text-anchor="middle">Every bar carries agent.name and llm.tokens</text>
+  <text class="sm" x="652" y="240">so one picture shows time AND cost</text>
+</svg>
+<figcaption>Metrics say <em>which</em> agent is slow. This picture says <em>why the request</em> was slow.</figcaption>
+</figure>
+
+<p>Each participant's app sets <code>OTEL_SERVICE_NAME=frontdeskai-&lt;their namespace&gt;</code>, so
+in Grafana's Explore screen they pick their own name out of the service dropdown and see only their
+own traces.</p>
+
+<h3>Logs &mdash; shipped, parsed, and searchable</h3>
+
+<p>Every log line the app writes is JSON, and Promtail does more than forward it. Its pipeline
+parses each line and promotes three fields &mdash; <code>level</code>, <code>logger</code> and
+<code>agent</code> &mdash; into Loki <em>labels</em>, which is what makes them fast to filter on.
+Everything else, including <code>trace_id</code>, stays inside the line.</p>
+
+<figure>
+<svg viewBox="0 0 900 220" role="img" aria-label="How one JSON log line becomes a labelled entry in Loki">
+  <rect class="bx" x="14" y="16" width="404" height="126" rx="5"/>
+  <text class="big" x="216" y="36" text-anchor="middle">What the app prints to stdout</text>
+  <text class="mono" x="26" y="58">{"level": "INFO", "logger": "frontdeskai",</text>
+  <text class="mono" x="26" y="74">&#160;"message": "LLM call completed",</text>
+  <text class="mono" x="26" y="90">&#160;"agent": "tech_worker_final",</text>
+  <text class="mono" x="26" y="106">&#160;"trace_id": "f36d8813&hellip;78ab",</text>
+  <text class="mono" x="26" y="122">&#160;"duration_ms": 4322.1}</text>
+
+  <path class="ar" d="M424 78 L482 78" marker-end="url(#a7)"/>
+  <text class="sm" x="453" y="68" text-anchor="middle">Promtail</text>
+  <text class="sm" x="453" y="94" text-anchor="middle">parses</text>
+
+  <rect class="bxg" x="488" y="16" width="398" height="126" rx="5"/>
+  <text class="big" x="687" y="36" text-anchor="middle">What Loki stores</text>
+  <text class="sm" x="500" y="56">LABELS &mdash; indexed, cheap to filter on:</text>
+  <text class="mono" x="500" y="72">namespace  pod  container  app  node_name</text>
+  <text class="mono" x="500" y="88">level  logger  agent</text>
+  <text class="sm" x="500" y="110">THE LINE &mdash; searched at query time:</text>
+  <text class="mono" x="500" y="126">the whole JSON, trace_id included</text>
+
+  <rect class="bxa" x="14" y="156" width="872" height="46" rx="4"/>
+  <text class="tk" x="450" y="176" text-anchor="middle">Why is trace_id NOT a label? Because a label per request would mean one index entry per request.</text>
+  <text class="sm" x="450" y="193" text-anchor="middle">Labels are for things with few possible values. Anything unique per request belongs in the line, where a query scans for it.</text>
+  <defs>
+    <marker id="a7" markerWidth="9" markerHeight="9" refX="7" refY="3.2" orient="auto">
+      <path d="M0,0 L7,3.2 L0,6.4 z" fill="#4338ca"/>
+    </marker>
+  </defs>
+</svg>
+<figcaption>High-cardinality data in the line, low-cardinality data in the labels. Get this backwards and Loki falls over.</figcaption>
+</figure>
+
+<p>That gives you queries like these, in Grafana&rsquo;s Explore screen with the Loki datasource
+selected. The first is the one you will use most:</p>
+
+<table>
+<tr><th style="width:52%">Query</th><th>What it gives you</th></tr>
+<tr><td><code>{namespace="agenticaiu7"}</code></td><td>Everything from one participant&rsquo;s space</td></tr>
+<tr><td><code>{app="frontdeskai", level="ERROR"}</code></td><td>Only what went wrong, across the whole cohort</td></tr>
+<tr><td><code>{app="frontdeskai", agent="hr_worker_final"}</code></td><td>Only the lines one agent wrote</td></tr>
+<tr><td><code>{app="frontdeskai"} |= "f36d8813"</code></td><td>Every line belonging to one request, by its trace id</td></tr>
+<tr><td><code>{app="frontdeskai"} | json | duration_ms &gt; 5000</code></td><td>Only the slow calls &mdash; the JSON is parsed at query time</td></tr>
+</table>
+
+<h3>The payoff: a log line and its trace are two views of one thing</h3>
+
+<p>Because the app writes <code>trace_id</code> into every line, and Tempo stores the same id on
+every span, the two stores can be joined &mdash; and Grafana is configured to do it <strong>both
+ways</strong>. From a log line, a regular expression finds the id and renders a <strong>View
+trace</strong> button. From a span, Grafana runs a Loki query that searches for the same id.</p>
+
+<figure>
+<svg viewBox="0 0 900 214" role="img" aria-label="Jumping between a log line and its trace in both directions">
+  <rect class="bxg" x="20" y="20" width="330" height="112" rx="5"/>
+  <text class="big" x="185" y="42" text-anchor="middle">In Loki &mdash; 5 log lines</text>
+  <text class="mono" x="36" y="63">"message": "LLM call completed"</text>
+  <text class="mono" x="36" y="79">"agent"  : "tech_react_iter_0"</text>
+  <text class="mono" x="36" y="95">"duration_ms": 4322.1</text>
+  <rect x="30" y="103" width="310" height="20" rx="3" fill="#fffbeb" stroke="#fbbf24"/>
+  <text class="mono" x="36" y="117">"trace_id": "896f3dba&hellip;449a"</text>
+
+  <rect class="bx" x="550" y="20" width="330" height="112" rx="5"/>
+  <text class="big" x="715" y="42" text-anchor="middle">In Tempo &mdash; 5 spans</text>
+  <text class="mono" x="566" y="63">chat.send</text>
+  <text class="mono" x="566" y="79">&#160;&#160;llm.supervisor</text>
+  <text class="mono" x="566" y="95">&#160;&#160;llm.tech_react_iter_0 &hellip;</text>
+  <rect x="560" y="103" width="310" height="20" rx="3" fill="#fffbeb" stroke="#fbbf24"/>
+  <text class="mono" x="566" y="117">trace id = 896f3dba&hellip;449a</text>
+
+  <path class="ar" d="M354 62 L544 62" marker-end="url(#a8)"/>
+  <text class="tk" x="449" y="54" text-anchor="middle">&ldquo;View trace&rdquo;</text>
+  <text class="sm" x="449" y="76" text-anchor="middle">a regex finds the id in the line</text>
+
+  <path class="ar" d="M544 104 L354 104" marker-end="url(#a8)"/>
+  <text class="tk" x="449" y="122" text-anchor="middle">&ldquo;Logs for this span&rdquo;</text>
+  <text class="sm" x="449" y="98" text-anchor="middle">a query searches lines for the id</text>
+
+  <text class="tk" x="449" y="168" text-anchor="middle">Five spans, five log lines, one request. The names line up: llm.tech_react_iter_0 wrote agent=&quot;tech_react_iter_0&quot;.</text>
+  <text class="sm" x="449" y="188" text-anchor="middle">One line said a call took 4.3 seconds. One click shows the other four things that happened in the same request &mdash; and back again.</text>
+  <text class="sm" x="449" y="204" text-anchor="middle">Neither direction indexes the trace id. Both search the line for it, which is why this costs nothing to keep.</text>
+  <defs>
+    <marker id="a8" markerWidth="9" markerHeight="9" refX="7" refY="3.2" orient="auto">
+      <path d="M0,0 L7,3.2 L0,6.4 z" fill="#4338ca"/>
+    </marker>
+  </defs>
+</svg>
+<figcaption>Verified on the live cluster in both directions on 11 Sep 2026, using the trace id shown.</figcaption>
+</figure>
+
+<h2>4 &middot; The cluster side &mdash; and the one twist you must know</h2>
+
+<p>The same Prometheus that scrapes the app also watches the cluster itself: nodes, pods, the GPU,
+the LLM gateway. But on this cluster Prometheus is run in a special mode, and everything else
+follows from it.</p>
+
+<figure>
+<svg viewBox="0 0 900 372" role="img" aria-label="Prometheus agent mode on the lab cluster, remote writing to the long-term store">
+  <text class="big" x="14" y="20">What gets scraped, every 30 seconds</text>
+  <rect class="bx" x="14" y="30" width="336" height="22" rx="3"/>
+  <text class="lbl" x="24" y="45">kube-state-metrics</text>
+  <text class="sm" x="340" y="45" text-anchor="end">pods, deployments, restarts</text>
+  <rect class="bx" x="14" y="58" width="336" height="22" rx="3"/>
+  <text class="lbl" x="24" y="73">node-exporter</text>
+  <text class="sm" x="340" y="73" text-anchor="end">the machine: CPU, RAM, disk</text>
+  <rect class="bx" x="14" y="86" width="336" height="22" rx="3"/>
+  <text class="lbl" x="24" y="101">kubelet /metrics/resource</text>
+  <text class="sm" x="340" y="101" text-anchor="end">per-pod CPU and memory</text>
+  <rect class="bx" x="14" y="114" width="336" height="22" rx="3"/>
+  <text class="lbl" x="24" y="129">dcgm-exporter</text>
+  <text class="sm" x="340" y="129" text-anchor="end">the GPU</text>
+  <rect class="bx" x="14" y="142" width="336" height="22" rx="3"/>
+  <text class="lbl" x="24" y="157">litellm-gateway</text>
+  <text class="sm" x="340" y="157" text-anchor="end">token spend per participant key</text>
+  <rect class="bxa" x="14" y="170" width="336" height="22" rx="3"/>
+  <text class="lbl" x="24" y="185">frontdeskai-participants</text>
+  <text class="sm" x="340" y="185" text-anchor="end">every deployed app, by pod label</text>
+
+  <path class="ar" d="M356 100 C 392 100, 396 100, 430 100" marker-end="url(#a4)"/>
+  <text class="sm" x="393" y="90" text-anchor="middle">scrape</text>
+
+  <rect class="bxr" x="436" y="60" width="170" height="86" rx="5"/>
+  <text class="big" x="521" y="82" text-anchor="middle">Prometheus</text>
+  <text class="mono" x="521" y="99" text-anchor="middle">--agent</text>
+  <text class="sm" x="521" y="116" text-anchor="middle">Scrapes and forwards.</text>
+  <text class="sm" x="521" y="129" text-anchor="middle">Stores nothing.</text>
+  <text class="sm" x="521" y="142" text-anchor="middle">Answers no questions.</text>
+
+  <path class="arg" d="M610 100 L666 100" marker-end="url(#a4g)"/>
+  <text class="sm" x="638" y="90" text-anchor="middle">remote_write</text>
+
+  <rect class="bxg" x="672" y="60" width="212" height="86" rx="5"/>
+  <text class="big" x="778" y="82" text-anchor="middle">Prometheus on the NUC</text>
+  <text class="sm" x="778" y="99" text-anchor="middle">a separate always-on machine</text>
+  <text class="sm" x="778" y="115" text-anchor="middle">THIS is where the data lives</text>
+  <text class="sm" x="778" y="131" text-anchor="middle">and the only one you can query</text>
+
+  <rect class="bxa" x="672" y="208" width="212" height="52" rx="5"/>
+  <text class="big" x="778" y="229" text-anchor="middle">Grafana</text>
+  <text class="mono" x="778" y="247" text-anchor="middle">datasource uid: prometheus-nuc</text>
+  <path class="ar" d="M778 152 L778 202" marker-end="url(#a4)"/>
+  <text class="sm" x="790" y="182">reads from here</text>
+
+  <path class="arr" d="M521 152 C 521 228, 560 232, 664 232" stroke-dasharray="6 4" marker-end="url(#a4r)"/>
+  <text class="svno" x="658" y="256" text-anchor="end">point a dashboard at the agent</text>
+  <text class="svno" x="658" y="272" text-anchor="end">and it renders EMPTY, no error</text>
+
+  <rect class="bxa" x="14" y="292" width="870" height="30" rx="4"/>
+  <text class="tk" x="449" y="312" text-anchor="middle">Remember this one line: the lab cluster COLLECTS, the NUC ANSWERS. Every dashboard must point at the NUC.</text>
+  <text class="sm" x="449" y="346" text-anchor="middle">Why run it this way? The lab machine can be rebooted, rebuilt or scaled to zero between cohorts without losing a single day of history.</text>
+  <defs>
+    <marker id="a4" markerWidth="9" markerHeight="9" refX="7" refY="3.2" orient="auto">
+      <path d="M0,0 L7,3.2 L0,6.4 z" fill="#4338ca"/>
+    </marker>
+    <marker id="a4g" markerWidth="9" markerHeight="9" refX="7" refY="3.2" orient="auto">
+      <path d="M0,0 L7,3.2 L0,6.4 z" fill="#0d9488"/>
+    </marker>
+    <marker id="a4r" markerWidth="9" markerHeight="9" refX="7" refY="3.2" orient="auto">
+      <path d="M0,0 L7,3.2 L0,6.4 z" fill="#b91c1c"/>
+    </marker>
+  </defs>
+</svg>
+<figcaption>Agent mode: a collector that deliberately has no memory. The memory lives elsewhere.</figcaption>
+</figure>
+
+<h2>5 &middot; The dashboards &mdash; four questions, four screens</h2>
+
+<p>A dashboard is not a pile of graphs; it is one question, answered. These four are generated by
+Python scripts kept beside their JSON in this <code>resources/</code> folder &mdash; the JSON is
+never hand-edited, because a hand-edit is a change nobody can review.</p>
+
+<table>
+<tr><th style="width:26%">Dashboard</th><th style="width:22%">Scope</th><th>The question it answers</th></tr>
+<tr><td><strong>Sandbox Monitor</strong><br><code>agenticai-sandbox-monitor</code></td><td>the 31 lab sandboxes</td><td>Is everybody&rsquo;s notebook environment up, and is anyone about to run out of memory? Memory is shown against the 2560&nbsp;Mi limit, because crossing it kills the whole sandbox.</td></tr>
+<tr><td><strong>Tokenomics</strong><br><code>agenticai-tokenomics</code></td><td>the LLM gateway</td><td>Who is spending what against their daily cap?</td></tr>
+<tr><td><strong>Agent Performance</strong><br><code>frontdeskai-agent-performance</code></td><td>the deployed app, per agent</td><td>Which agent is slow, which is expensive, and are they the same one? Filterable to a single participant.</td></tr>
+<tr><td><strong>Cost &amp; Workflow Legs</strong><br><code>frontdeskai-cost-workflow</code></td><td>the deployed app, per request</td><td>What does one user question actually cost, split by workflow leg and desk? The price per token is derived live from the gateway&rsquo;s own spend, never typed in by hand.</td></tr>
+</table>
+
+<div class="take">
+<strong>What the dashboards actually told us, running the real app.</strong>
+One user question fans out into <strong>4.25 LLM calls</strong> and about <strong>4,400 tokens</strong>.
+The <em>slowest</em> step and the <em>dearest</em> step are different steps &mdash; the supervisor
+eats 22% of the wall clock, while one worker's reasoning loop eats 54% of the tokens. And the
+average request takes 12.8s while the 95th-percentile request takes 26.2s. That gap is the whole
+argument for percentiles: <em>one number is an anecdote.</em>
+</div>
+
+<h2>6 &middot; Why observability breaks silently &mdash; and how to tell</h2>
+
+<p>The single most useful thing to understand here. Both namespaces on this cluster deny all
+outbound network traffic by default, and you must open holes deliberately. Get it wrong and the
+symptoms are completely different depending on which signal you broke &mdash; and one of the three
+cannot break this way at all.</p>
+
+<figure>
+<svg viewBox="0 0 900 268" role="img" aria-label="Three ways telemetry is collected and what happens when the network blocks each one">
+  <rect class="bxg" x="8" y="14" width="288" height="212" rx="6"/>
+  <text class="big" x="152" y="36" text-anchor="middle">METRICS &mdash; a PULL</text>
+  <rect class="bx" x="24" y="56" width="112" height="34" rx="4"/>
+  <text class="lbl" x="80" y="77" text-anchor="middle">Prometheus</text>
+  <rect class="bx" x="168" y="56" width="112" height="34" rx="4"/>
+  <text class="lbl" x="224" y="77" text-anchor="middle">the app</text>
+  <path class="arg" d="M140 73 L164 73" marker-end="url(#a5g)"/>
+  <line x1="152" y1="60" x2="152" y2="88" stroke="#b91c1c" stroke-width="2.5"/>
+  <line x1="142" y1="63" x2="162" y2="85" stroke="#b91c1c" stroke-width="2.5"/>
+  <text class="svno" x="152" y="112" text-anchor="middle">If blocked&hellip;</text>
+  <rect class="bxa" x="24" y="122" width="256" height="92" rx="4"/>
+  <text class="big" x="152" y="144" text-anchor="middle">You find out at once.</text>
+  <text class="sm" x="152" y="164" text-anchor="middle">Prometheus keeps a list of its targets</text>
+  <text class="sm" x="152" y="177" text-anchor="middle">and marks this one <tspan font-weight="700" fill="#b91c1c">DOWN</tspan>, with</text>
+  <text class="sm" x="152" y="190" text-anchor="middle">the error attached.</text>
+  <text class="sm" x="152" y="207" text-anchor="middle">The asker is the one who notices.</text>
+
+  <rect class="bxr" x="306" y="14" width="288" height="212" rx="6"/>
+  <text class="big" x="450" y="36" text-anchor="middle">TRACES &mdash; a PUSH</text>
+  <rect class="bx" x="322" y="56" width="112" height="34" rx="4"/>
+  <text class="lbl" x="378" y="77" text-anchor="middle">the app</text>
+  <rect class="bx" x="466" y="56" width="112" height="34" rx="4"/>
+  <text class="lbl" x="522" y="77" text-anchor="middle">Tempo</text>
+  <path class="ar" d="M438 73 L462 73" marker-end="url(#a5)"/>
+  <line x1="450" y1="60" x2="450" y2="88" stroke="#b91c1c" stroke-width="2.5"/>
+  <line x1="440" y1="63" x2="460" y2="85" stroke="#b91c1c" stroke-width="2.5"/>
+  <text class="svno" x="450" y="112" text-anchor="middle">If blocked&hellip;</text>
+  <rect class="bxa" x="322" y="122" width="256" height="92" rx="4"/>
+  <text class="big" x="450" y="144" text-anchor="middle">Nothing happens at all.</text>
+  <text class="sm" x="450" y="164" text-anchor="middle">The sender batches spans in the</text>
+  <text class="sm" x="450" y="177" text-anchor="middle">background and throws failures away.</text>
+  <text class="sm" x="450" y="190" text-anchor="middle">The app looks perfectly healthy.</text>
+  <text class="sm" x="450" y="207" text-anchor="middle">Tempo is simply empty forever.</text>
+
+  <rect class="bxg" x="604" y="14" width="288" height="212" rx="6"/>
+  <text class="big" x="748" y="36" text-anchor="middle">LOGS &mdash; read off the DISK</text>
+  <rect class="bx" x="620" y="56" width="112" height="34" rx="4"/>
+  <text class="lbl" x="676" y="77" text-anchor="middle">the node&rsquo;s disk</text>
+  <rect class="bx" x="764" y="56" width="112" height="34" rx="4"/>
+  <text class="lbl" x="820" y="77" text-anchor="middle">Promtail</text>
+  <path class="arg" d="M736 73 L760 73" marker-end="url(#a5g)"/>
+  <text class="sm" x="748" y="112" text-anchor="middle">No app network involved.</text>
+  <rect class="bxa" x="620" y="122" width="256" height="92" rx="4"/>
+  <text class="big" x="748" y="144" text-anchor="middle">Immune to the problem.</text>
+  <text class="sm" x="748" y="164" text-anchor="middle">The app only writes to stdout.</text>
+  <text class="sm" x="748" y="177" text-anchor="middle">Kubernetes puts that in a file on the</text>
+  <text class="sm" x="748" y="190" text-anchor="middle">node, and Promtail tails the file.</text>
+  <text class="sm" x="748" y="207" text-anchor="middle">No egress rule can stop it.</text>
+
+  <text class="tk" x="450" y="252" text-anchor="middle">So an empty trace view is almost never a Tempo problem &mdash; it is a network-policy problem in disguise. Logs never have this failure.</text>
+  <defs>
+    <marker id="a5" markerWidth="9" markerHeight="9" refX="7" refY="3.2" orient="auto"><path d="M0,0 L7,3.2 L0,6.4 z" fill="#4338ca"/></marker>
+    <marker id="a5g" markerWidth="9" markerHeight="9" refX="7" refY="3.2" orient="auto"><path d="M0,0 L7,3.2 L0,6.4 z" fill="#0d9488"/></marker>
+  </defs>
+</svg>
+<figcaption>The rules that must exist: the app&rsquo;s namespace may reach Tempo on 4317; the notebook namespace may reach it on 3200. Loki needs none of them.</figcaption>
+</figure>
+
+<div class="warn">
+<strong>A short list of traps that have actually bitten, in this exact setup.</strong>
+<ul>
+<li><strong>A <code>${&hellip;}</code> in a Grafana provisioning file gets eaten.</strong>
+Fixed 11&nbsp;Sep&nbsp;2026, and the shape of it is worth remembering. The Loki datasource said
+<code>url: ${__value.raw}</code> &mdash; but Grafana treats <code>${&hellip;}</code> in a
+<em>provisioning file</em> as an environment variable and substitutes it before the datasource is
+ever created, so the stored link target was an empty string and the <strong>View trace</strong>
+button went nowhere. Nothing errored; the datasource looked perfectly healthy. Caught by comparing
+the file inside the Grafana pod against what the API reported back &mdash; they disagreed. The fix
+is to escape the dollar: <code>$${__value.raw}</code>. Any Grafana link template that carries a
+<code>$</code> needs the same treatment.</li>
+<li><strong>A dashboard renders empty.</strong> It is almost certainly pointed at the agent-mode
+Prometheus instead of <code>prometheus-nuc</code>. Agent mode replies
+<em>&ldquo;unavailable with Prometheus Agent&rdquo;</em> to every query.</li>
+<li><strong>A counter shows &ldquo;No data&rdquo; on a healthy app.</strong> Counters are only
+published <em>after they first increment</em>. A panel reading one needs <code>or vector(0)</code>,
+otherwise a working app with zero escalations looks broken.</li>
+<li><strong>A percentile returns a suspiciously round number.</strong> Latency was once recorded in
+seconds into buckets sized for milliseconds, so every measurement fell in one bucket and p50, p95
+and p99 all returned the same invented value. Fixed &mdash; but a pod on an older image still shows
+it, and a time range spanning the fix mixes two bucket sets and returns <code>10000</code>, which
+is a bucket edge and not a latency.</li>
+
+<li><strong>A network policy you just applied seems not to work.</strong> Give it a few seconds. The
+first connection after applying one was refused and the identical call seconds later succeeded.</li>
+<li><strong>Someone runs <code>helm upgrade prometheus</code>.</strong> The scrape configuration on
+this cluster is hand-applied, not Helm-rendered, so an upgrade silently reverts it and takes every
+dashboard with it. Re-apply the saved copy afterwards.</li>
+</ul>
+</div>
+
+<h2>7 &middot; Which pillar do I open?</h2>
+
+<figure>
+<svg viewBox="0 0 900 250" role="img" aria-label="A decision guide for choosing which observability tool to open">
+  <rect class="bxd" x="330" y="10" width="240" height="34" rx="17"/>
+  <text class="bigw" x="450" y="32" text-anchor="middle">Something feels wrong</text>
+
+  <path class="ar" d="M450 46 L450 66" marker-end="url(#a6)"/>
+
+  <rect class="bxa" x="40" y="72" width="240" height="34" rx="4"/>
+  <text class="lbl" x="160" y="94" text-anchor="middle">&ldquo;Is it wrong for everyone, or just me?&rdquo;</text>
+  <rect class="bxa" x="330" y="72" width="240" height="34" rx="4"/>
+  <text class="lbl" x="450" y="94" text-anchor="middle">&ldquo;Why is this one request so slow?&rdquo;</text>
+  <rect class="bxa" x="620" y="72" width="240" height="34" rx="4"/>
+  <text class="lbl" x="740" y="94" text-anchor="middle">&ldquo;What exactly did it do at 14:32?&rdquo;</text>
+
+  <path class="ar" d="M450 66 L160 66 L160 68" marker-end="url(#a6)"/>
+  <path class="ar" d="M450 66 L740 66 L740 68" marker-end="url(#a6)"/>
+
+  <path class="ar" d="M160 108 L160 128" marker-end="url(#a6)"/>
+  <path class="ar" d="M450 108 L450 128" marker-end="url(#a6)"/>
+  <path class="ar" d="M740 108 L740 128" marker-end="url(#a6)"/>
+
+  <rect class="bx" x="40" y="132" width="240" height="58" rx="5"/>
+  <text class="big" x="160" y="154" text-anchor="middle">Prometheus &rarr; a dashboard</text>
+  <text class="sm" x="160" y="172" text-anchor="middle">Rates and percentiles across</text>
+  <text class="sm" x="160" y="184" text-anchor="middle">everyone, over time</text>
+
+  <rect class="bx" x="330" y="132" width="240" height="58" rx="5"/>
+  <text class="big" x="450" y="154" text-anchor="middle">Tempo &rarr; Explore</text>
+  <text class="sm" x="450" y="172" text-anchor="middle">Find your service name, open</text>
+  <text class="sm" x="450" y="184" text-anchor="middle">the trace, read the longest bar</text>
+
+  <rect class="bx" x="620" y="132" width="240" height="58" rx="5"/>
+  <text class="big" x="740" y="154" text-anchor="middle">Loki &rarr; Explore</text>
+  <text class="sm" x="740" y="172" text-anchor="middle">Filter by namespace and level,</text>
+  <text class="sm" x="740" y="184" text-anchor="middle">then search the line</text>
+
+  <text class="tk" x="450" y="220" text-anchor="middle">The usual path is left to right: a dashboard tells you WHICH agent, a trace tells you WHERE the time went, a log tells you WHY.</text>
+  <text class="sm" x="450" y="240" text-anchor="middle">Starting with logs is the beginner&rsquo;s mistake &mdash; you are searching a haystack before you know which field it is in.</text>
+  <defs>
+    <marker id="a6" markerWidth="9" markerHeight="9" refX="7" refY="3.2" orient="auto"><path d="M0,0 L7,3.2 L0,6.4 z" fill="#4338ca"/></marker>
+  </defs>
+</svg>
+<figcaption>Narrow down, then dive in. Never the other way round.</figcaption>
+</figure>
+
+<h2>8 &middot; Reference card</h2>
+
+<table>
+<tr><th style="width:22%">Thing</th><th style="width:30%">Where</th><th>Notes</th></tr>
+<tr><td>Grafana</td><td><code>agenticai&lt;COHORT&gt;-grafana.brainupgrade.in</code></td><td>Helm chart <code>grafana</code>, namespace <code>monitoring</code>. Four dashboards, provisioned from ConfigMaps by the sidecar.</td></tr>
+<tr><td>Prometheus (collector)</td><td><code>prometheus-server.monitoring.svc:80</code></td><td>Runs with <code>--agent</code>. <span class="no">Cannot answer queries.</span> Seven scrape jobs.</td></tr>
+<tr><td>Prometheus (store)</td><td><code>prometheus-nuc.brainupgrade.in</code></td><td><span class="ok">The queryable one.</span> Grafana datasource uid <code>prometheus-nuc</code>, and the default.</td></tr>
+<tr><td>Tempo</td><td>send&nbsp;<code>tempo.monitoring.svc:4317</code><br>read&nbsp;<code>tempo.monitoring.svc:3200</code></td><td>Single-binary chart, 100&nbsp;Gi disk, 14-day retention. <span class="no">No auth and no tenancy</span> &mdash; anyone who can reach it reads everyone&rsquo;s traces.</td></tr>
+<tr><td>Loki</td><td><code>loki.monitoring.svc:3100</code></td><td><span class="ok">Deployed 11 Sep 2026.</span> Single-binary, 50&nbsp;Gi disk, 14-day retention, filesystem storage. Grafana datasource uid <code>loki</code>.</td></tr>
+<tr><td>Promtail</td><td>a DaemonSet, one per node</td><td>Reads <code>/var/log/pods</code> off the node &mdash; never talks to your app. Parses JSON and promotes <code>level</code>, <code>logger</code>, <code>agent</code> to labels.</td></tr>
+<tr><td>App metrics</td><td><code>:8000/metrics</code> in the app pod</td><td>Discovered by pod label <code>app=frontdeskai</code> inside a participant namespace &mdash; one fewer thing for a participant to get right.</td></tr>
+<tr><td>Trace &harr; log link</td><td>Loki <code>derivedFields</code><br>Tempo <code>tracesToLogsV2</code></td><td><span class="ok">Both directions working</span>, verified 11 Sep 2026. Neither indexes <code>trace_id</code> &mdash; one uses a regex over the line, the other a line-filter query.</td></tr>
+<tr><td>Dashboard sources</td><td><code>resources/*-dashboard.gen.py</code></td><td>Edit the generator and re-run it. <span class="no">Never hand-edit the JSON.</span></td></tr>
+</table>
+
+<div class="take">
+<strong>If you remember only three things.</strong>
+<strong>One:</strong> metrics, logs and traces are three different questions &mdash; all three are
+now collected, and Grafana is the one window onto all of them. <strong>Two:</strong> on this cluster
+Prometheus collects but the NUC answers, so a dashboard aimed at the wrong one is silently empty.
+<strong>Three:</strong> a push that is blocked fails quietly, so an empty trace view is a network
+problem until proven otherwise &mdash; while logs, which are read off the node&rsquo;s disk, cannot
+fail that way at all.
+</div>
+
+</div>
+
+<footer>
+  Agentic Workflows &amp; Multi-Agent Systems &mdash; observability reference &middot;
+  <a href="https://devops.gheware.com">devops.gheware.com</a> &middot;
+  <a href="mailto:training@gheware.com">training@gheware.com</a> &middot; +91-9606795215
+</footer>
