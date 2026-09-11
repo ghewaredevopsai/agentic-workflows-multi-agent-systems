@@ -258,10 +258,11 @@ Read these off your own quota any time with
 | `pods` | 8 | |
 | `requests.storage` | 5Gi | |
 
-### And it can only reach four things
+### And it can only reach five things
 
-Its NetworkPolicy is `participant-egress`. This is **not** the sandbox your notebook runs
-in &mdash; that one does have general internet access. Yours does not.
+Its NetworkPolicy is `participant-egress`. It is an allowlist: everything not named here
+is rejected, and kube-router *rejects* rather than drops, so a blocked call comes back as
+an instant `[Errno 111] Connection refused` that reads exactly like a dead endpoint.
 
 | Allowed out | For |
 |---|---|
@@ -269,8 +270,18 @@ in &mdash; that one does have general internet access. Yours does not.
 | `llm-serving` any port | the LiteLLM gateway &mdash; how the app reaches a model |
 | `ingress-nginx` pods | so your Ingress can reach back in |
 | `tempo` :4317 &middot; `langfuse` :3000 | telemetry |
+| the public internet, :443 and :80 | the app calls out &mdash; Langfuse Cloud, and the skill installer's web research |
 
-Nothing else on the internet. Not PyPI, not Hugging Face, not a model vendor.
+⚠️ **That last row was added on 2026-09-11, and the reason is worth more than the rule.**
+Two shipped features called out of this namespace and both failed the same way: the app
+logged `Langfuse enabled` and then `auth_check: error: [Errno 111] Connection refused`, and
+the self-teaching skill installer could not reach a search engine. Neither raised anything a
+health check would catch. **An allowlist you did not write down is a silent outage waiting
+for the first feature that needs the internet.**
+
+Note what is still blocked: RFC1918 and link-local. The namespace can reach the internet and
+**not** the lab network the cluster sits on. Least privilege did not mean "nothing"; it meant
+"name the direction".
 
 ### Three Secrets, and one of them is yours to supply
 
@@ -337,19 +348,25 @@ them, and each answer is forced by a number in the panel above.
 |---|---|---|
 | `update_strategy()` | one **ReadWriteOnce** volume holding SQLite | a `RollingUpdate` starts the replacement pod *before* stopping the old one. Both land on the same node, so both mount the same volume, and two processes writing one SQLite file is how a database gets corrupted. Quota bounds it too &mdash; add any second workload and the surge no longer fits |
 | `service_type()` | `nodeports: 0`, `loadbalancers: 0` | an Ingress reaches a Service from *inside* the cluster, so it does not need either |
-| `llm_provider()` | egress reaches `llm-serving` and nothing else | `groq`, `ollama` and `openrouter` each call a vendor over the internet. `litellm` points at an OpenAI-compatible gateway and reads its URL and key from the environment |
+| `llm_provider()` | the only model credential in your namespace is the `-llm` Secret | `groq`, `ollama` and `openrouter` each want a vendor account and a key you would have to paste into a ConfigMap. `litellm` points at the in-cluster gateway and reads its URL and daily-capped key from the environment &mdash; nothing to sign up for, nothing to leak |
 | `gateway_secret()` | the three Secrets listed above | which one holds the gateway credential |
 
 ### And one trap
 
 `home_override()` looks like housekeeping and is not. The image bakes ChromaDB's embedding
 model into `/opt/appcache` and points `HOME` there, because `chromadb` resolves its cache from
-`Path.home()` and **downloads the model on first use** &mdash; which your namespace has no
-egress to do. The app also mounts a PVC at `/shared`, which is a very tempting `HOME`.
+`Path.home()` and **downloads the model on first use**. The app also mounts a PVC at
+`/shared`, which is a very tempting `HOME`.
 
-Set `HOME` to `/shared` and the app crash-loops on `httpx.ConnectError` during startup
-indexing, while every manifest is valid and both probes are configured correctly. It has
-already broken this app once.
+Set `HOME` to `/shared` and the baked cache is simply abandoned. Measured on this cluster:
+every fresh pod then pulls **79.3 MB** and takes **18.2 s** before it can embed anything, and
+leaves **167 MB** sitting on a **1 Gi** PVC. Nothing fails. Every manifest is valid, both
+probes are configured, the app answers.
+
+⚠️ **That is the version of this trap worth learning.** Until 2026-09-11 this namespace had no
+internet egress and the same mistake crash-looped the pod on `httpx.ConnectError` &mdash; loud,
+immediate, obvious. Opening egress did not fix the mistake; it *hid* it. The bug did not change,
+only how long it takes you to notice.
 """
 
 
@@ -623,7 +640,8 @@ check("ClusterIP, because the quota allows no NodePort",
 
 check("the app is pointed at the in-cluster gateway",
       lambda: by_kind("ConfigMap")["data"]["LLM_PROVIDER"] == "litellm",
-      "the other three providers need internet egress this namespace does not have")
+      "the other three each want a vendor account and a key you would have to paste in; "
+      "litellm reads a URL and a daily-capped key already in your namespace")
 
 check("the gateway credential comes from your own -llm Secret",
       lambda: any(r.get("secretRef", {}).get("name", "").endswith("-llm")
@@ -632,7 +650,8 @@ check("the gateway credential comes from your own -llm Secret",
 # the trap
 check("HOME is left exactly as the image set it",
       lambda: "HOME" not in by_kind("ConfigMap")["data"],
-      "moving HOME hides the baked embedding model, and there is no egress to re-fetch it")
+      "moving HOME abandons the baked embedding model: 79MB re-fetched and 18s added to "
+      "every pod start, silently, because nothing fails")
 
 # credentials
 check("config and credentials arrive by reference, not by value",

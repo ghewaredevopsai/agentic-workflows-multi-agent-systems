@@ -309,7 +309,7 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
   <div class="take"><b>Read them as answers:</b> every limit on this slide removes a decision you would otherwise have to make on the next one.</div>
 </div>
 
-<div class="slide" data-sec="Four decisions" data-notes="Slide six is the payoff of slide five: four manifest decisions, each forced by a number they have just seen. Do not let Recreate be remembered as a quota workaround -- the real reason is the ReadWriteOnce volume: a RollingUpdate starts the new pod before stopping the old one, both mount the same volume, and two processes writing one SQLite file is how a database gets corrupted. Then spend the rest of the slide on the trap, because it is the one that costs an hour. Setting HOME to /shared looks tidy and sends chromadb looking for a model it must download, in a namespace with no egress. Every manifest is valid, both probes are correct, and the pod crash-loops.">
+<div class="slide" data-sec="Four decisions" data-notes="Slide six is the payoff of slide five: four manifest decisions, each forced by a number they have just seen. Do not let Recreate be remembered as a quota workaround -- the real reason is the ReadWriteOnce volume: a RollingUpdate starts the new pod before stopping the old one, both mount the same volume, and two processes writing one SQLite file is how a database gets corrupted. Then spend the rest of the slide on the trap, because it is the one that costs an hour. Setting HOME to /shared looks tidy and sends chromadb looking for a model it must download. Say the history out loud: until 2026-09-11 this namespace had no internet egress and this mistake crash-looped the pod, which is loud and easy. Egress was opened on 11 Sep so the app could reach Langfuse Cloud and the skill installer could research -- and the same mistake now succeeds, measured at 79 MB and 18.2 s on every pod start plus 167 MB on a 1 Gi volume, with every manifest valid and both probes green. That is the better lesson: the bug did not change, only how long it takes you to notice it.">
   <h2>Four decisions those limits make for you</h2>
   <div class="body">
     <svg width="1180" height="400" viewBox="0 0 1180 400" role="img" aria-label="Four manifest decisions forced by the namespace, and the HOME trap">
@@ -334,12 +334,12 @@ svg text{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
       <text x="618" y="210" class="bd">&bull; <tspan class="mn">/shared</tspan> is a very tempting <tspan class="mn">HOME</tspan> &mdash; it is the</text>
       <text x="632" y="234" class="bd">volume you already mount, and it persists</text>
       <text x="618" y="274" class="bd">&bull; Set it, and Chroma goes looking for a model it</text>
-      <text x="632" y="298" class="bd">now has to download. There is no egress</text>
-      <text x="618" y="338" class="bd">&bull; The pod crash-loops on a connect error during</text>
-      <text x="632" y="362" class="bd">startup indexing &mdash; with every manifest valid</text>
+      <text x="632" y="298" class="bd">now has to download &mdash; 79 MB, every pod</text>
+      <text x="618" y="338" class="bd">&bull; Nothing fails. 18 s added to each start and</text>
+      <text x="632" y="362" class="bd">167 MB on a 1 Gi volume &mdash; every manifest valid</text>
     </svg>
   </div>
-  <div class="take"><b>It has already broken this app once.</b> Both probes were configured correctly, pointed at a process that never finished starting.</div>
+  <div class="take"><b>Opening egress did not fix this mistake &mdash; it hid it.</b> It used to crash-loop. Now it just quietly costs you 18 s and 167 MB, with every probe green.</div>
 </div>
 
 <div class="slide" data-sec="Staying up" data-notes="Slide seven: what keeps it running, and what survives when it does not. The two probes hit the same endpoint here, and that is worth naming as a choice rather than a rule -- readiness asks should I send traffic, liveness asks should I restart you, and pointing both at /health means a slow dependency can get you restarted rather than just drained. The initial delay has to cover startup indexing or the pod restarts forever while being perfectly healthy. On the right, the important line is the first: everything that matters is under /shared, so a restart loses nothing, and that is exactly what makes one replica acceptable.">
