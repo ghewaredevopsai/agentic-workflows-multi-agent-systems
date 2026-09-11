@@ -26,6 +26,13 @@ for v in ("LAB_LLM_BASE_URL", "LAB_LLM_MODEL",
           ):
     os.environ.pop(v, None)
 
+# A WALKTHROUGH lab has nothing to fill in and nothing to score: the participant notebook
+# and the solution are the same file on purpose. Lab 7.2 is one because every cell in it is a
+# "Run it for real" cell against Langfuse -- and Module 7's rule is that no graded cell touches
+# Langfuse at all. For those the rules invert: zero blanks on both sides, the two files
+# byte-identical, and no score line expected.
+WALKTHROUGH = {"lab-7-02-prompt-versioning-with-langfuse.ipynb"}
+
 fails = 0
 for fn in sorted(f for f in os.listdir(SOLDIR) if f.endswith(".ipynb")):
     nb = json.load(open(os.path.join(SOLDIR, fn)))
@@ -46,9 +53,14 @@ for fn in sorted(f for f in os.listdir(SOLDIR) if f.endswith(".ipynb")):
     # A solution that trips guard() has an unfilled name in it -- the cell is ungraded, so
     # nothing else here would notice. This is how a broken "Run it for real" cell hides.
     n_guard = out.count("a blank above is still unfilled")
-    ok = n_fail == 0 and n_todo == 0 and n_guard == 0 and m and m.group(1) == m.group(2)
-    print(f"[{'OK    ' if ok else 'BROKEN'}] {fn:44} {n_pass} pass, {n_fail} fail, {n_todo} todo, "
-          f"score {m.group(0) if m else 'MISSING'}")
+    if fn in WALKTHROUGH:
+        # no self-checks by design; it passes if it executed cleanly
+        ok = n_fail == 0 and n_todo == 0 and n_guard == 0
+        print(f"[{'OK    ' if ok else 'BROKEN'}] {fn:44} walkthrough: ran clean, live cells self-skipped")
+    else:
+        ok = n_fail == 0 and n_todo == 0 and n_guard == 0 and m and m.group(1) == m.group(2)
+        print(f"[{'OK    ' if ok else 'BROKEN'}] {fn:44} {n_pass} pass, {n_fail} fail, {n_todo} todo, "
+              f"score {m.group(0) if m else 'MISSING'}")
     if not ok:
         fails += 1
         if n_guard:
@@ -84,8 +96,16 @@ for fn in sorted(f for f in os.listdir(LABDIR) if f.endswith(".ipynb")):
     sol = json.load(open(os.path.join(SOLDIR, fn)))
     lb = count_blanks(lab)
     sb = count_blanks(sol)
-    good = lb > 0 and sb == 0
-    print(f"[{'OK    ' if good else 'BROKEN'}] {fn:44} {lb} blanks in lab, {sb} in solution")
+    if fn in WALKTHROUGH:
+        same = json.dumps(lab, sort_keys=True) == json.dumps(sol, sort_keys=True)
+        good = lb == 0 and sb == 0 and same
+        note = ("walkthrough: no blanks, lab == solution" if good else
+                "walkthrough: lab and solution DIFFER" if not same else
+                f"walkthrough: expected 0 blanks, found {lb}/{sb}")
+        print(f"[{'OK    ' if good else 'BROKEN'}] {fn:44} {note}")
+    else:
+        good = lb > 0 and sb == 0
+        print(f"[{'OK    ' if good else 'BROKEN'}] {fn:44} {lb} blanks in lab, {sb} in solution")
     if not good:
         fails += 1
 

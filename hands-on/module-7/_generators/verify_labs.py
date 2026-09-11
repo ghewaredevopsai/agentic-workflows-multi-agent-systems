@@ -97,6 +97,11 @@ SCRUB = ("import os\n"
          "    os.environ.pop(_v, None)\n")
 
 
+# A WALKTHROUGH lab has no blanks by design, so it has no [TODO] either, and the rule
+# "no [TODO] in an untouched lab" would fail it for being exactly what it is.
+WALKTHROUGH = {"lab-7-02-prompt-versioning-with-langfuse.ipynb"}
+
+
 def run_kernel(path):
     """What a participant gets: a real Jupyter kernel."""
     nb = nbformat.read(path, as_version=4)
@@ -134,7 +139,7 @@ for fn in sorted(f for f in os.listdir(LABDIR) if f.endswith(".ipynb")):
             "MISMATCH plain vs kernel -- the notebook depends on IPython-only "
             f"semantics: plain={p_todo}/{p_pass}/{p_fail} kernel={k_todo}/{k_pass}/{k_fail} "
             "(todo/pass/fail)")
-    if k_todo == 0:
+    if k_todo == 0 and os.path.basename(path) not in WALKTHROUGH:
         problems.append("no [TODO] in an untouched lab -- blanks are not raising NameError")
 
     # A [FAIL] in an UNTOUCHED lab is usually a lie: a helper inside the self-check cell

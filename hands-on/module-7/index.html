@@ -32,7 +32,7 @@ footer a{color:#c7d2fe;text-decoration:none}
 <header>
   <a class="home" href="../../course-outline-agentic-workflows-multi-agent-systems.html" title="Course outline">Home</a>
   <h1>Module 7 &mdash; Multi-Agent System Evaluation</h1>
-  <div class="tagline">Day 3 hands-on &middot; one lab, advanced</div>
+  <div class="tagline">Day 3 hands-on &middot; two labs</div>
   <div class="meta"><span>One case file throughout</span> &middot; <span>self-checked</span> &middot; <span>solutions provided</span></div>
 </header>
 
@@ -71,6 +71,20 @@ footer a{color:#c7d2fe;text-decoration:none}
       <li>Break one step of your own deployment, locate it, and fix just that step</li>
     </ul>
   <div class="sol">4 blanks &middot; 11 checks &middot; solution: <code>solutions/lab-7-01-locating-the-failing-step.ipynb</code></div>
+  </div>
+
+  <div class="lab">
+    <div class="tags">25 min<span class="lvl">Intermediate</span><span class="lvl">Walkthrough</span></div>
+    <h3><a href="lab-7-02-prompt-versioning-with-langfuse.ipynb">Lab 7.2 &mdash; Prompt Versioning with Langfuse</a></h3>
+    <p>A prompt in your code is a deploy. A prompt in Langfuse is a config change &mdash; and a bad
+      one is a thirty-second rollback instead of a redeploy.</p>
+    <ul>
+      <li>Store a prompt in Langfuse and change it without touching your code</li>
+      <li>Move a <code>production</code> label between versions &mdash; and roll it back</li>
+      <li>Link a model call to the exact prompt version that produced it</li>
+      <li>Keep serving when Langfuse is unreachable, with <code>fallback=</code></li>
+    </ul>
+  <div class="sol">walkthrough &middot; no blanks, no score &middot; every cell runs against live Langfuse</div>
   </div>
 
   <div class="note">

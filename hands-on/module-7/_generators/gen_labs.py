@@ -888,11 +888,300 @@ score()
 ]
 
 
+
+LAB2 = [
+    header(2, "Prompt Versioning with Langfuse", "Intermediate", 25,
+           ["Put a prompt in Langfuse and change it without touching your code",
+            "Move a <code>production</code> label between versions &mdash; and roll it back",
+            "Link a model call to the exact prompt version that produced it",
+            "Keep working when Langfuse is unreachable"],
+           "> **This one is a walkthrough.** There are no blanks and no score &mdash; every cell is a\n"
+           "> **Run it for real** cell against the live Langfuse project. Read the step, run the cell,\n"
+           "> look at the output. If Langfuse is not configured each cell says so and moves on."),
+    setup(2),
+
+    md("""
+## Why bother
+
+A prompt written in your source code is a **deploy**: to change a word you edit a file, review it,
+build an image and roll it out. A prompt stored in Langfuse is a **config change** &mdash; you edit
+it in a browser and the next call picks it up.
+
+What you get for that is the part people forget: **every version is kept**, each one carries a
+**label** like `production` or `staging`, and a label can be moved back to an older version in one
+call. That is what makes a bad prompt a thirty-second rollback instead of a redeploy.
+
+Three ideas, and that is the whole model:
+
+| | |
+|---|---|
+| **version** | an integer. Every save makes a new one. Nothing is overwritten |
+| **label** | a movable pointer — `production`, `staging`, anything you like. `latest` is maintained for you |
+| **config** | settings that travel *with* the prompt — model, temperature — so they cannot drift apart |
+"""),
+
+    md("""
+## Step 1 &mdash; Connect
+
+`Langfuse()` reads `LANGFUSE_HOST`, `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY` from your
+environment; your sandbox already has all three. `auth_check()` is the one-line way to be sure.
+"""),
+    code('''
+# The import lives inside the function on purpose: a module-level import of a package
+# that is not installed crashes the whole cell, and guard() only catches NameError.
+def connect():
+    try:
+        from langfuse import Langfuse
+    except ImportError:
+        print("langfuse is not installed in this kernel -- the rest of this lab will self-skip.")
+        return None
+    try:
+        lf = Langfuse()
+        if not lf.auth_check():
+            print("Langfuse keys are not valid here. Skipping the rest of this lab.")
+            return None
+    except Exception as exc:
+        print(f"Langfuse not configured ({type(exc).__name__}). Skipping the rest of this lab.")
+        print("Your sandbox normally injects LANGFUSE_HOST / _PUBLIC_KEY / _SECRET_KEY.")
+        return None
+    print("connected ->", os.environ.get("LANGFUSE_HOST"))
+    return lf
+
+LF = guard(connect)
+'''),
+
+    md("""
+## Step 2 &mdash; Name it after yourself
+
+⚠️ **All 31 of you share one Langfuse project.** A prompt name is global to that project, so if
+two people both use `support-classifier` they are writing versions of *the same prompt* and will
+overwrite each other's labels.
+
+So put your sandbox name in it. And note there is **no delete** in the SDK &mdash; a prompt you
+create today is there tomorrow, which is another reason not to squat on a plain name.
+"""),
+    code('''
+WHO  = os.environ.get("LANGFUSE_TRACING_ENVIRONMENT", "unknown")
+NAME = f"support-classifier-{WHO}"
+print("your prompt name:", NAME)
+'''),
+
+    md("""
+## Step 3 &mdash; Create version 1
+
+`prompt` is the text. `{{ticket}}` is a placeholder you fill in later. `labels` is where this
+version points, and `config` rides along with it.
+"""),
+    code('''
+def create_v1():
+    if not LF:
+        return
+    v = LF.create_prompt(
+        name=NAME,
+        prompt="Classify this support ticket in one word.\\nTicket: {{ticket}}",
+        labels=["production"],
+        config={"model": LLM_MODEL, "temperature": 0},
+        commit_message="first cut",
+    )
+    print("version", v.version, "labels", v.labels)
+    return v.version
+
+V1 = guard(create_v1)
+'''),
+
+    md("""
+## Step 4 &mdash; Change it
+
+Saving the same name again does **not** overwrite version 1. It creates version 2. This one goes
+to `staging`, so `production` still points at version 1 &mdash; which is the point.
+
+*(Re-run this notebook and you get versions 3 and 4, then 5 and 6. That is what versioning means,
+and there is no delete in the SDK. The steps below use the versions **this run** created rather
+than the literals 1 and 2, which is also how you should write it in a service.)*
+"""),
+    code('''
+def create_v2():
+    if not LF:
+        return
+    v = LF.create_prompt(
+        name=NAME,
+        prompt=("Classify this support ticket in one word.\\n"
+                "Use exactly one of: billing, technical, account.\\nTicket: {{ticket}}"),
+        labels=["staging"],
+        config={"model": LLM_MODEL, "temperature": 0},
+        commit_message="constrain the answer to three categories",
+    )
+    print("version", v.version, "labels", v.labels)
+    return v.version
+
+V2 = guard(create_v2)
+'''),
+
+    md("""
+## Step 5 &mdash; Fetch one
+
+Ask for a **label** in application code &mdash; that is the whole point of the indirection. Ask for
+a **version** when you are pinning something down, like reproducing a run.
+
+`clear_prompt_cache()` is here only because you just changed things a second ago; the SDK caches
+prompts, which is what makes this cheap in production.
+"""),
+    code('''
+def fetch_both():
+    if not LF or not V2:
+        return
+    LF.clear_prompt_cache()
+    print("label=production ->  v", LF.get_prompt(NAME, label="production").version)
+    print(f"version={V2}        ->   ", LF.get_prompt(NAME, version=V2).labels)
+
+guard(fetch_both)
+'''),
+
+    md("""
+## Step 6 &mdash; Fill in the variables
+
+`compile()` substitutes the `{{ticket}}` placeholder. Nothing clever &mdash; but note the text your
+code sends is now something you can change in a browser.
+"""),
+    code('''
+def compile_it():
+    if not LF:
+        return
+    p = LF.get_prompt(NAME, label="production")
+    print(p.compile(ticket="I was charged twice this month"))
+    print("config travels with it:", p.config)
+
+guard(compile_it)
+'''),
+
+    md("""
+## Step 7 &mdash; Run it, linked to the version
+
+One extra argument, `langfuse_prompt=p`, and the trace records **which prompt version produced this
+output**. Without it you can see that a call was slow or wrong; with it you can see *which wording*
+was slow or wrong, which is the question you actually have.
+"""),
+    code('''
+def run_linked():
+    if not LF:
+        return
+    if not llm_ready():
+        return
+    from langfuse import get_client
+    from langfuse.openai import openai
+    p = LF.get_prompt(NAME, label="production")
+    client = openai.OpenAI(base_url=LLM_BASE_URL, api_key=LLM_API_KEY)
+    r = client.chat.completions.create(
+        model=LLM_MODEL, max_tokens=10, langfuse_prompt=p,
+        messages=[{"role": "user", "content": p.compile(ticket="I was charged twice")}],
+    )
+    print("answer:", r.choices[0].message.content.strip(), "| from prompt v", p.version)
+    get_client().flush()
+
+guard(run_linked)
+'''),
+
+    md("""
+## Step 8 &mdash; Promote version 2
+
+This is the deploy. No image, no restart &mdash; you move a label.
+"""),
+    code('''
+def promote():
+    if not LF or not V2:
+        return
+    LF.update_prompt(name=NAME, version=V2, new_labels=["production"])
+    LF.clear_prompt_cache()
+    print("production is now v", LF.get_prompt(NAME, label="production").version)
+
+guard(promote)
+'''),
+
+    md("""
+## Step 9 &mdash; Roll it back
+
+Same call, older version. **This is the step that justifies the whole exercise** &mdash; version 2
+turned out worse, and undoing it costs one line and no redeploy.
+"""),
+    code('''
+def rollback():
+    if not LF or not V1:
+        return
+    LF.update_prompt(name=NAME, version=V1, new_labels=["production"])
+    LF.clear_prompt_cache()
+    print("production is back to v", LF.get_prompt(NAME, label="production").version)
+
+guard(rollback)
+'''),
+
+    md("""
+## Step 10 &mdash; When Langfuse is down
+
+You have just made your prompt a network call. `fallback=` is how that does not become an outage:
+if Langfuse cannot be reached, you get the text you passed instead, and `is_fallback` tells you it
+happened. **Ship this in any service whose prompts live in Langfuse.**
+
+*(The SDK logs the 404 it fell back from, with full response headers. The cell quiets that so the
+output stays readable &mdash; in a real service you want that log, because a silent fallback means
+you are serving yesterday's prompt without knowing it.)*
+"""),
+    code('''
+def with_fallback():
+    if not LF:
+        return
+    # The SDK logs the 404 it fell back from, headers and all. That is right in
+    # production and unreadable in a notebook, so quiet it for this one call.
+    import logging
+    lg = logging.getLogger("langfuse")
+    before = lg.level
+    lg.setLevel(logging.CRITICAL)
+    try:
+        p = LF.get_prompt("a-prompt-that-does-not-exist",
+                          fallback="Classify in one word.\\nTicket: {{ticket}}", max_retries=0)
+    finally:
+        lg.setLevel(before)
+    print("is_fallback:", p.is_fallback, "|", p.compile(ticket="printer on fire"))
+
+guard(with_fallback)
+'''),
+
+    md("""
+## Step 11 &mdash; Look at it
+
+Open Langfuse &rarr; **Prompts** &rarr; your `support-classifier-...`. You will see two versions, the
+labels where you left them, and the commit messages. Open the trace from Step 7 and the generation
+names the prompt version it used.
+
+## What to take away
+
+- A prompt in Langfuse is **config**, not code. Changing it is not a deploy; rolling it back is not
+  a rollback.
+- **Labels are the interface.** Application code asks for `production` and never names a version.
+- **Link your calls** (`langfuse_prompt=`) or you can see that something got worse without being
+  able to see *what changed*.
+- **Always pass `fallback=`.** You moved your prompt behind a network call; that is only a good
+  trade if it cannot take the service down.
+
+## Your turn
+
+1. Create a version 3 that is deliberately bad &mdash; ask for a sentence instead of one word.
+   Promote it, run Step 7, then roll back. That is the whole loop in three minutes.
+2. Put a *second* prompt under the same name for a different worker, and decide whether one prompt
+   per agent or one per task is the better unit. There is no right answer, but there is a reason.
+3. The `config` travelled with the prompt. Change the temperature there and use `p.config["temperature"]`
+   in Step 7 instead of a literal &mdash; then say which settings belong with the prompt and which
+   belong to the service.
+"""),
+]
+
 # =========================================================================== #
 # main
 # =========================================================================== #
+# lab-7-02 is a WALKTHROUGH: no blanks, no score. verify.py and verify_labs.py
+# both carry the same name in their WALKTHROUGH set.
 LABS = [
     ("lab-7-01-locating-the-failing-step", LAB1),
+    ("lab-7-02-prompt-versioning-with-langfuse", LAB2),
 ]
 
 
