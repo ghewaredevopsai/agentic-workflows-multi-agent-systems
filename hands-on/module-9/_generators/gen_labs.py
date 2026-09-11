@@ -250,11 +250,11 @@ Read these off your own quota any time with
 
 | Limit | Value | Why it matters |
 |---|---|---|
-| `limits.memory` | **1Gi &mdash; for the whole namespace** | one pod at a 1Gi limit uses all of it |
+| `limits.memory` | **2Gi &mdash; for the whole namespace** | your app's own limit is 1Gi, so it is half the budget |
 | `services.nodeports` | **0** | not "a few". Zero |
 | `services.loadbalancers` | **0** | so there is exactly one way in |
-| `services` | 3 | |
-| `persistentvolumeclaims` | 2 | |
+| `services` | 4 | |
+| `persistentvolumeclaims` | 4 | |
 | `pods` | 8 | |
 | `requests.storage` | 5Gi | |
 
@@ -335,7 +335,7 @@ them, and each answer is forced by a number in the panel above.
 
 | Decision | The fact that forces it | What to weigh |
 |---|---|---|
-| `update_strategy()` | `limits.memory` is 1Gi for the **whole namespace** | a `RollingUpdate` starts the replacement pod *before* stopping the old one, so for a moment two pods each want 1Gi. The second is quota-denied and the rollout hangs with no useful message |
+| `update_strategy()` | one **ReadWriteOnce** volume holding SQLite | a `RollingUpdate` starts the replacement pod *before* stopping the old one. Both land on the same node, so both mount the same volume, and two processes writing one SQLite file is how a database gets corrupted. Quota bounds it too &mdash; add any second workload and the surge no longer fits |
 | `service_type()` | `nodeports: 0`, `loadbalancers: 0` | an Ingress reaches a Service from *inside* the cluster, so it does not need either |
 | `llm_provider()` | egress reaches `llm-serving` and nothing else | `groq`, `ollama` and `openrouter` each call a vendor over the internet. `litellm` points at an OpenAI-compatible gateway and reads its URL and key from the environment |
 | `gateway_secret()` | the three Secrets listed above | which one holds the gateway credential |
@@ -384,10 +384,10 @@ MD_PROBE = """
 The first image pull is the slow part, so the rollout can take a couple of minutes.
 
 Then the cell asks `/health` **from inside the running container**. The obvious way would be to
-`kubectl run` a small curl pod &mdash; try it, and it is refused with
-`exceeded quota: limits.memory=1Gi, used: 1Gi`, because your app is already holding the entire
-namespace budget. A debugging pod is still a pod. `exec` borrows the container you have already
-paid for, and this image ships Python.
+`kubectl run` a small curl pod, and you have just enough quota for one &mdash; but a debugging pod
+is still a pod against your budget, and another image to pull. `exec` borrows the container you
+have already paid for, and this image ships Python. On the old 1Gi quota it was not a choice at
+all: the debug pod was refused outright.
 """
 
 
@@ -439,7 +439,7 @@ SECRETS = {
 }
 
 # The three quota numbers the self-checks below actually compare against.
-QUOTA = {"limits.memory": "1Gi", "services": 3, "persistentvolumeclaims": 2}
+QUOTA = {"limits.memory": "2Gi", "services": 4, "persistentvolumeclaims": 4}
 
 # Tempo is shared by the whole cohort: your namespace may SEND to 4317, your
 # sandbox may READ from 3200, which is what the last cell of this lab uses.
@@ -462,7 +462,7 @@ DECISIONS_LAB = '''
 # is a Python puzzle, and the mechanics are already written.
 
 def update_strategy() -> dict:
-    """One replica, 1Gi limit, and 1Gi for the whole namespace."""
+    """One replica, one ReadWriteOnce volume, and SQLite on it."""
     return {"type": BLANK}              # "RollingUpdate" | "Recreate"
 
 
@@ -613,9 +613,9 @@ def mem_to_mi(v):
     return int(v[:-2]) * 1024 if v.endswith("Gi") else int(v[:-2])
 
 # the four decisions
-check("Recreate, because there is no room for a second pod",
+check("Recreate, because two pods must not share one SQLite volume",
       lambda: by_kind("Deployment")["spec"]["strategy"]["type"] == "Recreate",
-      "a RollingUpdate starts the new pod before stopping the old one")
+      "a RollingUpdate starts the new pod before stopping the old one, and both mount it")
 
 check("ClusterIP, because the quota allows no NodePort",
       lambda: by_kind("Service")["spec"]["type"] == "ClusterIP"
@@ -968,11 +968,13 @@ score()
    resolves its cache from `Path.home()`, finds nothing, tries to download the model, and dies
    during startup indexing with a connection error &mdash; while every manifest is valid and
    every probe is configured. **A healthy manifest is not a healthy app.**
-2. **Make the rollout hang.** Set `update_strategy()` to `{"type": "RollingUpdate"}` and apply.
-   The new pod is quota-denied, the old one keeps serving, and `rollout status` waits until it
-   times out. Nothing reports an error you would notice from the outside. Then find the message
-   that does say what happened &mdash; `kubectl -n $APP_NAMESPACE describe rs` &mdash; and decide
-   where in a pipeline you would surface it.
+2. **Make the rollout hang.** Deploy anything else with a 1Gi limit into your namespace, then
+   set `update_strategy()` to `{"type": "RollingUpdate"}` and apply. The surge pod no longer
+   fits, the old one keeps serving, and `rollout status` waits until it times out &mdash; with
+   nothing you would notice from the outside. Find the message that *does* say what happened
+   &mdash; `kubectl -n $APP_NAMESPACE describe rs` &mdash; and decide where in a pipeline you
+   would surface it. (This is not hypothetical: a namespace with an nginx and a postgres already
+   in it could not deploy this app at all until the quota was raised on 2026-09-11.)
 3. **Pin the image.** Replace `:latest` with the digest of the image you just deployed
    (`kubectl get pod -o jsonpath='{..imageID}'`), and say what that buys and what it costs.
 4. Which of the eighteen checks above would have caught **only** a mistake, and which encode a
