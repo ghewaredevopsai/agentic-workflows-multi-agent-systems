@@ -500,7 +500,7 @@ in which fixing something changes anything.
 
 And one thing that is not on the card: open a trace in LangFuse and read a single case
 end to end. The scorecard tells you *that* something is wrong; only the trace tells you
-**which hop**, which is Lab 7.4 and the difference between a fix and a guess.
+**which hop**, which is the difference between a fix and a guess.
 """),
 ]
 

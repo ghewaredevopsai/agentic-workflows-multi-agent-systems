@@ -32,7 +32,7 @@ footer a{color:#c7d2fe;text-decoration:none}
 <header>
   <a class="home" href="../../course-outline-agentic-workflows-multi-agent-systems.html" title="Course outline">Home</a>
   <h1>Module 7 &mdash; Multi-Agent System Evaluation</h1>
-  <div class="tagline">Day 3 hands-on &middot; five labs, intermediate to advanced</div>
+  <div class="tagline">Day 3 hands-on &middot; one lab, advanced</div>
   <div class="meta"><span>One case file throughout</span> &middot; <span>self-checked</span> &middot; <span>solutions provided</span></div>
 </header>
 
@@ -59,73 +59,18 @@ footer a{color:#c7d2fe;text-decoration:none}
   </div>
 
           <div class="lab">
-    <div class="tags">35 min<span class="lvl">Intermediate &rarr; Advanced</span></div>
-    <h3><a href="lab-7-01-non-determinism-measured.ipynb">Lab 7.1 &mdash; Non-Determinism, Measured</a></h3>
-    <p>On ten cases, even a 35-point improvement cannot be established. Find out why, and what fixes it.</p>
+    <div class="tags">50 min<span class="lvl">Advanced</span></div>
+    <h3><a href="lab-7-01-locating-the-failing-step.ipynb">Lab 7.1 &mdash; Locating the Failing Step</a></h3>
+    <p>Six real runs captured from the deployed app. Four are wrong, each at a different step,
+      and every one of the six printed <code>QA PASS</code>. Say <em>where</em>, from the evidence.</p>
     <ul>
-      <li>Build the agent under test &mdash; <code>create_agent</code> with a typed <code>Verdict</code></li>
-      <li>Choose the one field of that verdict a score can honestly be built on</li>
-      <li>Decide what a run with no typed answer at all counts as</li>
-      <li>Watch the same system score differently run after run, and compute the range</li>
-      <li>Pick the rule that decides whether a difference between two versions is real</li>
+      <li>Read one run out of an audit trail that spans a whole conversation</li>
+      <li>Walk a fixed ladder of eight checks, cheapest first, over the six runs</li>
+      <li>Tell apart two runs that look equally wrong and failed at different steps</li>
+      <li>Work out what each failure cost, and which one to escalate</li>
+      <li>Break one step of your own deployment, locate it, and fix just that step</li>
     </ul>
-    <div class="sol">3 blanks &middot; 27 checks &middot; solution: <code>solutions/lab-7-01-non-determinism-measured.ipynb</code></div>
-  </div>
-
-  <div class="lab">
-    <div class="tags">40 min<span class="lvl">Advanced</span></div>
-    <h3><a href="lab-7-02-build-the-tracer.ipynb">Lab 7.2 &mdash; Build the Tracer</a></h3>
-    <p>Sixty lines, and it is a real <code>BaseCallbackHandler</code>. Afterwards a tracing product is a UI over something you understand.</p>
-    <ul>
-      <li>Spans with parent links &mdash; the one link that makes a tree instead of a log</li>
-      <li>Separate a span's own time from its children's</li>
-      <li>Wire the store to LangChain and trace an actual agent run</li>
-      <li>Rank by time and by tokens, and find they name different villains</li>
-      <li>Decide which spans a tracing product must be told are model calls</li>
-    </ul>
-    <div class="sol">3 blanks &middot; 35 checks &middot; solution: <code>solutions/lab-7-02-build-the-tracer.ipynb</code></div>
-  </div>
-
-  <div class="lab">
-    <div class="tags">40 min<span class="lvl">Advanced</span></div>
-    <h3><a href="lab-7-03-outcome-and-trajectory.ipynb">Lab 7.3 &mdash; Outcome and Trajectory Assertions</a></h3>
-    <p>Five recorded runs, as real message lists. Four pass every outcome check. One of them tried to release a sanctioned payment.</p>
-    <ul>
-      <li>Write the outcome assertions everybody writes, over real recorded runs</li>
-      <li>Decide which tools an agent must never even attempt</li>
-      <li>Derive a step budget from signed-off runs instead of picking one by feel</li>
-      <li>Separate a low score from a disqualification &mdash; they do not trade off</li>
-      <li>Add a typed LLM judge for what an assertion cannot express</li>
-    </ul>
-    <div class="sol">3 blanks &middot; 26 checks &middot; solution: <code>solutions/lab-7-03-outcome-and-trajectory.ipynb</code></div>
-  </div>
-
-  <div class="lab">
-    <div class="tags">40 min<span class="lvl">Advanced</span></div>
-    <h3><a href="lab-7-04-locating-the-failure.ipynb">Lab 7.4 &mdash; Locating the Failure</a></h3>
-    <p>Eight failed runs. Without a trace all eight are &ldquo;the agent hallucinated&rdquo;. Seven of them are not.</p>
-    <ul>
-      <li>Order the attribution ladder &mdash; the order <em>is</em> the design</li>
-      <li>Handle the run with three things wrong &mdash; the first one is the cause</li>
-      <li>Count the spend wasted downstream of each failure</li>
-      <li>Choose between the step that fails most often and the step that costs most</li>
-      <li>Break a tool on purpose and diagnose the run off your own trace</li>
-    </ul>
-    <div class="sol">3 blanks &middot; 20 checks &middot; solution: <code>solutions/lab-7-04-locating-the-failure.ipynb</code></div>
-  </div>
-
-  <div class="lab">
-    <div class="tags">45 min<span class="lvl">Advanced &middot; challenge</span></div>
-    <h3><a href="lab-7-05-challenge-the-release-gate.ipynb">Lab 7.5 &mdash; Challenge: The Release Gate</a></h3>
-    <p>Four candidates, a bar agreed in advance, and the best-looking version of all disqualified by one run out of fifty.</p>
-    <ul>
-      <li>Write the acceptance bar down as a typed object, before you look at a result</li>
-      <li>Choose the gate's quality test &mdash; and find what the other one lets through</li>
-      <li>Decide whether a disqualifying behaviour is a reason or the end of the discussion</li>
-      <li>Put one number, in the right units, in front of the person who owns the budget</li>
-      <li>Produce a ship / do-not-ship decision with reasons for four real candidates</li>
-    </ul>
-    <div class="sol">3 blanks &middot; 22 checks &middot; solution: <code>solutions/lab-7-05-challenge-the-release-gate.ipynb</code></div>
+  <div class="sol">4 blanks &middot; 11 checks &middot; solution: <code>solutions/lab-7-01-locating-the-failing-step.ipynb</code></div>
   </div>
 
   <div class="note">

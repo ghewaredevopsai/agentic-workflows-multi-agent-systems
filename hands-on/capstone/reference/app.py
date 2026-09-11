@@ -335,7 +335,7 @@ async def investigate(body: Ask):
             elif decision.get("recommendation") in ("proceed", "no action"):
                 # The critic runs only where being wrong is expensive -- on a decision to
                 # act. It is not asked on a hold, because escalating an escalation buys
-                # nothing and Lab 7.4 costs it.
+                # nothing and locating the failing step costs it.
                 verdict = await agent_critic(record, screening, decision, usage, trace)
                 if verdict and verdict.get("agree") is False:
                     # AND IT MAY ONLY ESCALATE. A critic that can turn a hold into a
@@ -378,7 +378,7 @@ async def investigate(body: Ask):
 #    C1 says a settled payment needs nothing and C2 says a listed counterparty is held;
 #    the prompt says C1 comes first and explains why, and the model applies C2 anyway.
 #    A systematic rule-ordering failure looks exactly like random noise in an aggregate,
-#    and looks like what it is the moment you read three traces. Lab 7.4, on this file.
+#    and looks like what it is the moment you read three traces.
 #    It is at least wrong in the safe direction: it over-holds a settled payment.
 #
 # 2. THINKING ON IS MORE ACCURATE AND FAILS THE GATE. With reasoning enabled it scored

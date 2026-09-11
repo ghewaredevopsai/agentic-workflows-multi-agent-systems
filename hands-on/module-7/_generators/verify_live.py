@@ -7,7 +7,7 @@ create_agent runs, the callback tracer, the typed verdicts and the structured ju
 actually work against the served model.
 
     python3 verify_live.py                 # every solution
-    python3 verify_live.py lab-7-03        # just the ones whose name matches
+    python3 verify_live.py lab-7-01        # just the ones whose name matches
 
 Run it ON THE CLUSTER (or anywhere the LAB_LLM_* variables point at a live gateway).
 It makes real model calls and costs real tokens -- a full Module 7 pass is about a cent.
@@ -23,7 +23,11 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 SOLDIR = os.path.join(os.path.abspath(os.path.join(HERE, "..")), "solutions")
 
 for v in ("LANGFUSE_BASE_URL", "LANGFUSE_HOST",
-          "LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY"):
+          "LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY",
+          # Section 3 patches a real Deployment. Without these two an "offline"
+          # verification breaks the trainer's own app -- it did, once.
+          "APP_NAMESPACE", "APP_HOST",
+          ):
     os.environ.pop(v, None)
 
 import nbformat

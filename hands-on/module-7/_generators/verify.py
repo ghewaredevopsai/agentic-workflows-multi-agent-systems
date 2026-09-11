@@ -19,7 +19,11 @@ for v in ("LAB_LLM_BASE_URL", "LAB_LLM_MODEL",
           "OPENAI_BASE_URL", "OPENAI_API_BASE", "OPENAI_MODEL",
           "LITELLM_BASE_URL", "LITELLM_MODEL",
           "LANGFUSE_BASE_URL", "LANGFUSE_HOST",
-          "LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY"):
+          "LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY",
+          # Section 3 patches a real Deployment. Without these two an "offline"
+          # verification breaks the trainer's own app -- it did, once.
+          "APP_NAMESPACE", "APP_HOST",
+          ):
     os.environ.pop(v, None)
 
 fails = 0
